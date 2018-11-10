@@ -1,0 +1,18 @@
+[package]
+name = "ncspot"
+version = "0.1.0"
+authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
+
+[dependencies]
+cursive = "0.9"
+crossbeam-channel = "0.2"
+env_logger = "0.5.13"
+futures = "0.1"
+log = "0.4.6"
+serde = "1.0"
+serde_derive = "1.0"
+toml = "0.4"
+tokio-core = "0.1"
+
+[dependencies.librespot]
+git = "https://github.com/librespot-org/librespot.git"
