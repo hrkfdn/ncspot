@@ -10,6 +10,11 @@ use librespot::playback::audio_backend;
 use librespot::playback::config::Bitrate;
 use librespot::playback::player::Player;
 
+use rspotify::spotify::client::Spotify as SpotifyAPI;
+use rspotify::spotify::model::search::SearchTracks;
+
+use failure::Error;
+
 use futures;
 use futures::sync::mpsc;
 use futures::sync::oneshot;
@@ -28,8 +33,8 @@ enum WorkerCommand {
 }
 
 pub struct Spotify {
+    pub api: SpotifyAPI,
     channel: mpsc::UnboundedSender<WorkerCommand>,
-    token: Token,
 }
 
 struct Worker {
@@ -107,14 +112,14 @@ impl Spotify {
             Spotify::worker(rx, p, session_config, player_config, credentials, client_id)
         });
 
-        let spotify = Spotify {
+        let token = c.wait().unwrap();
+        debug!("token received: {:?}", token);
+        let api = SpotifyAPI::default().access_token(&token.access_token);
+
+        Spotify {
+            api: api,
             channel: tx,
-            token: c.wait().unwrap(),
-        };
-
-        info!("token received: {:?}", spotify.token);
-
-        spotify
+        }
     }
 
     fn worker(
@@ -149,6 +154,10 @@ impl Spotify {
 
     pub fn run(&mut self) {
         println!("Spotify::run() finished");
+    }
+
+    pub fn search(&mut self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
+        self.api.search_track(query, limit, offset, None)
     }
 
     pub fn load(&mut self, track: SpotifyId) {

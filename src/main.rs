@@ -1,7 +1,9 @@
 extern crate crossbeam_channel;
 extern crate cursive;
+extern crate failure;
 extern crate futures;
 extern crate librespot;
+extern crate rspotify;
 extern crate tokio_core;
 
 #[macro_use]
