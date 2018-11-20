@@ -20,6 +20,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
+use std::sync::{Arc, Mutex};
 
 use cursive::views::*;
 use cursive::CbFunc;
@@ -42,8 +43,17 @@ impl<F: FnOnce(&mut spotify::Spotify) -> () + Send> CbSpotify for F {
 }
 
 fn main() {
+    let loglines = Arc::new(Mutex::new(Vec::new()));
     std::env::set_var("RUST_LOG", "ncspot=trace");
-    env_logger::init();
+    let mut builder = env_logger::Builder::from_default_env();
+    {
+        let mut loglines = loglines.clone();
+        builder.format(move |buf, record| {
+            let mut lines = loglines.lock().unwrap();
+            lines.push(format!("[{}] {}", record.level(), record.args()));
+            Ok(())
+        }).init();
+    }
 
     // let mut cursive = Cursive::default();
     // cursive.add_global_callback('q', |s| s.quit());
