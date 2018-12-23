@@ -20,30 +20,24 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use cursive::views::*;
 use cursive::Cursive;
-
-use librespot::core::spotify_id::SpotifyId;
 
 mod config;
 mod spotify;
 mod theme;
 mod ui;
 
-fn main() {
-    let logbuf = TextContent::new("Welcome to ncspot\n");
-    let logview = TextView::new_with_content(logbuf.clone());
-    std::env::set_var("RUST_LOG", "ncspot=trace");
-    std::env::set_var("RUST_BACKTRACE", "full");
-
+fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
     {
         builder
             .format(move |_, record| {
+                let mut buffer = content.clone();
                 let line = format!("[{}] {}\n", record.level(), record.args());
-                logbuf.clone().append(line.clone());
+                buffer.append(line.clone());
 
                 let mut file = OpenOptions::new()
                     .create(true)
@@ -58,6 +52,15 @@ fn main() {
             })
             .init();
     }
+}
+
+fn main() {
+    let logbuf = TextContent::new("Welcome to ncspot\n");
+    let logview = TextView::new_with_content(logbuf.clone());
+    std::env::set_var("RUST_LOG", "ncspot=trace");
+    std::env::set_var("RUST_BACKTRACE", "full");
+
+    init_logger(logbuf);
 
     let mut cursive = Cursive::default();
     cursive.add_global_callback('q', |s| s.quit());

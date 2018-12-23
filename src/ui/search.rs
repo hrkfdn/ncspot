@@ -16,7 +16,7 @@ pub struct SearchView {
 impl SearchView {
     pub fn search_handler(s: &mut Cursive, input: &str, spotify: Arc<Spotify>) {
         let mut results: ViewRef<ListView> = s.find_id("search_results").unwrap();
-        let tracks = spotify.search(input, 10, 0);
+        let tracks = spotify.search(input, 50, 0);
 
         results.clear();
 
@@ -42,13 +42,11 @@ impl SearchView {
             .with_id("search_edit")
             .full_width()
             .fixed_height(1);
-        let results = ListView::new()
-            .with_id("search_results")
-            .full_width()
-            .full_height();
+        let results = ListView::new().with_id("search_results");
+        let scrollable = ScrollView::new(results).full_width().full_height();
         let layout = LinearLayout::new(Orientation::Vertical)
             .child(searchfield)
-            .child(results);
+            .child(scrollable);
         let rootpanel = Panel::new(layout).title("Search");
         return SearchView { view: rootpanel };
     }

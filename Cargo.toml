@@ -18,3 +18,5 @@ tokio-core = "0.1"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
+default-features = false
+features = ["pulseaudio-backend"]
