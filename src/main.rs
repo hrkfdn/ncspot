@@ -16,14 +16,13 @@ extern crate log;
 extern crate env_logger;
 
 use std::env;
-use std::io;
+use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
 use std::sync::{Arc, Mutex};
 
 use cursive::views::*;
-use cursive::CbFunc;
 use cursive::Cursive;
 
 use librespot::core::spotify_id::SpotifyId;
@@ -31,33 +30,38 @@ use librespot::core::spotify_id::SpotifyId;
 mod config;
 mod spotify;
 mod theme;
-
-pub trait CbSpotify: Send {
-    fn call_box(self: Box<Self>, &mut spotify::Spotify);
-}
-
-impl<F: FnOnce(&mut spotify::Spotify) -> () + Send> CbSpotify for F {
-    fn call_box(self: Box<Self>, s: &mut spotify::Spotify) {
-        (*self)(s)
-    }
-}
+mod ui;
 
 fn main() {
-    let loglines = Arc::new(Mutex::new(Vec::new()));
+    let logbuf = TextContent::new("Welcome to ncspot\n");
+    let logview = TextView::new_with_content(logbuf.clone());
     std::env::set_var("RUST_LOG", "ncspot=trace");
+    std::env::set_var("RUST_BACKTRACE", "full");
+
     let mut builder = env_logger::Builder::from_default_env();
     {
-        let mut loglines = loglines.clone();
-        builder.format(move |buf, record| {
-            let mut lines = loglines.lock().unwrap();
-            lines.push(format!("[{}] {}", record.level(), record.args()));
-            Ok(())
-        }).init();
+        builder
+            .format(move |_, record| {
+                let line = format!("[{}] {}\n", record.level(), record.args());
+                logbuf.clone().append(line.clone());
+
+                let mut file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .append(true)
+                    .open("ncspot.log")
+                    .unwrap();
+                if let Err(e) = writeln!(file, "{}", line) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
+                Ok(())
+            })
+            .init();
     }
 
-    // let mut cursive = Cursive::default();
-    // cursive.add_global_callback('q', |s| s.quit());
-    // cursive.set_theme(theme::default());
+    let mut cursive = Cursive::default();
+    cursive.add_global_callback('q', |s| s.quit());
+    cursive.set_theme(theme::default());
 
     let path = match env::var_os("HOME") {
         None => {
@@ -69,22 +73,16 @@ fn main() {
 
     let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
 
-    let spotify = spotify::Spotify::new(cfg.username, cfg.password, cfg.client_id);
+    let spotify = Arc::new(spotify::Spotify::new(
+        cfg.username,
+        cfg.password,
+        cfg.client_id,
+    ));
 
-    // let track = SpotifyId::from_base62("24zYR2ozYbnhhwulk2NLD4").expect("could not load track");
+    let logpanel = Panel::new(logview).title("Log");
+    //cursive.add_fullscreen_layer(logpanel);
+    let search = ui::search::SearchView::new(spotify.clone());
+    cursive.add_fullscreen_layer(search.view);
 
-    // spotify.load(track);
-    // thread::sleep(time::Duration::new(3, 0));
-    // spotify.play();
-    // thread::sleep(time::Duration::new(3, 0));
-    // spotify.pause();
-    // thread::sleep(time::Duration::new(3, 0));
-    // spotify.play();
-
-    // thread::sleep(time::Duration::new(8, 0));
-    // spotify.load(track);
-    // spotify.play();
-
-    let _ = io::stdin().read(&mut [0u8]).unwrap();
-    // cursive.run();
+    cursive.run();
 }

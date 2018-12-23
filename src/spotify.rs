@@ -156,16 +156,18 @@ impl Spotify {
         println!("Spotify::run() finished");
     }
 
-    pub fn search(&mut self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
+    pub fn search(&self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
         self.api.search_track(query, limit, offset, None)
     }
 
-    pub fn load(&mut self, track: SpotifyId) {
+    pub fn load(&self, track: SpotifyId) {
         info!("loading track: {:?}", track);
-        self.channel.unbounded_send(WorkerCommand::Load(track)).unwrap();
+        self.channel
+            .unbounded_send(WorkerCommand::Load(track))
+            .unwrap();
     }
 
-    pub fn play(&mut self) {
+    pub fn play(&self) {
         info!("play()");
         self.channel.unbounded_send(WorkerCommand::Play).unwrap();
     }

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
 
 [dependencies]
-cursive = "0.9"
+cursive = "0.10"
 crossbeam-channel = "0.2"
 env_logger = "0.5.13"
 failure = "0.1.3"
