@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use cursive::views::*;
 use cursive::Cursive;
+use cursive::event::{Event, Key};
 
 mod config;
 mod spotify;
@@ -82,10 +83,20 @@ fn main() {
         cfg.client_id,
     ));
 
-    let logpanel = Panel::new(logview).title("Log");
-    //cursive.add_fullscreen_layer(logpanel);
+    let searchscreen = cursive.active_screen();
     let search = ui::search::SearchView::new(spotify.clone());
     cursive.add_fullscreen_layer(search.view);
+
+    let logscreen = cursive.add_active_screen();
+    let logpanel = Panel::new(logview).title("Log");
+    cursive.add_fullscreen_layer(logpanel);
+
+    cursive.add_global_callback(Key::F1, move |s| {
+        s.set_screen(logscreen);
+    });
+    cursive.add_global_callback(Key::F2, move |s| {
+        s.set_screen(searchscreen);
+    });
 
     cursive.run();
 }
