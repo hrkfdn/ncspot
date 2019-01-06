@@ -24,11 +24,16 @@ impl SearchView {
             for track in tracks.tracks.items {
                 let s = spotify.clone();
                 let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
-                let button = Button::new(track.name, move |_cursive| {
+                let artists = track.artists.iter()
+                    .map(|ref artist| artist.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let formatted = format!("{} - {}", artists, track.name);
+                let button = Button::new_raw(formatted, move |_cursive| {
                     s.load(trackid);
                     s.play();
                 });
-                results.add_child(&track.id, button);
+                results.add_child("", button);
             }
         }
     }
