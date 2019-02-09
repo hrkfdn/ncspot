@@ -21,6 +21,8 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use cursive::views::*;
 use cursive::Cursive;
@@ -30,6 +32,7 @@ mod config;
 mod spotify;
 mod theme;
 mod ui;
+mod queue;
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -76,6 +79,7 @@ fn main() {
     };
 
     let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
+    let queue = Rc::new(RefCell::new(queue::Queue::new()));
 
     let spotify = Arc::new(spotify::Spotify::new(
         cfg.username,
@@ -84,7 +88,7 @@ fn main() {
     ));
 
     let searchscreen = cursive.active_screen();
-    let search = ui::search::SearchView::new(spotify.clone());
+    let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
     cursive.add_fullscreen_layer(search.view);
 
     let logscreen = cursive.add_active_screen();
