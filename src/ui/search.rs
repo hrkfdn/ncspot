@@ -4,8 +4,7 @@ use cursive::traits::Identifiable;
 use cursive::views::*;
 use cursive::Cursive;
 use std::sync::Arc;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 use librespot::core::spotify_id::SpotifyId;
 
@@ -14,11 +13,11 @@ use queue::Queue;
 
 pub struct SearchView {
     pub view: Panel<LinearLayout>,
-    queue: Rc<RefCell<Queue>>,
+    queue: Arc<Mutex<Queue>>,
 }
 
 impl SearchView {
-    fn search_handler(s: &mut Cursive, input: &str, spotify: Arc<Spotify>, queue: Rc<RefCell<Queue>>) {
+    fn search_handler(s: &mut Cursive, input: &str, spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) {
         let mut results: ViewRef<ListView> = s.find_id("search_results").unwrap();
         let tracks = spotify.search(input, 50, 0);
 
@@ -37,10 +36,11 @@ impl SearchView {
                     s.load(trackid);
                     s.play();
                 });
-                let p = queue.clone();
+                let queue = queue.clone();
                 let button_queue = OnEventView::new(button)
                     .on_event(' ', move |_cursive| {
-                        p.borrow_mut().enqueue(track.clone());
+                        let mut queue = queue.lock().unwrap();
+                        queue.enqueue(track.clone());
                         debug!("Added to queue: {}", track.name);
                     });
                 results.add_child("", button_queue);
@@ -48,7 +48,7 @@ impl SearchView {
         }
     }
 
-    pub fn new(spotify: Arc<Spotify>, queue: Rc<RefCell<Queue>>) -> SearchView {
+    pub fn new(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) -> SearchView {
         let spotify_ref = spotify.clone();
         let queue_ref = queue.clone();
         let searchfield = EditView::new()

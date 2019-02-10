@@ -21,8 +21,7 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 use cursive::views::*;
 use cursive::Cursive;
@@ -79,7 +78,7 @@ fn main() {
     };
 
     let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
-    let queue = Rc::new(RefCell::new(queue::Queue::new()));
+    let queue = Arc::new(Mutex::new(queue::Queue::new()));
 
     let spotify = Arc::new(spotify::Spotify::new(
         cfg.username,
