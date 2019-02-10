@@ -84,6 +84,7 @@ fn main() {
         cfg.username,
         cfg.password,
         cfg.client_id,
+        queue.clone()
     ));
 
     let searchscreen = cursive.active_screen();

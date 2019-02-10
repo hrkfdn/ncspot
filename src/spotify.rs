@@ -24,6 +24,10 @@ use futures::Stream;
 use tokio_core::reactor::Core;
 
 use std::thread;
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use queue::Queue;
 
 enum WorkerCommand {
     Load(SpotifyId),
@@ -41,14 +45,16 @@ struct Worker {
     commands: mpsc::UnboundedReceiver<WorkerCommand>,
     player: Player,
     play_task: Box<futures::Future<Item = (), Error = oneshot::Canceled>>,
+    queue: Arc<Mutex<Queue>>
 }
 
 impl Worker {
-    fn new(commands: mpsc::UnboundedReceiver<WorkerCommand>, player: Player) -> Worker {
+    fn new(commands: mpsc::UnboundedReceiver<WorkerCommand>, player: Player, queue: Arc<Mutex<Queue>>) -> Worker {
         Worker {
             commands: commands,
             player: player,
             play_task: Box::new(futures::empty()),
+            queue: queue
         }
     }
 }
@@ -79,6 +85,14 @@ impl futures::Future for Worker {
                 Ok(Async::Ready(())) => {
                     debug!("end of track!");
                     progress = true;
+
+                    let mut queue = self.queue.lock().unwrap();
+                    if let Some(track) = queue.dequeue() {
+                        debug!("next track in queue: {}", track.name);
+                        let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
+                        self.play_task = Box::new(self.player.load(trackid, false, 0));
+                        self.player.play();
+                    }
                 }
                 Ok(Async::NotReady) => (),
                 Err(oneshot::Canceled) => {
@@ -97,7 +111,7 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(user: String, password: String, client_id: String) -> Spotify {
+    pub fn new(user: String, password: String, client_id: String, queue: Arc<Mutex<Queue>>) -> Spotify {
         let session_config = SessionConfig::default();
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
@@ -109,7 +123,7 @@ impl Spotify {
         let (tx, rx) = mpsc::unbounded();
         let (p, c) = oneshot::channel();
         thread::spawn(move || {
-            Spotify::worker(rx, p, session_config, player_config, credentials, client_id)
+            Spotify::worker(rx, p, session_config, player_config, credentials, client_id, queue)
         });
 
         let token = c.wait().unwrap();
@@ -129,6 +143,7 @@ impl Spotify {
         player_config: PlayerConfig,
         credentials: Credentials,
         client_id: String,
+        queue: Arc<Mutex<Queue>>
     ) {
         let mut core = Core::new().unwrap();
         let handle = core.handle();
@@ -146,7 +161,7 @@ impl Spotify {
         let (player, _eventchannel) =
             Player::new(player_config, session, None, move || (backend)(None));
 
-        let worker = Worker::new(commands, player);
+        let worker = Worker::new(commands, player, queue);
         debug!("worker thread ready.");
         core.run(worker).unwrap();
         debug!("worker thread finished.");
