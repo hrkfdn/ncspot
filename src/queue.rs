@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::collections::vec_deque::Iter;
 
 use rspotify::spotify::model::track::FullTrack;
 
@@ -12,10 +13,16 @@ impl Queue {
             queue: VecDeque::new(),
         }
     }
+    pub fn remove(&mut self, index: usize) -> Option<FullTrack> {
+        self.queue.remove(index)
+    }
     pub fn enqueue(&mut self, track: FullTrack) {
         self.queue.push_back(track);
     }
     pub fn dequeue(&mut self) -> Option<FullTrack> {
         self.queue.pop_front()
+    }
+    pub fn iter(&self) -> Iter<FullTrack> {
+        self.queue.iter()
     }
 }

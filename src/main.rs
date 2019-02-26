@@ -91,6 +91,10 @@ fn main() {
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
     cursive.add_fullscreen_layer(search.view);
 
+    let queuescreen = cursive.add_active_screen();
+    let mut queue = ui::queue::QueueView::new(queue.clone(), spotify.clone());
+    cursive.add_fullscreen_layer(queue.view.take().unwrap());
+
     let logscreen = cursive.add_active_screen();
     let logpanel = Panel::new(logview).title("Log");
     cursive.add_fullscreen_layer(logpanel);
@@ -98,7 +102,13 @@ fn main() {
     cursive.add_global_callback(Key::F1, move |s| {
         s.set_screen(logscreen);
     });
+
     cursive.add_global_callback(Key::F2, move |s| {
+        s.set_screen(queuescreen);
+        queue.redraw(s);
+    });
+
+    cursive.add_global_callback(Key::F3, move |s| {
         s.set_screen(searchscreen);
     });
 
