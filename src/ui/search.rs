@@ -64,7 +64,7 @@ impl SearchView {
             .with_id("search_edit")
             .full_width()
             .fixed_height(1);
-        let results = ListView::new().with_id("search_results");
+        let results = ListView::new().with_id("search_results").full_width();
         let scrollable = ScrollView::new(results).full_width().full_height();
         let layout = LinearLayout::new(Orientation::Vertical)
             .child(searchfield)
