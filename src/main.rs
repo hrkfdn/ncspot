@@ -1,4 +1,3 @@
-extern crate crossbeam_channel;
 extern crate cursive;
 extern crate failure;
 extern crate futures;
