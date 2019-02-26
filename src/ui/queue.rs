@@ -28,7 +28,7 @@ impl QueueView {
         QueueView {
             view: Some(panel),
             queue: queue,
-            spotify: spotify
+            spotify: spotify,
         }
     }
 
@@ -44,7 +44,7 @@ impl QueueView {
                 .iter()
                 .map(|ref artist| artist.name.clone())
                 .collect::<Vec<String>>()
-                    .join(", ");
+                .join(", ");
             let formatted = format!("{} - {}", artists, track.name);
 
             let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");

@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use std::collections::vec_deque::Iter;
+use std::collections::VecDeque;
 
 use rspotify::spotify::model::track::FullTrack;
 
