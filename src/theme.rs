@@ -7,6 +7,8 @@ pub fn default() -> Theme {
     let borders = BorderStyle::None;
 
     palette[Background] = TerminalDefault;
+    palette[View] = TerminalDefault;
+    palette[Primary] = TerminalDefault;
 
     Theme {
         shadow: false,
