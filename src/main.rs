@@ -112,5 +112,8 @@ fn main() {
         s.set_screen(searchscreen);
     });
 
-    cursive.run();
+    // cursive event loop
+    while cursive.is_running() {
+        cursive.step();
+    }
 }
