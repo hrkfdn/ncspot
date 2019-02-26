@@ -8,8 +8,8 @@ use std::sync::Mutex;
 
 use librespot::core::spotify_id::SpotifyId;
 
-use spotify::Spotify;
 use queue::Queue;
+use spotify::Spotify;
 
 pub struct SearchView {
     pub view: Panel<LinearLayout>,
@@ -17,7 +17,12 @@ pub struct SearchView {
 }
 
 impl SearchView {
-    fn search_handler(s: &mut Cursive, input: &str, spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) {
+    fn search_handler(
+        s: &mut Cursive,
+        input: &str,
+        spotify: Arc<Spotify>,
+        queue: Arc<Mutex<Queue>>,
+    ) {
         let mut results: ViewRef<ListView> = s.find_id("search_results").unwrap();
         let tracks = spotify.search(input, 50, 0);
 
@@ -27,7 +32,9 @@ impl SearchView {
             for track in tracks.tracks.items {
                 let s = spotify.clone();
                 let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
-                let artists = track.artists.iter()
+                let artists = track
+                    .artists
+                    .iter()
                     .map(|ref artist| artist.name.clone())
                     .collect::<Vec<String>>()
                     .join(", ");
@@ -37,12 +44,11 @@ impl SearchView {
                     s.play();
                 });
                 let queue = queue.clone();
-                let button_queue = OnEventView::new(button)
-                    .on_event(' ', move |_cursive| {
-                        let mut queue = queue.lock().unwrap();
-                        queue.enqueue(track.clone());
-                        debug!("Added to queue: {}", track.name);
-                    });
+                let button_queue = OnEventView::new(button).on_event(' ', move |_cursive| {
+                    let mut queue = queue.lock().unwrap();
+                    queue.enqueue(track.clone());
+                    debug!("Added to queue: {}", track.name);
+                });
                 results.add_child("", button_queue);
             }
         }

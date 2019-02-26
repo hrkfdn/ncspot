@@ -23,15 +23,15 @@ use std::process;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use cursive::event::Key;
 use cursive::views::*;
 use cursive::Cursive;
-use cursive::event::{Event, Key};
 
 mod config;
+mod queue;
 mod spotify;
 mod theme;
 mod ui;
-mod queue;
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -84,7 +84,7 @@ fn main() {
         cfg.username,
         cfg.password,
         cfg.client_id,
-        queue.clone()
+        queue.clone(),
     ));
 
     let searchscreen = cursive.active_screen();
