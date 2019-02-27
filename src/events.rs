@@ -7,6 +7,7 @@ pub enum Event {
 
 pub type EventSender = Sender<Event>;
 
+#[derive(Clone)]
 pub struct EventManager {
     tx: EventSender,
     rx: Receiver<Event>,
@@ -28,8 +29,9 @@ impl EventManager {
         self.rx.try_iter()
     }
 
-    pub fn sink(&mut self) -> EventSender {
-        self.tx.clone()
+    pub fn send(&self, event: Event) {
+        self.tx.send(event);
+        self.trigger();
     }
 
     pub fn trigger(&self) {

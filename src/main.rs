@@ -84,7 +84,7 @@ fn main() {
     };
 
     let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
-    let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.sink())));
+    let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.clone())));
 
     let spotify = Arc::new(spotify::Spotify::new(
         cfg.username,
@@ -115,10 +115,10 @@ fn main() {
     });
 
     {
-        let event_sink = event_manager.sink();
+        let event_manager = event_manager.clone();
         cursive.add_global_callback(Key::F2, move |s| {
             s.set_screen(queuescreen);
-            event_sink.send(Event::QueueUpdate);
+            event_manager.clone().send(Event::QueueUpdate);
         });
     }
 

@@ -3,22 +3,22 @@ use std::collections::VecDeque;
 
 use rspotify::spotify::model::track::FullTrack;
 
-use events::{Event, EventSender};
+use events::{Event, EventManager};
 
 pub struct Queue {
     queue: VecDeque<FullTrack>,
-    ev_sink: EventSender,
+    ev: EventManager,
 }
 
 impl Queue {
-    pub fn new(ev_sink: EventSender) -> Queue {
+    pub fn new(ev: EventManager) -> Queue {
         Queue {
             queue: VecDeque::new(),
-            ev_sink: ev_sink,
+            ev: ev,
         }
     }
     fn send_event(&self) {
-        self.ev_sink.send(Event::QueueUpdate);
+        self.ev.send(Event::QueueUpdate);
     }
     pub fn remove(&mut self, index: usize) -> Option<FullTrack> {
         match self.queue.remove(index) {

@@ -56,8 +56,6 @@ impl QueueView {
                     s.load(trackid);
                     s.play();
                     queue_ref.lock().unwrap().remove(index);
-                    // TODO: update view representation, preferably, queue changes
-                    // cause a view refresh
                 });
                 queuelist.add_child("", button);
             }
