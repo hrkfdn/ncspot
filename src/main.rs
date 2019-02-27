@@ -95,7 +95,8 @@ fn main() {
     cursive.add_fullscreen_layer(queue.view.take().unwrap());
 
     let logscreen = cursive.add_active_screen();
-    let logpanel = Panel::new(logview).title("Log");
+    let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
+    let logpanel = Panel::new(logview_scroller).title("Log");
     cursive.add_fullscreen_layer(logpanel);
 
     cursive.add_global_callback(Key::F1, move |s| {
