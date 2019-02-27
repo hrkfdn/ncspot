@@ -132,7 +132,7 @@ fn main() {
         for event in event_manager.msg_iter() {
             trace!("event received");
             match event {
-                Event::QueueUpdate => queue.redraw(&mut cursive)
+                Event::QueueUpdate => queue.redraw(&mut cursive),
             }
         }
     }

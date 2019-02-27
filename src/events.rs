@@ -1,5 +1,5 @@
-use crossbeam_channel::{unbounded, Sender, Receiver, TryIter};
-use cursive::{Cursive, CbFunc};
+use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
+use cursive::{CbFunc, Cursive};
 
 pub enum Event {
     QueueUpdate,

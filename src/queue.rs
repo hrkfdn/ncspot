@@ -25,8 +25,8 @@ impl Queue {
             Some(track) => {
                 self.send_event();
                 Some(track)
-            },
-            None => None
+            }
+            None => None,
         }
     }
     pub fn enqueue(&mut self, track: FullTrack) {
@@ -38,8 +38,8 @@ impl Queue {
             Some(track) => {
                 self.send_event();
                 Some(track)
-            },
-            None => None
+            }
+            None => None,
         }
     }
     pub fn iter(&self) -> Iter<FullTrack> {
