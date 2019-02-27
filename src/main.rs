@@ -1,3 +1,4 @@
+extern crate crossbeam_channel;
 extern crate cursive;
 extern crate failure;
 extern crate futures;
@@ -23,14 +24,18 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use cursive::event::Key;
+use cursive::view::ScrollStrategy;
 use cursive::views::*;
 use cursive::Cursive;
 
 mod config;
+mod events;
 mod queue;
 mod spotify;
 mod theme;
 mod ui;
+
+use events::{Event, EventManager};
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -65,6 +70,8 @@ fn main() {
     init_logger(logbuf);
 
     let mut cursive = Cursive::default();
+    let mut event_manager = EventManager::new(cursive.cb_sink().clone());
+
     cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
 
@@ -77,7 +84,7 @@ fn main() {
     };
 
     let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
-    let queue = Arc::new(Mutex::new(queue::Queue::new()));
+    let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.sink())));
 
     let spotify = Arc::new(spotify::Spotify::new(
         cfg.username,
@@ -85,6 +92,10 @@ fn main() {
         cfg.client_id,
         queue.clone(),
     ));
+
+    let track = TextView::new("Track Title");
+    let pos = TextView::new("[0:00/0:00]");
+    let status = LinearLayout::horizontal().child(track).child(pos);
 
     let searchscreen = cursive.active_screen();
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
@@ -103,10 +114,13 @@ fn main() {
         s.set_screen(logscreen);
     });
 
-    cursive.add_global_callback(Key::F2, move |s| {
-        s.set_screen(queuescreen);
-        queue.redraw(s);
-    });
+    {
+        let event_sink = event_manager.sink();
+        cursive.add_global_callback(Key::F2, move |s| {
+            s.set_screen(queuescreen);
+            event_sink.send(Event::QueueUpdate);
+        });
+    }
 
     cursive.add_global_callback(Key::F3, move |s| {
         s.set_screen(searchscreen);
@@ -115,5 +129,11 @@ fn main() {
     // cursive event loop
     while cursive.is_running() {
         cursive.step();
+        for event in event_manager.msg_iter() {
+            trace!("event received");
+            match event {
+                Event::QueueUpdate => queue.redraw(&mut cursive)
+            }
+        }
     }
 }

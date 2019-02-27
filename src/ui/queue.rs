@@ -33,32 +33,34 @@ impl QueueView {
     }
 
     pub fn redraw(&self, s: &mut Cursive) {
-        let mut queuelist: ViewRef<ListView> = s.find_id("queue_list").unwrap();
-        queuelist.clear();
+        let view_ref: Option<ViewRef<ListView>> = s.find_id("queue_list");
+        if let Some(mut queuelist) = view_ref {
+            queuelist.clear();
 
-        let queue_ref = self.queue.clone();
-        let queue = self.queue.lock().unwrap();
-        for (index, track) in queue.iter().enumerate() {
-            let artists = track
-                .artists
-                .iter()
-                .map(|ref artist| artist.name.clone())
-                .collect::<Vec<String>>()
-                .join(", ");
-            let formatted = format!("{} - {}", artists, track.name);
+            let queue_ref = self.queue.clone();
+            let queue = self.queue.lock().unwrap();
+            for (index, track) in queue.iter().enumerate() {
+                let artists = track
+                    .artists
+                    .iter()
+                    .map(|ref artist| artist.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let formatted = format!("{} - {}", artists, track.name);
 
-            let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
-            let s = self.spotify.clone();
+                let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
+                let s = self.spotify.clone();
 
-            let queue_ref = queue_ref.clone();
-            let button = Button::new_raw(formatted, move |_cursive| {
-                s.load(trackid);
-                s.play();
-                queue_ref.lock().unwrap().remove(index);
-                // TODO: update view representation, preferably, queue changes
-                // cause a view refresh
-            });
-            queuelist.add_child("", button);
+                let queue_ref = queue_ref.clone();
+                let button = Button::new_raw(formatted, move |_cursive| {
+                    s.load(trackid);
+                    s.play();
+                    queue_ref.lock().unwrap().remove(index);
+                    // TODO: update view representation, preferably, queue changes
+                    // cause a view refresh
+                });
+                queuelist.add_child("", button);
+            }
         }
     }
 }
