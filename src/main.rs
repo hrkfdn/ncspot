@@ -5,6 +5,7 @@ extern crate futures;
 extern crate librespot;
 extern crate rspotify;
 extern crate tokio_core;
+extern crate unicode_width;
 
 #[macro_use]
 extern crate serde_derive;

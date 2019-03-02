@@ -15,6 +15,7 @@ serde = "1.0"
 serde_derive = "1.0"
 toml = "0.4"
 tokio-core = "0.1"
+unicode-width = "0.1.5"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"

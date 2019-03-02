@@ -23,6 +23,7 @@ impl Queue {
     pub fn remove(&mut self, index: usize) -> Option<FullTrack> {
         match self.queue.remove(index) {
             Some(track) => {
+                debug!("Removed from queue: {}", &track.name);
                 self.send_event();
                 Some(track)
             }
@@ -30,12 +31,14 @@ impl Queue {
         }
     }
     pub fn enqueue(&mut self, track: FullTrack) {
+        debug!("Queued: {}", &track.name);
         self.queue.push_back(track);
         self.send_event();
     }
     pub fn dequeue(&mut self) -> Option<FullTrack> {
         match self.queue.pop_front() {
             Some(track) => {
+                debug!("Dequeued : {}", track.name);
                 self.send_event();
                 Some(track)
             }

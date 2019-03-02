@@ -1,4 +1,5 @@
 use cursive::direction::Orientation;
+use cursive::event::Key;
 use cursive::traits::Boxable;
 use cursive::traits::Identifiable;
 use cursive::views::*;
@@ -10,6 +11,7 @@ use librespot::core::spotify_id::SpotifyId;
 
 use queue::Queue;
 use spotify::Spotify;
+use ui::trackbutton::TrackButton;
 
 pub struct SearchView {
     pub view: Panel<LinearLayout>,
@@ -32,24 +34,22 @@ impl SearchView {
             for track in tracks.tracks.items {
                 let s = spotify.clone();
                 let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
-                let artists = track
-                    .artists
-                    .iter()
-                    .map(|ref artist| artist.name.clone())
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                let formatted = format!("{} - {}", artists, track.name);
-                let button = Button::new_raw(formatted, move |_cursive| {
+                let mut button = TrackButton::new(&track);
+
+                // <enter> plays the selected track
+                button.add_callback(Key::Enter, move |_cursive| {
                     s.load(trackid);
                     s.play();
                 });
+
+                // <space> queues the selected track
                 let queue = queue.clone();
-                let button_queue = OnEventView::new(button).on_event(' ', move |_cursive| {
+                button.add_callback(' ', move |_cursive| {
                     let mut queue = queue.lock().unwrap();
                     queue.enqueue(track.clone());
-                    debug!("Added to queue: {}", track.name);
                 });
-                results.add_child("", button_queue);
+
+                results.add_child("", button);
             }
         }
     }
