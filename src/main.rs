@@ -109,10 +109,6 @@ fn main() {
         });
     }
 
-    let track = TextView::new("Track Title");
-    let pos = TextView::new("[0:00/0:00]");
-    let status = LinearLayout::horizontal().child(track).child(pos);
-
     let searchscreen = cursive.active_screen();
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
     cursive.add_fullscreen_layer(search.view);
