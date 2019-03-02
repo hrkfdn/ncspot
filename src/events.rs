@@ -33,12 +33,12 @@ impl EventManager {
     }
 
     pub fn send(&self, event: Event) {
-        self.tx.send(event);
+        self.tx.send(event).expect("could not send event");
         self.trigger();
     }
 
     pub fn trigger(&self) {
         // send a no-op to trigger event loop processing
-        self.cursive_sink.send(Box::new(|_s: &mut Cursive| {}));
+        self.cursive_sink.send(Box::new(|_s: &mut Cursive| {})).expect("could not send no-op event to cursive");
     }
 }

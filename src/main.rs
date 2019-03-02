@@ -70,7 +70,7 @@ fn main() {
     init_logger(logbuf);
 
     let mut cursive = Cursive::default();
-    let mut event_manager = EventManager::new(cursive.cb_sink().clone());
+    let event_manager = EventManager::new(cursive.cb_sink().clone());
 
     cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
