@@ -96,7 +96,7 @@ impl futures::Future for Worker {
                     WorkerCommand::Play => {
                         self.player.play();
                         self.events.send(Event::PlayState(PlayerState::Playing));
-                    },
+                    }
                     WorkerCommand::Pause => {
                         self.player.pause();
                         self.events.send(Event::PlayState(PlayerState::Paused));
@@ -121,8 +121,7 @@ impl futures::Future for Worker {
                         self.player.play();
 
                         self.events.send(Event::PlayState(PlayerState::Playing));
-                    }
-                    else {
+                    } else {
                         self.events.send(Event::PlayState(PlayerState::Stopped));
                     }
                 }
@@ -232,7 +231,10 @@ impl Spotify {
     }
 
     pub fn updatestate(&self, newstate: PlayerState) {
-        let mut state = self.state.write().expect("could not acquire write lock on player state");
+        let mut state = self
+            .state
+            .write()
+            .expect("could not acquire write lock on player state");
         *state = newstate;
     }
 
@@ -242,7 +244,10 @@ impl Spotify {
     }
 
     pub fn toggleplayback(&self) {
-        let state = self.state.read().expect("could not acquire read lock on player state");
+        let state = self
+            .state
+            .read()
+            .expect("could not acquire read lock on player state");
         match *state {
             PlayerState::Playing => self.pause(),
             PlayerState::Paused => self.play(),
