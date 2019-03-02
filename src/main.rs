@@ -87,11 +87,27 @@ fn main() {
     let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.clone())));
 
     let spotify = Arc::new(spotify::Spotify::new(
+        event_manager.clone(),
         cfg.username,
         cfg.password,
         cfg.client_id,
         queue.clone(),
     ));
+
+    // global player keybindings (play, pause, stop)
+    {
+        let spotify = spotify.clone();
+        cursive.add_global_callback('P', move |_s| {
+            spotify.toggleplayback();
+        });
+    }
+
+    {
+        let spotify = spotify.clone();
+        cursive.add_global_callback('S', move |_s| {
+            spotify.stop();
+        });
+    }
 
     let track = TextView::new("Track Title");
     let pos = TextView::new("[0:00/0:00]");
@@ -133,6 +149,7 @@ fn main() {
             trace!("event received");
             match event {
                 Event::QueueUpdate => queue.redraw(&mut cursive),
+                Event::PlayState(state) => spotify.updatestate(state),
             }
         }
     }

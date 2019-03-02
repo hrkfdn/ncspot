@@ -25,8 +25,10 @@ use tokio_core::reactor::Core;
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
 use std::thread;
 
+use events::{Event, EventManager};
 use queue::Queue;
 
 enum WorkerCommand {
@@ -36,12 +38,21 @@ enum WorkerCommand {
     Stop,
 }
 
+pub enum PlayerState {
+    Playing,
+    Paused,
+    Stopped,
+}
+
 pub struct Spotify {
+    pub state: RwLock<PlayerState>,
     pub api: SpotifyAPI,
     channel: mpsc::UnboundedSender<WorkerCommand>,
+    events: EventManager,
 }
 
 struct Worker {
+    events: EventManager,
     commands: mpsc::UnboundedReceiver<WorkerCommand>,
     player: Player,
     play_task: Box<futures::Future<Item = (), Error = oneshot::Canceled>>,
@@ -50,11 +61,13 @@ struct Worker {
 
 impl Worker {
     fn new(
+        events: EventManager,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         player: Player,
         queue: Arc<Mutex<Queue>>,
     ) -> Worker {
         Worker {
+            events: events,
             commands: commands,
             player: player,
             play_task: Box::new(futures::empty()),
@@ -80,9 +93,18 @@ impl futures::Future for Worker {
                         self.play_task = Box::new(self.player.load(track, false, 0));
                         info!("player loading track..");
                     }
-                    WorkerCommand::Play => self.player.play(),
-                    WorkerCommand::Pause => self.player.pause(),
-                    WorkerCommand::Stop => self.player.stop(),
+                    WorkerCommand::Play => {
+                        self.player.play();
+                        self.events.send(Event::PlayState(PlayerState::Playing));
+                    },
+                    WorkerCommand::Pause => {
+                        self.player.pause();
+                        self.events.send(Event::PlayState(PlayerState::Paused));
+                    }
+                    WorkerCommand::Stop => {
+                        self.player.stop();
+                        self.events.send(Event::PlayState(PlayerState::Stopped));
+                    }
                 }
             }
             match self.play_task.poll() {
@@ -97,6 +119,11 @@ impl futures::Future for Worker {
                             SpotifyId::from_base62(&track.id).expect("could not load track");
                         self.play_task = Box::new(self.player.load(trackid, false, 0));
                         self.player.play();
+
+                        self.events.send(Event::PlayState(PlayerState::Playing));
+                    }
+                    else {
+                        self.events.send(Event::PlayState(PlayerState::Stopped));
                     }
                 }
                 Ok(Async::NotReady) => (),
@@ -117,6 +144,7 @@ impl futures::Future for Worker {
 
 impl Spotify {
     pub fn new(
+        events: EventManager,
         user: String,
         password: String,
         client_id: String,
@@ -132,29 +160,36 @@ impl Spotify {
 
         let (tx, rx) = mpsc::unbounded();
         let (p, c) = oneshot::channel();
-        thread::spawn(move || {
-            Spotify::worker(
-                rx,
-                p,
-                session_config,
-                player_config,
-                credentials,
-                client_id,
-                queue,
-            )
-        });
+        {
+            let events = events.clone();
+            thread::spawn(move || {
+                Spotify::worker(
+                    events,
+                    rx,
+                    p,
+                    session_config,
+                    player_config,
+                    credentials,
+                    client_id,
+                    queue,
+                )
+            });
+        }
 
         let token = c.wait().unwrap();
         debug!("token received: {:?}", token);
         let api = SpotifyAPI::default().access_token(&token.access_token);
 
         Spotify {
+            state: RwLock::new(PlayerState::Stopped),
             api: api,
             channel: tx,
+            events: events,
         }
     }
 
     fn worker(
+        events: EventManager,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         token_channel: oneshot::Sender<Token>,
         session_config: SessionConfig,
@@ -179,7 +214,7 @@ impl Spotify {
         let (player, _eventchannel) =
             Player::new(player_config, session, None, move || (backend)(None));
 
-        let worker = Worker::new(commands, player, queue);
+        let worker = Worker::new(events, commands, player, queue);
         debug!("worker thread ready.");
         core.run(worker).unwrap();
         debug!("worker thread finished.");
@@ -196,9 +231,23 @@ impl Spotify {
             .unwrap();
     }
 
+    pub fn updatestate(&self, newstate: PlayerState) {
+        let mut state = self.state.write().expect("could not acquire write lock on player state");
+        *state = newstate;
+    }
+
     pub fn play(&self) {
         info!("play()");
         self.channel.unbounded_send(WorkerCommand::Play).unwrap();
+    }
+
+    pub fn toggleplayback(&self) {
+        let state = self.state.read().expect("could not acquire read lock on player state");
+        match *state {
+            PlayerState::Playing => self.pause(),
+            PlayerState::Paused => self.play(),
+            _ => (),
+        }
     }
 
     pub fn pause(&self) {
