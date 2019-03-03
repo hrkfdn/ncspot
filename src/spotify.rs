@@ -162,7 +162,7 @@ impl Spotify {
         {
             let events = events.clone();
             thread::spawn(move || {
-                Spotify::worker(
+                Self::worker(
                     events,
                     rx,
                     p,
