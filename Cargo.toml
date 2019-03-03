@@ -20,4 +20,8 @@ unicode-width = "0.1.5"
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
 default-features = false
-features = ["pulseaudio-backend"]
+
+[features]
+pulseaudio_backend = ["librespot/pulseaudio-backend"]
+portaudio_backend = ["librespot/portaudio-backend"]
+default = ["pulseaudio_backend"]
