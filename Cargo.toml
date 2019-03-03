@@ -27,6 +27,7 @@ unicode-width = "0.1.5"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
+rev = "daeeeaa122fc2d71edf11e562e23038db4210b39"
 default-features = false
 
 [features]
