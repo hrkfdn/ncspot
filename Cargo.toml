@@ -8,7 +8,7 @@ keywords = ["spotify", "ncurses", "librespot"]
 license = "MIT"
 
 [badges]
-travis-ci = { repository = "hrkfdn/ncspot" = "master" }
+travis-ci = { repository = "hrkfdn/ncspot", branch = "master" }
 maintenance = { status = "experimental" }
 
 [dependencies]
