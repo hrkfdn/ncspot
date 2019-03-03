@@ -91,7 +91,7 @@ fn main() {
         event_manager.clone(),
         cfg.username,
         cfg.password,
-        cfg.client_id,
+        config::CLIENT_ID.to_string(),
         queue.clone(),
     ));
 

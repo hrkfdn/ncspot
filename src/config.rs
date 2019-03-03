@@ -1,11 +1,12 @@
 use std::fs::File;
 use std::io::prelude::*;
 
+pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub username: String,
     pub password: String,
-    pub client_id: String,
 }
 
 pub fn load(filename: &str) -> Result<Config, toml::de::Error> {
