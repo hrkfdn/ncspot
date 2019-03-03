@@ -17,11 +17,22 @@ future. Contributions welcome, but please be kind ;)
 
 * Set your login credentials (see configuration)
 * Build using `cargo build --release`
+* The initial screen is the debug log. Press `F2` for the queue and `F3` to
+  search for a track. More key bindings are described below.
+
+### Key Bindings
+
+These keybindings are hardcoded for now. In the future it may be desirable to
+have them configurable.
+
 * Navigate through the screens using the F-keys:
   * `F1`: Debug log
   * `F2`: Queue
   * `F3`: Search
 * Tracks can be played using `Return` and queued using `Space`
+* `Shift-p` toggles playback of a track
+* `Shift-s` stops a track
+* `q` quits ncspot
 
 ## Requirements
 
