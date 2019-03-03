@@ -7,6 +7,10 @@ repository = "https://github.com/hrkfdn/ncspot"
 keywords = ["spotify", "ncurses", "librespot"]
 license = "MIT"
 
+[badges]
+travis-ci = { repository = "hrkfdn/ncspot" = "master" }
+maintenance = { status = "experimental" }
+
 [dependencies]
 cursive = "0.10"
 crossbeam-channel = "0.3.8"
