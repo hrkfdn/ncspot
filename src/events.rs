@@ -1,10 +1,11 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
 use cursive::{CbFunc, Cursive};
 
+use queue::QueueChange;
 use spotify::PlayerState;
 
 pub enum Event {
-    QueueUpdate,
+    Queue(QueueChange),
     Player(PlayerState),
 }
 

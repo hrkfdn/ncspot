@@ -13,7 +13,6 @@ travis-ci = { repository = "hrkfdn/ncspot", branch = "master" }
 maintenance = { status = "experimental" }
 
 [dependencies]
-cursive = "0.10"
 crossbeam-channel = "0.3.8"
 env_logger = "0.6.0"
 failure = "0.1.3"
@@ -30,6 +29,9 @@ unicode-width = "0.1.5"
 git = "https://github.com/librespot-org/librespot.git"
 rev = "daeeeaa122fc2d71edf11e562e23038db4210b39"
 default-features = false
+
+[dependencies.cursive]
+git = "https://github.com/gyscos/Cursive.git"
 
 [features]
 pulseaudio_backend = ["librespot/pulseaudio-backend"]

@@ -37,6 +37,7 @@ mod theme;
 mod ui;
 
 use events::{Event, EventManager};
+use queue::QueueChange;
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -100,6 +101,7 @@ fn main() {
 
     cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
+    cursive.set_autorefresh(true);
 
     let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.clone())));
 
@@ -131,8 +133,8 @@ fn main() {
     cursive.add_fullscreen_layer(search.view);
 
     let queuescreen = cursive.add_active_screen();
-    let mut queue = ui::queue::QueueView::new(queue.clone(), spotify.clone());
-    cursive.add_fullscreen_layer(queue.view.take().unwrap());
+    let mut queueview = ui::queue::QueueView::new(queue.clone(), spotify.clone());
+    cursive.add_fullscreen_layer(queueview.view.take().unwrap());
 
     let logscreen = cursive.add_active_screen();
     let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
@@ -144,10 +146,10 @@ fn main() {
     });
 
     {
-        let event_manager = event_manager.clone();
+        let ev = event_manager.clone();
         cursive.add_global_callback(Key::F2, move |s| {
             s.set_screen(queuescreen);
-            event_manager.clone().send(Event::QueueUpdate);
+            ev.send(Event::Queue(QueueChange::Show));
         });
     }
 
@@ -161,7 +163,7 @@ fn main() {
         for event in event_manager.msg_iter() {
             trace!("event received");
             match event {
-                Event::QueueUpdate => queue.redraw(&mut cursive),
+                Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
                 Event::Player(state) => spotify.updatestate(state),
             }
         }

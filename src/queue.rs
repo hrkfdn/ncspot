@@ -10,6 +10,13 @@ pub struct Queue {
     ev: EventManager,
 }
 
+pub enum QueueChange {
+    Dequeue,
+    Enqueue,
+    Remove(usize),
+    Show,
+}
+
 impl Queue {
     pub fn new(ev: EventManager) -> Queue {
         Queue {
@@ -17,14 +24,11 @@ impl Queue {
             ev: ev,
         }
     }
-    fn send_event(&self) {
-        self.ev.send(Event::QueueUpdate);
-    }
     pub fn remove(&mut self, index: usize) -> Option<FullTrack> {
         match self.queue.remove(index) {
             Some(track) => {
                 debug!("Removed from queue: {}", &track.name);
-                self.send_event();
+                self.ev.send(Event::Queue(QueueChange::Remove(index)));
                 Some(track)
             }
             None => None,
@@ -33,17 +37,20 @@ impl Queue {
     pub fn enqueue(&mut self, track: FullTrack) {
         debug!("Queued: {}", &track.name);
         self.queue.push_back(track);
-        self.send_event();
+        self.ev.send(Event::Queue(QueueChange::Enqueue));
     }
     pub fn dequeue(&mut self) -> Option<FullTrack> {
         match self.queue.pop_front() {
             Some(track) => {
                 debug!("Dequeued : {}", track.name);
-                self.send_event();
+                self.ev.send(Event::Queue(QueueChange::Dequeue));
                 Some(track)
             }
             None => None,
         }
+    }
+    pub fn peek(&self) -> Option<&FullTrack> {
+        self.queue.get(0)
     }
     pub fn iter(&self) -> Iter<FullTrack> {
         self.queue.iter()
