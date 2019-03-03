@@ -162,7 +162,7 @@ fn main() {
             trace!("event received");
             match event {
                 Event::QueueUpdate => queue.redraw(&mut cursive),
-                Event::PlayState(state) => spotify.updatestate(state),
+                Event::Player(state) => spotify.updatestate(state),
             }
         }
     }

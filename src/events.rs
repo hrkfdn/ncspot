@@ -5,7 +5,7 @@ use spotify::PlayerState;
 
 pub enum Event {
     QueueUpdate,
-    PlayState(PlayerState),
+    Player(PlayerState),
 }
 
 pub type EventSender = Sender<Event>;

@@ -95,15 +95,15 @@ impl futures::Future for Worker {
                     }
                     WorkerCommand::Play => {
                         self.player.play();
-                        self.events.send(Event::PlayState(PlayerState::Playing));
+                        self.events.send(Event::Player(PlayerState::Playing));
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
-                        self.events.send(Event::PlayState(PlayerState::Paused));
+                        self.events.send(Event::Player(PlayerState::Paused));
                     }
                     WorkerCommand::Stop => {
                         self.player.stop();
-                        self.events.send(Event::PlayState(PlayerState::Stopped));
+                        self.events.send(Event::Player(PlayerState::Stopped));
                     }
                 }
             }
@@ -120,9 +120,9 @@ impl futures::Future for Worker {
                         self.play_task = Box::new(self.player.load(trackid, false, 0));
                         self.player.play();
 
-                        self.events.send(Event::PlayState(PlayerState::Playing));
+                        self.events.send(Event::Player(PlayerState::Playing));
                     } else {
-                        self.events.send(Event::PlayState(PlayerState::Stopped));
+                        self.events.send(Event::Player(PlayerState::Stopped));
                     }
                 }
                 Ok(Async::NotReady) => (),
