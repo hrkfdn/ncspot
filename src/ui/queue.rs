@@ -48,7 +48,11 @@ impl QueueView {
                 // <enter> dequeues the selected track
                 let queue_ref = queue_ref.clone();
                 button.add_callback(Key::Enter, move |_cursive| {
-                    let track = queue_ref.lock().unwrap().remove(index).expect("could not dequeue track");
+                    let track = queue_ref
+                        .lock()
+                        .unwrap()
+                        .remove(index)
+                        .expect("could not dequeue track");
                     let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
                     spotify.load(trackid);
                     spotify.play();

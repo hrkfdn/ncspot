@@ -1,11 +1,11 @@
 use cursive::align::HAlign;
-use cursive::Cursive;
 use cursive::direction::Direction;
 use cursive::event::{Callback, Event, EventResult, EventTrigger};
-use cursive::vec::Vec2;
-use cursive::Printer;
-use cursive::traits::View;
 use cursive::theme::ColorStyle;
+use cursive::traits::View;
+use cursive::vec::Vec2;
+use cursive::Cursive;
+use cursive::Printer;
 use rspotify::spotify::model::track::FullTrack;
 use unicode_width::UnicodeWidthStr;
 
@@ -32,7 +32,7 @@ impl TrackButton {
         let formatted_title = format!("{} - {}", artists, track.name);
 
         let minutes = track.duration_ms / 60000;
-        let seconds = (track.duration_ms % 60000)/1000;
+        let seconds = (track.duration_ms % 60000) / 1000;
         let formatted_duration = format!("{:02}:{:02}", minutes, seconds);
 
         TrackButton {
@@ -75,7 +75,7 @@ impl View for TrackButton {
         let mut title_shortened = self.title.clone();
         title_shortened.truncate(printer.size.x - self.duration.width() - 1);
         if title_shortened.width() < self.title.width() {
-            let offset = title_shortened.width()-2;
+            let offset = title_shortened.width() - 2;
             title_shortened.replace_range(offset.., "..");
         }
 
@@ -84,8 +84,7 @@ impl View for TrackButton {
         });
 
         // track duration goes to the end of the line
-        let offset =
-            HAlign::Right.get_offset(self.duration.width(), printer.size.x);
+        let offset = HAlign::Right.get_offset(self.duration.width(), printer.size.x);
 
         printer.with_color(style, |printer| {
             printer.print((offset, 0), &self.duration);
@@ -95,7 +94,7 @@ impl View for TrackButton {
     fn on_event(&mut self, event: Event) -> EventResult {
         for (trigger, callback) in self.callbacks.iter() {
             if trigger.apply(&event) {
-                return EventResult::Consumed(Some(callback.clone()))
+                return EventResult::Consumed(Some(callback.clone()));
             }
         }
         EventResult::Ignored
