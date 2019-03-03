@@ -9,7 +9,9 @@ platforms that currently don't have a Spotify client, such as the *BSDs.
 [![Search](/screenshots/search-thumb.png?raw=true)](/screenshots/search.png?raw=true)
 
 **NOTE**: ncspot is still in a very early development stage. Things will break
-and change. The feature set is still very limited.
+and change. The feature set is still very limited. Also, as this is my first
+contact with Rust, some design decisions may need to be reworked in the
+future. Contributions welcome, but please be kind ;)
 
 ## Usage
 
