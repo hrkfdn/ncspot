@@ -63,11 +63,36 @@ fn init_logger(content: TextContent) {
 }
 
 fn main() {
-    let logbuf = TextContent::new("Welcome to ncspot\n");
-    let logview = TextView::new_with_content(logbuf.clone());
     std::env::set_var("RUST_LOG", "ncspot=trace");
     std::env::set_var("RUST_BACKTRACE", "full");
 
+    // Things here may cause the process to abort; we must do them before creating curses windows
+    // otherwise the error message will not be seen by a user
+    let path = match env::var_os("HOME") {
+        None => {
+            eprintln!("$HOME not set");
+            process::exit(1);
+        }
+        Some(path) => PathBuf::from(format!("{0}/.config/ncspot", path.into_string().unwrap())),
+    };
+
+    let cfg: config::Config = {
+        let contents = std::fs::read_to_string(&path).unwrap_or_else(|_| {
+            eprintln!("Cannot read config file from {}", path.to_str().unwrap());
+            eprintln!(
+                "Expected a config file with this format:\n{}",
+                toml::to_string_pretty(&config::Config::default()).unwrap()
+            );
+            process::exit(1)
+        });
+        toml::from_str(&contents).unwrap_or_else(|e| {
+            eprintln!("{}", e);
+            process::exit(1)
+        })
+    };
+
+    let logbuf = TextContent::new("Welcome to ncspot\n");
+    let logview = TextView::new_with_content(logbuf.clone());
     init_logger(logbuf);
 
     let mut cursive = Cursive::default();
@@ -76,15 +101,6 @@ fn main() {
     cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
 
-    let path = match env::var_os("HOME") {
-        None => {
-            println!("$HOME not set.");
-            process::exit(1)
-        }
-        Some(path) => PathBuf::from(format!("{0}/.config/ncspot", path.into_string().unwrap())),
-    };
-
-    let cfg = config::load(path.to_str().unwrap()).expect("could not load configuration file");
     let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.clone())));
 
     let spotify = Arc::new(spotify::Spotify::new(
