@@ -36,6 +36,7 @@ have them configurable.
   * `F1`: Debug log
   * `F2`: Queue
   * `F3`: Search
+  * `F4`: Playlists, then hit `Return` to queue all songs from the playlist
 * Tracks can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
