@@ -11,9 +11,9 @@ use librespot::playback::config::Bitrate;
 use librespot::playback::player::Player;
 
 use rspotify::spotify::client::Spotify as SpotifyAPI;
-use rspotify::spotify::model::search::SearchTracks;
-use rspotify::spotify::model::playlist::{SimplifiedPlaylist, PlaylistTrack}; 
 use rspotify::spotify::model::page::Page;
+use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
+use rspotify::spotify::model::search::SearchTracks;
 
 use failure::Error;
 
@@ -227,12 +227,17 @@ impl Spotify {
         self.api.search_track(query, limit, offset, None)
     }
 
-    pub fn current_user_playlist(&self, limit: u32, offset: u32) -> Result<Page<SimplifiedPlaylist>, Error> {
+    pub fn current_user_playlist(
+        &self,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Page<SimplifiedPlaylist>, Error> {
         self.api.current_user_playlists(limit, offset)
     }
 
     pub fn user_playlist_tracks(&self, playlist_id: &str) -> Result<Page<PlaylistTrack>, Error> {
-        self.api.user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
+        self.api
+            .user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
     }
 
     pub fn load(&self, track: SpotifyId) {

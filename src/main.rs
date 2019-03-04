@@ -37,8 +37,8 @@ mod theme;
 mod ui;
 
 use events::{Event, EventManager};
-use ui::playlist::PlaylistEvent;
 use queue::QueueChange;
+use ui::playlist::PlaylistEvent;
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
