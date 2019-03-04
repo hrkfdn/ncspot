@@ -38,7 +38,7 @@ impl PlaylistView {
         }
     }
 
-    fn create_button(&self, playlist: &SimplifiedPlaylist) -> BoxView<Button> {
+    fn create_button(&self, playlist: &SimplifiedPlaylist) -> Button {
         let spotify_ref = self.spotify.clone();
         let queue_ref = self.queue.clone();
 
