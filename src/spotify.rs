@@ -12,6 +12,8 @@ use librespot::playback::player::Player;
 
 use rspotify::spotify::client::Spotify as SpotifyAPI;
 use rspotify::spotify::model::search::SearchTracks;
+use rspotify::spotify::model::playlist::{SimplifiedPlaylist, PlaylistTrack}; 
+use rspotify::spotify::model::page::Page;
 
 use failure::Error;
 
@@ -49,6 +51,7 @@ pub struct Spotify {
     pub api: SpotifyAPI,
     channel: mpsc::UnboundedSender<WorkerCommand>,
     events: EventManager,
+    user: String,
 }
 
 struct Worker {
@@ -184,6 +187,7 @@ impl Spotify {
             api: api,
             channel: tx,
             events: events,
+            user: user,
         }
     }
 
@@ -221,6 +225,14 @@ impl Spotify {
 
     pub fn search(&self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
         self.api.search_track(query, limit, offset, None)
+    }
+
+    pub fn current_user_playlist(&self, limit: u32, offset: u32) -> Result<Page<SimplifiedPlaylist>, Error> {
+        self.api.current_user_playlists(limit, offset)
+    }
+
+    pub fn user_playlist_tracks(&self, playlist_id: &str) -> Result<Page<PlaylistTrack>, Error> {
+        self.api.user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
     }
 
     pub fn load(&self, track: SpotifyId) {

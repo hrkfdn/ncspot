@@ -132,6 +132,10 @@ fn main() {
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
     cursive.add_fullscreen_layer(search.view);
 
+    let playlistscreen = cursive.add_active_screen();
+    let playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
+    cursive.add_fullscreen_layer(playlists.view);
+
     let queuescreen = cursive.add_active_screen();
     let mut queueview = ui::queue::QueueView::new(queue.clone(), spotify.clone());
     cursive.add_fullscreen_layer(queueview.view.take().unwrap());
@@ -155,6 +159,10 @@ fn main() {
 
     cursive.add_global_callback(Key::F3, move |s| {
         s.set_screen(searchscreen);
+    });
+
+    cursive.add_global_callback(Key::F4, move |s| {
+        s.set_screen(playlistscreen);
     });
 
     // cursive event loop
