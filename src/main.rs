@@ -37,6 +37,7 @@ mod theme;
 mod ui;
 
 use events::{Event, EventManager};
+use ui::playlist::PlaylistEvent;
 use queue::QueueChange;
 
 fn init_logger(content: TextContent) {
@@ -133,8 +134,8 @@ fn main() {
     cursive.add_fullscreen_layer(search.view);
 
     let playlistscreen = cursive.add_active_screen();
-    let playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
-    cursive.add_fullscreen_layer(playlists.view);
+    let mut playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
+    cursive.add_fullscreen_layer(playlists.view.take().unwrap());
 
     let queuescreen = cursive.add_active_screen();
     let mut queueview = ui::queue::QueueView::new(queue.clone(), spotify.clone());
@@ -161,9 +162,13 @@ fn main() {
         s.set_screen(searchscreen);
     });
 
-    cursive.add_global_callback(Key::F4, move |s| {
-        s.set_screen(playlistscreen);
-    });
+    {
+        let ev = event_manager.clone();
+        cursive.add_global_callback(Key::F4, move |s| {
+            s.set_screen(playlistscreen);
+            ev.send(Event::Playlist(PlaylistEvent::Refresh));
+        });
+    }
 
     // cursive event loop
     while cursive.is_running() {
@@ -173,6 +178,7 @@ fn main() {
             match event {
                 Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
                 Event::Player(state) => spotify.updatestate(state),
+                Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
             }
         }
     }

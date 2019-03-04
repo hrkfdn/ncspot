@@ -3,10 +3,12 @@ use cursive::{CbFunc, Cursive};
 
 use queue::QueueChange;
 use spotify::PlayerState;
+use ui::playlist::PlaylistEvent;
 
 pub enum Event {
     Queue(QueueChange),
     Player(PlayerState),
+    Playlist(PlaylistEvent),
 }
 
 pub type EventSender = Sender<Event>;
