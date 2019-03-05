@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cursive::align::HAlign;
-use cursive::theme::{ColorStyle, ColorType, Color, BaseColor};
+use cursive::theme::ColorStyle;
 use cursive::traits::View;
 use cursive::vec::Vec2;
 use cursive::Printer;
@@ -10,14 +10,12 @@ use unicode_width::UnicodeWidthStr;
 use spotify::{PlayerStatus, Spotify};
 
 pub struct StatusBar {
-    spotify: Arc<Spotify>
+    spotify: Arc<Spotify>,
 }
 
 impl StatusBar {
     pub fn new(spotify: Arc<Spotify>) -> StatusBar {
-        StatusBar {
-            spotify: spotify
-        }
+        StatusBar { spotify: spotify }
     }
 }
 
@@ -27,36 +25,53 @@ impl View for StatusBar {
             return;
         }
 
-        let front = ColorType::Color(Color::Dark(BaseColor::Black));
-        let back = ColorType::Color(Color::Dark(BaseColor::Green));
-        let style = ColorStyle::new(front, back);
+        let style_bar = ColorStyle::secondary();
+        let style = ColorStyle::title_secondary();
 
-        printer.print((0, 0), &vec![' '; printer.size.x].into_iter().collect::<String>());
+        printer.print(
+            (0, 0),
+            &vec![' '; printer.size.x].into_iter().collect::<String>(),
+        );
         printer.with_color(style, |printer| {
-            printer.print((0, 1), &vec![' '; printer.size.x].into_iter().collect::<String>());
+            printer.print(
+                (0, 1),
+                &vec![' '; printer.size.x].into_iter().collect::<String>(),
+            );
         });
 
         let state_icon = match self.spotify.get_current_status() {
             PlayerStatus::Playing => " ▶ ",
             PlayerStatus::Paused => " ▮▮ ",
             PlayerStatus::Stopped => " ◼  ",
-        }.to_string();
+        }
+        .to_string();
 
         printer.with_color(style, |printer| {
             printer.print((0, 1), &state_icon);
         });
 
         if let Some(ref t) = self.spotify.get_current_track() {
-            let name = format!("{} - {}",
-                t.artists.iter().map(|ref artist| artist.name.clone()).collect::<Vec<String>>().join(", "),
-                t.name).to_string();
+            let name = format!(
+                "{} - {}",
+                t.artists
+                    .iter()
+                    .map(|ref artist| artist.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                t.name
+            )
+            .to_string();
 
             let minutes = t.duration_ms / 60000;
             let seconds = (t.duration_ms % 60000) / 1000;
             let formatted_duration = format!("{:02}:{:02}", minutes, seconds);
 
             let elapsed = self.spotify.get_current_progress();
-            let formatted_elapsed = format!("{:02}:{:02}", elapsed.as_secs() / 60, elapsed.as_secs() % 60);
+            let formatted_elapsed = format!(
+                "{:02}:{:02}",
+                elapsed.as_secs() / 60,
+                elapsed.as_secs() % 60
+            );
 
             let duration = format!("{} / {} ", formatted_elapsed, formatted_duration);
             let offset = HAlign::Right.get_offset(duration.width(), printer.size.x);
@@ -66,8 +81,15 @@ impl View for StatusBar {
                 printer.print((offset, 1), &duration);
             });
 
-            printer.with_color(ColorStyle::new(back, front), |printer| {
-                printer.print_hline((0, 0), (((printer.size.x as u32) * (elapsed.as_millis() as u32)) / t.duration_ms) as usize, "=")
+            printer.with_color(style_bar, |printer| {
+                printer.print((0, 0), &"—".repeat(printer.size.x));
+                let duration_width = (((printer.size.x as u32) * (elapsed.as_millis() as u32))
+                    / t.duration_ms) as usize;
+                printer.print((0, 0), &format!("{}{}", "=".repeat(duration_width), ">"));
+            });
+        } else {
+            printer.with_color(style_bar, |printer| {
+                printer.print((0, 0), &"—".repeat(printer.size.x));
             });
         }
     }
