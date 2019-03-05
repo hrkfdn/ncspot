@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use queue::{Queue, QueueChange};
 use spotify::Spotify;
 use track::Track;
+use ui::splitbutton::SplitButton;
 use ui::trackbutton::TrackButton;
 
 pub struct QueueView {
@@ -71,7 +72,7 @@ impl QueueView {
         }
     }
 
-    fn create_button(&self, track: &Track) -> TrackButton {
+    fn create_button(&self, track: &Track) -> SplitButton {
         let mut button = TrackButton::new(&track);
         // 'd' deletes the selected track
         {
