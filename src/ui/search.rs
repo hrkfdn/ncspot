@@ -7,8 +7,6 @@ use cursive::Cursive;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use librespot::core::spotify_id::SpotifyId;
-
 use queue::Queue;
 use spotify::Spotify;
 use ui::trackbutton::TrackButton;
@@ -33,12 +31,12 @@ impl SearchView {
         if let Ok(tracks) = tracks {
             for track in tracks.tracks.items {
                 let s = spotify.clone();
-                let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
                 let mut button = TrackButton::new(&track);
 
                 // <enter> plays the selected track
+                let t = track.clone();
                 button.add_callback(Key::Enter, move |_cursive| {
-                    s.load(trackid);
+                    s.load(t.clone());
                     s.play();
                 });
 

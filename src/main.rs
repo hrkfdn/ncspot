@@ -27,6 +27,7 @@ use std::sync::Mutex;
 use cursive::event::Key;
 use cursive::view::ScrollStrategy;
 use cursive::views::*;
+use cursive::traits::Identifiable;
 use cursive::Cursive;
 
 mod config;
@@ -129,43 +130,53 @@ fn main() {
         });
     }
 
-    let searchscreen = cursive.active_screen();
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
-    cursive.add_fullscreen_layer(search.view);
 
-    let playlistscreen = cursive.add_active_screen();
     let mut playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
-    cursive.add_fullscreen_layer(playlists.view.take().unwrap());
 
-    let queuescreen = cursive.add_active_screen();
     let mut queueview = ui::queue::QueueView::new(queue.clone(), spotify.clone());
-    cursive.add_fullscreen_layer(queueview.view.take().unwrap());
 
-    let logscreen = cursive.add_active_screen();
     let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
     let logpanel = Panel::new(logview_scroller).title("Log");
-    cursive.add_fullscreen_layer(logpanel);
+
+    let status = ui::statusbar::StatusBar::new(spotify.clone());
+
+    let layout = ui::layout::Layout::new(status)
+        .view("search", BoxView::with_full_height(search.view))
+        .view("playlists", playlists.view.take().unwrap())
+        .view("queue", queueview.view.take().unwrap())
+        .view("log", logpanel);
+
+    cursive.add_fullscreen_layer(layout.with_id("main"));
 
     cursive.add_global_callback(Key::F1, move |s| {
-        s.set_screen(logscreen);
+        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+            v.set_view("log");
+        });
     });
 
     {
         let ev = event_manager.clone();
         cursive.add_global_callback(Key::F2, move |s| {
-            s.set_screen(queuescreen);
+            s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                v.set_view("queue");
+            });
             ev.send(Event::Queue(QueueChange::Show));
         });
     }
 
     cursive.add_global_callback(Key::F3, move |s| {
-        s.set_screen(searchscreen);
+        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+            v.set_view("search");
+        });
     });
 
     {
         let ev = event_manager.clone();
         cursive.add_global_callback(Key::F4, move |s| {
-            s.set_screen(playlistscreen);
+            s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                v.set_view("playlists");
+            });
             ev.send(Event::Playlist(PlaylistEvent::Refresh));
         });
     }
@@ -177,7 +188,8 @@ fn main() {
             trace!("event received");
             match event {
                 Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
-                Event::Player(state) => spotify.updatestate(state),
+                Event::PlayerStatus(state) => spotify.update_status(state),
+                Event::PlayerTrack(track) => spotify.update_track(track),
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
             }
         }

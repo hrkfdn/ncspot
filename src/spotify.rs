@@ -14,6 +14,7 @@ use rspotify::spotify::client::Spotify as SpotifyAPI;
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
 use rspotify::spotify::model::search::SearchTracks;
+use rspotify::spotify::model::track::FullTrack;
 
 use failure::Error;
 
@@ -28,27 +29,32 @@ use tokio_core::reactor::Core;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use std::time::{Duration, SystemTime};
 use std::thread;
 
 use events::{Event, EventManager};
 use queue::Queue;
 
 enum WorkerCommand {
-    Load(SpotifyId),
+    Load(FullTrack),
     Play,
     Pause,
     Stop,
 }
 
-pub enum PlayerState {
+#[derive(Clone)]
+pub enum PlayerStatus {
     Playing,
     Paused,
     Stopped,
 }
 
 pub struct Spotify {
-    pub state: RwLock<PlayerState>,
+    status: RwLock<PlayerStatus>,
+    track: RwLock<Option<FullTrack>>,
     pub api: SpotifyAPI,
+    elapsed: RwLock<Option<Duration>>,
+    since: RwLock<Option<SystemTime>>,
     channel: mpsc::UnboundedSender<WorkerCommand>,
     events: EventManager,
     user: String,
@@ -93,20 +99,23 @@ impl futures::Future for Worker {
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
-                        self.play_task = Box::new(self.player.load(track, false, 0));
+                        let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
+                        self.play_task = Box::new(self.player.load(trackid, false, 0));
                         info!("player loading track..");
+                        self.events.send(Event::PlayerTrack(Some(track)));
                     }
                     WorkerCommand::Play => {
                         self.player.play();
-                        self.events.send(Event::Player(PlayerState::Playing));
+                        self.events.send(Event::PlayerStatus(PlayerStatus::Playing));
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
-                        self.events.send(Event::Player(PlayerState::Paused));
+                        self.events.send(Event::PlayerStatus(PlayerStatus::Paused));
                     }
                     WorkerCommand::Stop => {
                         self.player.stop();
-                        self.events.send(Event::Player(PlayerState::Stopped));
+                        self.events.send(Event::PlayerTrack(None));
+                        self.events.send(Event::PlayerStatus(PlayerStatus::Stopped));
                     }
                 }
             }
@@ -123,9 +132,11 @@ impl futures::Future for Worker {
                         self.play_task = Box::new(self.player.load(trackid, false, 0));
                         self.player.play();
 
-                        self.events.send(Event::Player(PlayerState::Playing));
+                        self.events.send(Event::PlayerTrack(Some(track)));
+                        self.events.send(Event::PlayerStatus(PlayerStatus::Playing));
                     } else {
-                        self.events.send(Event::Player(PlayerState::Stopped));
+                        self.events.send(Event::PlayerTrack(None));
+                        self.events.send(Event::PlayerStatus(PlayerStatus::Stopped));
                     }
                 }
                 Ok(Async::NotReady) => (),
@@ -183,8 +194,11 @@ impl Spotify {
         let api = SpotifyAPI::default().access_token(&token.access_token);
 
         Spotify {
-            state: RwLock::new(PlayerState::Stopped),
+            status: RwLock::new(PlayerStatus::Stopped),
+            track: RwLock::new(None),
             api: api,
+            elapsed: RwLock::new(None),
+            since: RwLock::new(None),
             channel: tx,
             events: events,
             user: user,
@@ -223,6 +237,40 @@ impl Spotify {
         debug!("worker thread finished.");
     }
 
+    pub fn get_current_status(&self) -> PlayerStatus {
+        let status = self.status.read().expect("could not acquire read lock on playback status");
+        (*status).clone()
+    }
+
+    pub fn get_current_track(&self) -> Option<FullTrack> {
+        let track = self.track.read().expect("could not acquire read lock on current track");
+        (*track).clone()
+    }
+
+    pub fn get_current_progress(&self) -> Duration {
+        self.get_elapsed().unwrap_or(Duration::from_secs(0)) + self.get_since().map(|t| t.elapsed().unwrap()).unwrap_or(Duration::from_secs(0))
+    }
+
+    fn set_elapsed(&self, new_elapsed: Option<Duration>) {
+        let mut elapsed = self.elapsed.write().expect("could not acquire write lock on elapsed time");
+        *elapsed = new_elapsed;
+    }
+
+    fn get_elapsed(&self) -> Option<Duration> {
+        let elapsed = self.elapsed.read().expect("could not acquire read lock on elapsed time");
+        (*elapsed).clone()
+    }
+
+    fn set_since(&self, new_since: Option<SystemTime>) {
+        let mut since = self.since.write().expect("could not acquire write lock on since time");
+        *since = new_since;
+    }
+
+    fn get_since(&self) -> Option<SystemTime> {
+        let since = self.since.read().expect("could not acquire read lock on since time");
+        (*since).clone()
+    }
+
     pub fn search(&self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
         self.api.search_track(query, limit, offset, None)
     }
@@ -240,19 +288,41 @@ impl Spotify {
             .user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
     }
 
-    pub fn load(&self, track: SpotifyId) {
+    pub fn load(&self, track: FullTrack) {
         info!("loading track: {:?}", track);
         self.channel
             .unbounded_send(WorkerCommand::Load(track))
             .unwrap();
     }
 
-    pub fn updatestate(&self, newstate: PlayerState) {
-        let mut state = self
-            .state
+    pub fn update_status(&self, new_status: PlayerStatus) {
+        match new_status {
+            PlayerStatus::Paused => {
+                self.set_elapsed(Some(self.get_current_progress()));
+                self.set_since(None);
+            },
+            PlayerStatus::Playing => {
+                self.set_since(Some(SystemTime::now()));
+            },
+            PlayerStatus::Stopped => {
+                self.set_elapsed(None);
+                self.set_since(None);
+            }
+        }
+
+        let mut status = self
+            .status
             .write()
-            .expect("could not acquire write lock on player state");
-        *state = newstate;
+            .expect("could not acquire write lock on player status");
+        *status = new_status;
+    }
+
+    pub fn update_track(&self, new_track: Option<FullTrack>) {
+        self.set_elapsed(None);
+        self.set_since(None);
+
+        let mut track = self.track.write().expect("could not acquire write lock on current track");
+        *track = new_track;
     }
 
     pub fn play(&self) {
@@ -261,13 +331,13 @@ impl Spotify {
     }
 
     pub fn toggleplayback(&self) {
-        let state = self
-            .state
+        let status = self
+            .status
             .read()
             .expect("could not acquire read lock on player state");
-        match *state {
-            PlayerState::Playing => self.pause(),
-            PlayerState::Paused => self.play(),
+        match *status {
+            PlayerStatus::Playing => self.pause(),
+            PlayerStatus::Paused => self.play(),
             _ => (),
         }
     }

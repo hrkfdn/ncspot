@@ -8,7 +8,6 @@ use cursive::Cursive;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use librespot::core::spotify_id::SpotifyId;
 use rspotify::spotify::model::track::FullTrack;
 
 use queue::{Queue, QueueChange};
@@ -47,8 +46,7 @@ impl QueueView {
         if let Some(queuelist) = view_ref {
             let index = queuelist.get_focus_index();
             let track = queue.remove(index).expect("could not dequeue track");
-            let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
-            spotify.load(trackid);
+            spotify.load(track);
             spotify.play();
         }
     }
