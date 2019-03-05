@@ -1,16 +1,16 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use cursive::direction::Direction;
-use cursive::event::{Event, EventResult, AnyCb};
+use cursive::event::{AnyCb, Event, EventResult};
 use cursive::traits::View;
-use cursive::view::{IntoBoxedView, Selector};
 use cursive::vec::Vec2;
+use cursive::view::{IntoBoxedView, Selector};
 use cursive::Printer;
 
 pub struct Layout {
     views: HashMap<String, Box<dyn View>>,
     statusbar: Box<dyn View>,
-    focus: Option<String>
+    focus: Option<String>,
 }
 
 impl Layout {
@@ -18,7 +18,7 @@ impl Layout {
         Layout {
             views: HashMap::new(),
             statusbar: status.as_boxed_view(),
-            focus: None
+            focus: None,
         }
     }
 
@@ -45,12 +45,13 @@ impl View for Layout {
             let v = self.views.get(id).unwrap();
             let printer = &printer
                 .offset((0, 0))
-                .cropped((printer.size.x, printer.size.y - 2))
+                .cropped((printer.size.x, printer.size.y))
                 .focused(true);
             v.draw(printer);
         }
 
-        self.statusbar.draw(&printer.offset((0, printer.size.y - 2)));
+        self.statusbar
+            .draw(&printer.offset((0, printer.size.y - 2)));
     }
 
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
@@ -69,7 +70,7 @@ impl View for Layout {
     fn layout(&mut self, size: Vec2) {
         if let Some(ref id) = self.focus {
             let v = self.views.get_mut(id).unwrap();
-            v.layout(Vec2::new(size.x, size.y - 1));
+            v.layout(Vec2::new(size.x, size.y - 2));
         }
     }
 

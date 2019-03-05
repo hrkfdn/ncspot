@@ -25,9 +25,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use cursive::event::Key;
+use cursive::traits::Identifiable;
 use cursive::view::ScrollStrategy;
 use cursive::views::*;
-use cursive::traits::Identifiable;
 use cursive::Cursive;
 
 mod config;

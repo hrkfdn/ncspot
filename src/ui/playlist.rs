@@ -5,7 +5,7 @@ use cursive::traits::Boxable;
 use cursive::traits::Identifiable;
 use cursive::views::*;
 use cursive::Cursive;
-use rspotify::spotify::model::playlist::{SimplifiedPlaylist};
+use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
 use queue::Queue;
 use spotify::Spotify;

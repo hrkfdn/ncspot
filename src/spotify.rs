@@ -29,8 +29,8 @@ use tokio_core::reactor::Core;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
-use std::time::{Duration, SystemTime};
 use std::thread;
+use std::time::{Duration, SystemTime};
 
 use events::{Event, EventManager};
 use queue::Queue;
@@ -99,7 +99,8 @@ impl futures::Future for Worker {
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
-                        let trackid = SpotifyId::from_base62(&track.id).expect("could not load track");
+                        let trackid =
+                            SpotifyId::from_base62(&track.id).expect("could not load track");
                         self.play_task = Box::new(self.player.load(trackid, false, 0));
                         info!("player loading track..");
                         self.events.send(Event::PlayerTrack(Some(track)));
@@ -238,36 +239,58 @@ impl Spotify {
     }
 
     pub fn get_current_status(&self) -> PlayerStatus {
-        let status = self.status.read().expect("could not acquire read lock on playback status");
+        let status = self
+            .status
+            .read()
+            .expect("could not acquire read lock on playback status");
         (*status).clone()
     }
 
     pub fn get_current_track(&self) -> Option<FullTrack> {
-        let track = self.track.read().expect("could not acquire read lock on current track");
+        let track = self
+            .track
+            .read()
+            .expect("could not acquire read lock on current track");
         (*track).clone()
     }
 
     pub fn get_current_progress(&self) -> Duration {
-        self.get_elapsed().unwrap_or(Duration::from_secs(0)) + self.get_since().map(|t| t.elapsed().unwrap()).unwrap_or(Duration::from_secs(0))
+        self.get_elapsed().unwrap_or(Duration::from_secs(0))
+            + self
+                .get_since()
+                .map(|t| t.elapsed().unwrap())
+                .unwrap_or(Duration::from_secs(0))
     }
 
     fn set_elapsed(&self, new_elapsed: Option<Duration>) {
-        let mut elapsed = self.elapsed.write().expect("could not acquire write lock on elapsed time");
+        let mut elapsed = self
+            .elapsed
+            .write()
+            .expect("could not acquire write lock on elapsed time");
         *elapsed = new_elapsed;
     }
 
     fn get_elapsed(&self) -> Option<Duration> {
-        let elapsed = self.elapsed.read().expect("could not acquire read lock on elapsed time");
+        let elapsed = self
+            .elapsed
+            .read()
+            .expect("could not acquire read lock on elapsed time");
         (*elapsed).clone()
     }
 
     fn set_since(&self, new_since: Option<SystemTime>) {
-        let mut since = self.since.write().expect("could not acquire write lock on since time");
+        let mut since = self
+            .since
+            .write()
+            .expect("could not acquire write lock on since time");
         *since = new_since;
     }
 
     fn get_since(&self) -> Option<SystemTime> {
-        let since = self.since.read().expect("could not acquire read lock on since time");
+        let since = self
+            .since
+            .read()
+            .expect("could not acquire read lock on since time");
         (*since).clone()
     }
 
@@ -300,10 +323,10 @@ impl Spotify {
             PlayerStatus::Paused => {
                 self.set_elapsed(Some(self.get_current_progress()));
                 self.set_since(None);
-            },
+            }
             PlayerStatus::Playing => {
                 self.set_since(Some(SystemTime::now()));
-            },
+            }
             PlayerStatus::Stopped => {
                 self.set_elapsed(None);
                 self.set_since(None);
@@ -321,7 +344,10 @@ impl Spotify {
         self.set_elapsed(None);
         self.set_since(None);
 
-        let mut track = self.track.write().expect("could not acquire write lock on current track");
+        let mut track = self
+            .track
+            .write()
+            .expect("could not acquire write lock on current track");
         *track = new_track;
     }
 
