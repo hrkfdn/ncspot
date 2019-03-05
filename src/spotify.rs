@@ -3,7 +3,6 @@ use librespot::core::config::SessionConfig;
 use librespot::core::keymaster::get_token;
 use librespot::core::keymaster::Token;
 use librespot::core::session::Session;
-use librespot::core::spotify_id::SpotifyId;
 use librespot::playback::config::PlayerConfig;
 
 use librespot::playback::audio_backend;

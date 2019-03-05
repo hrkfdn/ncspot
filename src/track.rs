@@ -45,7 +45,7 @@ impl fmt::Debug for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({} - {} ({})",
+            "({} - {} ({}))",
             self.artists,
             self.title,
             self.id.to_base62()

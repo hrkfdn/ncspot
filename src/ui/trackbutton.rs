@@ -1,5 +1,5 @@
-use ui::splitbutton::SplitButton;
 use track::Track;
+use ui::splitbutton::SplitButton;
 
 pub struct TrackButton {}
 
