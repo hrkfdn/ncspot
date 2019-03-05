@@ -6,7 +6,7 @@ by ncurses MPD clients, such as ncmpc.  My motivation was to provide a simple
 and resource friendly alternative to the official client as well as to support
 platforms that currently don't have a Spotify client, such as the *BSDs.
 
-[![Search](/screenshots/search-thumb.png?raw=true)](/screenshots/search.png?raw=true)
+[![Search](/screenshots/screenshot-thumb.png?raw=true)](/screenshots/screenshot.png?raw=true)
 
 **NOTE**: ncspot is still in a very early development stage. Things will break
 and change. The feature set is still very limited. Also, as this is my first
