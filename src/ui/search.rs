@@ -53,11 +53,12 @@ impl SearchView {
     }
 
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) -> SearchView {
-        let spotify_ref = spotify.clone();
         let queue_ref = queue.clone();
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
-                SearchView::search_handler(s, input, spotify_ref.clone(), queue_ref.clone());
+                if input.len() > 0 {
+                    Self::search_handler(s, input, spotify.clone(), queue_ref.clone());
+                }
             })
             .with_id("search_edit")
             .full_width()
