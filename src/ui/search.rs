@@ -9,6 +9,7 @@ use std::sync::Mutex;
 
 use queue::Queue;
 use spotify::Spotify;
+use track::Track;
 use ui::trackbutton::TrackButton;
 
 pub struct SearchView {
@@ -29,7 +30,9 @@ impl SearchView {
         results.clear();
 
         if let Ok(tracks) = tracks {
-            for track in tracks.tracks.items {
+            for search_track in tracks.tracks.items {
+                let track = Track::new(&search_track);
+
                 let s = spotify.clone();
                 let mut button = TrackButton::new(&track);
 

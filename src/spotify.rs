@@ -14,7 +14,6 @@ use rspotify::spotify::client::Spotify as SpotifyAPI;
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
 use rspotify::spotify::model::search::SearchTracks;
-use rspotify::spotify::model::track::FullTrack;
 
 use failure::Error;
 
@@ -34,9 +33,10 @@ use std::time::{Duration, SystemTime};
 
 use events::{Event, EventManager};
 use queue::Queue;
+use track::Track;
 
 enum WorkerCommand {
-    Load(FullTrack),
+    Load(Track),
     Play,
     Pause,
     Stop,
@@ -51,7 +51,7 @@ pub enum PlayerStatus {
 
 pub struct Spotify {
     status: RwLock<PlayerStatus>,
-    track: RwLock<Option<FullTrack>>,
+    track: RwLock<Option<Track>>,
     pub api: SpotifyAPI,
     elapsed: RwLock<Option<Duration>>,
     since: RwLock<Option<SystemTime>>,
@@ -99,9 +99,7 @@ impl futures::Future for Worker {
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
-                        let trackid =
-                            SpotifyId::from_base62(&track.id).expect("could not load track");
-                        self.play_task = Box::new(self.player.load(trackid, false, 0));
+                        self.play_task = Box::new(self.player.load(track.id, false, 0));
                         info!("player loading track..");
                         self.events.send(Event::PlayerTrack(Some(track)));
                     }
@@ -127,10 +125,8 @@ impl futures::Future for Worker {
 
                     let mut queue = self.queue.lock().unwrap();
                     if let Some(track) = queue.dequeue() {
-                        debug!("next track in queue: {}", track.name);
-                        let trackid =
-                            SpotifyId::from_base62(&track.id).expect("could not load track");
-                        self.play_task = Box::new(self.player.load(trackid, false, 0));
+                        debug!("next track in queue: {}", track);
+                        self.play_task = Box::new(self.player.load(track.id, false, 0));
                         self.player.play();
 
                         self.events.send(Event::PlayerTrack(Some(track)));
@@ -246,7 +242,7 @@ impl Spotify {
         (*status).clone()
     }
 
-    pub fn get_current_track(&self) -> Option<FullTrack> {
+    pub fn get_current_track(&self) -> Option<Track> {
         let track = self
             .track
             .read()
@@ -311,7 +307,7 @@ impl Spotify {
             .user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
     }
 
-    pub fn load(&self, track: FullTrack) {
+    pub fn load(&self, track: Track) {
         info!("loading track: {:?}", track);
         self.channel
             .unbounded_send(WorkerCommand::Load(track))
@@ -340,7 +336,7 @@ impl Spotify {
         *status = new_status;
     }
 
-    pub fn update_track(&self, new_track: Option<FullTrack>) {
+    pub fn update_track(&self, new_track: Option<Track>) {
         self.set_elapsed(None);
         self.set_since(None);
 

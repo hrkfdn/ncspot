@@ -6,15 +6,14 @@ use cursive::traits::View;
 use cursive::vec::Vec2;
 use cursive::Cursive;
 use cursive::Printer;
-use rspotify::spotify::model::track::FullTrack;
 use unicode_width::UnicodeWidthStr;
+
+use track::Track;
 
 pub struct TrackButton {
     callbacks: Vec<(EventTrigger, Callback)>,
 
-    track: FullTrack,
-    title: String,
-    duration: String,
+    track: Track,
 
     enabled: bool,
     last_size: Vec2,
@@ -22,24 +21,10 @@ pub struct TrackButton {
 }
 
 impl TrackButton {
-    pub fn new(track: &FullTrack) -> TrackButton {
-        let artists = track
-            .artists
-            .iter()
-            .map(|ref artist| artist.name.clone())
-            .collect::<Vec<String>>()
-            .join(", ");
-        let formatted_title = format!("{} - {}", artists, track.name);
-
-        let minutes = track.duration_ms / 60000;
-        let seconds = (track.duration_ms % 60000) / 1000;
-        let formatted_duration = format!("{:02}:{:02}", minutes, seconds);
-
+    pub fn new(track: &Track) -> TrackButton {
         TrackButton {
             callbacks: Vec::new(),
             track: track.clone(),
-            title: formatted_title,
-            duration: formatted_duration,
             enabled: true,
             last_size: Vec2::zero(),
             invalidated: true,
@@ -72,9 +57,9 @@ impl View for TrackButton {
         };
 
         // shorten titles that are too long and append ".." to indicate this
-        let mut title_shortened = self.title.clone();
-        title_shortened.truncate(printer.size.x - self.duration.width() - 1);
-        if title_shortened.width() < self.title.width() {
+        let mut title_shortened = self.track.to_string();
+        title_shortened.truncate(printer.size.x - self.track.duration_str().width() - 1);
+        if title_shortened.width() < self.track.to_string().width() {
             let offset = title_shortened.width() - 2;
             title_shortened.replace_range(offset.., "..");
         }
@@ -84,10 +69,10 @@ impl View for TrackButton {
         });
 
         // track duration goes to the end of the line
-        let offset = HAlign::Right.get_offset(self.duration.width(), printer.size.x);
+        let offset = HAlign::Right.get_offset(self.track.duration_str().width(), printer.size.x);
 
         printer.with_color(style, |printer| {
-            printer.print((offset, 0), &self.duration);
+            printer.print((offset, 0), &self.track.duration_str());
         });
     }
 

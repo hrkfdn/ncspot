@@ -8,10 +8,9 @@ use cursive::Cursive;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use rspotify::spotify::model::track::FullTrack;
-
 use queue::{Queue, QueueChange};
 use spotify::Spotify;
+use track::Track;
 use ui::trackbutton::TrackButton;
 
 pub struct QueueView {
@@ -72,7 +71,7 @@ impl QueueView {
         }
     }
 
-    fn create_button(&self, track: &FullTrack) -> TrackButton {
+    fn create_button(&self, track: &Track) -> TrackButton {
         let mut button = TrackButton::new(&track);
         // 'd' deletes the selected track
         {

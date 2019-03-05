@@ -9,6 +9,7 @@ use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
 use queue::Queue;
 use spotify::Spotify;
+use track::Track;
 
 pub enum PlaylistEvent {
     Refresh,
@@ -49,7 +50,7 @@ impl PlaylistView {
             let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
             let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
             for playlist_track in tracks {
-                locked_queue.enqueue(playlist_track.track.clone());
+                locked_queue.enqueue(Track::new(&playlist_track.track));
             }
         });
 

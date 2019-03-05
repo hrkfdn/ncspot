@@ -51,21 +51,6 @@ impl View for StatusBar {
         });
 
         if let Some(ref t) = self.spotify.get_current_track() {
-            let name = format!(
-                "{} - {}",
-                t.artists
-                    .iter()
-                    .map(|ref artist| artist.name.clone())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                t.name
-            )
-            .to_string();
-
-            let minutes = t.duration_ms / 60000;
-            let seconds = (t.duration_ms % 60000) / 1000;
-            let formatted_duration = format!("{:02}:{:02}", minutes, seconds);
-
             let elapsed = self.spotify.get_current_progress();
             let formatted_elapsed = format!(
                 "{:02}:{:02}",
@@ -73,18 +58,18 @@ impl View for StatusBar {
                 elapsed.as_secs() % 60
             );
 
-            let duration = format!("{} / {} ", formatted_elapsed, formatted_duration);
+            let duration = format!("{} / {} ", formatted_elapsed, t.duration_str());
             let offset = HAlign::Right.get_offset(duration.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
-                printer.print((4, 1), &name);
+                printer.print((4, 1), &t.to_string());
                 printer.print((offset, 1), &duration);
             });
 
             printer.with_color(style_bar, |printer| {
                 printer.print((0, 0), &"—".repeat(printer.size.x));
-                let duration_width = (((printer.size.x as u32) * (elapsed.as_millis() as u32))
-                    / t.duration_ms) as usize;
+                let duration_width =
+                    (((printer.size.x as u32) * (elapsed.as_secs() as u32)) / t.duration) as usize;
                 printer.print((0, 0), &format!("{}{}", "=".repeat(duration_width), ">"));
             });
         } else {

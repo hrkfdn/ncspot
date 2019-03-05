@@ -35,6 +35,7 @@ mod events;
 mod queue;
 mod spotify;
 mod theme;
+mod track;
 mod ui;
 
 use events::{Event, EventManager};

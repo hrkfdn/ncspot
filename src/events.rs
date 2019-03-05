@@ -1,16 +1,15 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
 use cursive::{CbFunc, Cursive};
 
-use rspotify::spotify::model::track::FullTrack;
-use spotify::PlayerStatus;
-
 use queue::QueueChange;
+use spotify::PlayerStatus;
+use track::Track;
 use ui::playlist::PlaylistEvent;
 
 pub enum Event {
     Queue(QueueChange),
     PlayerStatus(PlayerStatus),
-    PlayerTrack(Option<FullTrack>),
+    PlayerTrack(Option<Track>),
     Playlist(PlaylistEvent),
 }
 
