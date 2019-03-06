@@ -10,6 +10,7 @@ use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
+use ui::splitbutton::SplitButton;
 
 pub enum PlaylistEvent {
     Refresh,
@@ -39,14 +40,18 @@ impl PlaylistView {
         }
     }
 
-    fn create_button(&self, playlist: &SimplifiedPlaylist) -> Button {
+    fn create_button(&self, playlist: &SimplifiedPlaylist) -> SplitButton {
         let spotify_ref = self.spotify.clone();
         let queue_ref = self.queue.clone();
 
-        // TODO: implement a custom view that displays playlists similar to
-        // TrackButton with more detail, e.g. number of tracks, total duration.
         let id = playlist.id.clone();
-        let button = Button::new_raw(playlist.name.clone(), move |_s| {
+        let collab = match playlist.collaborative {
+            true => "collaborative",
+            false => "",
+        };
+
+        let mut button = SplitButton::new(&playlist.name, collab);
+        button.add_callback(' ', move |_s| {
             let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
             let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
             for playlist_track in tracks {
