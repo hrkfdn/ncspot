@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cursive::align::HAlign;
 use cursive::theme::ColorStyle;
@@ -7,15 +7,20 @@ use cursive::vec::Vec2;
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
-use spotify::{PlayerStatus, Spotify};
+use queue::Queue;
+use spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
+    queue: Arc<Mutex<Queue>>,
     spotify: Arc<Spotify>,
 }
 
 impl StatusBar {
-    pub fn new(spotify: Arc<Spotify>) -> StatusBar {
-        StatusBar { spotify: spotify }
+    pub fn new(queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> StatusBar {
+        StatusBar {
+            queue: queue,
+            spotify: spotify,
+        }
     }
 }
 
@@ -40,9 +45,9 @@ impl View for StatusBar {
         });
 
         let state_icon = match self.spotify.get_current_status() {
-            PlayerStatus::Playing => " ▶ ",
-            PlayerStatus::Paused => " ▮▮ ",
-            PlayerStatus::Stopped => " ◼  ",
+            PlayerEvent::Playing => " ▶ ",
+            PlayerEvent::Paused => " ▮▮ ",
+            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => " ◼  ",
         }
         .to_string();
 
@@ -50,7 +55,12 @@ impl View for StatusBar {
             printer.print((0, 1), &state_icon);
         });
 
-        if let Some(ref t) = self.spotify.get_current_track() {
+        if let Some(ref t) = self
+            .queue
+            .lock()
+            .expect("could not lock queue")
+            .get_current()
+        {
             let elapsed = self.spotify.get_current_progress();
             let formatted_elapsed = format!(
                 "{:02}:{:02}",

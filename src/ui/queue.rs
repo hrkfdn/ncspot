@@ -8,8 +8,7 @@ use cursive::Cursive;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use queue::{Queue, QueueChange};
-use spotify::Spotify;
+use queue::{Queue, QueueEvent};
 use track::Track;
 use ui::splitbutton::SplitButton;
 use ui::trackbutton::TrackButton;
@@ -17,11 +16,10 @@ use ui::trackbutton::TrackButton;
 pub struct QueueView {
     pub view: Option<Panel<BoxView<BoxView<ScrollView<IdView<LinearLayout>>>>>>, // FIXME: wow
     queue: Arc<Mutex<Queue>>,
-    spotify: Arc<Spotify>,
 }
 
 impl QueueView {
-    pub fn new(queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> QueueView {
+    pub fn new(queue: Arc<Mutex<Queue>>) -> QueueView {
         let queuelist = LinearLayout::new(Orientation::Vertical).with_id("queue_list");
         let scrollable = ScrollView::new(queuelist).full_width().full_height();
         let panel = Panel::new(scrollable).title("Queue");
@@ -29,7 +27,6 @@ impl QueueView {
         QueueView {
             view: Some(panel),
             queue: queue,
-            spotify: spotify,
         }
     }
 
@@ -41,33 +38,28 @@ impl QueueView {
         }
     }
 
-    fn cb_play(cursive: &mut Cursive, queue: &mut Queue, spotify: &Spotify) {
+    fn cb_play(cursive: &mut Cursive, queue: &mut Queue) {
         let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
         if let Some(queuelist) = view_ref {
             let index = queuelist.get_focus_index();
-            let track = queue.remove(index).expect("could not dequeue track");
-            spotify.load(track);
-            spotify.play();
+            queue.play(index);
         }
     }
 
-    pub fn handle_ev(&self, cursive: &mut Cursive, ev: QueueChange) {
+    pub fn handle_ev(&self, cursive: &mut Cursive, ev: QueueEvent) {
         let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
         if let Some(mut queuelist) = view_ref {
             match ev {
-                QueueChange::Enqueue => {
+                QueueEvent::Add(index) => {
                     let queue = self.queue.lock().expect("could not lock queue");
-                    let track = queue.peek().expect("queue is empty");
+                    let track = queue.get(index);
                     let button = self.create_button(&track);
-                    queuelist.insert_child(0, button);
+                    queuelist.insert_child(index, button);
                 }
-                QueueChange::Dequeue => {
-                    queuelist.remove_child(0);
-                }
-                QueueChange::Remove(index) => {
+                QueueEvent::Remove(index) => {
                     queuelist.remove_child(index);
                 }
-                QueueChange::Show => self.populate(&mut queuelist),
+                QueueEvent::Show => self.populate(&mut queuelist),
             }
         }
     }
@@ -85,15 +77,13 @@ impl QueueView {
             });
         }
 
-        // <enter> dequeues the selected track
+        // <enter> plays the selected track
         {
             let queue_ref = self.queue.clone();
-            let spotify = self.spotify.clone();
             button.add_callback(Key::Enter, move |cursive| {
                 Self::cb_play(
                     cursive,
                     &mut queue_ref.lock().expect("could not lock queue"),
-                    &spotify,
                 );
             });
         }
@@ -107,7 +97,7 @@ impl QueueView {
 
         let queue = self.queue.lock().expect("could not lock queue");
         for track in queue.iter() {
-            let button = self.create_button(&track);
+            let button = self.create_button(track);
             queuelist.add_child(button);
         }
     }

@@ -1,57 +1,124 @@
-use std::collections::vec_deque::Iter;
-use std::collections::VecDeque;
-
-use track::Track;
+use std::slice::Iter;
+use std::sync::Arc;
 
 use events::{Event, EventManager};
+use spotify::Spotify;
+use track::Track;
 
 pub struct Queue {
-    queue: VecDeque<Track>,
+    // TODO: put this in an RwLock instead of locking the whole Queue struct
+    queue: Vec<Track>,
+    current_track: Option<usize>,
+    spotify: Arc<Spotify>,
     ev: EventManager,
 }
 
-pub enum QueueChange {
-    Dequeue,
-    Enqueue,
+pub enum QueueEvent {
+    Add(usize),
     Remove(usize),
     Show,
 }
 
 impl Queue {
-    pub fn new(ev: EventManager) -> Queue {
+    pub fn new(ev: EventManager, spotify: Arc<Spotify>) -> Queue {
         Queue {
-            queue: VecDeque::new(),
+            queue: Vec::new(),
+            current_track: None,
+            spotify: spotify,
             ev: ev,
         }
     }
-    pub fn remove(&mut self, index: usize) -> Option<Track> {
-        match self.queue.remove(index) {
-            Some(track) => {
-                debug!("Removed from queue: {}", &track);
-                self.ev.send(Event::Queue(QueueChange::Remove(index)));
-                Some(track)
+
+    pub fn next_index(&self) -> Option<usize> {
+        match self.current_track {
+            Some(index) => {
+                let next_index = index + 1;
+                if next_index < self.queue.len() {
+                    Some(next_index)
+                } else {
+                    None
+                }
             }
             None => None,
         }
     }
-    pub fn enqueue(&mut self, track: Track) {
-        debug!("Queued: {}", &track);
-        self.queue.push_back(track);
-        self.ev.send(Event::Queue(QueueChange::Enqueue));
+
+    pub fn get(&self, index: usize) -> &Track {
+        &self.queue[index]
     }
-    pub fn dequeue(&mut self) -> Option<Track> {
-        match self.queue.pop_front() {
-            Some(track) => {
-                debug!("Dequeued : {}", track);
-                self.ev.send(Event::Queue(QueueChange::Dequeue));
-                Some(track)
-            }
+
+    pub fn get_current(&self) -> Option<&Track> {
+        match self.current_track {
+            Some(index) => Some(&self.queue[index]),
             None => None,
         }
     }
-    pub fn peek(&self) -> Option<&Track> {
-        self.queue.get(0)
+
+    pub fn append(&mut self, track: &Track) {
+        self.queue.push(track.clone());
+        self.ev
+            .send(Event::Queue(QueueEvent::Add(self.queue.len())));
     }
+
+    pub fn append_next(&mut self, track: &Track) -> usize {
+        if let Some(next_index) = self.next_index() {
+            self.queue.insert(next_index, track.clone());
+            self.ev.send(Event::Queue(QueueEvent::Add(next_index)));
+            next_index
+        } else {
+            self.queue.push(track.clone());
+            self.ev
+                .send(Event::Queue(QueueEvent::Add(self.queue.len() - 1)));
+            self.queue.len() - 1
+        }
+    }
+
+    pub fn remove(&mut self, index: usize) {
+        self.queue.remove(index);
+        self.ev.send(Event::Queue(QueueEvent::Remove(index)));
+
+        // if the queue is empty or we are at the end of the queue, stop
+        // playback
+        if self.queue.len() == 0 || index == self.queue.len() {
+            self.stop();
+            return;
+        }
+
+        // if we are deleting the currently playing track, play the track with
+        // the same index again, because the next track is now at the position
+        // of the one we deleted
+        if let Some(current_track) = self.current_track {
+            if current_track == index {
+                self.play(index);
+            }
+        }
+    }
+
+    pub fn play(&mut self, index: usize) {
+        let track = &self.queue[index];
+        self.spotify.load(&track);
+        self.current_track = Some(index);
+        self.spotify.play();
+        self.spotify.update_track();
+    }
+
+    pub fn toggleplayback(&self) {
+        self.spotify.toggleplayback();
+    }
+
+    pub fn stop(&mut self) {
+        self.spotify.stop();
+        self.current_track = None;
+    }
+
+    pub fn next(&mut self) {
+        if let Some(next_index) = self.next_index() {
+            self.play(next_index);
+        } else {
+            self.spotify.stop();
+        }
+    }
+
     pub fn iter(&self) -> Iter<Track> {
         self.queue.iter()
     }

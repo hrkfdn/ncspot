@@ -24,14 +24,11 @@ use futures::Future;
 use futures::Stream;
 use tokio_core::reactor::Core;
 
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
 use events::{Event, EventManager};
-use queue::Queue;
 use track::Track;
 
 enum WorkerCommand {
@@ -41,21 +38,20 @@ enum WorkerCommand {
     Stop,
 }
 
-#[derive(Clone)]
-pub enum PlayerStatus {
+#[derive(Clone, PartialEq)]
+pub enum PlayerEvent {
     Playing,
     Paused,
     Stopped,
+    FinishedTrack,
 }
 
 pub struct Spotify {
-    status: RwLock<PlayerStatus>,
-    track: RwLock<Option<Track>>,
+    status: RwLock<PlayerEvent>,
     pub api: SpotifyAPI,
     elapsed: RwLock<Option<Duration>>,
     since: RwLock<Option<SystemTime>>,
     channel: mpsc::UnboundedSender<WorkerCommand>,
-    events: EventManager,
     user: String,
 }
 
@@ -64,7 +60,6 @@ struct Worker {
     commands: mpsc::UnboundedReceiver<WorkerCommand>,
     player: Player,
     play_task: Box<futures::Future<Item = (), Error = oneshot::Canceled>>,
-    queue: Arc<Mutex<Queue>>,
 }
 
 impl Worker {
@@ -72,14 +67,12 @@ impl Worker {
         events: EventManager,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         player: Player,
-        queue: Arc<Mutex<Queue>>,
     ) -> Worker {
         Worker {
             events: events,
             commands: commands,
             player: player,
             play_task: Box::new(futures::empty()),
-            queue: queue,
         }
     }
 }
@@ -99,21 +92,19 @@ impl futures::Future for Worker {
                 match cmd {
                     WorkerCommand::Load(track) => {
                         self.play_task = Box::new(self.player.load(track.id, false, 0));
-                        info!("player loading track..");
-                        self.events.send(Event::PlayerTrack(Some(track)));
+                        info!("player loading track: {:?}", track);
                     }
                     WorkerCommand::Play => {
                         self.player.play();
-                        self.events.send(Event::PlayerStatus(PlayerStatus::Playing));
+                        self.events.send(Event::Player(PlayerEvent::Playing));
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
-                        self.events.send(Event::PlayerStatus(PlayerStatus::Paused));
+                        self.events.send(Event::Player(PlayerEvent::Paused));
                     }
                     WorkerCommand::Stop => {
                         self.player.stop();
-                        self.events.send(Event::PlayerTrack(None));
-                        self.events.send(Event::PlayerStatus(PlayerStatus::Stopped));
+                        self.events.send(Event::Player(PlayerEvent::Stopped));
                     }
                 }
             }
@@ -121,19 +112,7 @@ impl futures::Future for Worker {
                 Ok(Async::Ready(())) => {
                     debug!("end of track!");
                     progress = true;
-
-                    let mut queue = self.queue.lock().unwrap();
-                    if let Some(track) = queue.dequeue() {
-                        debug!("next track in queue: {}", track);
-                        self.play_task = Box::new(self.player.load(track.id, false, 0));
-                        self.player.play();
-
-                        self.events.send(Event::PlayerTrack(Some(track)));
-                        self.events.send(Event::PlayerStatus(PlayerStatus::Playing));
-                    } else {
-                        self.events.send(Event::PlayerTrack(None));
-                        self.events.send(Event::PlayerStatus(PlayerStatus::Stopped));
-                    }
+                    self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                 }
                 Ok(Async::NotReady) => (),
                 Err(oneshot::Canceled) => {
@@ -152,13 +131,7 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(
-        events: EventManager,
-        user: String,
-        password: String,
-        client_id: String,
-        queue: Arc<Mutex<Queue>>,
-    ) -> Spotify {
+    pub fn new(events: EventManager, user: String, password: String, client_id: String) -> Spotify {
         let session_config = SessionConfig::default();
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
@@ -180,7 +153,6 @@ impl Spotify {
                     player_config,
                     credentials,
                     client_id,
-                    queue,
                 )
             });
         }
@@ -190,13 +162,11 @@ impl Spotify {
         let api = SpotifyAPI::default().access_token(&token.access_token);
 
         Spotify {
-            status: RwLock::new(PlayerStatus::Stopped),
-            track: RwLock::new(None),
+            status: RwLock::new(PlayerEvent::Stopped),
             api: api,
             elapsed: RwLock::new(None),
             since: RwLock::new(None),
             channel: tx,
-            events: events,
             user: user,
         }
     }
@@ -209,7 +179,6 @@ impl Spotify {
         player_config: PlayerConfig,
         credentials: Credentials,
         client_id: String,
-        queue: Arc<Mutex<Queue>>,
     ) {
         let mut core = Core::new().unwrap();
         let handle = core.handle();
@@ -227,26 +196,18 @@ impl Spotify {
         let (player, _eventchannel) =
             Player::new(player_config, session, None, move || (backend)(None));
 
-        let worker = Worker::new(events, commands, player, queue);
+        let worker = Worker::new(events, commands, player);
         debug!("worker thread ready.");
         core.run(worker).unwrap();
         debug!("worker thread finished.");
     }
 
-    pub fn get_current_status(&self) -> PlayerStatus {
+    pub fn get_current_status(&self) -> PlayerEvent {
         let status = self
             .status
             .read()
             .expect("could not acquire read lock on playback status");
         (*status).clone()
-    }
-
-    pub fn get_current_track(&self) -> Option<Track> {
-        let track = self
-            .track
-            .read()
-            .expect("could not acquire read lock on current track");
-        (*track).clone()
     }
 
     pub fn get_current_progress(&self) -> Duration {
@@ -306,23 +267,23 @@ impl Spotify {
             .user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
     }
 
-    pub fn load(&self, track: Track) {
+    pub fn load(&self, track: &Track) {
         info!("loading track: {:?}", track);
         self.channel
-            .unbounded_send(WorkerCommand::Load(track))
+            .unbounded_send(WorkerCommand::Load(track.clone()))
             .unwrap();
     }
 
-    pub fn update_status(&self, new_status: PlayerStatus) {
+    pub fn update_status(&self, new_status: PlayerEvent) {
         match new_status {
-            PlayerStatus::Paused => {
+            PlayerEvent::Paused => {
                 self.set_elapsed(Some(self.get_current_progress()));
                 self.set_since(None);
             }
-            PlayerStatus::Playing => {
+            PlayerEvent::Playing => {
                 self.set_since(Some(SystemTime::now()));
             }
-            PlayerStatus::Stopped => {
+            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => {
                 self.set_elapsed(None);
                 self.set_since(None);
             }
@@ -335,15 +296,9 @@ impl Spotify {
         *status = new_status;
     }
 
-    pub fn update_track(&self, new_track: Option<Track>) {
+    pub fn update_track(&self) {
         self.set_elapsed(None);
         self.set_since(None);
-
-        let mut track = self
-            .track
-            .write()
-            .expect("could not acquire write lock on current track");
-        *track = new_track;
     }
 
     pub fn play(&self) {
@@ -357,8 +312,8 @@ impl Spotify {
             .read()
             .expect("could not acquire read lock on player state");
         match *status {
-            PlayerStatus::Playing => self.pause(),
-            PlayerStatus::Paused => self.play(),
+            PlayerEvent::Playing => self.pause(),
+            PlayerEvent::Paused => self.play(),
             _ => (),
         }
     }

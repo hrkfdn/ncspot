@@ -39,7 +39,8 @@ mod track;
 mod ui;
 
 use events::{Event, EventManager};
-use queue::QueueChange;
+use queue::QueueEvent;
+use spotify::PlayerEvent;
 use ui::playlist::PlaylistEvent;
 
 fn init_logger(content: TextContent) {
@@ -106,28 +107,37 @@ fn main() {
     cursive.set_theme(theme::default());
     cursive.set_autorefresh(true);
 
-    let queue = Arc::new(Mutex::new(queue::Queue::new(event_manager.clone())));
-
     let spotify = Arc::new(spotify::Spotify::new(
         event_manager.clone(),
         cfg.username,
         cfg.password,
         config::CLIENT_ID.to_string(),
-        queue.clone(),
     ));
+
+    let queue = Arc::new(Mutex::new(queue::Queue::new(
+        event_manager.clone(),
+        spotify.clone(),
+    )));
 
     // global player keybindings (play, pause, stop)
     {
-        let spotify = spotify.clone();
+        let queue = queue.clone();
         cursive.add_global_callback('P', move |_s| {
-            spotify.toggleplayback();
+            queue.lock().expect("could not lock queue").toggleplayback();
         });
     }
 
     {
-        let spotify = spotify.clone();
+        let queue = queue.clone();
         cursive.add_global_callback('S', move |_s| {
-            spotify.stop();
+            queue.lock().expect("could not lock queue").stop();
+        });
+    }
+
+    {
+        let queue = queue.clone();
+        cursive.add_global_callback('>', move |_s| {
+            queue.lock().expect("could not lock queue").next();
         });
     }
 
@@ -135,12 +145,12 @@ fn main() {
 
     let mut playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
 
-    let mut queueview = ui::queue::QueueView::new(queue.clone(), spotify.clone());
+    let mut queueview = ui::queue::QueueView::new(queue.clone());
 
     let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
     let logpanel = Panel::new(logview_scroller).title("Log");
 
-    let status = ui::statusbar::StatusBar::new(spotify.clone());
+    let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
     let layout = ui::layout::Layout::new(status)
         .view("search", BoxView::with_full_height(search.view))
@@ -162,7 +172,7 @@ fn main() {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("queue");
             });
-            ev.send(Event::Queue(QueueChange::Show));
+            ev.send(Event::Queue(QueueEvent::Show));
         });
     }
 
@@ -189,8 +199,12 @@ fn main() {
             trace!("event received");
             match event {
                 Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
-                Event::PlayerStatus(state) => spotify.update_status(state),
-                Event::PlayerTrack(track) => spotify.update_track(track),
+                Event::Player(state) => {
+                    if state == PlayerEvent::FinishedTrack {
+                        queue.lock().expect("could not lock queue").next();
+                    }
+                    spotify.update_status(state);
+                }
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
             }
         }

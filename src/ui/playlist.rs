@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use cursive::direction::Orientation;
+use cursive::event::Key;
 use cursive::traits::Boxable;
 use cursive::traits::Identifiable;
 use cursive::views::*;
@@ -41,23 +42,46 @@ impl PlaylistView {
     }
 
     fn create_button(&self, playlist: &SimplifiedPlaylist) -> SplitButton {
-        let spotify_ref = self.spotify.clone();
-        let queue_ref = self.queue.clone();
-
-        let id = playlist.id.clone();
         let collab = match playlist.collaborative {
             true => "collaborative",
             false => "",
         };
 
         let mut button = SplitButton::new(&playlist.name, collab);
-        button.add_callback(' ', move |_s| {
-            let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
-            let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
-            for playlist_track in tracks {
-                locked_queue.enqueue(Track::new(&playlist_track.track));
-            }
-        });
+
+        // <enter> plays the selected playlist
+        {
+            let id = playlist.id.clone();
+            let spotify_ref = self.spotify.clone();
+            let queue_ref = self.queue.clone();
+            button.add_callback(Key::Enter, move |_s| {
+                let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
+                let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
+
+                let mut first_played = false;
+                for playlist_track in tracks {
+                    let index = locked_queue.append_next(&Track::new(&playlist_track.track));
+                    if !first_played {
+                        locked_queue.play(index);
+                        first_played = true;
+                    }
+                }
+            });
+        }
+
+        // <space> queues the selected playlist
+        {
+            let id = playlist.id.clone();
+            let spotify_ref = self.spotify.clone();
+            let queue_ref = self.queue.clone();
+            button.add_callback(' ', move |_s| {
+                let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
+                let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
+                for playlist_track in tracks {
+                    locked_queue.append(&Track::new(&playlist_track.track));
+                }
+            });
+        }
 
         button
     }

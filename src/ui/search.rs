@@ -14,7 +14,6 @@ use ui::trackbutton::TrackButton;
 
 pub struct SearchView {
     pub view: Panel<LinearLayout>,
-    queue: Arc<Mutex<Queue>>,
 }
 
 impl SearchView {
@@ -32,23 +31,28 @@ impl SearchView {
         if let Ok(tracks) = tracks {
             for search_track in tracks.tracks.items {
                 let track = Track::new(&search_track);
-
-                let s = spotify.clone();
                 let mut button = TrackButton::new(&track);
 
                 // <enter> plays the selected track
-                let t = track.clone();
-                button.add_callback(Key::Enter, move |_cursive| {
-                    s.load(t.clone());
-                    s.play();
-                });
+                {
+                    let queue = queue.clone();
+                    let track = track.clone();
+                    button.add_callback(Key::Enter, move |_cursive| {
+                        let mut queue = queue.lock().unwrap();
+                        let index = queue.append_next(&track);
+                        queue.play(index);
+                    });
+                }
 
                 // <space> queues the selected track
-                let queue = queue.clone();
-                button.add_callback(' ', move |_cursive| {
-                    let mut queue = queue.lock().unwrap();
-                    queue.enqueue(track.clone());
-                });
+                {
+                    let queue = queue.clone();
+                    let track = track.clone();
+                    button.add_callback(' ', move |_cursive| {
+                        let mut queue = queue.lock().unwrap();
+                        queue.append(&track);
+                    });
+                }
 
                 results.add_child("", button);
             }
@@ -72,9 +76,6 @@ impl SearchView {
             .child(searchfield)
             .child(scrollable);
         let rootpanel = Panel::new(layout).title("Search");
-        return SearchView {
-            view: rootpanel,
-            queue: queue,
-        };
+        return SearchView { view: rootpanel };
     }
 }
