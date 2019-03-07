@@ -92,6 +92,14 @@ impl Queue {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.stop();
+        self.queue.clear();
+
+        // redraw queue if open
+        self.ev.send(Event::Queue(QueueEvent::Show));
+    }
+
     pub fn play(&mut self, index: usize) {
         let track = &self.queue[index];
         self.spotify.load(&track);

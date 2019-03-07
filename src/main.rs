@@ -141,6 +141,14 @@ fn main() {
         });
     }
 
+    {
+        let queue = queue.clone();
+        cursive.add_global_callback('c', move |_s| {
+            let mut queue = queue.lock().expect("could not lock queue");
+            queue.clear();
+        });
+    }
+
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
     let mut playlists =
