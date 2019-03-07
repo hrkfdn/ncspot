@@ -143,7 +143,8 @@ fn main() {
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
-    let mut playlists = ui::playlist::PlaylistView::new(queue.clone(), spotify.clone());
+    let mut playlists =
+        ui::playlist::PlaylistView::new(event_manager.clone(), queue.clone(), spotify.clone());
 
     let mut queueview = ui::queue::QueueView::new(queue.clone());
 
@@ -187,7 +188,7 @@ fn main() {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("playlists");
             });
-            ev.send(Event::Playlist(PlaylistEvent::Refresh));
+            ev.send(Event::Playlist(PlaylistEvent::Show));
         });
     }
 

@@ -262,9 +262,14 @@ impl Spotify {
         self.api.current_user_playlists(limit, offset)
     }
 
-    pub fn user_playlist_tracks(&self, playlist_id: &str) -> Result<Page<PlaylistTrack>, Error> {
+    pub fn user_playlist_tracks(
+        &self,
+        playlist_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Page<PlaylistTrack>, Error> {
         self.api
-            .user_playlist_tracks(&self.user, playlist_id, None, 50, 0, None)
+            .user_playlist_tracks(&self.user, playlist_id, None, limit, offset, None)
     }
 
     pub fn load(&self, track: &Track) {

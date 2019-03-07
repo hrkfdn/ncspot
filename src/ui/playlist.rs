@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 
 use cursive::direction::Orientation;
 use cursive::event::Key;
@@ -8,58 +9,61 @@ use cursive::views::*;
 use cursive::Cursive;
 use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
+use events::{Event, EventManager};
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
 use ui::splitbutton::SplitButton;
 
+#[derive(Clone)]
+pub struct Playlist {
+    meta: SimplifiedPlaylist,
+    tracks: Vec<Track>,
+}
+
 pub enum PlaylistEvent {
-    Refresh,
+    Show,
+    NewList(Playlist),
 }
 
 pub struct PlaylistView {
     pub view: Option<BoxView<ScrollView<IdView<LinearLayout>>>>,
     queue: Arc<Mutex<Queue>>,
-    spotify: Arc<Spotify>,
+    playlists: Arc<RwLock<Vec<Playlist>>>,
 }
 
 impl PlaylistView {
-    pub fn new(queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> PlaylistView {
-        let playlists = LinearLayout::new(Orientation::Vertical).with_id("playlists");
-        let scrollable = ScrollView::new(playlists).full_screen();
+    pub fn new(ev: EventManager, queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> PlaylistView {
+        let playlists_view = LinearLayout::new(Orientation::Vertical).with_id("playlists");
+        let scrollable = ScrollView::new(playlists_view).full_screen();
+        let playlists = Arc::new(RwLock::new(Vec::new()));
+
+        {
+            let spotify = spotify.clone();
+            let playlists = playlists.clone();
+            Self::load_playlists(ev, spotify, playlists);
+        }
 
         PlaylistView {
             view: Some(scrollable),
             queue: queue,
-            spotify: spotify,
-        }
-    }
-    fn clear_playlists(&self, playlists: &mut ViewRef<LinearLayout>) {
-        while playlists.len() > 0 {
-            playlists.remove_child(0);
+            playlists: playlists,
         }
     }
 
-    fn create_button(&self, playlist: &SimplifiedPlaylist) -> SplitButton {
-        let collab = match playlist.collaborative {
-            true => "collaborative",
-            false => "",
-        };
-
-        let mut button = SplitButton::new(&playlist.name, collab);
+    fn create_button(&self, playlist: &Playlist) -> SplitButton {
+        let trackcount = format!("{} tracks", playlist.tracks.len());
+        let mut button = SplitButton::new(&playlist.meta.name, &trackcount);
 
         // <enter> plays the selected playlist
         {
-            let id = playlist.id.clone();
-            let spotify_ref = self.spotify.clone();
             let queue_ref = self.queue.clone();
+            let playlist = playlist.clone();
             button.add_callback(Key::Enter, move |_s| {
-                let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
-                let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
-
+                let mut locked_queue = queue_ref.lock().expect("could not acquire lock");
                 let mut first_played = false;
-                for playlist_track in tracks {
-                    let index = locked_queue.append_next(&Track::new(&playlist_track.track));
+                for track in playlist.tracks.iter() {
+                    let index = locked_queue.append_next(track);
                     if !first_played {
                         locked_queue.play(index);
                         first_played = true;
@@ -70,14 +74,12 @@ impl PlaylistView {
 
         // <space> queues the selected playlist
         {
-            let id = playlist.id.clone();
-            let spotify_ref = self.spotify.clone();
             let queue_ref = self.queue.clone();
+            let playlist = playlist.clone();
             button.add_callback(' ', move |_s| {
-                let tracks = spotify_ref.user_playlist_tracks(&id).unwrap().items;
-                let mut locked_queue = queue_ref.lock().expect("Could not aquire lock");
-                for playlist_track in tracks {
-                    locked_queue.append(&Track::new(&playlist_track.track));
+                let mut locked_queue = queue_ref.lock().expect("could not acquire lock");
+                for track in playlist.tracks.iter() {
+                    locked_queue.append(track);
                 }
             });
         }
@@ -85,10 +87,82 @@ impl PlaylistView {
         button
     }
 
-    fn show_playlists(&self, playlists: &mut ViewRef<LinearLayout>) {
-        let playlists_response = self.spotify.current_user_playlist(50, 0).unwrap().items;
-        for playlist in &playlists_response {
-            let button = self.create_button(playlist);
+    fn load_playlist(list: &SimplifiedPlaylist, spotify: Arc<Spotify>) -> Playlist {
+        debug!("got list: {}", list.name);
+        let id = list.id.clone();
+
+        let mut collected_tracks = Vec::new();
+
+        let mut tracks_result = spotify.user_playlist_tracks(&id, 50, 0).ok();
+        while let Some(ref tracks) = tracks_result.clone() {
+            for listtrack in &tracks.items {
+                collected_tracks.push(Track::new(&listtrack.track));
+            }
+            debug!("got {} tracks", tracks.items.len());
+
+            // load next batch if necessary
+            tracks_result = match tracks.next {
+                Some(_) => {
+                    debug!("requesting tracks again..");
+                    spotify
+                        .user_playlist_tracks(&id, 50, tracks.offset + tracks.items.len() as u32)
+                        .ok()
+                }
+                None => None,
+            }
+        }
+        Playlist {
+            meta: list.clone(),
+            tracks: collected_tracks,
+        }
+    }
+
+    fn load_playlists(
+        ev: EventManager,
+        spotify: Arc<Spotify>,
+        playlists: Arc<RwLock<Vec<Playlist>>>,
+    ) {
+        thread::spawn(move || {
+            debug!("loading playlists");
+            let mut lists_result = spotify.current_user_playlist(50, 0).ok();
+            while let Some(ref lists) = lists_result.clone() {
+                for list in &lists.items {
+                    let playlist = Self::load_playlist(&list, spotify.clone());
+                    ev.send(Event::Playlist(PlaylistEvent::NewList(playlist.clone())));
+                    playlists
+                        .write()
+                        .expect("could not acquire write lock on playlists")
+                        .push(playlist);
+                }
+
+                // load next batch if necessary
+                lists_result = match lists.next {
+                    Some(_) => {
+                        debug!("requesting playlists again..");
+                        spotify
+                            .current_user_playlist(50, lists.offset + lists.items.len() as u32)
+                            .ok()
+                    }
+                    None => None,
+                }
+            }
+        });
+    }
+
+    fn clear_playlists(&self, playlists: &mut ViewRef<LinearLayout>) {
+        while playlists.len() > 0 {
+            playlists.remove_child(0);
+        }
+    }
+
+    fn populate(&self, playlists: &mut ViewRef<LinearLayout>) {
+        for list in self
+            .playlists
+            .read()
+            .expect("could not acquire read lock on playlists")
+            .iter()
+        {
+            let button = self.create_button(&list);
             playlists.add_child(button);
         }
     }
@@ -98,11 +172,13 @@ impl PlaylistView {
 
         if let Some(mut playlists) = view_ref {
             match event {
-                PlaylistEvent::Refresh => {
-                    // FIXME: do this only once at startup or when requested by
-                    // the user
+                PlaylistEvent::Show => {
                     self.clear_playlists(&mut playlists);
-                    self.show_playlists(&mut playlists);
+                    self.populate(&mut playlists);
+                }
+                PlaylistEvent::NewList(list) => {
+                    let button = self.create_button(&list);
+                    playlists.add_child(button);
                 }
             }
         }
