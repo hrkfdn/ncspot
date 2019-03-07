@@ -43,10 +43,6 @@ impl Queue {
         }
     }
 
-    pub fn get(&self, index: usize) -> &Track {
-        &self.queue[index]
-    }
-
     pub fn get_current(&self) -> Option<&Track> {
         match self.current_track {
             Some(index) => Some(&self.queue[index]),
@@ -88,8 +84,10 @@ impl Queue {
         // the same index again, because the next track is now at the position
         // of the one we deleted
         if let Some(current_track) = self.current_track {
-            if current_track == index {
+            if index == current_track {
                 self.play(index);
+            } else if index < current_track {
+                self.current_track = Some(current_track - 1);
             }
         }
     }
@@ -107,8 +105,8 @@ impl Queue {
     }
 
     pub fn stop(&mut self) {
-        self.spotify.stop();
         self.current_track = None;
+        self.spotify.stop();
     }
 
     pub fn next(&mut self) {

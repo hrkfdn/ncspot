@@ -32,9 +32,10 @@ impl QueueView {
 
     fn cb_delete(cursive: &mut Cursive, queue: &mut Queue) {
         let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
-        if let Some(queuelist) = view_ref {
+        if let Some(mut queuelist) = view_ref {
             let index = queuelist.get_focus_index();
             queue.remove(index);
+            queuelist.remove_child(index);
         }
     }
 
@@ -50,16 +51,8 @@ impl QueueView {
         let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
         if let Some(mut queuelist) = view_ref {
             match ev {
-                QueueEvent::Add(index) => {
-                    let queue = self.queue.lock().expect("could not lock queue");
-                    let track = queue.get(index);
-                    let button = self.create_button(&track);
-                    queuelist.insert_child(index, button);
-                }
-                QueueEvent::Remove(index) => {
-                    queuelist.remove_child(index);
-                }
                 QueueEvent::Show => self.populate(&mut queuelist),
+                _ => (),
             }
         }
     }
