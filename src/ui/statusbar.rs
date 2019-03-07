@@ -45,9 +45,9 @@ impl View for StatusBar {
         });
 
         let state_icon = match self.spotify.get_current_status() {
-            PlayerEvent::Playing => " ▶ ",
-            PlayerEvent::Paused => " ▮▮ ",
-            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => " ◼  ",
+            PlayerEvent::Playing => "▶ ",
+            PlayerEvent::Paused => "▮▮",
+            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => "◼ ",
         }
         .to_string();
 

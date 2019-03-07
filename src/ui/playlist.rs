@@ -18,7 +18,7 @@ pub enum PlaylistEvent {
 }
 
 pub struct PlaylistView {
-    pub view: Option<Panel<BoxView<BoxView<ScrollView<IdView<LinearLayout>>>>>>, // FIXME: wow
+    pub view: Option<BoxView<ScrollView<IdView<LinearLayout>>>>,
     queue: Arc<Mutex<Queue>>,
     spotify: Arc<Spotify>,
 }
@@ -26,11 +26,10 @@ pub struct PlaylistView {
 impl PlaylistView {
     pub fn new(queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> PlaylistView {
         let playlists = LinearLayout::new(Orientation::Vertical).with_id("playlists");
-        let scrollable = ScrollView::new(playlists).full_width().full_height();
-        let panel = Panel::new(scrollable).title("Playlists");
+        let scrollable = ScrollView::new(playlists).full_screen();
 
         PlaylistView {
-            view: Some(panel),
+            view: Some(scrollable),
             queue: queue,
             spotify: spotify,
         }

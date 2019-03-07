@@ -13,7 +13,7 @@ use track::Track;
 use ui::trackbutton::TrackButton;
 
 pub struct SearchView {
-    pub view: Panel<LinearLayout>,
+    pub view: LinearLayout,
 }
 
 impl SearchView {
@@ -75,7 +75,7 @@ impl SearchView {
         let layout = LinearLayout::new(Orientation::Vertical)
             .child(searchfield)
             .child(scrollable);
-        let rootpanel = Panel::new(layout).title("Search");
-        return SearchView { view: rootpanel };
+
+        return SearchView { view: layout };
     }
 }

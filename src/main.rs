@@ -148,15 +148,14 @@ fn main() {
     let mut queueview = ui::queue::QueueView::new(queue.clone());
 
     let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
-    let logpanel = Panel::new(logview_scroller).title("Log");
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
     let layout = ui::layout::Layout::new(status)
-        .view("search", BoxView::with_full_height(search.view))
-        .view("playlists", playlists.view.take().unwrap())
-        .view("queue", queueview.view.take().unwrap())
-        .view("log", logpanel);
+        .view("search", BoxView::with_full_height(search.view), "Search")
+        .view("playlists", playlists.view.take().unwrap(), "Playlists")
+        .view("queue", queueview.view.take().unwrap(), "Queue")
+        .view("log", logview_scroller, "Log");
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
 

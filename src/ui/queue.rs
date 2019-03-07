@@ -14,18 +14,17 @@ use ui::splitbutton::SplitButton;
 use ui::trackbutton::TrackButton;
 
 pub struct QueueView {
-    pub view: Option<Panel<BoxView<BoxView<ScrollView<IdView<LinearLayout>>>>>>, // FIXME: wow
+    pub view: Option<BoxView<ScrollView<IdView<LinearLayout>>>>,
     queue: Arc<Mutex<Queue>>,
 }
 
 impl QueueView {
     pub fn new(queue: Arc<Mutex<Queue>>) -> QueueView {
         let queuelist = LinearLayout::new(Orientation::Vertical).with_id("queue_list");
-        let scrollable = ScrollView::new(queuelist).full_width().full_height();
-        let panel = Panel::new(scrollable).title("Queue");
+        let scrollable = ScrollView::new(queuelist).full_screen();
 
         QueueView {
-            view: Some(panel),
+            view: Some(scrollable),
             queue: queue,
         }
     }
