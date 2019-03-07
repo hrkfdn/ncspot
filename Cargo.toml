@@ -32,6 +32,8 @@ default-features = false
 
 [dependencies.cursive]
 git = "https://github.com/gyscos/Cursive.git"
+default-features = false
+features = ["pancurses-backend"]
 
 [features]
 pulseaudio_backend = ["librespot/pulseaudio-backend"]
