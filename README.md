@@ -34,12 +34,12 @@ These keybindings are hardcoded for now. In the future it may be desirable to
 have them configurable.
 
 * Navigate through the screens using the F-keys:
-  * `F1`: Debug log
-  * `F2`: Queue
-  * `F3`: Search
-  * `F4`: Playlists
+  * `F1`: Queue
+  * `F2`: Search
+  * `F3`: Playlists
     * `d` deletes the currently selected track
     * `c` clears the entire playlist
+* `F9`: Debug log
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track

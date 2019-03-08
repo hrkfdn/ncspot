@@ -162,21 +162,15 @@ fn main() {
 
     let layout = ui::layout::Layout::new(status)
         .view("search", BoxView::with_full_height(search.view), "Search")
+        .view("log", logview_scroller, "Log")
         .view("playlists", playlists.view.take().unwrap(), "Playlists")
-        .view("queue", queueview.view.take().unwrap(), "Queue")
-        .view("log", logview_scroller, "Log");
+        .view("queue", queueview.view.take().unwrap(), "Queue");
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
-    cursive.add_global_callback(Key::F1, move |s| {
-        s.call_on_id("main", |v: &mut ui::layout::Layout| {
-            v.set_view("log");
-        });
-    });
-
     {
         let ev = event_manager.clone();
-        cursive.add_global_callback(Key::F2, move |s| {
+        cursive.add_global_callback(Key::F1, move |s| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("queue");
             });
@@ -184,7 +178,7 @@ fn main() {
         });
     }
 
-    cursive.add_global_callback(Key::F3, move |s| {
+    cursive.add_global_callback(Key::F2, move |s| {
         s.call_on_id("main", |v: &mut ui::layout::Layout| {
             v.set_view("search");
         });
@@ -192,13 +186,19 @@ fn main() {
 
     {
         let ev = event_manager.clone();
-        cursive.add_global_callback(Key::F4, move |s| {
+        cursive.add_global_callback(Key::F3, move |s| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("playlists");
             });
             ev.send(Event::Playlist(PlaylistEvent::Show));
         });
     }
+
+    cursive.add_global_callback(Key::F9, move |s| {
+        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+            v.set_view("log");
+        });
+    });
 
     // cursive event loop
     while cursive.is_running() {
