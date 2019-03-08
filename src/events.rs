@@ -43,7 +43,7 @@ impl EventManager {
     pub fn trigger(&self) {
         // send a no-op to trigger event loop processing
         self.cursive_sink
-            .send(Box::new(|_s: &mut Cursive| {}))
+            .send(Box::new(Cursive::noop))
             .expect("could not send no-op event to cursive");
     }
 }
