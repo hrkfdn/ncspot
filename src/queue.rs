@@ -13,12 +13,6 @@ pub struct Queue {
     ev: EventManager,
 }
 
-pub enum QueueEvent {
-    Add(usize),
-    Remove(usize),
-    Show,
-}
-
 impl Queue {
     pub fn new(ev: EventManager, spotify: Arc<Spotify>) -> Queue {
         Queue {
@@ -52,26 +46,20 @@ impl Queue {
 
     pub fn append(&mut self, track: &Track) {
         self.queue.push(track.clone());
-        self.ev
-            .send(Event::Queue(QueueEvent::Add(self.queue.len())));
     }
 
     pub fn append_next(&mut self, track: &Track) -> usize {
         if let Some(next_index) = self.next_index() {
             self.queue.insert(next_index, track.clone());
-            self.ev.send(Event::Queue(QueueEvent::Add(next_index)));
             next_index
         } else {
             self.queue.push(track.clone());
-            self.ev
-                .send(Event::Queue(QueueEvent::Add(self.queue.len() - 1)));
             self.queue.len() - 1
         }
     }
 
     pub fn remove(&mut self, index: usize) {
         self.queue.remove(index);
-        self.ev.send(Event::Queue(QueueEvent::Remove(index)));
 
         // if the queue is empty or we are at the end of the queue, stop
         // playback
@@ -97,7 +85,7 @@ impl Queue {
         self.queue.clear();
 
         // redraw queue if open
-        self.ev.send(Event::Queue(QueueEvent::Show));
+        self.ev.send(Event::ScreenChange("queue".to_owned()));
     }
 
     pub fn play(&mut self, index: usize) {

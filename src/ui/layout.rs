@@ -10,6 +10,8 @@ use cursive::view::{IntoBoxedView, Selector};
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
+use events;
+
 struct Screen {
     title: String,
     view: Box<dyn View>,
@@ -20,15 +22,19 @@ pub struct Layout {
     title: String,
     statusbar: Box<dyn View>,
     focus: Option<String>,
+    screenchange: bool,
+    ev: events::EventManager,
 }
 
 impl Layout {
-    pub fn new<T: IntoBoxedView>(status: T) -> Layout {
+    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager) -> Layout {
         Layout {
             views: HashMap::new(),
             title: String::new(),
             statusbar: status.as_boxed_view(),
             focus: None,
+            ev: ev.clone(),
+            screenchange: true,
         }
     }
 
@@ -53,6 +59,7 @@ impl Layout {
         let title = &self.views.get(&s).unwrap().title;
         self.title = title.clone();
         self.focus = Some(s);
+        self.screenchange = true;
     }
 }
 
@@ -95,6 +102,14 @@ impl View for Layout {
         if let Some(ref id) = self.focus {
             let screen = self.views.get_mut(id).unwrap();
             screen.view.layout(Vec2::new(size.x, size.y - 3));
+
+            // the focus view has changed, let the views know so they can redraw
+            // their items
+            if self.screenchange {
+                debug!("layout: new screen selected: {}", &id);
+                self.ev.send(events::Event::ScreenChange(id.clone()));
+                self.screenchange = false;
+            }
         }
     }
 

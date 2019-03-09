@@ -1,14 +1,13 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
 use cursive::{CbFunc, Cursive};
 
-use queue::QueueEvent;
 use spotify::PlayerEvent;
 use ui::playlist::PlaylistEvent;
 
 pub enum Event {
-    Queue(QueueEvent),
     Player(PlayerEvent),
     Playlist(PlaylistEvent),
+    ScreenChange(String),
 }
 
 pub type EventSender = Sender<Event>;

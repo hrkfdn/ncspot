@@ -22,7 +22,6 @@ pub struct Playlist {
 }
 
 pub enum PlaylistEvent {
-    Show,
     NewList(Playlist),
 }
 
@@ -155,15 +154,20 @@ impl PlaylistView {
         }
     }
 
-    fn populate(&self, playlists: &mut ViewRef<LinearLayout>) {
-        for list in self
-            .playlists
-            .read()
-            .expect("could not acquire read lock on playlists")
-            .iter()
-        {
-            let button = self.create_button(&list);
-            playlists.add_child(button);
+    pub fn repopulate(&self, cursive: &mut Cursive) {
+        let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("playlists");
+        if let Some(mut playlists) = view_ref {
+            self.clear_playlists(&mut playlists);
+
+            for list in self
+                .playlists
+                .read()
+                .expect("could not acquire read lock on playlists")
+                .iter()
+            {
+                let button = self.create_button(&list);
+                playlists.add_child(button);
+            }
         }
     }
 
@@ -172,10 +176,6 @@ impl PlaylistView {
 
         if let Some(mut playlists) = view_ref {
             match event {
-                PlaylistEvent::Show => {
-                    self.clear_playlists(&mut playlists);
-                    self.populate(&mut playlists);
-                }
                 PlaylistEvent::NewList(list) => {
                     let button = self.create_button(&list);
                     playlists.add_child(button);

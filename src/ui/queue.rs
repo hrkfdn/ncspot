@@ -8,7 +8,7 @@ use cursive::Cursive;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use queue::{Queue, QueueEvent};
+use queue::Queue;
 use track::Track;
 use ui::splitbutton::SplitButton;
 use ui::trackbutton::TrackButton;
@@ -46,16 +46,6 @@ impl QueueView {
         }
     }
 
-    pub fn handle_ev(&self, cursive: &mut Cursive, ev: QueueEvent) {
-        let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
-        if let Some(mut queuelist) = view_ref {
-            match ev {
-                QueueEvent::Show => self.populate(&mut queuelist),
-                _ => (),
-            }
-        }
-    }
-
     fn create_button(&self, track: &Track) -> SplitButton {
         let mut button = TrackButton::new(&track);
         // 'd' deletes the selected track
@@ -82,15 +72,18 @@ impl QueueView {
         button
     }
 
-    pub fn populate(&self, queuelist: &mut LinearLayout) {
-        while queuelist.len() > 0 {
-            queuelist.remove_child(0);
-        }
+    pub fn repopulate(&self, cursive: &mut Cursive) {
+        let view_ref: Option<ViewRef<LinearLayout>> = cursive.find_id("queue_list");
+        if let Some(mut queuelist) = view_ref {
+            while queuelist.len() > 0 {
+                queuelist.remove_child(0);
+            }
 
-        let queue = self.queue.lock().expect("could not lock queue");
-        for track in queue.iter() {
-            let button = self.create_button(track);
-            queuelist.add_child(button);
+            let queue = self.queue.lock().expect("could not lock queue");
+            for track in queue.iter() {
+                let button = self.create_button(track);
+                queuelist.add_child(button);
+            }
         }
     }
 }

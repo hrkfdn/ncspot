@@ -39,9 +39,7 @@ mod track;
 mod ui;
 
 use events::{Event, EventManager};
-use queue::QueueEvent;
 use spotify::PlayerEvent;
-use ui::playlist::PlaylistEvent;
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -105,7 +103,6 @@ fn main() {
 
     cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
-    cursive.set_autorefresh(true);
 
     let spotify = Arc::new(spotify::Spotify::new(
         event_manager.clone(),
@@ -160,7 +157,7 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
-    let layout = ui::layout::Layout::new(status)
+    let layout = ui::layout::Layout::new(status, &event_manager)
         .view("search", BoxView::with_full_height(search.view), "Search")
         .view("log", logview_scroller, "Log")
         .view("playlists", playlists.view.take().unwrap(), "Playlists")
@@ -169,12 +166,10 @@ fn main() {
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
     {
-        let ev = event_manager.clone();
         cursive.add_global_callback(Key::F1, move |s| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("queue");
             });
-            ev.send(Event::Queue(QueueEvent::Show));
         });
     }
 
@@ -185,12 +180,10 @@ fn main() {
     });
 
     {
-        let ev = event_manager.clone();
         cursive.add_global_callback(Key::F3, move |s| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("playlists");
             });
-            ev.send(Event::Playlist(PlaylistEvent::Show));
         });
     }
 
@@ -206,7 +199,6 @@ fn main() {
         for event in event_manager.msg_iter() {
             trace!("event received");
             match event {
-                Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
                 Event::Player(state) => {
                     if state == PlayerEvent::FinishedTrack {
                         queue.lock().expect("could not lock queue").next();
@@ -214,6 +206,11 @@ fn main() {
                     spotify.update_status(state);
                 }
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
+                Event::ScreenChange(name) => match name.as_ref() {
+                    "playlists" => playlists.repopulate(&mut cursive),
+                    "queue" => queueview.repopulate(&mut cursive),
+                    _ => (),
+                },
             }
         }
     }
