@@ -39,12 +39,12 @@ impl Layout {
             view: view.as_boxed_view(),
         };
         self.views.insert(s.clone(), screen);
+        self.title = title.to_owned();
         self.focus = Some(s);
     }
 
     pub fn view<S: Into<String>, T: IntoBoxedView>(mut self, id: S, view: T, title: &str) -> Self {
         (&mut self).add_view(id, view, title);
-        self.title = title.to_owned();
         self
     }
 
