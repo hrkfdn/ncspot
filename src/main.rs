@@ -25,8 +25,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use cursive::event::Key;
-use cursive::traits::Identifiable;
-use cursive::view::ScrollStrategy;
+use cursive::traits::{Identifiable, View};
+use cursive::view::{Selector, ScrollStrategy};
 use cursive::views::*;
 use cursive::Cursive;
 
@@ -37,11 +37,13 @@ mod spotify;
 mod theme;
 mod track;
 mod ui;
+mod commands;
 
 use events::{Event, EventManager};
 use queue::QueueEvent;
 use spotify::PlayerEvent;
 use ui::playlist::PlaylistEvent;
+use commands::{CommandManager};
 
 fn init_logger(content: TextContent) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -65,6 +67,19 @@ fn init_logger(content: TextContent) {
             })
             .init();
     }
+}
+
+fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
+    cursive: &mut Cursive,
+    ev: &EventManager,
+    event: E,
+    command: S
+) {
+    let ev = ev.clone();
+    let cmd = command.into();
+    cursive.add_global_callback(event, move |_s| {
+        ev.send(Event::Command(cmd.clone()));
+    });
 }
 
 fn main() {
@@ -101,11 +116,11 @@ fn main() {
     init_logger(logbuf);
 
     let mut cursive = Cursive::default();
-    let event_manager = EventManager::new(cursive.cb_sink().clone());
-
-    cursive.add_global_callback('q', |s| s.quit());
     cursive.set_theme(theme::default());
     cursive.set_autorefresh(true);
+
+    let event_manager = EventManager::new(cursive.cb_sink().clone());
+    let mut cmd_manager = CommandManager::new();
 
     let spotify = Arc::new(spotify::Spotify::new(
         event_manager.clone(),
@@ -119,36 +134,6 @@ fn main() {
         spotify.clone(),
     )));
 
-    // global player keybindings (play, pause, stop)
-    {
-        let queue = queue.clone();
-        cursive.add_global_callback('P', move |_s| {
-            queue.lock().expect("could not lock queue").toggleplayback();
-        });
-    }
-
-    {
-        let queue = queue.clone();
-        cursive.add_global_callback('S', move |_s| {
-            queue.lock().expect("could not lock queue").stop();
-        });
-    }
-
-    {
-        let queue = queue.clone();
-        cursive.add_global_callback('>', move |_s| {
-            queue.lock().expect("could not lock queue").next();
-        });
-    }
-
-    {
-        let queue = queue.clone();
-        cursive.add_global_callback('c', move |_s| {
-            let mut queue = queue.lock().expect("could not lock queue");
-            queue.clear();
-        });
-    }
-
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
     let mut playlists =
@@ -160,45 +145,122 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
-    let layout = ui::layout::Layout::new(status)
-        .view("search", BoxView::with_full_height(search.view), "Search")
+    let mut layout = ui::layout::Layout::new(status)
+        .view("search", search.view.with_id("search"), "Search")
         .view("log", logview_scroller, "Log")
         .view("playlists", playlists.view.take().unwrap(), "Playlists")
         .view("queue", queueview.view.take().unwrap(), "Queue");
 
-    cursive.add_fullscreen_layer(layout.with_id("main"));
+    cursive.add_global_callback(':', move |s| {
+        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+            v.enable_cmdline();
+        });
+    });
 
     {
         let ev = event_manager.clone();
-        cursive.add_global_callback(Key::F1, move |s| {
+        layout.cmdline.set_on_submit(move |s, cmd| {
+            s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                v.clear_cmdline();
+                ev.send(Event::Command(cmd.to_string()[1..].to_string()));
+            });
+        });
+    }
+
+    cursive.add_fullscreen_layer(layout.with_id("main"));
+
+    // Register commands
+    cmd_manager.register("quit", vec!["q", "x"], Box::new(move |s, _args| {
+        s.quit();
+        Ok(None)
+    }));
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register("toggleplayback", vec!["toggleplay", "toggle", "play", "pause"], Box::new(move |_s, _args| {
+            queue.lock().expect("could not lock queue").toggleplayback();
+            Ok(None)
+        }));
+    }
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register("stop", Vec::new(), Box::new(move |_s, _args| {
+            queue.lock().expect("could not lock queue").stop();
+            Ok(None)
+        }));
+    }
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register("next", Vec::new(), Box::new(move |_s, _args| {
+            queue.lock().expect("could not lock queue").next();
+            Ok(None)
+        }));
+    }
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register("clear", Vec::new(), Box::new(move |_s, _args| {
+            queue.lock().expect("could not lock queue").clear();
+            Ok(None)
+        }));
+    }
+
+    {
+        let ev = event_manager.clone();
+        cmd_manager.register("queue", Vec::new(), Box::new(move |s, _args| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("queue");
             });
             ev.send(Event::Queue(QueueEvent::Show));
-        });
+            Ok(None)
+        }));
     }
 
-    cursive.add_global_callback(Key::F2, move |s| {
+    cmd_manager.register("search", Vec::new(), Box::new(move |s, args| {
         s.call_on_id("main", |v: &mut ui::layout::Layout| {
             v.set_view("search");
         });
-    });
+        s.call_on_id("search", |v: &mut LinearLayout| {
+            v.focus_view(&Selector::Id("search_edit")).unwrap();
+        });
+        if args.len() >= 1 {
+            s.call_on_id("search_edit", |v: &mut EditView| {
+                v.set_content(args[0].clone());
+            });
+        }
+        Ok(None)
+    }));
 
     {
         let ev = event_manager.clone();
-        cursive.add_global_callback(Key::F3, move |s| {
+        cmd_manager.register("playlists", vec!["lists"], Box::new(move |s, _args| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("playlists");
             });
             ev.send(Event::Playlist(PlaylistEvent::Show));
-        });
+            Ok(None)
+        }));
     }
 
-    cursive.add_global_callback(Key::F9, move |s| {
+    cmd_manager.register("log", Vec::new(), Box::new(move |s, _args| {
         s.call_on_id("main", |v: &mut ui::layout::Layout| {
             v.set_view("log");
         });
-    });
+        Ok(None)
+    }));
+
+    register_keybinding(&mut cursive, &event_manager, 'q', "quit");
+    register_keybinding(&mut cursive, &event_manager, 'P', "toggle");
+    register_keybinding(&mut cursive, &event_manager, 'S', "stop");
+    register_keybinding(&mut cursive, &event_manager, '>', "next");
+    register_keybinding(&mut cursive, &event_manager, 'c', "clear");
+
+    register_keybinding(&mut cursive, &event_manager, Key::F1, "queue");
+    register_keybinding(&mut cursive, &event_manager, Key::F2, "search");
+    register_keybinding(&mut cursive, &event_manager, Key::F3, "playlists");
+    register_keybinding(&mut cursive, &event_manager, Key::F9, "log");
 
     // cursive event loop
     while cursive.is_running() {
@@ -212,8 +274,16 @@ fn main() {
                         queue.lock().expect("could not lock queue").next();
                     }
                     spotify.update_status(state);
-                }
+                },
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
+                Event::Command(cmd) => {
+                    // TODO: handle non-error output as well
+                    if let Err(e) = cmd_manager.handle(&mut cursive, cmd) {
+                        cursive.call_on_id("main", |v: &mut ui::layout::Layout| {
+                            v.set_error(e);
+                        });
+                    }
+                },
             }
         }
     }

@@ -9,6 +9,7 @@ pub enum Event {
     Queue(QueueEvent),
     Player(PlayerEvent),
     Playlist(PlaylistEvent),
+    Command(String),
 }
 
 pub type EventSender = Sender<Event>;
