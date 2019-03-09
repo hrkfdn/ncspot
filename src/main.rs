@@ -43,7 +43,7 @@ use queue::QueueEvent;
 use spotify::PlayerEvent;
 use ui::playlist::PlaylistEvent;
 
-fn init_logger(content: TextContent) {
+fn init_logger(content: TextContent, write_to_file: bool) {
     let mut builder = env_logger::Builder::from_default_env();
     {
         builder
@@ -52,14 +52,16 @@ fn init_logger(content: TextContent) {
                 let line = format!("[{}] {}\n", record.level(), record.args());
                 buffer.append(line.clone());
 
-                let mut file = OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .append(true)
-                    .open("ncspot.log")
-                    .unwrap();
-                if let Err(e) = writeln!(file, "{}", line) {
-                    eprintln!("Couldn't write to file: {}", e);
+                if write_to_file {
+                    let mut file = OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .append(true)
+                        .open("ncspot.log")
+                        .unwrap();
+                    if let Err(e) = writeln!(file, "{}", line) {
+                        eprintln!("Couldn't write to file: {}", e);
+                    }
                 }
                 Ok(())
             })
@@ -98,7 +100,7 @@ fn main() {
 
     let logbuf = TextContent::new("Welcome to ncspot\n");
     let logview = TextView::new_with_content(logbuf.clone());
-    init_logger(logbuf);
+    init_logger(logbuf, false);
 
     let mut cursive = Cursive::default();
     let event_manager = EventManager::new(cursive.cb_sink().clone());
