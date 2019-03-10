@@ -78,6 +78,9 @@ impl Layout {
         self.focus = Some(s);
         self.cmdline_focus = false;
         self.screenchange = true;
+
+        // trigger a redraw
+        self.ev.trigger();
     }
 
     pub fn set_error<S: Into<String>>(&mut self, error: S) {
