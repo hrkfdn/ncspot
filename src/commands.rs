@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use cursive::Cursive;
 
 pub struct CommandManager {
-    commands: HashMap<String, Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>>,
+    commands:
+        HashMap<String, Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>>,
     aliases: HashMap<String, String>,
 }
 
@@ -19,7 +20,7 @@ impl CommandManager {
         &mut self,
         name: S,
         aliases: Vec<S>,
-        cb: Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>
+        cb: Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>,
     ) {
         let name = name.into();
         for a in aliases {

@@ -1,5 +1,5 @@
-use std::time::{SystemTime, Duration};
 use std::collections::HashMap;
+use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
 use cursive::direction::Direction;
@@ -11,6 +11,8 @@ use cursive::view::{IntoBoxedView, Selector};
 use cursive::views::EditView;
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
+
+use events;
 
 struct Screen {
     title: String,
@@ -26,10 +28,12 @@ pub struct Layout {
     cmdline_focus: bool,
     error: Option<String>,
     error_time: Option<SystemTime>,
+    screenchange: bool,
+    ev: events::EventManager,
 }
 
 impl Layout {
-    pub fn new<T: IntoBoxedView>(status: T) -> Layout {
+    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager) -> Layout {
         Layout {
             views: HashMap::new(),
             title: String::new(),
@@ -39,6 +43,8 @@ impl Layout {
             cmdline_focus: false,
             error: None,
             error_time: None,
+            ev: ev.clone(),
+            screenchange: true,
         }
     }
 
@@ -71,6 +77,7 @@ impl Layout {
         self.title = title.clone();
         self.focus = Some(s);
         self.cmdline_focus = false;
+        self.screenchange = true;
     }
 
     pub fn set_error<S: Into<String>>(&mut self, error: S) {
@@ -127,13 +134,15 @@ impl View for Layout {
         if let Some(e) = error {
             printer.with_color(ColorStyle::highlight(), |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
-                printer.print((0, printer.size.y - cmdline_height), &format!("ERROR: {}", e));
+                printer.print(
+                    (0, printer.size.y - cmdline_height),
+                    &format!("ERROR: {}", e),
+                );
             });
         }
 
         if cmdline_visible {
-            let printer = &printer
-                .offset((0, printer.size.y - 1));
+            let printer = &printer.offset((0, printer.size.y - 1));
             self.cmdline.draw(&printer);
         }
     }
@@ -161,6 +170,14 @@ impl View for Layout {
         if let Some(ref id) = self.focus {
             let screen = self.views.get_mut(id).unwrap();
             screen.view.layout(Vec2::new(size.x, size.y - 3));
+
+            // the focus view has changed, let the views know so they can redraw
+            // their items
+            if self.screenchange {
+                debug!("layout: new screen selected: {}", &id);
+                self.ev.send(events::Event::ScreenChange(id.clone()));
+                self.screenchange = false;
+            }
         }
     }
 

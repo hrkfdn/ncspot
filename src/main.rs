@@ -26,10 +26,11 @@ use std::sync::Mutex;
 
 use cursive::event::Key;
 use cursive::traits::{Identifiable, View};
-use cursive::view::{Selector, ScrollStrategy};
+use cursive::view::{ScrollStrategy, Selector};
 use cursive::views::*;
 use cursive::Cursive;
 
+mod commands;
 mod config;
 mod events;
 mod queue;
@@ -37,13 +38,10 @@ mod spotify;
 mod theme;
 mod track;
 mod ui;
-mod commands;
 
+use commands::CommandManager;
 use events::{Event, EventManager};
-use queue::QueueEvent;
 use spotify::PlayerEvent;
-use ui::playlist::PlaylistEvent;
-use commands::{CommandManager};
 
 fn init_logger(content: TextContent, write_to_file: bool) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -75,7 +73,7 @@ fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
     cursive: &mut Cursive,
     ev: &EventManager,
     event: E,
-    command: S
+    command: S,
 ) {
     let ev = ev.clone();
     let cmd = command.into();
@@ -119,7 +117,6 @@ fn main() {
 
     let mut cursive = Cursive::default();
     cursive.set_theme(theme::default());
-    cursive.set_autorefresh(true);
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
     let mut cmd_manager = CommandManager::new();
@@ -147,7 +144,7 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
-    let mut layout = ui::layout::Layout::new(status)
+    let mut layout = ui::layout::Layout::new(status, &event_manager)
         .view("search", search.view.with_id("search"), "Search")
         .view("log", logview_scroller, "Log")
         .view("playlists", playlists.view.take().unwrap(), "Playlists")
@@ -172,86 +169,126 @@ fn main() {
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
     // Register commands
-    cmd_manager.register("quit", vec!["q", "x"], Box::new(move |s, _args| {
-        s.quit();
-        Ok(None)
-    }));
+    cmd_manager.register(
+        "quit",
+        vec!["q", "x"],
+        Box::new(move |s, _args| {
+            s.quit();
+            Ok(None)
+        }),
+    );
 
     {
         let queue = queue.clone();
-        cmd_manager.register("toggleplayback", vec!["toggleplay", "toggle", "play", "pause"], Box::new(move |_s, _args| {
-            queue.lock().expect("could not lock queue").toggleplayback();
-            Ok(None)
-        }));
+        cmd_manager.register(
+            "toggleplayback",
+            vec!["toggleplay", "toggle", "play", "pause"],
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").toggleplayback();
+                Ok(None)
+            }),
+        );
     }
 
     {
         let queue = queue.clone();
-        cmd_manager.register("stop", Vec::new(), Box::new(move |_s, _args| {
-            queue.lock().expect("could not lock queue").stop();
-            Ok(None)
-        }));
+        cmd_manager.register(
+            "stop",
+            Vec::new(),
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").stop();
+                Ok(None)
+            }),
+        );
     }
 
     {
         let queue = queue.clone();
-        cmd_manager.register("next", Vec::new(), Box::new(move |_s, _args| {
-            queue.lock().expect("could not lock queue").next();
-            Ok(None)
-        }));
+        cmd_manager.register(
+            "next",
+            Vec::new(),
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").next();
+                Ok(None)
+            }),
+        );
     }
 
     {
         let queue = queue.clone();
-        cmd_manager.register("clear", Vec::new(), Box::new(move |_s, _args| {
-            queue.lock().expect("could not lock queue").clear();
-            Ok(None)
-        }));
+        cmd_manager.register(
+            "clear",
+            Vec::new(),
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").clear();
+                Ok(None)
+            }),
+        );
     }
 
     {
-        let ev = event_manager.clone();
-        cmd_manager.register("queue", Vec::new(), Box::new(move |s, _args| {
+        cmd_manager.register(
+            "queue",
+            Vec::new(),
+            Box::new(move |s, _args| {
+                s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                    v.set_view("queue");
+                });
+                Ok(None)
+            }),
+        );
+    }
+
+    {
+        cursive.add_global_callback(Key::F1, move |s| {
             s.call_on_id("main", |v: &mut ui::layout::Layout| {
                 v.set_view("queue");
             });
-            ev.send(Event::Queue(QueueEvent::Show));
-            Ok(None)
-        }));
+        });
     }
 
-    cmd_manager.register("search", Vec::new(), Box::new(move |s, args| {
-        s.call_on_id("main", |v: &mut ui::layout::Layout| {
-            v.set_view("search");
-        });
-        s.call_on_id("search", |v: &mut LinearLayout| {
-            v.focus_view(&Selector::Id("search_edit")).unwrap();
-        });
-        if args.len() >= 1 {
-            s.call_on_id("search_edit", |v: &mut EditView| {
-                v.set_content(args.join(" "));
+    cmd_manager.register(
+        "search",
+        Vec::new(),
+        Box::new(move |s, args| {
+            s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                v.set_view("search");
             });
-        }
-        Ok(None)
-    }));
+            s.call_on_id("search", |v: &mut LinearLayout| {
+                v.focus_view(&Selector::Id("search_edit")).unwrap();
+            });
+            if args.len() >= 1 {
+                s.call_on_id("search_edit", |v: &mut EditView| {
+                    v.set_content(args.join(" "));
+                });
+            }
+            Ok(None)
+        }),
+    );
 
     {
-        let ev = event_manager.clone();
-        cmd_manager.register("playlists", vec!["lists"], Box::new(move |s, _args| {
-            s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                v.set_view("playlists");
-            });
-            ev.send(Event::Playlist(PlaylistEvent::Show));
-            Ok(None)
-        }));
+        cmd_manager.register(
+            "playlists",
+            vec!["lists"],
+            Box::new(move |s, _args| {
+                s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                    v.set_view("playlists");
+                });
+                Ok(None)
+            }),
+        );
     }
 
-    cmd_manager.register("log", Vec::new(), Box::new(move |s, _args| {
-        s.call_on_id("main", |v: &mut ui::layout::Layout| {
-            v.set_view("log");
-        });
-        Ok(None)
-    }));
+    cmd_manager.register(
+        "log",
+        Vec::new(),
+        Box::new(move |s, _args| {
+            s.call_on_id("main", |v: &mut ui::layout::Layout| {
+                v.set_view("log");
+            });
+            Ok(None)
+        }),
+    );
 
     register_keybinding(&mut cursive, &event_manager, 'q', "quit");
     register_keybinding(&mut cursive, &event_manager, 'P', "toggle");
@@ -270,13 +307,12 @@ fn main() {
         for event in event_manager.msg_iter() {
             trace!("event received");
             match event {
-                Event::Queue(ev) => queueview.handle_ev(&mut cursive, ev),
                 Event::Player(state) => {
                     if state == PlayerEvent::FinishedTrack {
                         queue.lock().expect("could not lock queue").next();
                     }
                     spotify.update_status(state);
-                },
+                }
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
                 Event::Command(cmd) => {
                     // TODO: handle non-error output as well
@@ -285,6 +321,11 @@ fn main() {
                             v.set_error(e);
                         });
                     }
+                }
+                Event::ScreenChange(name) => match name.as_ref() {
+                    "playlists" => playlists.repopulate(&mut cursive),
+                    "queue" => queueview.repopulate(&mut cursive),
+                    _ => (),
                 },
             }
         }
