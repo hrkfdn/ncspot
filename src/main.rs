@@ -227,7 +227,7 @@ fn main() {
         });
         if args.len() >= 1 {
             s.call_on_id("search_edit", |v: &mut EditView| {
-                v.set_content(args[0].clone());
+                v.set_content(args.join(" "));
             });
         }
         Ok(None)

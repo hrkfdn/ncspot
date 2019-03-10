@@ -37,7 +37,6 @@ impl CommandManager {
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: String) -> Result<Option<String>, String> {
-        // TODO: handle quoted arguments
         let components: Vec<String> = cmd.split(' ').map(|s| s.to_string()).collect();
 
         if let Some(cb) = self.commands.get(&self.handle_aliases(&components[0])) {
