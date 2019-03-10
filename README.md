@@ -45,6 +45,19 @@ have them configurable.
 * `Shift-s` stops a track
 * `q` quits ncspot
 
+You can also open a Vim style commandprompt using `:`, the following commands
+are supported:
+
+* `quit`: Quit ncspot
+* `toggle`: Toggle playback
+* `stop`: Stop playback
+* `next`: Play next track
+* `clear`: Clear playlist
+
+The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
+`search` can be supplied with a search term that will be entered after opening
+the search view.
+
 ## Configuration
 
 For now, a configuration file containing Spotify login data needs to be created
