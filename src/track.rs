@@ -30,6 +30,11 @@ impl Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
 
+        let cover_url = match track.album.images.get(0) {
+            Some(image) => image.url.clone(),
+            None => "".to_owned(),
+        };
+
         Track {
             id: SpotifyId::from_base62(&track.id).expect("could not load track"),
             title: track.name.clone(),
@@ -39,7 +44,7 @@ impl Track {
             artists: artists,
             album: track.album.name.clone(),
             album_artists: album_artists,
-            cover_url: track.album.images[0].url.clone(),
+            cover_url: cover_url,
             url: track.uri.clone(),
         }
     }
