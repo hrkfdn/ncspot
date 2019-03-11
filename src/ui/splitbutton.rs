@@ -56,19 +56,25 @@ impl View for SplitButton {
             ColorStyle::highlight()
         };
 
-        // shorten titles that are too long and append ".." to indicate this
-        let mut left_shortened = self.left.clone();
-        left_shortened.truncate(printer.size.x - self.right.width() - 1);
-        if left_shortened.width() < self.left.width() {
-            let offset = left_shortened.width() - 2;
-            left_shortened.replace_range(offset.., "..");
-        }
-
+        // draw left string
         printer.with_color(style, |printer| {
-            printer.print((0, 0), &left_shortened);
+            printer.print((0, 0), &self.left);
         });
 
-        // track duration goes to the end of the line
+        // draw ".." to indicate a cut off string
+        let max_length = printer
+            .size
+            .x
+            .checked_sub(self.right.width() + 1)
+            .unwrap_or(0);
+        if max_length < self.left.width() {
+            let offset = max_length.checked_sub(1).unwrap_or(0);
+            printer.with_color(style, |printer| {
+                printer.print((offset, 0), "..");
+            });
+        }
+
+        // draw right string
         let offset = HAlign::Right.get_offset(self.right.width(), printer.size.x);
 
         printer.with_color(style, |printer| {
