@@ -37,6 +37,19 @@ impl Queue {
         }
     }
 
+    pub fn previous_index(&self) -> Option<usize> {
+        match self.current_track {
+            Some(index) => {
+                if index > 0 {
+                    Some(index - 1)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
     pub fn get_current(&self) -> Option<&Track> {
         match self.current_track {
             Some(index) => Some(&self.queue[index]),
@@ -106,8 +119,16 @@ impl Queue {
     }
 
     pub fn next(&mut self) {
-        if let Some(next_index) = self.next_index() {
-            self.play(next_index);
+        if let Some(index) = self.next_index() {
+            self.play(index);
+        } else {
+            self.spotify.stop();
+        }
+    }
+
+    pub fn previous(&mut self) {
+        if let Some(index) = self.previous_index() {
+            self.play(index);
         } else {
             self.spotify.stop();
         }
