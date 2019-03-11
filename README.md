@@ -43,6 +43,7 @@ have them configurable.
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
+* `<` and `>` play the previous or next track, respectively
 * `q` quits ncspot
 
 You can also open a Vim style commandprompt using `:`, the following commands
@@ -51,7 +52,7 @@ are supported:
 * `quit`: Quit ncspot
 * `toggle`: Toggle playback
 * `stop`: Stop playback
-* `next`: Play next track
+* `previous`/`next`: Play previous/next track
 * `clear`: Clear playlist
 
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas

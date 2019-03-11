@@ -227,6 +227,18 @@ fn main() {
     {
         let queue = queue.clone();
         cmd_manager.register(
+            "previous",
+            Vec::new(),
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").previous();
+                Ok(None)
+            }),
+        );
+    }
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register(
             "next",
             Vec::new(),
             Box::new(move |_s, _args| {
@@ -315,6 +327,7 @@ fn main() {
     register_keybinding(&mut cursive, &event_manager, 'q', "quit");
     register_keybinding(&mut cursive, &event_manager, 'P', "toggle");
     register_keybinding(&mut cursive, &event_manager, 'S', "stop");
+    register_keybinding(&mut cursive, &event_manager, '<', "previous");
     register_keybinding(&mut cursive, &event_manager, '>', "next");
     register_keybinding(&mut cursive, &event_manager, 'c', "clear");
 
