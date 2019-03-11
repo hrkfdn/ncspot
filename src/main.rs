@@ -4,9 +4,15 @@ extern crate failure;
 extern crate futures;
 extern crate librespot;
 extern crate rspotify;
+extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_timer;
 extern crate unicode_width;
+
+#[cfg(feature = "mpris")]
+extern crate dbus;
+#[cfg(feature = "mpris")]
+extern crate dbus_tokio;
 
 #[macro_use]
 extern crate serde_derive;
@@ -40,9 +46,15 @@ mod theme;
 mod track;
 mod ui;
 
+#[cfg(feature = "mpris")]
+mod mpris;
+
 use commands::CommandManager;
 use events::{Event, EventManager};
 use spotify::PlayerEvent;
+
+#[cfg(feature = "mpris")]
+use mpris::run_dbus_server;
 
 fn init_logger(content: TextContent, write_to_file: bool) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -133,6 +145,15 @@ fn main() {
         event_manager.clone(),
         spotify.clone(),
     )));
+
+    #[cfg(feature = "mpris")]
+    {
+        let spotify = spotify.clone();
+        let queue = queue.clone();
+        std::thread::spawn(move || {
+            run_dbus_server(spotify, queue);
+        });
+    }
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
