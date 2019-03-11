@@ -23,6 +23,7 @@ use futures::Async;
 use futures::Future;
 use futures::Stream;
 use tokio_core::reactor::Core;
+use tokio_timer;
 
 use std::sync::RwLock;
 use std::thread;
@@ -60,6 +61,8 @@ struct Worker {
     commands: mpsc::UnboundedReceiver<WorkerCommand>,
     player: Player,
     play_task: Box<futures::Future<Item = (), Error = oneshot::Canceled>>,
+    refresh_task: Box<futures::Stream<Item = (), Error = tokio_timer::Error>>,
+    active: bool,
 }
 
 impl Worker {
@@ -73,7 +76,20 @@ impl Worker {
             commands: commands,
             player: player,
             play_task: Box::new(futures::empty()),
+            refresh_task: Box::new(futures::stream::empty()),
+            active: false,
         }
+    }
+}
+
+impl Worker {
+    fn create_refresh(&self) -> Box<futures::Stream<Item = (), Error = tokio_timer::Error>> {
+        let ev = self.events.clone();
+        let future =
+            tokio_timer::Interval::new_interval(Duration::from_millis(400)).map(move |_| {
+                ev.trigger();
+            });
+        Box::new(future)
     }
 }
 
@@ -85,7 +101,6 @@ impl futures::Future for Worker {
         loop {
             let mut progress = false;
 
-            trace!("Worker is polling");
             if let Async::Ready(Some(cmd)) = self.commands.poll().unwrap() {
                 progress = true;
                 debug!("message received!");
@@ -97,14 +112,18 @@ impl futures::Future for Worker {
                     WorkerCommand::Play => {
                         self.player.play();
                         self.events.send(Event::Player(PlayerEvent::Playing));
+                        self.refresh_task = self.create_refresh();
+                        self.active = true;
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
                         self.events.send(Event::Player(PlayerEvent::Paused));
+                        self.active = false;
                     }
                     WorkerCommand::Stop => {
                         self.player.stop();
                         self.events.send(Event::Player(PlayerEvent::Stopped));
+                        self.active = false;
                     }
                 }
             }
@@ -120,10 +139,20 @@ impl futures::Future for Worker {
                     self.play_task = Box::new(futures::empty());
                 }
             }
+            match self.refresh_task.poll() {
+                Ok(Async::Ready(_)) => {
+                    self.refresh_task = match self.active {
+                        true => {
+                            progress = true;
+                            self.create_refresh()
+                        }
+                        false => Box::new(futures::stream::empty()),
+                    };
+                }
+                _ => (),
+            }
 
-            info!("worker done");
             if !progress {
-                trace!("handing executor to other tasks");
                 return Ok(Async::NotReady);
             }
         }
