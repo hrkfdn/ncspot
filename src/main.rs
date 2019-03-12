@@ -11,8 +11,6 @@ extern crate unicode_width;
 
 #[cfg(feature = "mpris")]
 extern crate dbus;
-#[cfg(feature = "mpris")]
-extern crate dbus_tokio;
 
 #[macro_use]
 extern crate serde_derive;
@@ -52,9 +50,6 @@ mod mpris;
 use commands::CommandManager;
 use events::{Event, EventManager};
 use spotify::PlayerEvent;
-
-#[cfg(feature = "mpris")]
-use mpris::run_dbus_server;
 
 fn init_logger(content: TextContent, write_to_file: bool) {
     let mut builder = env_logger::Builder::from_default_env();
@@ -147,13 +142,7 @@ fn main() {
     )));
 
     #[cfg(feature = "mpris")]
-    {
-        let spotify = spotify.clone();
-        let queue = queue.clone();
-        std::thread::spawn(move || {
-            run_dbus_server(spotify, queue);
-        });
-    }
+    let mpris_manager = mpris::MprisManager::new(spotify.clone(), queue.clone());
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
@@ -347,6 +336,9 @@ fn main() {
                         queue.lock().expect("could not lock queue").next();
                     }
                     spotify.update_status(state);
+
+                    #[cfg(feature = "mpris")]
+                    mpris_manager.update();
                 }
                 Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
                 Event::Command(cmd) => {
@@ -356,6 +348,9 @@ fn main() {
                             v.set_error(e);
                         });
                     }
+
+                    #[cfg(feature = "mpris")]
+                    mpris_manager.update();
                 }
                 Event::ScreenChange(name) => match name.as_ref() {
                     "playlists" => playlists.repopulate(&mut cursive),
