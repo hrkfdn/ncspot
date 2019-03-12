@@ -92,7 +92,7 @@ impl PlaylistView {
 
         let mut collected_tracks = Vec::new();
 
-        let mut tracks_result = spotify.user_playlist_tracks(&id, 50, 0).ok();
+        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0).ok();
         while let Some(ref tracks) = tracks_result.clone() {
             for listtrack in &tracks.items {
                 collected_tracks.push(Track::new(&listtrack.track));
@@ -104,7 +104,7 @@ impl PlaylistView {
                 Some(_) => {
                     debug!("requesting tracks again..");
                     spotify
-                        .user_playlist_tracks(&id, 50, tracks.offset + tracks.items.len() as u32)
+                        .user_playlist_tracks(&id, 100, tracks.offset + tracks.items.len() as u32)
                         .ok()
                 }
                 None => None,
