@@ -1,6 +1,8 @@
 use std::slice::Iter;
 use std::sync::Arc;
 
+use rand::prelude::*;
+
 use events::{Event, EventManager};
 use spotify::Spotify;
 use track::Track;
@@ -21,6 +23,13 @@ impl Queue {
             spotify: spotify,
             ev: ev,
         }
+    }
+
+    pub fn shuffle(&mut self) {
+        let mut rng = rand::thread_rng();
+        self.queue.shuffle(&mut rng);
+
+        self.ev.send(Event::ScreenChange("queue".to_owned()));
     }
 
     pub fn next_index(&self) -> Option<usize> {

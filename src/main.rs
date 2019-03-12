@@ -8,6 +8,7 @@ extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_timer;
 extern crate unicode_width;
+extern crate rand;
 
 #[cfg(feature = "mpris")]
 extern crate dbus;
@@ -219,6 +220,18 @@ fn main() {
             Vec::new(),
             Box::new(move |_s, _args| {
                 queue.lock().expect("could not lock queue").stop();
+                Ok(None)
+            }),
+        );
+    }
+
+    {
+        let queue = queue.clone();
+        cmd_manager.register(
+            "playlist-shuffle",
+            Vec::new(),
+            Box::new(move |_s, _args| {
+                queue.lock().expect("could not lock queue").shuffle();
                 Ok(None)
             }),
         );
