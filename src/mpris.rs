@@ -25,7 +25,7 @@ fn get_metadata(queue: Arc<Mutex<Queue>>) -> HashMap<String, Variant<Box<RefArg>
     let track = queue.get_current();
 
     hm.insert("mpris:trackid".to_string(), Variant(Box::new(
-        track.map(|t| format!("spotify:track:{}", t.id.to_base62())).unwrap_or("".to_string())
+        track.map(|t| format!("spotify:track:{}", t.id)).unwrap_or("".to_string())
     )));
     hm.insert("mpris:length".to_string(), Variant(Box::new(
         track.map(|t| t.duration * 1_000_000).unwrap_or(0)

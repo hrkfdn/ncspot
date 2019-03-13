@@ -1,11 +1,10 @@
 use std::fmt;
 
-use librespot::core::spotify_id::SpotifyId;
 use rspotify::spotify::model::track::FullTrack;
 
 #[derive(Clone)]
 pub struct Track {
-    pub id: SpotifyId,
+    pub id: String,
     pub title: String,
     pub track_number: u32,
     pub disc_number: i32,
@@ -36,7 +35,7 @@ impl Track {
         };
 
         Track {
-            id: SpotifyId::from_base62(&track.id).expect("could not load track"),
+            id: track.id.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
@@ -69,7 +68,7 @@ impl fmt::Debug for Track {
             "({} - {} ({}))",
             self.artists.join(", "),
             self.title,
-            self.id.to_base62()
+            self.id
         )
     }
 }

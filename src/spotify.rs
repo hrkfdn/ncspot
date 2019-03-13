@@ -3,6 +3,7 @@ use librespot::core::config::SessionConfig;
 use librespot::core::keymaster::get_token;
 use librespot::core::keymaster::Token;
 use librespot::core::session::Session;
+use librespot::core::spotify_id::SpotifyId;
 use librespot::playback::config::PlayerConfig;
 
 use librespot::playback::audio_backend;
@@ -106,7 +107,8 @@ impl futures::Future for Worker {
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
-                        self.play_task = Box::new(self.player.load(track.id, false, 0));
+                        let id = SpotifyId::from_base62(&track.id).expect("could not parse id");
+                        self.play_task = Box::new(self.player.load(id, false, 0));
                         info!("player loading track: {:?}", track);
                     }
                     WorkerCommand::Play => {
