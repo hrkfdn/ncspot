@@ -2,7 +2,7 @@ use std::fmt;
 
 use rspotify::spotify::model::track::FullTrack;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
     pub id: String,
     pub title: String,
@@ -24,7 +24,8 @@ impl Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
         let album_artists = track
-            .album.artists
+            .album
+            .artists
             .iter()
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();

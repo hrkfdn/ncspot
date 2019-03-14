@@ -8,13 +8,14 @@ extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_timer;
 extern crate unicode_width;
+extern crate xdg;
 
 #[cfg(feature = "mpris")]
 extern crate dbus;
 
 #[macro_use]
-extern crate serde_derive;
 extern crate serde;
+extern crate serde_json;
 extern crate toml;
 
 #[macro_use]
@@ -28,6 +29,7 @@ use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 
 use cursive::event::Key;
 use cursive::traits::{Identifiable, View};
@@ -38,6 +40,7 @@ use cursive::Cursive;
 mod commands;
 mod config;
 mod events;
+mod playlists;
 mod queue;
 mod spotify;
 mod theme;
@@ -49,6 +52,7 @@ mod mpris;
 
 use commands::CommandManager;
 use events::{Event, EventManager};
+use playlists::Playlists;
 use spotify::PlayerEvent;
 
 fn init_logger(content: TextContent, write_to_file: bool) {
@@ -121,7 +125,7 @@ fn main() {
 
     let logbuf = TextContent::new("Welcome to ncspot\n");
     let logview = TextView::new_with_content(logbuf.clone());
-    init_logger(logbuf, false);
+    init_logger(logbuf, true);
 
     let mut cursive = Cursive::default();
     cursive.set_theme(theme::default());
@@ -146,8 +150,24 @@ fn main() {
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
-    let mut playlists =
-        ui::playlist::PlaylistView::new(event_manager.clone(), queue.clone(), spotify.clone());
+    let playlists = Arc::new(Playlists::new(&event_manager, &spotify));
+
+    {
+        // download playlists via web api in a background thread
+        let playlists = playlists.clone();
+        thread::spawn(move || {
+            // load cache (if existing)
+            playlists.load_cache();
+
+            // fetch or update cached playlists
+            playlists.fetch_playlists();
+
+            // re-cache for next startup
+            playlists.save_cache();
+        });
+    }
+
+    let mut playlists_view = ui::playlist::PlaylistView::new(&playlists, queue.clone());
 
     let mut queueview = ui::queue::QueueView::new(queue.clone());
 
@@ -158,7 +178,11 @@ fn main() {
     let mut layout = ui::layout::Layout::new(status, &event_manager)
         .view("search", search.view.with_id("search"), "Search")
         .view("log", logview_scroller, "Log")
-        .view("playlists", playlists.view.take().unwrap(), "Playlists")
+        .view(
+            "playlists",
+            playlists_view.view.take().unwrap(),
+            "Playlists",
+        )
         .view("queue", queueview.view.take().unwrap(), "Queue");
 
     // initial view is queue
@@ -343,7 +367,7 @@ fn main() {
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
                 }
-                Event::Playlist(event) => playlists.handle_ev(&mut cursive, event),
+                Event::Playlist(event) => playlists_view.handle_ev(&mut cursive, event),
                 Event::Command(cmd) => {
                     // TODO: handle non-error output as well
                     if let Err(e) = cmd_manager.handle(&mut cursive, cmd) {
@@ -356,7 +380,7 @@ fn main() {
                     mpris_manager.update();
                 }
                 Event::ScreenChange(name) => match name.as_ref() {
-                    "playlists" => playlists.repopulate(&mut cursive),
+                    "playlists" => playlists_view.repopulate(&mut cursive),
                     "queue" => queueview.repopulate(&mut cursive),
                     _ => (),
                 },

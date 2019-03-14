@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{mpsc, Arc, Mutex};
 
-use dbus::{Path, SignalArgs};
-use dbus::arg::{Variant, RefArg};
-use dbus::tree::{Access, Factory};
+use dbus::arg::{RefArg, Variant};
 use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
+use dbus::tree::{Access, Factory};
+use dbus::{Path, SignalArgs};
 
 use queue::Queue;
 use spotify::{PlayerEvent, Spotify};
@@ -14,8 +14,9 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     match spotify.get_current_status() {
         PlayerEvent::Playing => "Playing",
         PlayerEvent::Paused => "Paused",
-        _ => "Stopped"
-    }.to_string()
+        _ => "Stopped",
+    }
+    .to_string()
 }
 
 fn get_metadata(queue: Arc<Mutex<Queue>>) -> HashMap<String, Variant<Box<RefArg>>> {
@@ -24,92 +25,129 @@ fn get_metadata(queue: Arc<Mutex<Queue>>) -> HashMap<String, Variant<Box<RefArg>
     let queue = queue.lock().expect("could not lock queue");
     let track = queue.get_current();
 
-    hm.insert("mpris:trackid".to_string(), Variant(Box::new(
-        track.map(|t| format!("spotify:track:{}", t.id)).unwrap_or("".to_string())
-    )));
-    hm.insert("mpris:length".to_string(), Variant(Box::new(
-        track.map(|t| t.duration * 1_000_000).unwrap_or(0)
-    )));
-    hm.insert("mpris:artUrl".to_string(), Variant(Box::new(
-        track.map(|t| t.cover_url.clone()).unwrap_or("".to_string())
-    )));
+    hm.insert(
+        "mpris:trackid".to_string(),
+        Variant(Box::new(
+            track
+                .map(|t| format!("spotify:track:{}", t.id))
+                .unwrap_or("".to_string()),
+        )),
+    );
+    hm.insert(
+        "mpris:length".to_string(),
+        Variant(Box::new(track.map(|t| t.duration * 1_000_000).unwrap_or(0))),
+    );
+    hm.insert(
+        "mpris:artUrl".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.cover_url.clone()).unwrap_or("".to_string()),
+        )),
+    );
 
-    hm.insert("xesam:album".to_string(), Variant(Box::new(
-        track.map(|t| t.album.clone()).unwrap_or("".to_string())
-    )));
-    hm.insert("xesam:albumArtist".to_string(), Variant(Box::new(
-        track.map(|t| t.album_artists.clone()).unwrap_or(Vec::new())
-    )));
-    hm.insert("xesam:artist".to_string(), Variant(Box::new(
-        track.map(|t| t.artists.clone()).unwrap_or(Vec::new())
-    )));
-    hm.insert("xesam:discNumber".to_string(), Variant(Box::new(
-        track.map(|t| t.disc_number).unwrap_or(0)
-    )));
-    hm.insert("xesam:title".to_string(), Variant(Box::new(
-        track.map(|t| t.title.clone()).unwrap_or("".to_string())
-    )));
-    hm.insert("xesam:trackNumber".to_string(), Variant(Box::new(
-        track.map(|t| t.track_number).unwrap_or(0)
-    )));
-    hm.insert("xesam:url".to_string(), Variant(Box::new(
-        track.map(|t| t.url.clone()).unwrap_or("".to_string())
-    )));
+    hm.insert(
+        "xesam:album".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.album.clone()).unwrap_or("".to_string()),
+        )),
+    );
+    hm.insert(
+        "xesam:albumArtist".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.album_artists.clone()).unwrap_or(Vec::new()),
+        )),
+    );
+    hm.insert(
+        "xesam:artist".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.artists.clone()).unwrap_or(Vec::new()),
+        )),
+    );
+    hm.insert(
+        "xesam:discNumber".to_string(),
+        Variant(Box::new(track.map(|t| t.disc_number).unwrap_or(0))),
+    );
+    hm.insert(
+        "xesam:title".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.title.clone()).unwrap_or("".to_string()),
+        )),
+    );
+    hm.insert(
+        "xesam:trackNumber".to_string(),
+        Variant(Box::new(track.map(|t| t.track_number).unwrap_or(0))),
+    );
+    hm.insert(
+        "xesam:url".to_string(),
+        Variant(Box::new(
+            track.map(|t| t.url.clone()).unwrap_or("".to_string()),
+        )),
+    );
 
     hm
 }
 
 fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Receiver<()>) {
-    let conn = Rc::new(dbus::Connection::get_private(dbus::BusType::Session)
-        .expect("Failed to connect to dbus"));
-    conn.register_name("org.mpris.MediaPlayer2.ncspot", dbus::NameFlag::ReplaceExisting as u32)
-        .expect("Failed to register dbus player name");
+    let conn = Rc::new(
+        dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to connect to dbus"),
+    );
+    conn.register_name(
+        "org.mpris.MediaPlayer2.ncspot",
+        dbus::NameFlag::ReplaceExisting as u32,
+    )
+    .expect("Failed to register dbus player name");
 
     let f = Factory::new_fn::<()>();
 
-    let property_canquit = f.property::<bool, _>("CanQuit", ())
+    let property_canquit = f
+        .property::<bool, _>("CanQuit", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(false); // TODO
             Ok(())
         });
 
-    let property_canraise = f.property::<bool, _>("CanRaise", ())
+    let property_canraise = f
+        .property::<bool, _>("CanRaise", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(false);
             Ok(())
         });
 
-    let property_cansetfullscreen = f.property::<bool, _>("CanSetFullscreen", ())
+    let property_cansetfullscreen = f
+        .property::<bool, _>("CanSetFullscreen", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(false);
             Ok(())
         });
 
-    let property_hastracklist = f.property::<bool, _>("HasTrackList", ())
+    let property_hastracklist = f
+        .property::<bool, _>("HasTrackList", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(false); // TODO
             Ok(())
         });
 
-    let property_identity = f.property::<String, _>("Identity", ())
+    let property_identity = f
+        .property::<String, _>("Identity", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append("ncspot".to_string());
             Ok(())
         });
 
-    let property_urischemes = f.property::<Vec<String>, _>("SupportedUriSchemes", ())
+    let property_urischemes = f
+        .property::<Vec<String>, _>("SupportedUriSchemes", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(vec!["spotify".to_string()]);
             Ok(())
         });
 
-    let property_mimetypes = f.property::<Vec<String>, _>("SupportedMimeTypes", ())
+    let property_mimetypes = f
+        .property::<Vec<String>, _>("SupportedMimeTypes", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(Vec::new() as Vec<String>);
@@ -117,7 +155,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
         });
 
     // https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html
-    let interface = f.interface("org.mpris.MediaPlayer2", ())
+    let interface = f
+        .interface("org.mpris.MediaPlayer2", ())
         .add_p(property_canquit)
         .add_p(property_canraise)
         .add_p(property_cansetfullscreen)
@@ -137,7 +176,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
             })
     };
 
-    let property_loopstatus = f.property::<String, _>("LoopStatus", ())
+    let property_loopstatus = f
+        .property::<String, _>("LoopStatus", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append("None".to_string()); // TODO
@@ -166,70 +206,80 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
             })
     };
 
-    let property_volume = f.property::<f64, _>("Volume", ())
+    let property_volume = f
+        .property::<f64, _>("Volume", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(1.0);
             Ok(())
         });
 
-    let property_rate = f.property::<f64, _>("Rate", ())
+    let property_rate = f
+        .property::<f64, _>("Rate", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(1.0);
             Ok(())
         });
 
-    let property_minrate = f.property::<f64, _>("MinimumRate", ())
+    let property_minrate = f
+        .property::<f64, _>("MinimumRate", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(1.0);
             Ok(())
         });
 
-    let property_maxrate = f.property::<f64, _>("MaximumRate", ())
+    let property_maxrate = f
+        .property::<f64, _>("MaximumRate", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(1.0);
             Ok(())
         });
 
-    let property_canplay = f.property::<bool, _>("CanPlay", ())
+    let property_canplay = f
+        .property::<bool, _>("CanPlay", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(true);
             Ok(())
         });
 
-    let property_canpause = f.property::<bool, _>("CanPause", ())
+    let property_canpause = f
+        .property::<bool, _>("CanPause", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(true);
             Ok(())
         });
 
-    let property_canseek = f.property::<bool, _>("CanSeek", ())
+    let property_canseek = f
+        .property::<bool, _>("CanSeek", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(false); // TODO
             Ok(())
         });
 
-    let property_cancontrol = f.property::<bool, _>("CanControl", ())
+    let property_cancontrol = f
+        .property::<bool, _>("CanControl", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(true);
             Ok(())
         });
 
-    let property_cangonext = f.property::<bool, _>("CanGoNext", ())
+    let property_cangonext = f
+        .property::<bool, _>("CanGoNext", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(true);
             Ok(())
         });
 
-    let property_cangoprevious = f.property::<bool, _>("CanGoPrevious", ())
+    let property_cangoprevious = f
+        .property::<bool, _>("CanGoPrevious", ())
         .access(Access::Read)
         .on_get(|iter, _| {
             iter.append(true);
@@ -287,7 +337,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
     // TODO: Seek, SetPosition, Shuffle, OpenUri (?)
 
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
-    let interface_player = f.interface("org.mpris.MediaPlayer2.Player", ())
+    let interface_player = f
+        .interface("org.mpris.MediaPlayer2.Player", ())
         .add_p(property_playbackstatus)
         .add_p(property_loopstatus)
         .add_p(property_metadata)
@@ -309,13 +360,15 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
         .add_m(method_next)
         .add_m(method_previous);
 
-    let tree = f.tree(())
-        .add(f.object_path("/org/mpris/MediaPlayer2", ()).introspectable()
+    let tree = f.tree(()).add(
+        f.object_path("/org/mpris/MediaPlayer2", ())
+            .introspectable()
             .add(interface)
-            .add(interface_player)
-        );
+            .add(interface_player),
+    );
 
-    tree.set_registered(&conn, true).expect("failed to register tree");
+    tree.set_registered(&conn, true)
+        .expect("failed to register tree");
 
     conn.add_handler(tree);
     loop {
@@ -328,20 +381,23 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
                 "Metadata".to_string(),
-                Variant(Box::new(get_metadata(queue.clone())))
+                Variant(Box::new(get_metadata(queue.clone()))),
             );
             changed.changed_properties.insert(
                 "PlaybackStatus".to_string(),
-                Variant(Box::new(get_playbackstatus(spotify.clone())))
+                Variant(Box::new(get_playbackstatus(spotify.clone()))),
             );
 
-            conn.send(changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap())).unwrap();
+            conn.send(
+                changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
+            )
+            .unwrap();
         }
     }
 }
 
 pub struct MprisManager {
-    tx: mpsc::Sender<()>
+    tx: mpsc::Sender<()>,
 }
 
 impl MprisManager {
@@ -352,9 +408,7 @@ impl MprisManager {
             run_dbus_server(spotify, queue, rx);
         });
 
-        MprisManager {
-            tx: tx
-        }
+        MprisManager { tx: tx }
     }
 
     pub fn update(&self) {

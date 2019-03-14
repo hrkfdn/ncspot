@@ -1,8 +1,8 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
 use cursive::{CbFunc, Cursive};
 
+use playlists::PlaylistEvent;
 use spotify::PlayerEvent;
-use ui::playlist::PlaylistEvent;
 
 pub enum Event {
     Player(PlayerEvent),
