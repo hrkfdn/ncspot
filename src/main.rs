@@ -161,6 +161,9 @@ fn main() {
         .view("playlists", playlists.view.take().unwrap(), "Playlists")
         .view("queue", queueview.view.take().unwrap(), "Queue");
 
+    // initial view is queue
+    layout.set_view("queue");
+
     cursive.add_global_callback(':', move |s| {
         s.call_on_id("main", |v: &mut ui::layout::Layout| {
             v.enable_cmdline();
