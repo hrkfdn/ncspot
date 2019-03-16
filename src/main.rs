@@ -167,7 +167,7 @@ fn main() {
         });
     }
 
-    let mut playlists_view = ui::playlist::PlaylistView::new(&playlists, queue.clone());
+    let mut playlists_view = ui::playlists::PlaylistView::new(&playlists, queue.clone());
 
     let mut queueview = ui::queue::QueueView::new(queue.clone());
 
