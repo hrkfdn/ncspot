@@ -95,7 +95,6 @@ impl<I: ListItem> View for ListView<I> {
     }
 
     fn on_event(&mut self, e: Event) -> EventResult {
-        trace!("{:?}", e);
         match e {
             Event::Key(Key::Up) => {
                 self.move_focus(-1);

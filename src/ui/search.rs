@@ -74,6 +74,13 @@ impl SearchView {
             });
         self.edit_focused = true;
     }
+
+    fn pass_event_focussed(&mut self, event: Event) -> EventResult {
+        match self.edit_focused {
+            true => self.edit.on_event(event),
+            false => self.list.on_event(event)
+        }
+    }
 }
 
 impl View for SearchView {
@@ -113,15 +120,18 @@ impl View for SearchView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        if self.edit_focused {
-            if event == Event::Key(Key::Esc) {
+        let ret = match event {
+            Event::Key(Key::Tab) => {
+                self.edit_focused = !self.edit_focused;
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::Esc) if self.edit_focused => {
                 self.edit_focused = false;
                 EventResult::Consumed(None)
-            } else {
-                self.edit.on_event(event)
             }
-        } else {
-            self.list.on_event(event)
-        }
+            _ => self.pass_event_focussed(event)
+        };
+
+        ret
     }
 }
