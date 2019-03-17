@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc};
 
 use dbus::arg::{RefArg, Variant};
 use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
@@ -19,11 +19,11 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     .to_string()
 }
 
-fn get_metadata(queue: Arc<Mutex<Queue>>) -> HashMap<String, Variant<Box<RefArg>>> {
+fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     let mut hm: HashMap<String, Variant<Box<RefArg>>> = HashMap::new();
 
-    let queue = queue.lock().expect("could not lock queue");
-    let track = queue.get_current();
+    let t = queue.get_current();
+    let track = t.as_ref(); // TODO
 
     hm.insert(
         "mpris:trackid".to_string(),
@@ -86,7 +86,7 @@ fn get_metadata(queue: Arc<Mutex<Queue>>) -> HashMap<String, Variant<Box<RefArg>
     hm
 }
 
-fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Receiver<()>) {
+fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<()>) {
     let conn = Rc::new(
         dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to connect to dbus"),
     );
@@ -202,7 +202,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
         f.property::<i64, _>("Position", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                iter.append(progress.as_secs() as i64 * 1000);
+                iter.append(progress.as_secs() as i64 * 1_000_000);
                 Ok(())
             })
     };
@@ -322,7 +322,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
     let method_next = {
         let queue = queue.clone();
         f.method("Next", (), move |m| {
-            queue.lock().expect("failed to lock queue").next();
+            queue.next();
             Ok(vec![m.msg.method_return()])
         })
     };
@@ -330,7 +330,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
     let method_previous = {
         let queue = queue.clone();
         f.method("Previous", (), move |m| {
-            queue.lock().expect("failed to lock queue").previous();
+            queue.previous();
             Ok(vec![m.msg.method_return()])
         })
     };
@@ -397,12 +397,13 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>, rx: mpsc::Re
     }
 }
 
+#[derive(Clone)]
 pub struct MprisManager {
     tx: mpsc::Sender<()>,
 }
 
 impl MprisManager {
-    pub fn new(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) -> Self {
+    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> Self {
         let (tx, rx) = mpsc::channel::<()>();
 
         std::thread::spawn(move || {
