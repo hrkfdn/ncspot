@@ -188,16 +188,7 @@ fn main() {
     let mut cmd_manager = CommandManager::new();
     cmd_manager.register_all(spotify.clone(), queue.clone());
 
-    #[cfg(feature = "mpris")]
-    {
-        let mpris_manager = mpris_manager.clone();
-        cmd_manager.register_callback(Box::new(move || {
-            mpris_manager.update();
-        }));
-    }
-
     let cmd_manager = Arc::new(cmd_manager);
-
     CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings);
 
     // cursive event loop
