@@ -20,11 +20,6 @@ pub enum PlaylistEvent {
     NewList(usize, Playlist),
 }
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct PlaylistStore {
-    pub playlists: Vec<Playlist>,
-}
-
 #[derive(Clone)]
 pub struct Playlists {
     pub store: Arc<RwLock<Vec<Playlist>>>,
@@ -71,13 +66,13 @@ impl Playlists {
                     "loading playlist cache from {}",
                     cache_path.to_str().unwrap()
                 );
-                let parsed: Result<PlaylistStore, _> = serde_json::from_str(&contents);
+                let parsed: Result<Vec<Playlist>, _> = serde_json::from_str(&contents);
                 match parsed {
                     Ok(cache) => {
-                        debug!("playlist cache loaded ({} lists)", cache.playlists.len());
+                        debug!("playlist cache loaded ({} lists)", cache.len());
                         let mut store = self.store.write().expect("can't writelock playlist store");
                         store.clear();
-                        store.extend(cache.playlists);
+                        store.extend(cache);
 
                         // force refresh of UI (if visible)
                         self.ev.send(Event::ScreenChange("playlists".to_owned()));
