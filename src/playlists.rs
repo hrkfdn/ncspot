@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
-use events::{Event, EventManager};
+use events::EventManager;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -14,10 +14,6 @@ use traits::ListItem;
 pub struct Playlist {
     pub meta: SimplifiedPlaylist,
     pub tracks: Vec<Track>,
-}
-
-pub enum PlaylistEvent {
-    NewList(usize, Playlist),
 }
 
 #[derive(Clone)]
@@ -75,7 +71,7 @@ impl Playlists {
                         store.extend(cache);
 
                         // force refresh of UI (if visible)
-                        self.ev.send(Event::ScreenChange("playlists".to_owned()));
+                        self.ev.trigger();
                     }
                     Err(e) => {
                         error!("can't parse playlist cache: {}", e);
@@ -154,11 +150,9 @@ impl Playlists {
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
                     let playlist = Self::process_playlist(&remote, &self.spotify);
-                    let index = self.append_or_update(&playlist);
-                    self.ev.send(Event::Playlist(PlaylistEvent::NewList(
-                        index,
-                        playlist.clone(),
-                    )));
+                    self.append_or_update(&playlist);
+                    // trigger redraw
+                    self.ev.trigger();
                 }
             }
 

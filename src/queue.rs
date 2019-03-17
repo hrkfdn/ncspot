@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use events::{Event, EventManager};
 use spotify::Spotify;
 use track::Track;
 
@@ -8,16 +7,14 @@ pub struct Queue {
     pub queue: Arc<RwLock<Vec<Track>>>,
     current_track: RwLock<Option<usize>>,
     spotify: Arc<Spotify>,
-    ev: EventManager,
 }
 
 impl Queue {
-    pub fn new(ev: EventManager, spotify: Arc<Spotify>) -> Queue {
+    pub fn new(spotify: Arc<Spotify>) -> Queue {
         Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
             current_track: RwLock::new(None),
             spotify: spotify,
-            ev: ev,
         }
     }
 
@@ -106,9 +103,6 @@ impl Queue {
 
         let mut q = self.queue.write().unwrap();
         q.clear();
-
-        // redraw queue if open
-        self.ev.send(Event::ScreenChange("queue".to_owned()));
     }
 
     pub fn play(&self, index: usize) {

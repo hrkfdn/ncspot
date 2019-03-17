@@ -178,7 +178,6 @@ impl View for Layout {
             // their items
             if self.screenchange {
                 debug!("layout: new screen selected: {}", &id);
-                self.ev.send(events::Event::ScreenChange(id.clone()));
                 self.screenchange = false;
             }
         }

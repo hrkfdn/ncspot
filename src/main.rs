@@ -126,7 +126,7 @@ fn main() {
         config::CLIENT_ID.to_string(),
     ));
 
-    let queue = Arc::new(queue::Queue::new(event_manager.clone(), spotify.clone()));
+    let queue = Arc::new(queue::Queue::new(spotify.clone()));
 
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
@@ -206,11 +206,9 @@ fn main() {
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
                 }
-                Event::Playlist(_event) => (),
                 Event::Command(cmd) => {
                     cmd_manager.handle(&mut cursive, cmd);
                 }
-                Event::ScreenChange(_name) => (),
             }
         }
     }

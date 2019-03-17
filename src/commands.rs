@@ -16,7 +16,6 @@ pub struct CommandManager {
     commands:
         HashMap<String, Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>>,
     aliases: HashMap<String, String>,
-    callbacks: Vec<Box<dyn Fn() -> ()>>,
 }
 
 impl CommandManager {
@@ -24,7 +23,6 @@ impl CommandManager {
         CommandManager {
             commands: HashMap::new(),
             aliases: HashMap::new(),
-            callbacks: Vec::new(),
         }
     }
 
@@ -325,14 +323,6 @@ impl CommandManager {
                 v.set_error(e);
             });
         }
-
-        for cb in &self.callbacks {
-            cb();
-        }
-    }
-
-    pub fn register_callback(&mut self, cb: Box<dyn Fn() -> ()>) {
-        self.callbacks.push(cb);
     }
 
     pub fn register_keybinding<'a, E: Into<cursive::event::Event>, S: Into<String>>(
