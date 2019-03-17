@@ -2,9 +2,10 @@ use std::cmp::{max, min};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
+use cursive::event::{Event, EventResult, Key};
 use cursive::theme::ColorStyle;
 use cursive::traits::View;
-use cursive::{Printer, Vec2};
+use cursive::{Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use queue::Queue;
@@ -93,7 +94,37 @@ impl<I: ListItem> View for ListView<I> {
         }
     }
 
+    fn on_event(&mut self, e: Event) -> EventResult {
+        trace!("{:?}", e);
+        match e {
+            Event::Key(Key::Up) => {
+                self.move_focus(-1);
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::Down) => {
+                self.move_focus(1);
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::PageUp) => {
+                self.move_focus(-10);
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::PageDown) => {
+                self.move_focus(10);
+                EventResult::Consumed(None)
+            }
+            _ => EventResult::Ignored,
+        }
+    }
+
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
         Vec2::new(constraint.x, self.content.read().unwrap().len())
+    }
+
+    fn important_area(&self, view_size: Vec2) -> Rect {
+        match self.selected {
+            Some(index) => Rect::from((view_size.x, index)),
+            None => Rect::from((0, 0)),
+        }
     }
 }

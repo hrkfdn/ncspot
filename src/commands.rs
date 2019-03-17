@@ -379,8 +379,6 @@ impl CommandManager {
         kb.insert("F3".into(), "playlists".into());
         kb.insert("F9".into(), "log".into());
 
-        kb.insert("Up".into(), "move up".into());
-        kb.insert("Down".into(), "move down".into());
         kb.insert("Left".into(), "move left".into());
         kb.insert("Right".into(), "move right".into());
         kb.insert("k".into(), "move up".into());

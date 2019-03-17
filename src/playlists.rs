@@ -76,7 +76,7 @@ impl Playlists {
 
                         // force refresh of UI (if visible)
                         self.ev.send(Event::ScreenChange("playlists".to_owned()));
-                    },
+                    }
                     Err(e) => {
                         error!("can't parse playlist cache: {}", e);
                     }
