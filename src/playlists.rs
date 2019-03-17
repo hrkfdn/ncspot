@@ -72,16 +72,19 @@ impl Playlists {
                     cache_path.to_str().unwrap()
                 );
                 let parsed: Result<PlaylistStore, _> = serde_json::from_str(&contents);
-                if let Ok(cache) = parsed {
-                    debug!("playlist cache loaded ({} lists)", cache.playlists.len());
-                    let mut store = self.store.write().expect("can't writelock playlist store");
-                    store.clear();
-                    store.extend(cache.playlists);
+                match parsed {
+                    Ok(cache) => {
+                        debug!("playlist cache loaded ({} lists)", cache.playlists.len());
+                        let mut store = self.store.write().expect("can't writelock playlist store");
+                        store.clear();
+                        store.extend(cache.playlists);
 
-                    // force refresh of UI (if visible)
-                    self.ev.send(Event::ScreenChange("playlists".to_owned()));
-                } else {
-                    error!("playlist cache corrupted?");
+                        // force refresh of UI (if visible)
+                        self.ev.send(Event::ScreenChange("playlists".to_owned()));
+                    },
+                    Err(e) => {
+                        error!("can't parse playlist cache: {}", e);
+                    }
                 }
             }
         }
