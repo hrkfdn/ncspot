@@ -42,7 +42,7 @@ impl SearchView {
             results: results,
             edit: searchfield,
             list: scrollable,
-            edit_focused: false,
+            edit_focused: true,
         }
     }
 
@@ -65,14 +65,6 @@ impl SearchView {
             *r = tracks;
             self.edit_focused = false;
         }
-    }
-
-    pub fn focus_search(&mut self) {
-        self.edit
-            .call_on(&Selector::Id("search_edit"), |v: &mut EditView| {
-                v.set_content("");
-            });
-        self.edit_focused = true;
     }
 
     fn pass_event_focused(&mut self, event: Event) -> EventResult {

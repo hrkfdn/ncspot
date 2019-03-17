@@ -109,8 +109,6 @@ impl CommandManager {
                     s.call_on_id("search", |v: &mut SearchView| {
                         if args.len() >= 1 {
                             v.run_search(args.join(" "), spotify.clone());
-                        } else {
-                            v.focus_search();
                         }
                     });
                     Ok(None)
@@ -241,7 +239,7 @@ impl CommandManager {
                     {
                         let queue = queue.clone();
                         s.call_on_id("queue_list", |v: &mut ListView<Track>| {
-                            v.get_selected_index().map(|i| queue.play(i));
+                            queue.play(v.get_selected_index());
                         });
                     }
 
@@ -290,7 +288,7 @@ impl CommandManager {
                     {
                         let queue = queue.clone();
                         s.call_on_id("queue_list", |v: &mut ListView<Track>| {
-                            v.get_selected_index().map(|i| queue.remove(i));
+                            queue.remove(v.get_selected_index());
                         });
                     }
 

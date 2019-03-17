@@ -13,7 +13,7 @@ use traits::ListItem;
 
 pub struct ListView<I: 'static + ListItem> {
     content: Arc<RwLock<Vec<I>>>,
-    selected: Option<usize>,
+    selected: usize,
     queue: Arc<Queue>,
 }
 
@@ -21,46 +21,33 @@ impl<I: ListItem> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>) -> Self {
         Self {
             content: content,
-            selected: None,
+            selected: 0,
             queue: queue,
         }
     }
 
     pub fn with_selected(&self, cb: Box<Fn(&I) -> ()>) {
-        if let Some(i) = self.selected {
-            if let Some(x) = self.content.read().unwrap().get(i) {
-                cb(x);
-            }
+        match self.content.read().unwrap().get(self.selected) {
+            Some(x) => cb(x),
+            None => error!("listview: invalid item index: {})", self.selected)
         }
     }
 
-    pub fn get_selected_index(&self) -> Option<usize> {
+    pub fn get_selected_index(&self) -> usize {
         self.selected
     }
 
     pub fn move_focus(&mut self, delta: i32) {
         let len = self.content.read().unwrap().len() as i32;
-
-        let new = if let Some(i) = self.selected {
-            i as i32
-        } else {
-            if delta < 0 {
-                len
-            } else {
-                -1
-            }
-        };
-
-        let new = min(max(new + delta, 0), len - 1);
-
-        self.selected = Some(new as usize);
+        let new = self.selected as i32 + delta;
+        self.selected = min(max(new, 0), len - 1) as usize;
     }
 }
 
 impl<I: ListItem> View for ListView<I> {
     fn draw(&self, printer: &Printer<'_, '_>) {
         for (i, item) in self.content.read().unwrap().iter().enumerate() {
-            let style = if self.selected.is_some() && self.selected.unwrap_or(0) == i {
+            let style = if self.selected == i {
                 ColorStyle::highlight()
             } else if item.is_playing(self.queue.clone()) {
                 ColorStyle::secondary()
@@ -121,9 +108,11 @@ impl<I: ListItem> View for ListView<I> {
     }
 
     fn important_area(&self, view_size: Vec2) -> Rect {
-        match self.selected {
-            Some(index) => Rect::from((view_size.x, index)),
-            None => Rect::from((0, 0)),
+        if self.content.read().unwrap().len() > 0 {
+            Rect::from((view_size.x, self.selected))
+        }
+        else {
+            Rect::from((0, 0))
         }
     }
 }
