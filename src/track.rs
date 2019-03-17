@@ -1,6 +1,10 @@
 use std::fmt;
+use std::sync::Arc;
 
 use rspotify::spotify::model::track::FullTrack;
+
+use queue::Queue;
+use traits::ListItem;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
@@ -71,5 +75,20 @@ impl fmt::Debug for Track {
             self.title,
             self.id
         )
+    }
+}
+
+impl ListItem for Track {
+    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+        let current = queue.get_current();
+        current.map(|t| t.id == self.id).unwrap_or(false)
+    }
+
+    fn display_left(&self) -> String {
+        format!("{}", self)
+    }
+
+    fn display_right(&self) -> String {
+        self.duration_str()
     }
 }

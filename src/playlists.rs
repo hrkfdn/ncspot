@@ -5,8 +5,10 @@ use std::sync::{Arc, RwLock};
 use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
 use events::{Event, EventManager};
+use queue::Queue;
 use spotify::Spotify;
 use track::Track;
+use traits::ListItem;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Playlist {
@@ -25,15 +27,36 @@ pub struct PlaylistStore {
 
 #[derive(Clone)]
 pub struct Playlists {
-    pub store: Arc<RwLock<PlaylistStore>>,
+    pub store: Arc<RwLock<Vec<Playlist>>>,
     ev: EventManager,
     spotify: Arc<Spotify>,
+}
+
+impl ListItem for Playlist {
+    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+        let playing: Vec<String> = queue.queue
+            .read()
+            .unwrap()
+            .iter()
+            .map(|t| t.id.clone())
+            .collect();
+        let ids: Vec<String> = self.tracks.iter().map(|t| t.id.clone()).collect();
+        ids.len() > 0 && playing == ids
+    }
+
+    fn display_left(&self) -> String {
+        self.meta.name.clone()
+    }
+
+    fn display_right(&self) -> String {
+        format!("{} tracks", self.tracks.len())
+    }
 }
 
 impl Playlists {
     pub fn new(ev: &EventManager, spotify: &Arc<Spotify>) -> Playlists {
         Playlists {
-            store: Arc::new(RwLock::new(PlaylistStore::default())),
+            store: Arc::new(RwLock::new(Vec::new())),
             ev: ev.clone(),
             spotify: spotify.clone(),
         }
@@ -51,8 +74,8 @@ impl Playlists {
                 if let Ok(cache) = parsed {
                     debug!("playlist cache loaded ({} lists)", cache.playlists.len());
                     let mut store = self.store.write().expect("can't writelock playlist store");
-                    store.playlists.clear();
-                    store.playlists.extend(cache.playlists);
+                    store.clear();
+                    store.extend(cache.playlists);
 
                     // force refresh of UI (if visible)
                     self.ev.send(Event::ScreenChange("playlists".to_owned()));
@@ -104,11 +127,11 @@ impl Playlists {
     }
 
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
-        for local in &self
+        for local in self
             .store
             .read()
             .expect("can't readlock playlists")
-            .playlists
+            .iter()
         {
             if local.meta.id == remote.id {
                 return local.meta.snapshot_id != remote.snapshot_id;
@@ -119,14 +142,14 @@ impl Playlists {
 
     fn append_or_update(&self, updated: &Playlist) -> usize {
         let mut store = self.store.write().expect("can't writelock playlists");
-        for (index, mut local) in store.playlists.iter_mut().enumerate() {
+        for (index, mut local) in store.iter_mut().enumerate() {
             if local.meta.id == updated.meta.id {
                 *local = updated.clone();
                 return index;
             }
         }
-        store.playlists.push(updated.clone());
-        store.playlists.len() - 1
+        store.push(updated.clone());
+        store.len() - 1
     }
 
     pub fn fetch_playlists(&self) {

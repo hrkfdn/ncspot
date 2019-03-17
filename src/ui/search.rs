@@ -1,81 +1,120 @@
+#![allow(unused_imports)]
+
 use cursive::direction::Orientation;
-use cursive::event::Key;
-use cursive::traits::Boxable;
-use cursive::traits::Identifiable;
-use cursive::views::*;
-use cursive::Cursive;
-use std::sync::Arc;
-use std::sync::Mutex;
+use cursive::event::{AnyCb, Event, EventResult, Key};
+use cursive::traits::{Boxable, Identifiable, Finder, View};
+use cursive::view::{Selector, ViewWrapper};
+use cursive::views::{EditView, IdView, ScrollView, ViewRef};
+use cursive::{Cursive, Printer, Vec2};
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex, RwLock};
 
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
-use ui::trackbutton::TrackButton;
+use ui::listview::ListView;
 
 pub struct SearchView {
-    pub view: LinearLayout,
+    results: Arc<RwLock<Vec<Track>>>,
+    edit: IdView<EditView>,
+    list: ScrollView<IdView<ListView<Track>>>,
+    edit_focused: bool,
 }
 
 impl SearchView {
-    fn search_handler(
-        s: &mut Cursive,
-        input: &str,
-        spotify: Arc<Spotify>,
-        queue: Arc<Mutex<Queue>>,
-    ) {
-        let mut results: ViewRef<ListView> = s.find_id("search_results").unwrap();
-        let tracks = spotify.search(input, 50, 0);
+    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
+        let results = Arc::new(RwLock::new(Vec::new()));
 
-        results.clear();
-
-        if let Ok(tracks) = tracks {
-            for search_track in tracks.tracks.items {
-                let track = Track::new(&search_track);
-                let mut button = TrackButton::new(&track);
-
-                // <enter> plays the selected track
-                {
-                    let queue = queue.clone();
-                    let track = track.clone();
-                    button.add_callback(Key::Enter, move |_cursive| {
-                        let mut queue = queue.lock().unwrap();
-                        let index = queue.append_next(&track);
-                        queue.play(index);
-                    });
-                }
-
-                // <space> queues the selected track
-                {
-                    let queue = queue.clone();
-                    let track = track.clone();
-                    button.add_callback(' ', move |_cursive| {
-                        let mut queue = queue.lock().unwrap();
-                        queue.append(&track);
-                    });
-                }
-
-                results.add_child("", button);
-            }
-        }
-    }
-
-    pub fn new(spotify: Arc<Spotify>, queue: Arc<Mutex<Queue>>) -> SearchView {
-        let queue_ref = queue.clone();
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
                 if input.len() > 0 {
-                    Self::search_handler(s, input, spotify.clone(), queue_ref.clone());
+                    s.call_on_id("search", |v: &mut SearchView| {
+                        v.run_search(input, spotify.clone());
+                        v.focus_view(&Selector::Id("list")).unwrap();
+                    });
                 }
             })
-            .with_id("search_edit")
-            .full_width()
-            .fixed_height(1);
-        let results = ListView::new().with_id("search_results").full_width();
-        let scrollable = ScrollView::new(results).full_width().full_height();
-        let layout = LinearLayout::new(Orientation::Vertical)
-            .child(searchfield)
-            .child(scrollable);
+            .with_id("search_edit");
+        let list = ListView::new(results.clone(), queue).with_id("list");
+        let scrollable = ScrollView::new(list);
 
-        return SearchView { view: layout };
+        SearchView {
+            results: results,
+            edit: searchfield,
+            list: scrollable,
+            edit_focused: false
+        }
+    }
+
+    pub fn run_search<S: Into<String>>(&mut self, query: S, spotify: Arc<Spotify>) {
+        let query = query.into();
+        let q = query.clone();
+        self.edit.call_on(&Selector::Id("search_edit"), |v: &mut EditView| {
+            v.set_content(q);
+        });
+
+        if let Ok(results) = spotify.search(&query, 50, 0) {
+            let tracks = results.tracks.items.iter().map(|ft| Track::new(ft)).collect();
+            let mut r = self.results.write().unwrap();
+            *r = tracks;
+            self.edit_focused = false;
+        }
+    }
+
+    pub fn focus_search(&mut self) {
+        self.edit.call_on(&Selector::Id("search_edit"), |v: &mut EditView| {
+            v.set_content("");
+        });
+        self.edit_focused = true;
+    }
+}
+
+impl View for SearchView {
+    fn draw(&self, printer: &Printer<'_, '_>) {
+        {
+            let printer = &printer
+                .offset((0, 0))
+                .cropped((printer.size.x, 1))
+                .focused(self.edit_focused);
+            self.edit.draw(printer);
+        }
+
+        let printer = &printer
+            .offset((0, 1))
+            .cropped((printer.size.x, printer.size.y - 1))
+            .focused(!self.edit_focused);
+        self.list.draw(printer);
+    }
+
+    fn layout(&mut self, size: Vec2) {
+        self.edit.layout(Vec2::new(size.x, 1));
+        self.list.layout(Vec2::new(size.x, size.y - 1));
+    }
+
+    fn call_on_any<'a>(&mut self, selector: &Selector<'_>, mut callback: AnyCb<'a>) {
+        self.edit.call_on_any(selector, Box::new(|v| callback(v)));
+        self.list.call_on_any(selector, Box::new(|v| callback(v)));
+    }
+
+    fn focus_view(&mut self, selector: &Selector<'_>) -> Result<(), ()> {
+        if let Selector::Id(s) = selector {
+            self.edit_focused = s == &"search_edit";
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    fn on_event(&mut self, event: Event) -> EventResult {
+        if self.edit_focused {
+            if event == Event::Key(Key::Esc) {
+                self.edit_focused = false;
+                EventResult::Consumed(None)
+            } else {
+                self.edit.on_event(event)
+            }
+        } else {
+            self.list.on_event(event)
+        }
     }
 }

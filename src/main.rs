@@ -1,4 +1,5 @@
 extern crate crossbeam_channel;
+#[macro_use]
 extern crate cursive;
 extern crate failure;
 extern crate futures;
@@ -28,12 +29,10 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::thread;
 
-use cursive::event::Key;
-use cursive::traits::{Identifiable, View};
-use cursive::view::{ScrollStrategy, Selector};
+use cursive::traits::{Identifiable};
+use cursive::view::{ScrollStrategy};
 use cursive::views::*;
 use cursive::Cursive;
 
@@ -46,6 +45,7 @@ mod spotify;
 mod theme;
 mod track;
 mod ui;
+mod traits;
 
 #[cfg(feature = "mpris")]
 mod mpris;
@@ -79,19 +79,6 @@ fn init_logger(content: TextContent, write_to_file: bool) {
             })
             .init();
     }
-}
-
-fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
-    cursive: &mut Cursive,
-    ev: &EventManager,
-    event: E,
-    command: S,
-) {
-    let ev = ev.clone();
-    let cmd = command.into();
-    cursive.add_global_callback(event, move |_s| {
-        ev.send(Event::Command(cmd.clone()));
-    });
 }
 
 fn main() {
@@ -131,7 +118,6 @@ fn main() {
     cursive.set_theme(theme::default());
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
-    let mut cmd_manager = CommandManager::new();
 
     let spotify = Arc::new(spotify::Spotify::new(
         event_manager.clone(),
@@ -140,13 +126,13 @@ fn main() {
         config::CLIENT_ID.to_string(),
     ));
 
-    let queue = Arc::new(Mutex::new(queue::Queue::new(
+    let queue = Arc::new(queue::Queue::new(
         event_manager.clone(),
         spotify.clone(),
-    )));
+    ));
 
     #[cfg(feature = "mpris")]
-    let mpris_manager = mpris::MprisManager::new(spotify.clone(), queue.clone());
+    let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
@@ -167,23 +153,19 @@ fn main() {
         });
     }
 
-    let mut playlists_view = ui::playlist::PlaylistView::new(&playlists, queue.clone());
+    let playlistsview = ui::playlist::PlaylistView::new(&playlists, queue.clone());
 
-    let mut queueview = ui::queue::QueueView::new(queue.clone());
+    let queueview = ui::queue::QueueView::new(queue.clone());
 
     let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
     let mut layout = ui::layout::Layout::new(status, &event_manager)
-        .view("search", search.view.with_id("search"), "Search")
+        .view("search", search.with_id("search"), "Search")
         .view("log", logview_scroller, "Log")
-        .view(
-            "playlists",
-            playlists_view.view.take().unwrap(),
-            "Playlists",
-        )
-        .view("queue", queueview.view.take().unwrap(), "Queue");
+        .view("playlists", playlistsview, "Playlists")
+        .view("queue", queueview, "Queue");
 
     // initial view is queue
     layout.set_view("queue");
@@ -206,151 +188,20 @@ fn main() {
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
-    // Register commands
-    cmd_manager.register(
-        "quit",
-        vec!["q", "x"],
-        Box::new(move |s, _args| {
-            s.quit();
-            Ok(None)
-        }),
-    );
+    let mut cmd_manager = CommandManager::new();
+    cmd_manager.register_all(spotify.clone(), queue.clone());
 
+    #[cfg(feature = "mpris")]
     {
-        let queue = queue.clone();
-        cmd_manager.register(
-            "toggleplayback",
-            vec!["toggleplay", "toggle", "play", "pause"],
-            Box::new(move |_s, _args| {
-                queue.lock().expect("could not lock queue").toggleplayback();
-                Ok(None)
-            }),
-        );
+        let mpris_manager = mpris_manager.clone();
+        cmd_manager.register_callback(Box::new(move || {
+            mpris_manager.update();
+        }));
     }
 
-    {
-        let queue = queue.clone();
-        cmd_manager.register(
-            "stop",
-            Vec::new(),
-            Box::new(move |_s, _args| {
-                queue.lock().expect("could not lock queue").stop();
-                Ok(None)
-            }),
-        );
-    }
+    let cmd_manager = Arc::new(cmd_manager);
 
-    {
-        let queue = queue.clone();
-        cmd_manager.register(
-            "previous",
-            Vec::new(),
-            Box::new(move |_s, _args| {
-                queue.lock().expect("could not lock queue").previous();
-                Ok(None)
-            }),
-        );
-    }
-
-    {
-        let queue = queue.clone();
-        cmd_manager.register(
-            "next",
-            Vec::new(),
-            Box::new(move |_s, _args| {
-                queue.lock().expect("could not lock queue").next();
-                Ok(None)
-            }),
-        );
-    }
-
-    {
-        let queue = queue.clone();
-        cmd_manager.register(
-            "clear",
-            Vec::new(),
-            Box::new(move |_s, _args| {
-                queue.lock().expect("could not lock queue").clear();
-                Ok(None)
-            }),
-        );
-    }
-
-    {
-        cmd_manager.register(
-            "queue",
-            Vec::new(),
-            Box::new(move |s, _args| {
-                s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                    v.set_view("queue");
-                });
-                Ok(None)
-            }),
-        );
-    }
-
-    {
-        cursive.add_global_callback(Key::F1, move |s| {
-            s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                v.set_view("queue");
-            });
-        });
-    }
-
-    cmd_manager.register(
-        "search",
-        Vec::new(),
-        Box::new(move |s, args| {
-            s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                v.set_view("search");
-            });
-            s.call_on_id("search", |v: &mut LinearLayout| {
-                v.focus_view(&Selector::Id("search_edit")).unwrap();
-            });
-            if args.len() >= 1 {
-                s.call_on_id("search_edit", |v: &mut EditView| {
-                    v.set_content(args.join(" "));
-                });
-            }
-            Ok(None)
-        }),
-    );
-
-    {
-        cmd_manager.register(
-            "playlists",
-            vec!["lists"],
-            Box::new(move |s, _args| {
-                s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                    v.set_view("playlists");
-                });
-                Ok(None)
-            }),
-        );
-    }
-
-    cmd_manager.register(
-        "log",
-        Vec::new(),
-        Box::new(move |s, _args| {
-            s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                v.set_view("log");
-            });
-            Ok(None)
-        }),
-    );
-
-    register_keybinding(&mut cursive, &event_manager, 'q', "quit");
-    register_keybinding(&mut cursive, &event_manager, 'P', "toggle");
-    register_keybinding(&mut cursive, &event_manager, 'S', "stop");
-    register_keybinding(&mut cursive, &event_manager, '<', "previous");
-    register_keybinding(&mut cursive, &event_manager, '>', "next");
-    register_keybinding(&mut cursive, &event_manager, 'c', "clear");
-
-    register_keybinding(&mut cursive, &event_manager, Key::F1, "queue");
-    register_keybinding(&mut cursive, &event_manager, Key::F2, "search");
-    register_keybinding(&mut cursive, &event_manager, Key::F3, "playlists");
-    register_keybinding(&mut cursive, &event_manager, Key::F9, "log");
+    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings);
 
     // cursive event loop
     while cursive.is_running() {
@@ -360,30 +211,18 @@ fn main() {
             match event {
                 Event::Player(state) => {
                     if state == PlayerEvent::FinishedTrack {
-                        queue.lock().expect("could not lock queue").next();
+                        queue.next();
                     }
                     spotify.update_status(state);
 
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
                 }
-                Event::Playlist(event) => playlists_view.handle_ev(&mut cursive, event),
+                Event::Playlist(_event) => (),
                 Event::Command(cmd) => {
-                    // TODO: handle non-error output as well
-                    if let Err(e) = cmd_manager.handle(&mut cursive, cmd) {
-                        cursive.call_on_id("main", |v: &mut ui::layout::Layout| {
-                            v.set_error(e);
-                        });
-                    }
-
-                    #[cfg(feature = "mpris")]
-                    mpris_manager.update();
+                    cmd_manager.handle(&mut cursive, cmd);
                 }
-                Event::ScreenChange(name) => match name.as_ref() {
-                    "playlists" => playlists_view.repopulate(&mut cursive),
-                    "queue" => queueview.repopulate(&mut cursive),
-                    _ => (),
-                },
+                Event::ScreenChange(_name) => (),
             }
         }
     }

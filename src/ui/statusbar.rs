@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
 use cursive::align::HAlign;
 use cursive::theme::ColorStyle;
@@ -11,12 +11,12 @@ use queue::Queue;
 use spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
-    queue: Arc<Mutex<Queue>>,
+    queue: Arc<Queue>,
     spotify: Arc<Spotify>,
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Mutex<Queue>>, spotify: Arc<Spotify>) -> StatusBar {
+    pub fn new(queue: Arc<Queue>, spotify: Arc<Spotify>) -> StatusBar {
         StatusBar {
             queue: queue,
             spotify: spotify,
@@ -55,12 +55,7 @@ impl View for StatusBar {
             printer.print((0, 1), &state_icon);
         });
 
-        if let Some(ref t) = self
-            .queue
-            .lock()
-            .expect("could not lock queue")
-            .get_current()
-        {
+        if let Some(ref t) = self.queue.get_current() {
             let elapsed = self.spotify.get_current_progress();
             let formatted_elapsed = format!(
                 "{:02}:{:02}",
