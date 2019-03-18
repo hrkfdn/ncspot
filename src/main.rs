@@ -82,9 +82,6 @@ fn init_logger(content: TextContent, write_to_file: bool) {
 }
 
 fn main() {
-    std::env::set_var("RUST_LOG", "ncspot=trace");
-    std::env::set_var("RUST_BACKTRACE", "full");
-
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
     let path = match env::var_os("HOME") {
