@@ -21,11 +21,8 @@ extern crate toml;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 
 use std::env;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
@@ -55,33 +52,9 @@ use events::{Event, EventManager};
 use playlists::Playlists;
 use spotify::PlayerEvent;
 
-fn init_logger(content: TextContent, write_to_file: bool) {
-    let mut builder = env_logger::Builder::from_default_env();
-    {
-        builder
-            .format(move |_, record| {
-                let mut buffer = content.clone();
-                let line = format!("[{}] {}\n", record.level(), record.args());
-                buffer.append(line.clone());
-
-                if write_to_file {
-                    let mut file = OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .append(true)
-                        .open("ncspot.log")
-                        .unwrap();
-                    if let Err(e) = writeln!(file, "{}", line) {
-                        eprintln!("Couldn't write to file: {}", e);
-                    }
-                }
-                Ok(())
-            })
-            .init();
-    }
-}
-
 fn main() {
+    cursive::logger::init();
+
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
     let path = match env::var_os("HOME") {
@@ -107,9 +80,7 @@ fn main() {
         })
     };
 
-    let logbuf = TextContent::new("Welcome to ncspot\n");
-    let logview = TextView::new_with_content(logbuf.clone());
-    init_logger(logbuf, true);
+    let logview = DebugView::new();
 
     let mut cursive = Cursive::default();
     cursive.set_theme(theme::default());
@@ -157,7 +128,7 @@ fn main() {
 
     let mut layout = ui::layout::Layout::new(status, &event_manager)
         .view("search", search.with_id("search"), "Search")
-        .view("log", logview_scroller, "Log")
+        .view("log", logview_scroller, "Debug Log")
         .view("playlists", playlistsview, "Playlists")
         .view("queue", queueview, "Queue");
 
