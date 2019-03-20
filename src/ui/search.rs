@@ -4,7 +4,7 @@ use cursive::direction::Orientation;
 use cursive::event::{AnyCb, Event, EventResult, Key};
 use cursive::traits::{Boxable, Finder, Identifiable, View};
 use cursive::view::{Selector, ViewWrapper};
-use cursive::views::{EditView, IdView, ScrollView, ViewRef};
+use cursive::views::{EditView, IdView, ViewRef};
 use cursive::{Cursive, Printer, Vec2};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
@@ -17,7 +17,7 @@ use ui::listview::ListView;
 pub struct SearchView {
     results: Arc<RwLock<Vec<Track>>>,
     edit: IdView<EditView>,
-    list: ScrollView<IdView<ListView<Track>>>,
+    list: IdView<ListView<Track>>,
     edit_focused: bool,
 }
 
@@ -36,12 +36,11 @@ impl SearchView {
             })
             .with_id("search_edit");
         let list = ListView::new(results.clone(), queue).with_id("list");
-        let scrollable = ScrollView::new(list);
 
         SearchView {
             results: results,
             edit: searchfield,
-            list: scrollable,
+            list: list,
             edit_focused: true,
         }
     }
