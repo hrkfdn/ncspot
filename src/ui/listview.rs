@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
-use cursive::event::{Event, EventResult, MouseEvent, MouseButton};
+use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::ColorStyle;
 use cursive::traits::View;
 use cursive::view::ScrollBase;
@@ -36,7 +36,7 @@ impl<I: ListItem> ListView<I> {
     pub fn with_selected(&self, cb: Box<Fn(&I) -> ()>) {
         match self.content.read().unwrap().get(self.selected) {
             Some(x) => cb(x),
-            None => error!("listview: invalid item index: {})", self.selected)
+            None => error!("listview: invalid item index: {})", self.selected),
         }
     }
 
@@ -112,32 +112,34 @@ impl<I: ListItem> View for ListView<I> {
             Event::Mouse {
                 event: MouseEvent::WheelUp,
                 ..
-            } => {
-                self.move_focus(-3)
-            },
+            } => self.move_focus(-3),
             Event::Mouse {
                 event: MouseEvent::WheelDown,
                 ..
-            } => {
-                self.move_focus(3)
-            },
+            } => self.move_focus(3),
             Event::Mouse {
                 event: MouseEvent::Press(MouseButton::Left),
                 position,
-                offset
-            } => if self.scrollbar.scrollable() &&
-                position.y > 0 && position.y <= self.last_size.y &&
-                position.checked_sub(offset)
-                    .map(|p| self.scrollbar.start_drag(p, self.last_size.x))
-                    .unwrap_or(false)
-            {},
+                offset,
+            } => {
+                if self.scrollbar.scrollable()
+                    && position.y > 0
+                    && position.y <= self.last_size.y
+                    && position
+                        .checked_sub(offset)
+                        .map(|p| self.scrollbar.start_drag(p, self.last_size.x))
+                        .unwrap_or(false)
+                {}
+            }
             Event::Mouse {
                 event: MouseEvent::Hold(MouseButton::Left),
                 position,
-                offset
-            } => if self.scrollbar.scrollable() {
-                self.scrollbar.drag(position.saturating_sub(offset));
-            },
+                offset,
+            } => {
+                if self.scrollbar.scrollable() {
+                    self.scrollbar.drag(position.saturating_sub(offset));
+                }
+            }
             Event::Mouse {
                 event: MouseEvent::Release(MouseButton::Left),
                 ..
@@ -159,8 +161,7 @@ impl<I: ListItem> View for ListView<I> {
     fn important_area(&self, view_size: Vec2) -> Rect {
         if self.content.read().unwrap().len() > 0 {
             Rect::from((view_size.x, self.selected))
-        }
-        else {
+        } else {
             Rect::from((0, 0))
         }
     }

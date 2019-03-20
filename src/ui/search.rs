@@ -69,7 +69,7 @@ impl SearchView {
     fn pass_event_focused(&mut self, event: Event) -> EventResult {
         match self.edit_focused {
             true => self.edit.on_event(event),
-            false => self.list.on_event(event)
+            false => self.list.on_event(event),
         }
     }
 }
@@ -120,7 +120,7 @@ impl View for SearchView {
                 self.edit_focused = false;
                 EventResult::Consumed(None)
             }
-            _ => self.pass_event_focused(event)
+            _ => self.pass_event_focused(event),
         };
 
         ret
