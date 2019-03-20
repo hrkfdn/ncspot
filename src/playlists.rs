@@ -1,9 +1,11 @@
 use std::iter::Iterator;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
+use config;
 use events::EventManager;
 use queue::Queue;
 use spotify::Spotify;
@@ -21,6 +23,7 @@ pub struct Playlists {
     pub store: Arc<RwLock<Vec<Playlist>>>,
     ev: EventManager,
     spotify: Arc<Spotify>,
+    cache_path: PathBuf,
 }
 
 impl ListItem for Playlist {
@@ -51,43 +54,38 @@ impl Playlists {
             store: Arc::new(RwLock::new(Vec::new())),
             ev: ev.clone(),
             spotify: spotify.clone(),
+            cache_path: config::cache_path(),
         }
     }
 
     pub fn load_cache(&self) {
-        let xdg_dirs = xdg::BaseDirectories::with_prefix("ncspot").unwrap();
-        if let Ok(cache_path) = xdg_dirs.place_cache_file("playlists.db") {
-            if let Ok(contents) = std::fs::read_to_string(&cache_path) {
-                debug!(
-                    "loading playlist cache from {}",
-                    cache_path.to_str().unwrap()
-                );
-                let parsed: Result<Vec<Playlist>, _> = serde_json::from_str(&contents);
-                match parsed {
-                    Ok(cache) => {
-                        debug!("playlist cache loaded ({} lists)", cache.len());
-                        let mut store = self.store.write().expect("can't writelock playlist store");
-                        store.clear();
-                        store.extend(cache);
+        if let Ok(contents) = std::fs::read_to_string(&self.cache_path) {
+            debug!(
+                "loading playlist cache from {}",
+                self.cache_path.to_str().unwrap()
+            );
+            let parsed: Result<Vec<Playlist>, _> = serde_json::from_str(&contents);
+            match parsed {
+                Ok(cache) => {
+                    debug!("playlist cache loaded ({} lists)", cache.len());
+                    let mut store = self.store.write().expect("can't writelock playlist store");
+                    store.clear();
+                    store.extend(cache);
 
-                        // force refresh of UI (if visible)
-                        self.ev.trigger();
-                    }
-                    Err(e) => {
-                        error!("can't parse playlist cache: {}", e);
-                    }
+                    // force refresh of UI (if visible)
+                    self.ev.trigger();
+                }
+                Err(e) => {
+                    error!("can't parse playlist cache: {}", e);
                 }
             }
         }
     }
 
     pub fn save_cache(&self) {
-        let xdg_dirs = xdg::BaseDirectories::with_prefix("ncspot").unwrap();
-        if let Ok(cache_path) = xdg_dirs.place_cache_file("playlists.db") {
-            match serde_json::to_string(&self.store.deref()) {
-                Ok(contents) => std::fs::write(cache_path, contents).unwrap(),
-                Err(e) => error!("could not write playlist cache: {:?}", e),
-            }
+        match serde_json::to_string(&self.store.deref()) {
+            Ok(contents) => std::fs::write(&self.cache_path, contents).unwrap(),
+            Err(e) => error!("could not write playlist cache: {:?}", e),
         }
     }
 
@@ -108,8 +106,11 @@ impl Playlists {
             tracks_result = match tracks.next {
                 Some(_) => {
                     debug!("requesting tracks again..");
-                    spotify
-                        .user_playlist_tracks(&id, 100, tracks.offset + tracks.items.len() as u32)
+                    spotify.user_playlist_tracks(
+                        &id,
+                        100,
+                        tracks.offset + tracks.items.len() as u32,
+                    )
                 }
                 None => None,
             }

@@ -1,6 +1,7 @@
 extern crate crossbeam_channel;
 #[macro_use]
 extern crate cursive;
+extern crate directories;
 extern crate failure;
 extern crate futures;
 extern crate librespot;
@@ -9,7 +10,6 @@ extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_timer;
 extern crate unicode_width;
-extern crate xdg;
 
 #[cfg(feature = "mpris")]
 extern crate dbus;
@@ -22,8 +22,6 @@ extern crate toml;
 #[macro_use]
 extern crate log;
 
-use std::env;
-use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
 use std::thread;
@@ -57,13 +55,7 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let path = match env::var_os("HOME") {
-        None => {
-            eprintln!("$HOME not set");
-            process::exit(1);
-        }
-        Some(path) => PathBuf::from(format!("{0}/.config/ncspot", path.into_string().unwrap())),
-    };
+    let path = config::config_path();
 
     let cfg: config::Config = {
         let contents = std::fs::read_to_string(&path).unwrap_or_else(|_| {
