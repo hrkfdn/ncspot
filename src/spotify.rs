@@ -11,6 +11,7 @@ use librespot::playback::config::Bitrate;
 use librespot::playback::player::Player;
 
 use rspotify::spotify::client::Spotify as SpotifyAPI;
+use rspotify::spotify::client::ApiError;
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
 use rspotify::spotify::model::search::SearchTracks;
@@ -281,16 +282,37 @@ impl Spotify {
         (*since).clone()
     }
 
-    pub fn search(&self, query: &str, limit: u32, offset: u32) -> Result<SearchTracks, Error> {
-        self.api.search_track(query, limit, offset, None)
+    /// retries once when rate limits are hit
+    fn api_with_retry<F, R>(&self, cb: F) -> Option<R>
+    where F: Fn(&SpotifyAPI) -> Result<R, Error> {
+        match cb(&self.api) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                debug!("api error: {:?}", e);
+                if let Ok(apierror) = e.downcast::<ApiError>() {
+                    if let ApiError::RateLimited(d) = apierror {
+                        debug!("rate limit hit. waiting {:?} seconds", d);
+                        thread::sleep(Duration::from_secs(d.unwrap_or(0) as u64));
+                        cb(&self.api).ok()
+                    }
+                    else { None }
+                }
+                else { None }
+            }
+        }
+    }
+
+    pub fn search(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
+        //let res = self.api.search_track(query, limit, offset, None);
+        self.api_with_retry(|api| api.search_track(query, limit, offset, None) )
     }
 
     pub fn current_user_playlist(
         &self,
         limit: u32,
         offset: u32,
-    ) -> Result<Page<SimplifiedPlaylist>, Error> {
-        self.api.current_user_playlists(limit, offset)
+    ) -> Option<Page<SimplifiedPlaylist>> {
+        self.api_with_retry(|api| api.current_user_playlists(limit, offset) )
     }
 
     pub fn user_playlist_tracks(
@@ -298,9 +320,9 @@ impl Spotify {
         playlist_id: &str,
         limit: u32,
         offset: u32,
-    ) -> Result<Page<PlaylistTrack>, Error> {
-        self.api
-            .user_playlist_tracks(&self.user, playlist_id, None, limit, offset, None)
+    ) -> Option<Page<PlaylistTrack>> {
+        self.api_with_retry(|api| api
+            .user_playlist_tracks(&self.user, playlist_id, None, limit, offset, None))
     }
 
     pub fn load(&self, track: &Track) {

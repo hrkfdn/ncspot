@@ -53,7 +53,7 @@ impl SearchView {
                 v.set_content(q);
             });
 
-        if let Ok(results) = spotify.search(&query, 50, 0) {
+        if let Some(results) = spotify.search(&query, 50, 0) {
             let tracks = results
                 .tracks
                 .items

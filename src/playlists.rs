@@ -97,7 +97,7 @@ impl Playlists {
 
         let mut collected_tracks = Vec::new();
 
-        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0).ok();
+        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
         while let Some(ref tracks) = tracks_result.clone() {
             for listtrack in &tracks.items {
                 collected_tracks.push(Track::new(&listtrack.track));
@@ -110,7 +110,6 @@ impl Playlists {
                     debug!("requesting tracks again..");
                     spotify
                         .user_playlist_tracks(&id, 100, tracks.offset + tracks.items.len() as u32)
-                        .ok()
                 }
                 None => None,
             }
@@ -144,7 +143,7 @@ impl Playlists {
 
     pub fn fetch_playlists(&self) {
         debug!("loading playlists");
-        let mut lists_result = self.spotify.current_user_playlist(50, 0).ok();
+        let mut lists_result = self.spotify.current_user_playlist(50, 0);
         while let Some(ref lists) = lists_result.clone() {
             for remote in &lists.items {
                 if self.needs_download(remote) {
@@ -162,7 +161,6 @@ impl Playlists {
                     debug!("requesting playlists again..");
                     self.spotify
                         .current_user_playlist(50, lists.offset + lists.items.len() as u32)
-                        .ok()
                 }
                 None => None,
             }
