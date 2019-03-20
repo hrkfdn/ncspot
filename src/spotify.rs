@@ -307,7 +307,6 @@ impl Spotify {
     }
 
     pub fn search(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
-        //let res = self.api.search_track(query, limit, offset, None);
         self.api_with_retry(|api| api.search_track(query, limit, offset, None))
     }
 
