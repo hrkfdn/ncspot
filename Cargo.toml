@@ -28,8 +28,8 @@ unicode-width = "0.1.5"
 dbus = { version = "0.6.4", optional = true }
 
 [dependencies.rspotify]
-git = "https://github.com/hrkfdn/rspotify.git"
-rev = "6029b8f50f4e5fade2ded3e3fdfe5ab8e3908450"
+git = "https://github.com/samrayleung/rspotify"
+rev = "5abda44e00c4c649a7dbdaf9d2463b073e9aaac7"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
