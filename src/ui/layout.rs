@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime};
 use cursive::align::HAlign;
 use cursive::direction::Direction;
 use cursive::event::{AnyCb, Event, EventResult};
-use cursive::theme::ColorStyle;
+use cursive::theme::{Theme, ColorStyle, ColorType};
 use cursive::traits::View;
 use cursive::vec::Vec2;
 use cursive::view::{IntoBoxedView, Selector};
@@ -30,21 +30,32 @@ pub struct Layout {
     error_time: Option<SystemTime>,
     screenchange: bool,
     ev: events::EventManager,
+    theme: Theme
 }
 
 impl Layout {
-    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager) -> Layout {
+    pub fn new<T: IntoBoxedView>(
+        status: T,
+        ev: &events::EventManager,
+        theme: Theme
+    ) -> Layout {
+        let style = ColorStyle::new(
+            ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
+            ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
+        );
+
         Layout {
             views: HashMap::new(),
             title: String::new(),
             statusbar: status.as_boxed_view(),
             focus: None,
-            cmdline: EditView::new().filler(" "),
+            cmdline: EditView::new().filler(" ").style(style),
             cmdline_focus: false,
             error: None,
             error_time: None,
             ev: ev.clone(),
             screenchange: true,
+            theme: theme,
         }
     }
 
@@ -135,7 +146,11 @@ impl View for Layout {
             .draw(&printer.offset((0, printer.size.y - 2 - cmdline_height)));
 
         if let Some(e) = error {
-            printer.with_color(ColorStyle::highlight(), |printer| {
+            let style = ColorStyle::new(
+                ColorType::Color(*self.theme.palette.custom("error").unwrap()),
+                ColorType::Color(*self.theme.palette.custom("error_bg").unwrap()),
+            );
+            printer.with_color(style, |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
                 printer.print(
                     (0, printer.size.y - cmdline_height),

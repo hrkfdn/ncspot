@@ -72,10 +72,12 @@ fn main() {
         })
     };
 
+    let theme = theme::load(&cfg);
+
     let logview = DebugView::new();
 
     let mut cursive = Cursive::default();
-    cursive.set_theme(theme::default());
+    cursive.set_theme(theme.clone());
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
@@ -118,7 +120,7 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
-    let mut layout = ui::layout::Layout::new(status, &event_manager)
+    let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_id("search"), "Search")
         .view("log", logview_scroller, "Debug Log")
         .view("playlists", playlistsview, "Playlists")

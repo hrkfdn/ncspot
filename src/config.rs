@@ -11,6 +11,26 @@ pub struct Config {
     pub username: String,
     pub password: String,
     pub keybindings: Option<HashMap<String, String>>,
+    pub theme: Option<ConfigTheme>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct ConfigTheme {
+    pub background: Option<String>,
+    pub primary: Option<String>,
+    pub secondary: Option<String>,
+    pub title: Option<String>,
+    pub playing: Option<String>,
+    pub playing_bg: Option<String>,
+    pub highlight: Option<String>,
+    pub highlight_bg: Option<String>,
+    pub error: Option<String>,
+    pub error_bg: Option<String>,
+    pub statusbar_progress: Option<String>,
+    pub statusbar: Option<String>,
+    pub statusbar_bg: Option<String>,
+    pub cmdline: Option<String>,
+    pub cmdline_bg: Option<String>,
 }
 
 pub fn config_path() -> PathBuf {
