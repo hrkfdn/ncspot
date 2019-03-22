@@ -76,6 +76,7 @@ impl<I: ListItem> View for ListView<I> {
 
             // draw left string
             printer.with_color(style, |printer| {
+                printer.print_hline((0, 0), printer.size.x, " ");
                 printer.print((0, 0), &left);
             });
 
