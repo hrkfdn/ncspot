@@ -74,6 +74,34 @@ password = "spotify_password"
 
 Please save it to `~/.config/ncspot`.
 
+### Theming
+
+The color palette can be modified in the configuration. For instance, to have
+ncspot match Spotify's official client, you can add the following entries to the
+configuration file:
+
+```
+[theme]
+background = "black"
+primary = "light white"
+secondary = "light black"
+title = "green"
+playing = "green"
+playing_bg = "black"
+highlight = "light white"
+highlight_bg = "#484848"
+error = "light white"
+error_bg = "red"
+statusbar = "black"
+statusbar_progress = "green"
+statusbar_bg = "green"
+cmdline = "light white"
+cmdline_bg = "black"
+```
+
+More examples can be found in pull request
+https://github.com/hrkfdn/ncspot/pull/40.
+
 ## Audio backends
 
 By default ncspot is built using the PulseAudio backend.
