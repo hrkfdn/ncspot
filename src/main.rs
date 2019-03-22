@@ -83,7 +83,6 @@ fn main() {
         event_manager.clone(),
         cfg.username,
         cfg.password,
-        config::CLIENT_ID.to_string(),
     ));
 
     let queue = Arc::new(queue::Queue::new(spotify.clone()));
