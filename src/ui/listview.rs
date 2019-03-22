@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
-use cursive::theme::ColorStyle;
+use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::view::ScrollBase;
 use cursive::{Printer, Rect, Vec2};
@@ -64,9 +64,15 @@ impl<I: ListItem> View for ListView<I> {
             let item = &content[i];
 
             let style = if self.selected == i {
-                ColorStyle::highlight()
+                ColorStyle::new(
+                    ColorType::Palette(PaletteColor::Tertiary),
+                    ColorType::Palette(PaletteColor::Highlight),
+                )
             } else if item.is_playing(self.queue.clone()) {
-                ColorStyle::secondary()
+                ColorStyle::new(
+                    ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
+                    ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
+                )
             } else {
                 ColorStyle::primary()
             };
@@ -76,6 +82,7 @@ impl<I: ListItem> View for ListView<I> {
 
             // draw left string
             printer.with_color(style, |printer| {
+                printer.print_hline((0, 0), printer.size.x, " ");
                 printer.print((0, 0), &left);
             });
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cursive::align::HAlign;
-use cursive::theme::ColorStyle;
+use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::vec::Vec2;
 use cursive::Printer;
@@ -30,8 +30,14 @@ impl View for StatusBar {
             return;
         }
 
-        let style_bar = ColorStyle::secondary();
-        let style = ColorStyle::title_secondary();
+        let style_bar = ColorStyle::new(
+            ColorType::Color(*printer.theme.palette.custom("statusbar_progress").unwrap()),
+            ColorType::Palette(PaletteColor::Background),
+        );
+        let style = ColorStyle::new(
+            ColorType::Color(*printer.theme.palette.custom("statusbar").unwrap()),
+            ColorType::Color(*printer.theme.palette.custom("statusbar_bg").unwrap()),
+        );
 
         printer.print(
             (0, 0),
