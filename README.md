@@ -25,7 +25,7 @@ future. Contributions welcome, but please be kind ;)
 
 * Set your login credentials (see configuration)
 * Build using `cargo build --release`
-* The initial screen is the debug log. Press `F2` for the queue and `F3` to
+* The initial screen is the debug log. Press `F1` for the queue and `F2` to
   search for a track. More key bindings are described below.
 
 ### Key Bindings
@@ -39,7 +39,6 @@ have them configurable.
   * `F3`: Playlists
     * `d` deletes the currently selected track
     * `c` clears the entire playlist
-* `F9`: Debug log
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track

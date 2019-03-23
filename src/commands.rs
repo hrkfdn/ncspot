@@ -130,17 +130,6 @@ impl CommandManager {
         }
 
         self.register(
-            "log",
-            Vec::new(),
-            Box::new(move |s, _args| {
-                s.call_on_id("main", |v: &mut Layout| {
-                    v.set_view("log");
-                });
-                Ok(None)
-            }),
-        );
-
-        self.register(
             "move",
             Vec::new(),
             Box::new(move |s, args| {
@@ -365,7 +354,6 @@ impl CommandManager {
         kb.insert("F1".into(), "queue".into());
         kb.insert("F2".into(), "search".into());
         kb.insert("F3".into(), "playlists".into());
-        kb.insert("F9".into(), "log".into());
 
         kb.insert("Up".into(), "move up".into());
         kb.insert("Down".into(), "move down".into());

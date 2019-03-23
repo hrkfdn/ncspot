@@ -1,3 +1,4 @@
+extern crate clap;
 extern crate crossbeam_channel;
 #[macro_use]
 extern crate cursive;
@@ -21,14 +22,15 @@ extern crate toml;
 
 #[macro_use]
 extern crate log;
+extern crate chrono;
+extern crate fern;
 
 use std::process;
 use std::sync::Arc;
 use std::thread;
 
+use clap::{Arg, App};
 use cursive::traits::Identifiable;
-use cursive::view::ScrollStrategy;
-use cursive::views::*;
 use cursive::Cursive;
 
 mod commands;
@@ -50,8 +52,45 @@ use events::{Event, EventManager};
 use playlists::Playlists;
 use spotify::PlayerEvent;
 
+fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        // Perform allocation-free log formatting
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{} [{}] [{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        // Add blanket level filter -
+        .level(log::LevelFilter::Trace)
+        // - and per-module overrides
+        .level_for("librespot", log::LevelFilter::Debug)
+        // Output to stdout, files, and other Dispatch configurations
+        .chain(fern::log_file(filename)?)
+        // Apply globally
+        .apply()?;
+    Ok(())
+}
+
 fn main() {
-    cursive::logger::init();
+    let matches = App::new("ncspot")
+        .version("0.1.0")
+        .author("Henrik Friedrichsen <henrik@affekt.org>")
+        .about("cross-platform ncurses Spotify client")
+        .arg(Arg::with_name("debug")
+             .short("d")
+             .long("debug")
+             .value_name("FILE")
+             .help("Enable debug logging to the specified file")
+             .takes_value(true))
+        .get_matches();
+
+    if let Some(filename) = matches.value_of("debug") {
+        setup_logging(filename).expect("can't setup logging");
+    }
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
@@ -73,8 +112,6 @@ fn main() {
     };
 
     let theme = theme::load(&cfg);
-
-    let logview = DebugView::new();
 
     let mut cursive = Cursive::default();
     cursive.set_theme(theme.clone());
@@ -115,13 +152,10 @@ fn main() {
 
     let queueview = ui::queue::QueueView::new(queue.clone());
 
-    let logview_scroller = ScrollView::new(logview).scroll_strategy(ScrollStrategy::StickToBottom);
-
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_id("search"), "Search")
-        .view("log", logview_scroller, "Debug Log")
         .view("playlists", playlistsview, "Playlists")
         .view("queue", queueview, "Queue");
 
