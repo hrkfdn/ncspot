@@ -27,6 +27,7 @@ future. Contributions welcome, but please be kind ;)
 * Build using `cargo build --release`
 * The initial screen is the debug log. Press `F1` for the queue and `F2` to
   search for a track. More key bindings are described below.
+* For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
 
 ### Key Bindings
 
