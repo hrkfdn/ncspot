@@ -12,7 +12,7 @@ use spotify::Spotify;
 use track::Track;
 use traits::ListItem;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Playlist {
     pub meta: SimplifiedPlaylist,
     pub tracks: Vec<Track>,
@@ -144,9 +144,16 @@ impl Playlists {
 
     pub fn fetch_playlists(&self) {
         debug!("loading playlists");
+        let mut stale_lists = self.store.read().unwrap().clone();
+
         let mut lists_result = self.spotify.current_user_playlist(50, 0);
         while let Some(ref lists) = lists_result.clone() {
             for remote in &lists.items {
+                // remove from stale playlists so we won't prune it later on
+                if let Some(index) = stale_lists.iter().position(|x| x.meta.id == remote.id) {
+                    stale_lists.remove(index);
+                }
+
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
                     let playlist = Self::process_playlist(&remote, &self.spotify);
@@ -166,5 +173,21 @@ impl Playlists {
                 None => None,
             }
         }
+
+        // remove stale playlists
+        for stale in stale_lists {
+            let index = self
+                .store
+                .read()
+                .unwrap()
+                .iter()
+                .position(|x| x.meta.id == stale.meta.id);
+            if let Some(index) = index {
+                debug!("removing stale list: {:?}", stale.meta.name);
+                self.store.write().unwrap().remove(index);
+            }
+        }
+        // trigger redraw
+        self.ev.trigger();
     }
 }

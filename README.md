@@ -42,6 +42,7 @@ have them configurable.
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
+* `Shift-r` updates the playlist cache
 * `<` and `>` play the previous or next track, respectively
 * `q` quits ncspot
 

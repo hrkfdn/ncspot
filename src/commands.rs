@@ -4,7 +4,7 @@ use std::sync::Arc;
 use cursive::event::{Event, Key};
 use cursive::Cursive;
 
-use playlists::Playlist;
+use playlists::{Playlist, Playlists};
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -39,7 +39,12 @@ impl CommandManager {
         self.commands.insert(name, cb);
     }
 
-    pub fn register_all(&mut self, spotify: Arc<Spotify>, queue: Arc<Queue>) {
+    pub fn register_all(
+        &mut self,
+        spotify: Arc<Spotify>,
+        queue: Arc<Queue>,
+        playlists: Arc<Playlists>,
+    ) {
         self.register(
             "quit",
             vec!["q", "x"],
@@ -120,10 +125,17 @@ impl CommandManager {
             self.register(
                 "playlists",
                 vec!["lists"],
-                Box::new(move |s, _args| {
-                    s.call_on_id("main", |v: &mut Layout| {
-                        v.set_view("playlists");
-                    });
+                Box::new(move |s, args| {
+                    if let Some(arg) = args.get(0) {
+                        if arg == "update" {
+                            playlists.fetch_playlists();
+                            playlists.save_cache();
+                        }
+                    } else {
+                        s.call_on_id("main", |v: &mut Layout| {
+                            v.set_view("playlists");
+                        });
+                    }
                     Ok(None)
                 }),
             );
@@ -342,6 +354,7 @@ impl CommandManager {
 
         kb.insert("q".into(), "quit".into());
         kb.insert("P".into(), "toggle".into());
+        kb.insert("R".into(), "playlists update".into());
         kb.insert("S".into(), "stop".into());
         kb.insert("<".into(), "previous".into());
         kb.insert(">".into(), "next".into());

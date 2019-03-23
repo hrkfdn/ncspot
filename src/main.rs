@@ -29,7 +29,7 @@ use std::process;
 use std::sync::Arc;
 use std::thread;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 use cursive::traits::Identifiable;
 use cursive::Cursive;
 
@@ -80,12 +80,14 @@ fn main() {
         .version("0.1.0")
         .author("Henrik Friedrichsen <henrik@affekt.org>")
         .about("cross-platform ncurses Spotify client")
-        .arg(Arg::with_name("debug")
-             .short("d")
-             .long("debug")
-             .value_name("FILE")
-             .help("Enable debug logging to the specified file")
-             .takes_value(true))
+        .arg(
+            Arg::with_name("debug")
+                .short("d")
+                .long("debug")
+                .value_name("FILE")
+                .help("Enable debug logging to the specified file")
+                .takes_value(true),
+        )
         .get_matches();
 
     if let Some(filename) = matches.value_of("debug") {
@@ -181,7 +183,7 @@ fn main() {
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
     let mut cmd_manager = CommandManager::new();
-    cmd_manager.register_all(spotify.clone(), queue.clone());
+    cmd_manager.register_all(spotify.clone(), queue.clone(), playlists.clone());
 
     let cmd_manager = Arc::new(cmd_manager);
     CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings);

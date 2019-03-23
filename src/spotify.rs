@@ -215,6 +215,7 @@ impl Spotify {
     fn create_session(core: &mut Core, credentials: Credentials) -> Session {
         let session_config = SessionConfig::default();
         let handle = core.handle();
+        debug!("opening spotify session");
         core.run(Session::connect(session_config, credentials, None, handle))
             .ok()
             .unwrap()
