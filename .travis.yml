@@ -5,4 +5,4 @@ rust:
 matrix:
   fast_finish: true
 before_install:
-  - sudo apt-get install -y libpulse-dev libdbus-1-dev
+  - sudo apt-get install -y libasound2-dev libdbus-1-dev

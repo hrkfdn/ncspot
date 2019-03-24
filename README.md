@@ -106,8 +106,8 @@ https://github.com/hrkfdn/ncspot/pull/40.
 
 ## Audio backends
 
-By default ncspot is built using the PulseAudio backend.
-To make it use the PortAudio backend (e.g. for macOS, *BSD, ..),
-you need to recompile ncspot with the `portaudio_backend` feature:
+By default ncspot is built using the Rudio backend.  To make it use the
+PortAudio backend (e.g. *BSD), you need to recompile ncspot with the
+`portaudio_backend` feature:
 
 * `cargo run --no-default-features --features portaudio_backend`

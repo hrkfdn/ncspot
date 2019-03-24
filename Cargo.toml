@@ -42,7 +42,7 @@ default-features = false
 features = ["pancurses-backend"]
 
 [features]
-pulseaudio_backend = ["librespot/pulseaudio-backend"]
+rodio_backend = ["librespot/rodio-backend"]
 portaudio_backend = ["librespot/portaudio-backend"]
 mpris = ["dbus"]
-default = ["pulseaudio_backend", "mpris"]
+default = ["rodio_backend", "mpris"]
