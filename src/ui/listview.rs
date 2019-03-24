@@ -45,8 +45,8 @@ impl<I: ListItem> ListView<I> {
     }
 
     pub fn move_focus_to(&mut self, target: usize) {
-        let len = self.content.read().unwrap().len();
-        self.selected = min(target, len - 1);
+        let len = self.content.read().unwrap().len().saturating_sub(1);
+        self.selected = min(target, len);
         self.scrollbar.scroll_to(self.selected);
     }
 
