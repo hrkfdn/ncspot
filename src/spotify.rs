@@ -366,6 +366,55 @@ impl Spotify {
         }
     }
 
+    pub fn overwrite_playlist(&self, id: &str, tracks: &Vec<Track>) {
+        // extract only track IDs
+        let mut tracks: Vec<String> = tracks.iter().map(|track| track.id.clone()).collect();
+
+        // we can only send 100 tracks per request
+        let mut remainder = if tracks.len() > 100 {
+            Some(tracks.split_off(100))
+        } else {
+            None
+        };
+
+        match self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks)) {
+            Some(()) => {
+                debug!("saved {} tracks to playlist {}", tracks.len(), id);
+
+                // send the remaining tracks in batches of max 100
+                while let Some(ref mut tracks) = remainder.clone() {
+                    if let Some(_) = self.api_with_retry(|api| {
+                        api.user_playlist_add_tracks(&self.user, id, &tracks, None)
+                    }) {
+                        // grab the next set of tracks
+                        remainder = if tracks.len() > 100 {
+                            Some(tracks.split_off(100))
+                        } else {
+                            None
+                        };
+                    } else {
+                        error!("error saving tracks to playlists {}", id);
+                    }
+                }
+            }
+            None => {
+                error!("error saving tracks to playlist {}", id);
+            }
+        }
+    }
+
+    pub fn create_playlist(
+        &self,
+        name: &str,
+        public: Option<bool>,
+        description: Option<String>,
+    ) -> Option<String> {
+        let result = self.api_with_retry(|api| {
+            api.user_playlist_create(&self.user, name, public, description.clone())
+        });
+        result.map(|r| r.id)
+    }
+
     pub fn search(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
         self.api_with_retry(|api| api.search_track(query, limit, offset, None))
     }
