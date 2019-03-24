@@ -36,10 +36,11 @@ have them configurable.
 
 * Navigate through the screens using the F-keys:
   * `F1`: Queue
+    * `c` clears the entire queue
+    * `d` deletes the currently selected track
+    * `s` opens a dialog to save the queue to a playlist
   * `F2`: Search
   * `F3`: Playlists
-    * `d` deletes the currently selected track
-    * `c` clears the entire playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track

@@ -78,7 +78,7 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
 fn main() {
     let matches = App::new("ncspot")
         .version("0.1.0")
-        .author("Henrik Friedrichsen <henrik@affekt.org>")
+        .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
         .about("cross-platform ncurses Spotify client")
         .arg(
             Arg::with_name("debug")
@@ -152,7 +152,7 @@ fn main() {
 
     let playlistsview = ui::playlists::PlaylistView::new(&playlists, queue.clone());
 
-    let queueview = ui::queue::QueueView::new(queue.clone());
+    let queueview = ui::queue::QueueView::new(queue.clone(), playlists.clone());
 
     let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
 

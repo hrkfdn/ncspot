@@ -1,7 +1,7 @@
 use std::iter::Iterator;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 
@@ -56,6 +56,12 @@ impl Playlists {
             spotify: spotify.clone(),
             cache_path: config::cache_path(),
         }
+    }
+
+    pub fn items(&self) -> RwLockReadGuard<Vec<Playlist>> {
+        self.store
+            .read()
+            .expect("could not readlock listview content")
     }
 
     pub fn load_cache(&self) {
@@ -140,6 +146,22 @@ impl Playlists {
         }
         store.push(updated.clone());
         store.len() - 1
+    }
+
+    pub fn overwrite_playlist(&self, id: &str, tracks: &Vec<Track>) {
+        debug!("saving {} tracks to {}", tracks.len(), id);
+        self.spotify.overwrite_playlist(id, &tracks);
+
+        self.fetch_playlists();
+        self.save_cache();
+    }
+
+    pub fn save_playlist(&self, name: &str, tracks: &Vec<Track>) {
+        debug!("saving {} tracks to new list {}", tracks.len(), name);
+        match self.spotify.create_playlist(name, None, None) {
+            Some(id) => self.overwrite_playlist(&id, &tracks),
+            None => error!("could not create new playlist.."),
+        }
     }
 
     pub fn fetch_playlists(&self) {

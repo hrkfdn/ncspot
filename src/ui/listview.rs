@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
@@ -53,6 +53,12 @@ impl<I: ListItem> ListView<I> {
     pub fn move_focus(&mut self, delta: i32) {
         let new = self.selected as i32 + delta;
         self.move_focus_to(max(new, 0) as usize);
+    }
+
+    pub fn content(&self) -> RwLockReadGuard<Vec<I>> {
+        self.content
+            .read()
+            .expect("could not readlock listview content")
     }
 }
 

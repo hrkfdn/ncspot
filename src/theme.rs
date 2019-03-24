@@ -17,7 +17,7 @@ macro_rules! load_color {
 
 pub fn load(cfg: &Config) -> Theme {
     let mut palette = Palette::default();
-    let borders = BorderStyle::None;
+    let borders = BorderStyle::Simple;
 
     palette[Background] = load_color!(cfg, background, TerminalDefault);
     palette[View] = load_color!(cfg, background, TerminalDefault);
