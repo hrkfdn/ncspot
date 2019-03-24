@@ -70,8 +70,12 @@ impl<I: ListItem> View for ListView<I> {
             let item = &content[i];
 
             let style = if self.selected == i {
+                let fg = match item.is_playing(self.queue.clone()) {
+                    true => *printer.theme.palette.custom("playing").unwrap(),
+                    false => PaletteColor::Tertiary.resolve(&printer.theme.palette)
+                };
                 ColorStyle::new(
-                    ColorType::Palette(PaletteColor::Tertiary),
+                    ColorType::Color(fg),
                     ColorType::Palette(PaletteColor::Highlight),
                 )
             } else if item.is_playing(self.queue.clone()) {
