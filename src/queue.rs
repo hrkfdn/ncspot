@@ -106,12 +106,13 @@ impl Queue {
     }
 
     pub fn play(&self, index: usize) {
-        let track = &self.queue.read().unwrap()[index];
-        self.spotify.load(&track);
-        let mut current = self.current_track.write().unwrap();
-        current.replace(index);
-        self.spotify.play();
-        self.spotify.update_track();
+        if let Some(track) = &self.queue.read().unwrap().get(index) {
+            self.spotify.load(&track);
+            let mut current = self.current_track.write().unwrap();
+            current.replace(index);
+            self.spotify.play();
+            self.spotify.update_track();
+        }
     }
 
     pub fn toggleplayback(&self) {
