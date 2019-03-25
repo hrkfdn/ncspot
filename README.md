@@ -1,4 +1,6 @@
 # ncspot
+
+[![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Build Status](https://travis-ci.com/hrkfdn/ncspot.svg?token=DoBH2xZ13CfuTfqgEyp7&branch=develop)](https://travis-ci.com/hrkfdn/ncspot)
 
 ncurses Spotify client written in Rust using librespot. It is heavily inspired
@@ -46,7 +48,10 @@ have them configurable.
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
 * `Shift-r` updates the playlist cache
-* `<` and `>` play the previous or next track, respectively
+* `<` and `>` play the previous or next track
+* `,` and `.` to rewind or skip forward
+* `r` to toggle repeat mode
+* `z` to toggle shuffle playback
 * `q` quits ncspot
 
 You can also open a Vim style commandprompt using `:`, the following commands
