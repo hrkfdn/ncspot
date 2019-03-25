@@ -44,7 +44,7 @@ impl Track {
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
-            duration: track.duration_ms / 1000,
+            duration: track.duration_ms,
             artists: artists,
             album: track.album.name.clone(),
             album_artists: album_artists,
@@ -54,8 +54,8 @@ impl Track {
     }
 
     pub fn duration_str(&self) -> String {
-        let minutes = self.duration / 60;
-        let seconds = self.duration % 60;
+        let minutes = self.duration / 60_000;
+        let seconds = (self.duration / 1000) % 60;
         format!("{:02}:{:02}", minutes, seconds)
     }
 }

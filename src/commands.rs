@@ -5,7 +5,7 @@ use cursive::event::{Event, Key};
 use cursive::Cursive;
 
 use playlists::{Playlist, Playlists};
-use queue::Queue;
+use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
 use track::Track;
 use ui::layout::Layout;
@@ -84,7 +84,7 @@ impl CommandManager {
                 "next",
                 Vec::new(),
                 Box::new(move |_s, _args| {
-                    queue.next();
+                    queue.next(true);
                     Ok(None)
                 }),
             );
@@ -240,7 +240,7 @@ impl CommandManager {
                     {
                         let queue = queue.clone();
                         s.call_on_id("queue_list", |v: &mut ListView<Track>| {
-                            queue.play(v.get_selected_index());
+                            queue.play(v.get_selected_index(), true);
                         });
                     }
 
@@ -248,8 +248,8 @@ impl CommandManager {
                         let queue = queue.clone();
                         s.call_on_id("list", |v: &mut ListView<Track>| {
                             v.with_selected(Box::new(move |t| {
-                                let index = queue.append_next(t);
-                                queue.play(index);
+                                let index = queue.append_next(vec![t]);
+                                queue.play(index, true);
                             }));
                         });
                     }
@@ -258,11 +258,8 @@ impl CommandManager {
                         let queue = queue.clone();
                         s.call_on_id("list", |v: &mut ListView<Playlist>| {
                             v.with_selected(Box::new(move |pl| {
-                                let indices: Vec<usize> =
-                                    pl.tracks.iter().map(|t| queue.append_next(t)).collect();
-                                if let Some(i) = indices.get(0) {
-                                    queue.play(*i)
-                                }
+                                let index = queue.append_next(pl.tracks.iter().collect());
+                                queue.play(index, true);
                             }));
                         });
                     }
@@ -297,6 +294,79 @@ impl CommandManager {
                 }),
             );
         }
+
+        {
+            let queue = queue.clone();
+            self.register(
+                "shuffle",
+                Vec::new(),
+                Box::new(move |_s, args| {
+                    if let Some(arg) = args.get(0) {
+                        queue.set_shuffle(match arg.as_ref() {
+                            "on" => true,
+                            "off" => false,
+                            _ => {
+                                return Err("Unknown shuffle setting.".to_string());
+                            }
+                        });
+                    } else {
+                        queue.set_shuffle(!queue.get_shuffle());
+                    }
+
+                    Ok(None)
+                }),
+            );
+        }
+
+        {
+            let queue = queue.clone();
+            self.register(
+                "repeat",
+                vec!["loop"],
+                Box::new(move |_s, args| {
+                    if let Some(arg) = args.get(0) {
+                        queue.set_repeat(match arg.as_ref() {
+                            "list" | "playlist" | "queue" => RepeatSetting::RepeatPlaylist,
+                            "track" | "once" => RepeatSetting::RepeatTrack,
+                            "none" | "off" => RepeatSetting::None,
+                            _ => {
+                                return Err("Unknown loop setting.".to_string());
+                            }
+                        });
+                    } else {
+                        queue.set_repeat(match queue.get_repeat() {
+                            RepeatSetting::None => RepeatSetting::RepeatPlaylist,
+                            RepeatSetting::RepeatPlaylist => RepeatSetting::RepeatTrack,
+                            RepeatSetting::RepeatTrack => RepeatSetting::None,
+                        });
+                    }
+
+                    Ok(None)
+                }),
+            );
+        }
+
+        {
+            let spotify = spotify.clone();
+            self.register(
+                "seek",
+                Vec::new(),
+                Box::new(move |_s, args| {
+                    if let Some(arg) = args.get(0) {
+                        match arg.chars().next().unwrap() {
+                            '+' | '-' => {
+                                spotify.seek_relative(arg.parse::<i32>().unwrap_or(0));
+                            },
+                            _ => {
+                                spotify.seek(arg.parse::<u32>().unwrap_or(0));
+                            }
+                        }
+                    }
+
+                    Ok(None)
+                }),
+            );
+        }
     }
 
     fn handle_aliases(&self, name: &String) -> String {
@@ -308,7 +378,7 @@ impl CommandManager {
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: String) {
-        let components: Vec<String> = cmd.split(' ').map(|s| s.to_string()).collect();
+        let components: Vec<String> = cmd.trim().split(' ').map(|s| s.to_string()).collect();
 
         let result = if let Some(cb) = self.commands.get(&self.handle_aliases(&components[0])) {
             cb(s, components[1..].to_vec())
@@ -363,6 +433,10 @@ impl CommandManager {
         kb.insert("Enter".into(), "play selected".into());
         kb.insert("d".into(), "delete selected".into());
         kb.insert("/".into(), "search".into());
+        kb.insert(".".into(), "seek +500".into());
+        kb.insert(",".into(), "seek -500".into());
+        kb.insert("r".into(), "repeat".into());
+        kb.insert("z".into(), "shuffle".into());
 
         kb.insert("F1".into(), "queue".into());
         kb.insert("F2".into(), "search".into());

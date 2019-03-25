@@ -40,6 +40,7 @@ enum WorkerCommand {
     Play,
     Pause,
     Stop,
+    Seek(u32),
     RequestToken(oneshot::Sender<Token>),
 }
 
@@ -134,6 +135,9 @@ impl futures::Future for Worker {
                         self.player.stop();
                         self.events.send(Event::Player(PlayerEvent::Stopped));
                         self.active = false;
+                    }
+                    WorkerCommand::Seek(pos) => {
+                        self.player.seek(pos);
                     }
                     WorkerCommand::RequestToken(sender) => {
                         self.token_task = Spotify::get_token(&self.session, sender);
@@ -498,5 +502,22 @@ impl Spotify {
     pub fn stop(&self) {
         info!("stop()");
         self.channel.unbounded_send(WorkerCommand::Stop).unwrap();
+    }
+
+    pub fn seek(&self, position_ms: u32) {
+        self.set_elapsed(Some(Duration::from_millis(position_ms.into())));
+        self.set_since(if self.get_current_status() == PlayerEvent::Playing {
+            Some(SystemTime::now())
+        } else {
+            None
+        });
+
+        self.channel.unbounded_send(WorkerCommand::Seek(position_ms)).unwrap();
+    }
+
+    pub fn seek_relative(&self, delta: i32) {
+        let progress = self.get_current_progress();
+        let new = (progress.as_secs() * 1000) as i32 + progress.subsec_millis() as i32 + delta;
+        self.seek(std::cmp::max(0, new) as u32);
     }
 }
