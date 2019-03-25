@@ -29,6 +29,7 @@ pub struct Layout {
     error: Option<String>,
     error_time: Option<SystemTime>,
     screenchange: bool,
+    last_size: Vec2,
     ev: events::EventManager,
     theme: Theme,
 }
@@ -49,8 +50,9 @@ impl Layout {
             cmdline_focus: false,
             error: None,
             error_time: None,
-            ev: ev.clone(),
             screenchange: true,
+            last_size: Vec2::new(0, 0),
+            ev: ev.clone(),
             theme: theme,
         }
     }
@@ -166,6 +168,30 @@ impl View for Layout {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
+        if let Event::Mouse {
+            position,
+            ..
+        } = event {
+            let error = self.get_error();
+
+            let cmdline_visible = self.cmdline.get_content().len() > 0;
+            let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
+            if error.is_some() {
+                cmdline_height += 1;
+            }
+
+            if position.y < self.last_size.y - 2 - cmdline_height {
+                if let Some(ref id) = self.focus {
+                    let screen = self.views.get_mut(id).unwrap();
+                    screen.view.on_event(event.clone());
+                }
+            } else if position.y < self.last_size.y - cmdline_height {
+                self.statusbar.on_event(event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)));
+            }
+
+            return EventResult::Consumed(None);
+        }
+
         if self.cmdline_focus {
             return self.cmdline.on_event(event);
         }
@@ -179,6 +205,10 @@ impl View for Layout {
     }
 
     fn layout(&mut self, size: Vec2) {
+        self.last_size = size;
+
+        self.statusbar.layout(Vec2::new(size.x, 2));
+
         self.cmdline.layout(Vec2::new(size.x, 1));
 
         if let Some(ref id) = self.focus {

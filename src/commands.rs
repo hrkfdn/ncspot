@@ -297,6 +297,28 @@ impl CommandManager {
                 }),
             );
         }
+
+        {
+            let spotify = spotify.clone();
+            self.register(
+                "seek",
+                Vec::new(),
+                Box::new(move |_s, args| {
+                    if let Some(arg) = args.get(0) {
+                        match arg.chars().next().unwrap() {
+                            '+' | '-' => {
+                                spotify.seek_relative(arg.parse::<i32>().unwrap_or(0));
+                            },
+                            _ => {
+                                spotify.seek(arg.parse::<u32>().unwrap_or(0));
+                            }
+                        }
+                    }
+
+                    Ok(None)
+                }),
+            );
+        }
     }
 
     fn handle_aliases(&self, name: &String) -> String {
@@ -308,7 +330,7 @@ impl CommandManager {
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: String) {
-        let components: Vec<String> = cmd.split(' ').map(|s| s.to_string()).collect();
+        let components: Vec<String> = cmd.trim().split(' ').map(|s| s.to_string()).collect();
 
         let result = if let Some(cb) = self.commands.get(&self.handle_aliases(&components[0])) {
             cb(s, components[1..].to_vec())
@@ -363,6 +385,8 @@ impl CommandManager {
         kb.insert("Enter".into(), "play selected".into());
         kb.insert("d".into(), "delete selected".into());
         kb.insert("/".into(), "search".into());
+        kb.insert(".".into(), "seek +500".into());
+        kb.insert(",".into(), "seek -500".into());
 
         kb.insert("F1".into(), "queue".into());
         kb.insert("F2".into(), "search".into());

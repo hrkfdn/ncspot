@@ -35,7 +35,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     );
     hm.insert(
         "mpris:length".to_string(),
-        Variant(Box::new(track.map(|t| t.duration * 1_000_000).unwrap_or(0))),
+        Variant(Box::new(track.map(|t| t.duration * 1_000).unwrap_or(0))),
     );
     hm.insert(
         "mpris:artUrl".to_string(),
