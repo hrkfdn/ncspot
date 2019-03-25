@@ -39,10 +39,10 @@ default-features = false
 [dependencies.cursive]
 version = "0.11.1"
 default-features = false
-features = ["pancurses-backend"]
 
 [features]
 rodio_backend = ["librespot/rodio-backend"]
 portaudio_backend = ["librespot/portaudio-backend"]
+termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus"]
-default = ["rodio_backend", "mpris"]
+default = ["rodio_backend", "mpris", "cursive/pancurses-backend"]
