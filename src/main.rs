@@ -172,6 +172,14 @@ fn main() {
         });
     });
 
+    layout.cmdline.set_on_edit(move |s, cmd, _| {
+        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+            if cmd.len() == 0 {
+                v.clear_cmdline();
+            }
+        });
+    });
+
     {
         let ev = event_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
