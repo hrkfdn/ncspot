@@ -18,6 +18,7 @@ future. Contributions welcome, but please be kind ;)
 * Rust
 * `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
 * `libncurses-dev` and `libssl-dev`
+* `libdbus-1-dev`
 * A Spotify premium account
 * pkg-config
 
