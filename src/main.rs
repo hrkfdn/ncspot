@@ -25,6 +25,8 @@ extern crate log;
 extern crate chrono;
 extern crate fern;
 
+extern crate rand;
+
 use std::process;
 use std::sync::Arc;
 use std::thread;
@@ -122,8 +124,8 @@ fn main() {
 
     let spotify = Arc::new(spotify::Spotify::new(
         event_manager.clone(),
-        cfg.username,
-        cfg.password,
+        cfg.username.clone(),
+        cfg.password.clone(),
     ));
 
     let queue = Arc::new(queue::Queue::new(spotify.clone()));
@@ -154,7 +156,7 @@ fn main() {
 
     let queueview = ui::queue::QueueView::new(queue.clone(), playlists.clone());
 
-    let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone());
+    let status = ui::statusbar::StatusBar::new(queue.clone(), spotify.clone(), &cfg);
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_id("search"), "Search")
@@ -196,7 +198,7 @@ fn main() {
             match event {
                 Event::Player(state) => {
                     if state == PlayerEvent::FinishedTrack {
-                        queue.next();
+                        queue.next(false);
                     }
                     spotify.update_status(state);
 

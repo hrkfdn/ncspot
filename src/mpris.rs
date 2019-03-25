@@ -7,7 +7,7 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
-use queue::Queue;
+use queue::{Queue, RepeatSetting};
 use spotify::{PlayerEvent, Spotify};
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
@@ -176,13 +176,19 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             })
     };
 
-    let property_loopstatus = f
-        .property::<String, _>("LoopStatus", ())
+    let property_loopstatus = {
+        let queue = queue.clone();
+        f.property::<String, _>("LoopStatus", ())
         .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append("None".to_string()); // TODO
+        .on_get(move |iter, _| {
+            iter.append(match queue.get_repeat() {
+                RepeatSetting::None => "None",
+                RepeatSetting::RepeatTrack => "Track",
+                RepeatSetting::RepeatPlaylist => "Playlist",
+            }.to_string());
             Ok(())
-        });
+        })
+    };
 
     let property_metadata = {
         let queue = queue.clone();
@@ -287,6 +293,16 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             Ok(())
         });
 
+    let property_shuffle = {
+        let queue = queue.clone();
+        f.property::<bool, _>("Shuffle", ())
+        .access(Access::Read)
+        .on_get(move |iter, _| {
+            iter.append(queue.get_shuffle());
+            Ok(())
+        })
+    };
+
     let method_playpause = {
         let spotify = spotify.clone();
         f.method("PlayPause", (), move |m| {
@@ -322,7 +338,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let method_next = {
         let queue = queue.clone();
         f.method("Next", (), move |m| {
-            queue.next();
+            queue.next(true);
             Ok(vec![m.msg.method_return()])
         })
     };
@@ -335,7 +351,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
-    // TODO: Seek, SetPosition, Shuffle, OpenUri (?)
+    // TODO: Seek, SetPosition, OpenUri (?)
 
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
     let interface_player = f
@@ -354,6 +370,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .add_p(property_cancontrol)
         .add_p(property_cangonext)
         .add_p(property_cangoprevious)
+        .add_p(property_shuffle)
         .add_m(method_playpause)
         .add_m(method_play)
         .add_m(method_pause)

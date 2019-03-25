@@ -12,6 +12,7 @@ pub struct Config {
     pub password: String,
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
+    pub use_nerdfont: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
