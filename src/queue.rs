@@ -146,7 +146,9 @@ impl Queue {
             }
         }
 
-        self.generate_random_order();
+        if self.get_shuffle() {
+            self.generate_random_order();
+        }
     }
 
     pub fn clear(&self) {
@@ -168,7 +170,7 @@ impl Queue {
             self.spotify.update_track();
         }
 
-        if reshuffle {
+        if reshuffle && self.get_shuffle() {
             self.generate_random_order()
         }
     }
