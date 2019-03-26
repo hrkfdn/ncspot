@@ -8,6 +8,7 @@ use playlists::{Playlist, Playlists};
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
 use track::Track;
+use ui;
 use ui::layout::Layout;
 use ui::listview::ListView;
 use ui::search::SearchView;
@@ -156,13 +157,13 @@ impl CommandManager {
 
                 if dir == "up" || dir == "down" {
                     let dir = if dir == "up" { -1 } else { 1 };
-                    s.call_on_id("queue_list", |v: &mut ListView<Track>| {
+                    s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
                         v.move_focus(dir * amount);
                     });
-                    s.call_on_id("list", |v: &mut ListView<Track>| {
+                    s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
                         v.move_focus(dir * amount);
                     });
-                    s.call_on_id("list", |v: &mut ListView<Playlist>| {
+                    s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
                         v.move_focus(dir * amount);
                     });
                     s.on_event(Event::Refresh);
@@ -196,7 +197,7 @@ impl CommandManager {
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("list", |v: &mut ListView<Track>| {
+                        s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
                             v.with_selected(Box::new(move |t| {
                                 queue.append(t);
                             }));
@@ -205,7 +206,7 @@ impl CommandManager {
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("list", |v: &mut ListView<Playlist>| {
+                        s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
                             v.with_selected(Box::new(move |pl| {
                                 for track in pl.tracks.iter() {
                                     queue.append(track);
@@ -236,14 +237,14 @@ impl CommandManager {
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("queue_list", |v: &mut ListView<Track>| {
+                        s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
                             queue.play(v.get_selected_index(), true);
                         });
                     }
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("list", |v: &mut ListView<Track>| {
+                        s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
                             v.with_selected(Box::new(move |t| {
                                 let index = queue.append_next(vec![t]);
                                 queue.play(index, true);
@@ -253,7 +254,7 @@ impl CommandManager {
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("list", |v: &mut ListView<Playlist>| {
+                        s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
                             v.with_selected(Box::new(move |pl| {
                                 let index = queue.append_next(pl.tracks.iter().collect());
                                 queue.play(index, true);
@@ -282,7 +283,7 @@ impl CommandManager {
 
                     {
                         let queue = queue.clone();
-                        s.call_on_id("queue_list", |v: &mut ListView<Track>| {
+                        s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
                             queue.remove(v.get_selected_index());
                         });
                     }

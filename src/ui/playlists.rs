@@ -12,9 +12,10 @@ pub struct PlaylistView {
     list: IdView<ListView<Playlist>>,
 }
 
+pub const LIST_ID: &str = "playlist_list";
 impl PlaylistView {
     pub fn new(playlists: &Playlists, queue: Arc<Queue>) -> PlaylistView {
-        let list = ListView::new(playlists.store.clone(), queue).with_id("list");
+        let list = ListView::new(playlists.store.clone(), queue).with_id(LIST_ID);
 
         PlaylistView { list }
     }

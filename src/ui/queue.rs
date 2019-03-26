@@ -17,18 +17,17 @@ pub struct QueueView {
     playlists: Arc<Playlists>,
 }
 
+pub const LIST_ID: &str = "queue_list";
 impl QueueView {
     pub fn new(queue: Arc<Queue>, playlists: Arc<Playlists>) -> QueueView {
-        let list = ListView::new(queue.queue.clone(), queue.clone()).with_id("queue_list");
+        let list = ListView::new(queue.queue.clone(), queue.clone()).with_id(LIST_ID);
 
         QueueView { list, playlists }
     }
 
     fn save_dialog_cb(s: &mut Cursive, playlists: Arc<Playlists>, id: Option<String>) {
         let tracks = s
-            .call_on_id("queue_list", |view: &mut ListView<_>| {
-                view.content().clone()
-            })
+            .call_on_id(LIST_ID, |view: &mut ListView<_>| view.content().clone())
             .unwrap();
         match id {
             Some(id) => {

@@ -21,6 +21,8 @@ pub struct SearchView {
     edit_focused: bool,
 }
 
+pub const LIST_ID: &str = "search_list";
+pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
         let results = Arc::new(RwLock::new(Vec::new()));
@@ -30,12 +32,12 @@ impl SearchView {
                 if !input.is_empty() {
                     s.call_on_id("search", |v: &mut SearchView| {
                         v.run_search(input, spotify.clone());
-                        v.focus_view(&Selector::Id("list")).unwrap();
+                        v.focus_view(&Selector::Id(LIST_ID)).unwrap();
                     });
                 }
             })
-            .with_id("search_edit");
-        let list = ListView::new(results.clone(), queue).with_id("list");
+            .with_id(EDIT_ID);
+        let list = ListView::new(results.clone(), queue).with_id(LIST_ID);
 
         SearchView {
             results,
@@ -49,7 +51,7 @@ impl SearchView {
         let query = query.into();
         let q = query.clone();
         self.edit
-            .call_on(&Selector::Id("search_edit"), |v: &mut EditView| {
+            .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
                 v.set_content(q);
             });
 
