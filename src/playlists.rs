@@ -12,6 +12,8 @@ use spotify::Spotify;
 use track::Track;
 use traits::ListItem;
 
+const CACHE_FILE: &str = "playlists.db";
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Playlist {
     pub meta: SimplifiedPlaylist,
@@ -54,7 +56,7 @@ impl Playlists {
             store: Arc::new(RwLock::new(Vec::new())),
             ev: ev.clone(),
             spotify: spotify.clone(),
-            cache_path: config::cache_path(),
+            cache_path: config::cache_path(CACHE_FILE),
         }
     }
 

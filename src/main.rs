@@ -98,7 +98,7 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let path = config::config_path();
+    let path = config::config_path("config.toml");
 
     let cfg: config::Config = {
         let contents = std::fs::read_to_string(&path).unwrap_or_else(|_| {

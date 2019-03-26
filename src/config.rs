@@ -38,7 +38,7 @@ fn proj_dirs () -> ProjectDirs {
     ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
 }
 
-pub fn config_path() -> PathBuf {
+pub fn config_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
     let cfg_dir = proj_dirs.config_dir();
     trace!("{:?}", cfg_dir);
@@ -46,17 +46,17 @@ pub fn config_path() -> PathBuf {
         fs::create_dir(cfg_dir).expect("can't create config folder");
     }
     let mut cfg = cfg_dir.to_path_buf();
-    cfg.push("config.toml");
+    cfg.push(file);
     cfg
 }
 
-pub fn cache_path() -> PathBuf {
+pub fn cache_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
     let cache_dir = proj_dirs.cache_dir();
     if !cache_dir.exists() {
         fs::create_dir(cache_dir).expect("can't create cache folder");
     }
     let mut pb = cache_dir.to_path_buf();
-    pb.push("playlists.db");
+    pb.push(file);
     pb
 }
