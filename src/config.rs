@@ -34,24 +34,29 @@ pub struct ConfigTheme {
     pub cmdline_bg: Option<String>,
 }
 
+fn proj_dirs () -> ProjectDirs {
+    ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
+}
+
 pub fn config_path() -> PathBuf {
-    let dirs = directories::BaseDirs::new().expect("can't determine config path");
-    PathBuf::from(format!(
-        "{0}/ncspot",
-        dirs.config_dir()
-            .to_str()
-            .expect("can't convert path to string")
-    ))
+    let proj_dirs = proj_dirs();
+    let cfg_dir = proj_dirs.config_dir();
+    trace!("{:?}", cfg_dir);
+    if !cfg_dir.exists() || !cfg_dir.is_dir() {
+        fs::create_dir(cfg_dir).expect("can't create config folder");
+    }
+    let mut cfg = cfg_dir.to_path_buf();
+    cfg.push("config.toml");
+    cfg
 }
 
 pub fn cache_path() -> PathBuf {
-    let proj_dirs =
-        ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths");
+    let proj_dirs = proj_dirs();
     let cache_dir = proj_dirs.cache_dir();
     if !cache_dir.exists() {
         fs::create_dir(cache_dir).expect("can't create cache folder");
     }
-    let mut pb = proj_dirs.cache_dir().to_path_buf();
+    let mut pb = cache_dir.to_path_buf();
     pb.push("playlists.db");
     pb
 }

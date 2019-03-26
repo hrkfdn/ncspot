@@ -80,7 +80,7 @@ username = "spotify_user"
 password = "spotify_password"
 ```
 
-Please save it to `~/.config/ncspot`.
+Please save it to `~/.config/ncspot/config.toml`.
 
 ### Theming
 
