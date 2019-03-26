@@ -53,7 +53,7 @@ impl Layout {
             screenchange: true,
             last_size: Vec2::new(0, 0),
             ev: ev.clone(),
-            theme: theme,
+            theme,
         }
     }
 
@@ -82,7 +82,7 @@ impl Layout {
 
     pub fn set_view<S: Into<String>>(&mut self, id: S) {
         let s = id.into();
-        let title = &self.views.get(&s).unwrap().title;
+        let title = &self.views[&s].title;
         self.title = title.clone();
         self.focus = Some(s);
         self.cmdline_focus = false;
@@ -132,7 +132,7 @@ impl View for Layout {
 
         // screen content
         if let Some(ref id) = self.focus {
-            let screen = self.views.get(id).unwrap();
+            let screen = &self.views[id];
             let printer = &printer
                 .offset((0, 1))
                 .cropped((printer.size.x, printer.size.y - 3 - cmdline_height))
@@ -168,10 +168,7 @@ impl View for Layout {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        if let Event::Mouse {
-            position,
-            ..
-        } = event {
+        if let Event::Mouse { position, .. } = event {
             let error = self.get_error();
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
@@ -186,7 +183,9 @@ impl View for Layout {
                     screen.view.on_event(event.clone());
                 }
             } else if position.y < self.last_size.y - cmdline_height {
-                self.statusbar.on_event(event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)));
+                self.statusbar.on_event(
+                    event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
+                );
             }
 
             return EventResult::Consumed(None);

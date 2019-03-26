@@ -22,10 +22,10 @@ pub struct StatusBar {
 impl StatusBar {
     pub fn new(queue: Arc<Queue>, spotify: Arc<Spotify>, cfg: &Config) -> StatusBar {
         StatusBar {
-            queue: queue,
-            spotify: spotify,
+            queue,
+            spotify,
             last_size: Vec2::new(0, 0),
-            use_nerdfont: cfg.use_nerdfont.unwrap_or(false)
+            use_nerdfont: cfg.use_nerdfont.unwrap_or(false),
         }
     }
 }
@@ -87,13 +87,19 @@ impl View for StatusBar {
                 RepeatSetting::RepeatPlaylist => "[R] ",
                 RepeatSetting::RepeatTrack => "[R1] ",
             }
-        }.to_string();
+        }
+        .to_string();
 
-        let shuffle = if self.use_nerdfont {
-            if self.queue.get_shuffle() { "\u{f99c} " } else { "" }
+        let shuffle = if self.queue.get_shuffle() {
+            if self.use_nerdfont {
+                "\u{f99c} "
+            } else {
+                "[Z]"
+            }
         } else {
-            if self.queue.get_shuffle() { "[Z] " } else { "" }
-        }.to_string();
+            ""
+        }
+        .to_string();
 
         if let Some(ref t) = self.queue.get_current() {
             let elapsed = self.spotify.get_current_progress();
@@ -105,7 +111,8 @@ impl View for StatusBar {
                 elapsed.as_secs() % 60
             );
 
-            let right = repeat + &shuffle + &format!("{} / {} ", formatted_elapsed, t.duration_str());
+            let right =
+                repeat + &shuffle + &format!("{} / {} ", formatted_elapsed, t.duration_str());
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
@@ -115,8 +122,7 @@ impl View for StatusBar {
 
             printer.with_color(style_bar, |printer| {
                 printer.print((0, 0), &"—".repeat(printer.size.x));
-                let duration_width =
-                    (((printer.size.x as u32) * elapsed_ms) / t.duration) as usize;
+                let duration_width = (((printer.size.x as u32) * elapsed_ms) / t.duration) as usize;
                 printer.print((0, 0), &format!("{}{}", "=".repeat(duration_width), ">"));
             });
         } else {
@@ -145,8 +151,9 @@ impl View for StatusBar {
         if let Event::Mouse {
             offset,
             position,
-            event
-        } = event {
+            event,
+        } = event
+        {
             let position = position - offset;
 
             if position.y == 0 {
@@ -158,20 +165,17 @@ impl View for StatusBar {
                     self.spotify.seek_relative(500);
                 }
 
-                if event == MouseEvent::Press(MouseButton::Left) ||
-                    event == MouseEvent::Hold(MouseButton::Left)
+                if event == MouseEvent::Press(MouseButton::Left)
+                    || event == MouseEvent::Hold(MouseButton::Left)
                 {
                     if let Some(ref t) = self.queue.get_current() {
                         let f: f32 = position.x as f32 / self.last_size.x as f32;
                         let new = t.duration as f32 * f;
                         self.spotify.seek(new as u32);
                     }
-
                 }
-            } else {
-                if event == MouseEvent::Press(MouseButton::Left) {
-                    self.queue.toggleplayback();
-                }
+            } else if event == MouseEvent::Press(MouseButton::Left) {
+                self.queue.toggleplayback();
             }
 
             EventResult::Consumed(None)

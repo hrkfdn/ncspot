@@ -16,7 +16,7 @@ impl PlaylistView {
     pub fn new(playlists: &Playlists, queue: Arc<Queue>) -> PlaylistView {
         let list = ListView::new(playlists.store.clone(), queue).with_id("list");
 
-        PlaylistView { list: list }
+        PlaylistView { list }
     }
 }
 

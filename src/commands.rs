@@ -12,9 +12,11 @@ use ui::layout::Layout;
 use ui::listview::ListView;
 use ui::search::SearchView;
 
+type CommandResult = Result<Option<String>, String>;
+type CommandCb = dyn Fn(&mut Cursive, Vec<String>) -> CommandResult;
+
 pub struct CommandManager {
-    commands:
-        HashMap<String, Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>>,
+    commands: HashMap<String, Box<CommandCb>>,
     aliases: HashMap<String, String>,
 }
 
@@ -26,12 +28,7 @@ impl CommandManager {
         }
     }
 
-    pub fn register<S: Into<String>>(
-        &mut self,
-        name: S,
-        aliases: Vec<S>,
-        cb: Box<dyn Fn(&mut Cursive, Vec<String>) -> Result<Option<String>, String>>,
-    ) {
+    pub fn register<S: Into<String>>(&mut self, name: S, aliases: Vec<S>, cb: Box<CommandCb>) {
         let name = name.into();
         for a in aliases {
             self.aliases.insert(a.into(), name.clone());
@@ -112,7 +109,7 @@ impl CommandManager {
                         v.set_view("search");
                     });
                     s.call_on_id("search", |v: &mut SearchView| {
-                        if args.len() >= 1 {
+                        if !args.is_empty() {
                             v.run_search(args.join(" "), spotify.clone());
                         }
                     });
@@ -145,11 +142,11 @@ impl CommandManager {
             "move",
             Vec::new(),
             Box::new(move |s, args| {
-                if args.len() < 1 {
+                if args.is_empty() {
                     return Err("Missing direction (up, down, left, right)".to_string());
                 }
 
-                let dir = args.get(0).unwrap();
+                let dir = &args[0];
 
                 let amount: i32 = args
                     .get(1)
@@ -356,7 +353,7 @@ impl CommandManager {
                         match arg.chars().next().unwrap() {
                             '+' | '-' => {
                                 spotify.seek_relative(arg.parse::<i32>().unwrap_or(0));
-                            },
+                            }
                             _ => {
                                 spotify.seek(arg.parse::<u32>().unwrap_or(0));
                             }
@@ -369,11 +366,11 @@ impl CommandManager {
         }
     }
 
-    fn handle_aliases(&self, name: &String) -> String {
+    fn handle_aliases(&self, name: &str) -> String {
         if let Some(s) = self.aliases.get(name) {
             self.handle_aliases(s)
         } else {
-            name.clone()
+            name.to_string()
         }
     }
 
@@ -394,9 +391,9 @@ impl CommandManager {
         }
     }
 
-    pub fn register_keybinding<'a, E: Into<cursive::event::Event>, S: Into<String>>(
+    pub fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
         this: Arc<Self>,
-        cursive: &'a mut Cursive,
+        cursive: &mut Cursive,
         event: E,
         command: S,
     ) {
@@ -412,7 +409,7 @@ impl CommandManager {
         keybindings: Option<HashMap<String, String>>,
     ) {
         let mut kb = Self::default_keybindings();
-        kb.extend(keybindings.unwrap_or(HashMap::new()));
+        kb.extend(keybindings.unwrap_or_default());
 
         for (k, v) in kb {
             Self::register_keybinding(this.clone(), cursive, Self::parse_keybinding(k), v);

@@ -21,10 +21,7 @@ impl QueueView {
     pub fn new(queue: Arc<Queue>, playlists: Arc<Playlists>) -> QueueView {
         let list = ListView::new(queue.queue.clone(), queue.clone()).with_id("queue_list");
 
-        QueueView {
-            list: list,
-            playlists: playlists,
-        }
+        QueueView { list, playlists }
     }
 
     fn save_dialog_cb(s: &mut Cursive, playlists: Arc<Playlists>, id: Option<String>) {
@@ -61,7 +58,7 @@ impl QueueView {
         let mut list_select: SelectView<Option<String>> = SelectView::new().autojump();
         list_select.add_item("[Create new]", None);
 
-        for ref list in playlists.items().iter() {
+        for list in playlists.items().iter() {
             list_select.add_item(list.meta.name.clone(), Some(list.meta.id.clone()));
         }
 

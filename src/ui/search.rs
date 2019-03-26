@@ -27,7 +27,7 @@ impl SearchView {
 
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
-                if input.len() > 0 {
+                if !input.is_empty() {
                     s.call_on_id("search", |v: &mut SearchView| {
                         v.run_search(input, spotify.clone());
                         v.focus_view(&Selector::Id("list")).unwrap();
@@ -38,9 +38,9 @@ impl SearchView {
         let list = ListView::new(results.clone(), queue).with_id("list");
 
         SearchView {
-            results: results,
+            results,
             edit: searchfield,
-            list: list,
+            list,
             edit_focused: true,
         }
     }
@@ -67,9 +67,10 @@ impl SearchView {
     }
 
     fn pass_event_focused(&mut self, event: Event) -> EventResult {
-        match self.edit_focused {
-            true => self.edit.on_event(event),
-            false => self.list.on_event(event),
+        if self.edit_focused {
+            self.edit.on_event(event)
+        } else {
+            self.list.on_event(event)
         }
     }
 }
@@ -111,7 +112,7 @@ impl View for SearchView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        let ret = match event {
+        match event {
             Event::Key(Key::Tab) => {
                 self.edit_focused = !self.edit_focused;
                 EventResult::Consumed(None)
@@ -121,8 +122,6 @@ impl View for SearchView {
                 EventResult::Consumed(None)
             }
             _ => self.pass_event_focused(event),
-        };
-
-        ret
+        }
     }
 }

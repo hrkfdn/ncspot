@@ -44,7 +44,7 @@ pub fn load(cfg: &Config) -> Theme {
 
     Theme {
         shadow: false,
-        palette: palette,
-        borders: borders,
+        palette,
+        borders,
     }
 }

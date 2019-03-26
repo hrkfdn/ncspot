@@ -27,7 +27,7 @@ impl Queue {
             current_track: RwLock::new(None),
             repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
-            spotify: spotify,
+            spotify,
         }
     }
 
@@ -107,7 +107,7 @@ impl Queue {
 
         let first = match *self.current_track.read().unwrap() {
             Some(index) => index + 1,
-            None => q.len()
+            None => q.len(),
         };
 
         let mut i = first;
@@ -158,7 +158,9 @@ impl Queue {
         q.clear();
 
         let mut random_order = self.random_order.write().unwrap();
-        random_order.as_mut().map(|o| o.clear());
+        if let Some(o) = random_order.as_mut() {
+            o.clear()
+        }
     }
 
     pub fn play(&self, index: usize, reshuffle: bool) {

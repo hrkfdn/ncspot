@@ -38,7 +38,7 @@ impl ListItem for Playlist {
             .map(|t| t.id.clone())
             .collect();
         let ids: Vec<String> = self.tracks.iter().map(|t| t.id.clone()).collect();
-        ids.len() > 0 && playing == ids
+        !ids.is_empty() && playing == ids
     }
 
     fn display_left(&self) -> String {
@@ -150,7 +150,7 @@ impl Playlists {
         store.len() - 1
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &Vec<Track>) {
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
         debug!("saving {} tracks to {}", tracks.len(), id);
         self.spotify.overwrite_playlist(id, &tracks);
 
@@ -158,7 +158,7 @@ impl Playlists {
         self.save_cache();
     }
 
-    pub fn save_playlist(&self, name: &str, tracks: &Vec<Track>) {
+    pub fn save_playlist(&self, name: &str, tracks: &[Track]) {
         debug!("saving {} tracks to new list {}", tracks.len(), name);
         match self.spotify.create_playlist(name, None, None) {
             Some(id) => self.overwrite_playlist(&id, &tracks),

@@ -30,7 +30,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
         Variant(Box::new(
             track
                 .map(|t| format!("spotify:track:{}", t.id))
-                .unwrap_or("".to_string()),
+                .unwrap_or_default(),
         )),
     );
     hm.insert(
@@ -40,26 +40,24 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     hm.insert(
         "mpris:artUrl".to_string(),
         Variant(Box::new(
-            track.map(|t| t.cover_url.clone()).unwrap_or("".to_string()),
+            track.map(|t| t.cover_url.clone()).unwrap_or_default(),
         )),
     );
 
     hm.insert(
         "xesam:album".to_string(),
-        Variant(Box::new(
-            track.map(|t| t.album.clone()).unwrap_or("".to_string()),
-        )),
+        Variant(Box::new(track.map(|t| t.album.clone()).unwrap_or_default())),
     );
     hm.insert(
         "xesam:albumArtist".to_string(),
         Variant(Box::new(
-            track.map(|t| t.album_artists.clone()).unwrap_or(Vec::new()),
+            track.map(|t| t.album_artists.clone()).unwrap_or_default(),
         )),
     );
     hm.insert(
         "xesam:artist".to_string(),
         Variant(Box::new(
-            track.map(|t| t.artists.clone()).unwrap_or(Vec::new()),
+            track.map(|t| t.artists.clone()).unwrap_or_default(),
         )),
     );
     hm.insert(
@@ -68,9 +66,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     );
     hm.insert(
         "xesam:title".to_string(),
-        Variant(Box::new(
-            track.map(|t| t.title.clone()).unwrap_or("".to_string()),
-        )),
+        Variant(Box::new(track.map(|t| t.title.clone()).unwrap_or_default())),
     );
     hm.insert(
         "xesam:trackNumber".to_string(),
@@ -78,9 +74,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     );
     hm.insert(
         "xesam:url".to_string(),
-        Variant(Box::new(
-            track.map(|t| t.url.clone()).unwrap_or("".to_string()),
-        )),
+        Variant(Box::new(track.map(|t| t.url.clone()).unwrap_or_default())),
     );
 
     hm
@@ -179,15 +173,18 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let property_loopstatus = {
         let queue = queue.clone();
         f.property::<String, _>("LoopStatus", ())
-        .access(Access::Read)
-        .on_get(move |iter, _| {
-            iter.append(match queue.get_repeat() {
-                RepeatSetting::None => "None",
-                RepeatSetting::RepeatTrack => "Track",
-                RepeatSetting::RepeatPlaylist => "Playlist",
-            }.to_string());
-            Ok(())
-        })
+            .access(Access::Read)
+            .on_get(move |iter, _| {
+                iter.append(
+                    match queue.get_repeat() {
+                        RepeatSetting::None => "None",
+                        RepeatSetting::RepeatTrack => "Track",
+                        RepeatSetting::RepeatPlaylist => "Playlist",
+                    }
+                    .to_string(),
+                );
+                Ok(())
+            })
     };
 
     let property_metadata = {
@@ -296,11 +293,11 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let property_shuffle = {
         let queue = queue.clone();
         f.property::<bool, _>("Shuffle", ())
-        .access(Access::Read)
-        .on_get(move |iter, _| {
-            iter.append(queue.get_shuffle());
-            Ok(())
-        })
+            .access(Access::Read)
+            .on_get(move |iter, _| {
+                iter.append(queue.get_shuffle());
+                Ok(())
+            })
     };
 
     let method_playpause = {
@@ -394,7 +391,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             warn!("Unhandled dbus message: {:?}", m);
         }
 
-        if let Ok(_) = rx.try_recv() {
+        if rx.try_recv().is_ok() {
             let mut changed: PropertiesPropertiesChanged = Default::default();
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
@@ -427,7 +424,7 @@ impl MprisManager {
             run_dbus_server(spotify, queue, rx);
         });
 
-        MprisManager { tx: tx }
+        MprisManager { tx }
     }
 
     pub fn update(&self) {

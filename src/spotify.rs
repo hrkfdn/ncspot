@@ -80,10 +80,10 @@ impl Worker {
         player: Player,
     ) -> Worker {
         Worker {
-            events: events,
-            commands: commands,
-            player: player,
-            session: session,
+            events,
+            commands,
+            player,
+            session,
             play_task: Box::new(futures::empty()),
             refresh_task: Box::new(futures::stream::empty()),
             token_task: Box::new(futures::empty()),
@@ -157,17 +157,13 @@ impl futures::Future for Worker {
                     self.play_task = Box::new(futures::empty());
                 }
             }
-            match self.refresh_task.poll() {
-                Ok(Async::Ready(_)) => {
-                    self.refresh_task = match self.active {
-                        true => {
-                            progress = true;
-                            self.create_refresh()
-                        }
-                        false => Box::new(futures::stream::empty()),
-                    };
-                }
-                _ => (),
+            if let Ok(Async::Ready(_)) = self.refresh_task.poll() {
+                self.refresh_task = if self.active {
+                    progress = true;
+                    self.create_refresh()
+                } else {
+                    Box::new(futures::stream::empty())
+                };
             }
             match self.token_task.poll() {
                 Ok(Async::Ready(_)) => {
@@ -208,7 +204,7 @@ impl Spotify {
             elapsed: RwLock::new(None),
             since: RwLock::new(None),
             channel: tx,
-            user: user,
+            user,
         };
 
         // acquire token for web api usage
@@ -301,7 +297,7 @@ impl Spotify {
             .elapsed
             .read()
             .expect("could not acquire read lock on elapsed time");
-        (*elapsed).clone()
+        (*elapsed)
     }
 
     fn set_since(&self, new_since: Option<SystemTime>) {
@@ -317,7 +313,7 @@ impl Spotify {
             .since
             .read()
             .expect("could not acquire read lock on since time");
-        (*since).clone()
+        (*since)
     }
 
     fn refresh_token(&self) {
@@ -370,7 +366,7 @@ impl Spotify {
         }
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &Vec<Track>) {
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
         // extract only track IDs
         let mut tracks: Vec<String> = tracks.iter().map(|track| track.id.clone()).collect();
 
@@ -387,9 +383,10 @@ impl Spotify {
 
                 // send the remaining tracks in batches of max 100
                 while let Some(ref mut tracks) = remainder.clone() {
-                    if let Some(_) = self.api_with_retry(|api| {
+                    let result = self.api_with_retry(|api| {
                         api.user_playlist_add_tracks(&self.user, id, &tracks, None)
-                    }) {
+                    });
+                    if result.is_some() {
                         // grab the next set of tracks
                         remainder = if tracks.len() > 100 {
                             Some(tracks.split_off(100))
@@ -512,7 +509,9 @@ impl Spotify {
             None
         });
 
-        self.channel.unbounded_send(WorkerCommand::Seek(position_ms)).unwrap();
+        self.channel
+            .unbounded_send(WorkerCommand::Seek(position_ms))
+            .unwrap();
     }
 
     pub fn seek_relative(&self, delta: i32) {

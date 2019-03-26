@@ -22,9 +22,9 @@ impl EventManager {
         let (tx, rx) = unbounded();
 
         EventManager {
-            tx: tx,
-            rx: rx,
-            cursive_sink: cursive_sink,
+            tx,
+            rx,
+            cursive_sink,
         }
     }
 

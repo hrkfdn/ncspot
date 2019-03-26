@@ -34,7 +34,7 @@ pub struct ConfigTheme {
     pub cmdline_bg: Option<String>,
 }
 
-fn proj_dirs () -> ProjectDirs {
+fn proj_dirs() -> ProjectDirs {
     ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
 }
 

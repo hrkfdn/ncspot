@@ -7,7 +7,7 @@ pub struct Modal<T: View> {
 
 impl<T: View> Modal<T> {
     pub fn new(inner: T) -> Self {
-        Modal { inner: inner }
+        Modal { inner }
     }
 }
 

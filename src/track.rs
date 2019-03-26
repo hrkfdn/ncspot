@@ -45,10 +45,10 @@ impl Track {
             track_number: track.track_number,
             disc_number: track.disc_number,
             duration: track.duration_ms,
-            artists: artists,
+            artists,
             album: track.album.name.clone(),
-            album_artists: album_artists,
-            cover_url: cover_url,
+            album_artists,
+            cover_url,
             url: track.uri.clone(),
         }
     }

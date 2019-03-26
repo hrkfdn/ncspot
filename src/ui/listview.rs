@@ -24,12 +24,12 @@ pub struct ListView<I: 'static + ListItem> {
 impl<I: ListItem> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>) -> Self {
         Self {
-            content: content,
+            content,
             last_content_length: 0,
             selected: 0,
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
-            queue: queue,
+            queue,
         }
     }
 
@@ -70,9 +70,10 @@ impl<I: ListItem> View for ListView<I> {
             let item = &content[i];
 
             let style = if self.selected == i {
-                let fg = match item.is_playing(self.queue.clone()) {
-                    true => *printer.theme.palette.custom("playing").unwrap(),
-                    false => PaletteColor::Tertiary.resolve(&printer.theme.palette)
+                let fg = if item.is_playing(self.queue.clone()) {
+                    *printer.theme.palette.custom("playing").unwrap()
+                } else {
+                    PaletteColor::Tertiary.resolve(&printer.theme.palette)
                 };
                 ColorStyle::new(
                     ColorType::Color(fg),
