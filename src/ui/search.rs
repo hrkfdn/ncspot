@@ -66,6 +66,10 @@ impl SearchView {
         }
     }
 
+    fn list_index(&self) -> usize {
+        self.list.with_view(|v| v.get_selected_index()).unwrap_or(0)
+    }
+
     fn pass_event_focused(&mut self, event: Event) -> EventResult {
         if self.edit_focused {
             self.edit.on_event(event)
@@ -119,6 +123,14 @@ impl View for SearchView {
             }
             Event::Key(Key::Esc) if self.edit_focused => {
                 self.edit_focused = false;
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::Down) if self.edit_focused => {
+                self.edit_focused = false;
+                EventResult::Consumed(None)
+            }
+            Event::Key(Key::Up) if (!self.edit_focused && self.list_index() == 0) => {
+                self.edit_focused = true;
                 EventResult::Consumed(None)
             }
             _ => self.pass_event_focused(event),
