@@ -288,6 +288,16 @@ impl CommandManager {
                         });
                     }
 
+                    {
+                        if let Some(Some(dialog)) = s
+                            .call_on_id("playlists", |v: &mut ui::playlists::PlaylistView| {
+                                v.delete_dialog()
+                            })
+                        {
+                            s.add_layer(dialog);
+                        }
+                    }
+
                     Ok(None)
                 }),
             );

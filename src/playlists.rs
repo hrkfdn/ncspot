@@ -150,6 +150,16 @@ impl Playlists {
         store.len() - 1
     }
 
+    pub fn delete_playlist(&self, id: &str) {
+        let mut store = self.store.write().expect("can't writelock playlists");
+        if let Some(position) = store.iter().position(|ref i| i.meta.id == id) {
+            if self.spotify.delete_playlist(id) {
+                store.remove(position);
+                self.save_cache();
+            }
+        }
+    }
+
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
         debug!("saving {} tracks to {}", tracks.len(), id);
         self.spotify.overwrite_playlist(id, &tracks);

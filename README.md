@@ -44,6 +44,7 @@ have them configurable.
     * `s` opens a dialog to save the queue to a playlist
   * `F2`: Search
   * `F3`: Playlists
+    * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track

@@ -404,6 +404,11 @@ impl Spotify {
         }
     }
 
+    pub fn delete_playlist(&self, id: &str) -> bool {
+        self.api_with_retry(|api| api.user_playlist_unfollow(&self.user, id))
+            .is_some()
+    }
+
     pub fn create_playlist(
         &self,
         name: &str,

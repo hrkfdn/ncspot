@@ -160,7 +160,7 @@ fn main() {
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_id("search"), "Search")
-        .view("playlists", playlistsview, "Playlists")
+        .view("playlists", playlistsview.with_id("playlists"), "Playlists")
         .view("queue", queueview, "Queue");
 
     // initial view is queue
