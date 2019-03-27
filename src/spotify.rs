@@ -184,13 +184,13 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(events: EventManager, user: String, password: String) -> Spotify {
+    pub fn new(events: EventManager, credentials: Credentials) -> Spotify {
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
             normalisation: false,
             normalisation_pregain: 0.0,
         };
-        let credentials = Credentials::with_password(user.clone(), password.clone());
+        let user = credentials.username.clone();
 
         let (tx, rx) = mpsc::unbounded();
         {
