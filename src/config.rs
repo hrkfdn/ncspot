@@ -42,7 +42,10 @@ pub fn config_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
     let cfg_dir = proj_dirs.config_dir();
     trace!("{:?}", cfg_dir);
-    if !cfg_dir.exists() || !cfg_dir.is_dir() {
+    if !cfg_dir.is_dir() {
+        fs::remove_file(cfg_dir).expect("unable to remove old config file");
+    }
+    if !cfg_dir.exists() {
         fs::create_dir(cfg_dir).expect("can't create config folder");
     }
     let mut cfg = cfg_dir.to_path_buf();
