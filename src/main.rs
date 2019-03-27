@@ -35,6 +35,9 @@ use clap::{App, Arg};
 use cursive::traits::Identifiable;
 use cursive::Cursive;
 
+use librespot::core::authentication::Credentials;
+
+mod authentication;
 mod commands;
 mod config;
 mod events;
@@ -98,21 +101,22 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let path = config::config_path("config.toml");
+    let cfg: ::config::Config = {
+        let path = config::config_path("config.toml");
+        ::config::load_or_generate_default(path, |_| Ok(::config::Config::default()), false)
+            .unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                process::exit(1);
+            })
+    };
 
-    let cfg: config::Config = {
-        let contents = std::fs::read_to_string(&path).unwrap_or_else(|_| {
-            eprintln!("Cannot read config file from {}", path.to_str().unwrap());
-            eprintln!(
-                "Expected a config file with this format:\n{}",
-                toml::to_string_pretty(&config::Config::default()).unwrap()
-            );
-            process::exit(1)
-        });
-        toml::from_str(&contents).unwrap_or_else(|e| {
-            eprintln!("{}", e);
-            process::exit(1)
-        })
+    let credentials: Credentials = {
+        let path = config::config_path("credentials.toml");
+        ::config::load_or_generate_default(path, authentication::create_credentials, true)
+            .unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                process::exit(1);
+            })
     };
 
     let theme = theme::load(&cfg);
@@ -122,11 +126,7 @@ fn main() {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    let spotify = Arc::new(spotify::Spotify::new(
-        event_manager.clone(),
-        cfg.username.clone(),
-        cfg.password.clone(),
-    ));
+    let spotify = Arc::new(spotify::Spotify::new(event_manager.clone(), credentials));
 
     let queue = Arc::new(queue::Queue::new(spotify.clone()));
 
