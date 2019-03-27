@@ -8,7 +8,6 @@ use cursive::vec::Vec2;
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
-use config::Config;
 use queue::{Queue, RepeatSetting};
 use spotify::{PlayerEvent, Spotify};
 
@@ -20,12 +19,12 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Queue>, spotify: Arc<Spotify>, cfg: &Config) -> StatusBar {
+    pub fn new(queue: Arc<Queue>, spotify: Arc<Spotify>, use_nerdfont: bool) -> StatusBar {
         StatusBar {
             queue,
             spotify,
             last_size: Vec2::new(0, 0),
-            use_nerdfont: cfg.use_nerdfont.unwrap_or(false),
+            use_nerdfont,
         }
     }
 }
