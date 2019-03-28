@@ -9,14 +9,16 @@ use cursive::traits::View;
 use cursive::vec::Vec2;
 use cursive::view::{IntoBoxedView, Selector};
 use cursive::views::EditView;
-use cursive::Printer;
+use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
 use events;
+use traits::{ViewExt, IntoBoxedViewExt};
+use commands::CommandResult;
 
 struct Screen {
     title: String,
-    view: Box<dyn View>,
+    view: Box<dyn ViewExt>,
 }
 
 pub struct Layout {
@@ -26,8 +28,8 @@ pub struct Layout {
     focus: Option<String>,
     pub cmdline: EditView,
     cmdline_focus: bool,
-    error: Option<String>,
-    error_time: Option<SystemTime>,
+    result: Result<Option<String>, String>,
+    result_time: Option<SystemTime>,
     screenchange: bool,
     last_size: Vec2,
     ev: events::EventManager,
@@ -48,8 +50,8 @@ impl Layout {
             focus: None,
             cmdline: EditView::new().filler(" ").style(style),
             cmdline_focus: false,
-            error: None,
-            error_time: None,
+            result: Ok(None),
+            result_time: None,
             screenchange: true,
             last_size: Vec2::new(0, 0),
             ev: ev.clone(),
@@ -64,18 +66,18 @@ impl Layout {
         }
     }
 
-    pub fn add_view<S: Into<String>, T: IntoBoxedView>(&mut self, id: S, view: T, title: &str) {
+    pub fn add_view<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: &str) {
         let s = id.into();
         let screen = Screen {
             title: title.to_string(),
-            view: view.as_boxed_view(),
+            view: view.as_boxed_view_ext(),
         };
         self.views.insert(s.clone(), screen);
         self.title = title.to_owned();
         self.focus = Some(s);
     }
 
-    pub fn view<S: Into<String>, T: IntoBoxedView>(mut self, id: S, view: T, title: &str) -> Self {
+    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T, title: &str) -> Self {
         (&mut self).add_view(id, view, title);
         self
     }
@@ -92,35 +94,35 @@ impl Layout {
         self.ev.trigger();
     }
 
-    pub fn set_error<S: Into<String>>(&mut self, error: S) {
-        self.error = Some(error.into());
-        self.error_time = Some(SystemTime::now());
+    pub fn set_result(&mut self, result: Result<Option<String>, String>) {
+        self.result = result;
+        self.result_time = Some(SystemTime::now());
     }
 
     pub fn clear_cmdline(&mut self) {
         self.cmdline.set_content("");
         self.cmdline_focus = false;
-        self.error = None;
-        self.error_time = None;
+        self.result = Ok(None);
+        self.result_time = None;
     }
 
-    fn get_error(&self) -> Option<String> {
-        if let Some(t) = self.error_time {
+    fn get_result(&self) -> Result<Option<String>, String> {
+        if let Some(t) = self.result_time {
             if t.elapsed().unwrap() > Duration::from_secs(5) {
-                return None;
+                return Ok(None);
             }
         }
-        self.error.clone()
+        self.result.clone()
     }
 }
 
 impl View for Layout {
     fn draw(&self, printer: &Printer<'_, '_>) {
-        let error = self.get_error();
+        let result = self.get_result();
 
         let cmdline_visible = self.cmdline.get_content().len() > 0;
         let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
-        if error.is_some() {
+        if result.as_ref().map(|o| o.is_some()).unwrap_or(true) {
             cmdline_height += 1;
         }
 
@@ -143,17 +145,18 @@ impl View for Layout {
         self.statusbar
             .draw(&printer.offset((0, printer.size.y - 2 - cmdline_height)));
 
-        if let Some(e) = error {
+        if let Ok(Some(r)) = result {
+            printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
+            printer.print((0, printer.size.y - cmdline_height), &r);
+        } else if let Err(e) = result {
             let style = ColorStyle::new(
                 ColorType::Color(*self.theme.palette.custom("error").unwrap()),
                 ColorType::Color(*self.theme.palette.custom("error_bg").unwrap()),
             );
+
             printer.with_color(style, |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
-                printer.print(
-                    (0, printer.size.y - cmdline_height),
-                    &format!("ERROR: {}", e),
-                );
+                printer.print((0, printer.size.y - cmdline_height), &format!("ERROR: {}", e));
             });
         }
 
@@ -169,11 +172,11 @@ impl View for Layout {
 
     fn on_event(&mut self, event: Event) -> EventResult {
         if let Event::Mouse { position, .. } = event {
-            let error = self.get_error();
+            let result = self.get_result();
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
             let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
-            if error.is_some() {
+            if result.as_ref().map(|o| o.is_some()).unwrap_or(true) {
                 cmdline_height += 1;
             }
 
@@ -240,6 +243,29 @@ impl View for Layout {
             screen.view.take_focus(source)
         } else {
             false
+        }
+    }
+}
+
+impl ViewExt for Layout {
+    fn on_command(&mut self,
+        s: &mut Cursive,
+        cmd: &String,
+        args: &[String]
+    ) -> Result<CommandResult, String> {
+        if cmd == "focus" {
+            if let Some(view) = args.get(0) {
+                if self.views.keys().any(|k| k == view) {
+                    self.set_view(view.clone());
+                }
+            }
+
+            Ok(CommandResult::Consumed(None))
+        } else if let Some(ref id) = self.focus {
+            let screen = self.views.get_mut(id).unwrap();
+            screen.view.on_command(s, cmd, args)
+        } else {
+            Ok(CommandResult::Ignored)
         }
     }
 }

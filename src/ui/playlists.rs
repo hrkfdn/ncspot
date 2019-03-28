@@ -5,8 +5,10 @@ use cursive::view::ViewWrapper;
 use cursive::views::{Dialog, IdView};
 use cursive::Cursive;
 
+use commands::CommandResult;
 use playlists::{Playlist, Playlists};
 use queue::Queue;
+use traits::ViewExt;
 use ui::listview::ListView;
 use ui::modal::Modal;
 
@@ -51,4 +53,22 @@ impl PlaylistView {
 
 impl ViewWrapper for PlaylistView {
     wrap_impl!(self.list: IdView<ListView<Playlist>>);
+}
+
+impl ViewExt for PlaylistView {
+    fn on_command(&mut self,
+        s: &mut Cursive,
+        cmd: &String,
+        args: &[String]
+    ) -> Result<CommandResult, String> {
+        if cmd == "delete" {
+            if let Some(dialog) = self.delete_dialog() {
+                s.add_layer(dialog);
+            }
+            return Ok(CommandResult::Consumed(None));
+        }
+
+        self.list.on_command(s, cmd, args)
+
+    }
 }

@@ -91,4 +91,13 @@ impl ListItem for Track {
     fn display_right(&self) -> String {
         self.duration_str()
     }
+
+    fn play(&self, queue: Arc<Queue>) {
+        let index = queue.append_next(vec![self]);
+        queue.play(index, true);
+    }
+
+    fn queue(&self, queue: Arc<Queue>) {
+        queue.append(self);
+    }
 }

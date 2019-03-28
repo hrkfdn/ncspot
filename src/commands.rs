@@ -2,39 +2,45 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use cursive::event::{Event, Key};
+use cursive::views::ViewRef;
 use cursive::Cursive;
 
-use playlists::{Playlist, Playlists};
+use playlists::Playlists;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
-use track::Track;
-use ui;
+use traits::ViewExt;
 use ui::layout::Layout;
-use ui::listview::ListView;
-use ui::search::SearchView;
 
-type CommandResult = Result<Option<String>, String>;
-type CommandCb = dyn Fn(&mut Cursive, Vec<String>) -> CommandResult;
+type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
+
+#[derive(PartialEq)]
+pub enum CommandResult {
+    Consumed(Option<String>),
+    Ignored,
+}
 
 pub struct CommandManager {
-    commands: HashMap<String, Box<CommandCb>>,
+    callbacks: HashMap<String, Option<Box<CommandCb>>>,
     aliases: HashMap<String, String>,
 }
 
 impl CommandManager {
     pub fn new() -> CommandManager {
         CommandManager {
-            commands: HashMap::new(),
+            callbacks: HashMap::new(),
             aliases: HashMap::new(),
         }
     }
 
-    pub fn register<S: Into<String>>(&mut self, name: S, aliases: Vec<S>, cb: Box<CommandCb>) {
+    pub fn register_command<S: Into<String>>(&mut self, name: S, cb: Option<Box<CommandCb>>) {
+        self.callbacks.insert(name.into(), cb);
+    }
+
+    pub fn register_aliases<S: Into<String>>(&mut self, name: S, aliases: Vec<S>) {
         let name = name.into();
         for a in aliases {
             self.aliases.insert(a.into(), name.clone());
         }
-        self.commands.insert(name, cb);
     }
 
     pub fn register_all(
@@ -43,272 +49,100 @@ impl CommandManager {
         queue: Arc<Queue>,
         playlists: Arc<Playlists>,
     ) {
-        self.register(
+        self.register_aliases("quit", vec!["q", "x"]);
+        self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
+        self.register_aliases("repeat", vec!["loop"]);
+
+        self.register_command("search", None);
+        self.register_command("move", None);
+        self.register_command("play", None);
+        self.register_command("queue", None);
+        self.register_command("delete", None);
+
+        self.register_command(
             "quit",
-            vec!["q", "x"],
-            Box::new(move |s, _args| {
+            Some(Box::new(move |s, _args| {
                 s.quit();
                 Ok(None)
-            }),
+            })),
         );
 
         {
             let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "stop",
-                Vec::new(),
-                Box::new(move |_s, _args| {
+                Some(Box::new(move |_s, _args| {
                     queue.stop();
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "previous",
-                Vec::new(),
-                Box::new(move |_s, _args| {
+                Some(Box::new(move |_s, _args| {
                     queue.previous();
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "next",
-                Vec::new(),
-                Box::new(move |_s, _args| {
+                Some(Box::new(move |_s, _args| {
                     queue.next(true);
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "clear",
-                Vec::new(),
-                Box::new(move |_s, _args| {
+                Some(Box::new(move |_s, _args| {
                     queue.clear();
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
-            let spotify = spotify.clone();
-            self.register(
-                "search",
-                Vec::new(),
-                Box::new(move |s, args| {
-                    s.call_on_id("main", |v: &mut Layout| {
-                        v.set_view("search");
-                    });
-                    s.call_on_id("search", |v: &mut SearchView| {
-                        if !args.is_empty() {
-                            v.run_search(args.join(" "), spotify.clone());
-                        }
-                    });
-                    Ok(None)
-                }),
-            );
-        }
-
-        {
-            self.register(
+            let playlists = playlists.clone();
+            self.register_command(
                 "playlists",
-                vec!["lists"],
-                Box::new(move |s, args| {
+                Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         if arg == "update" {
                             playlists.fetch_playlists();
                             playlists.save_cache();
                         }
-                    } else {
-                        s.call_on_id("main", |v: &mut Layout| {
-                            v.set_view("playlists");
-                        });
                     }
                     Ok(None)
-                }),
-            );
-        }
-
-        self.register(
-            "move",
-            Vec::new(),
-            Box::new(move |s, args| {
-                if args.is_empty() {
-                    return Err("Missing direction (up, down, left, right)".to_string());
-                }
-
-                let dir = &args[0];
-
-                let amount: i32 = args
-                    .get(1)
-                    .unwrap_or(&"1".to_string())
-                    .parse()
-                    .map_err(|e| format!("{:?}", e))?;
-
-                if dir == "up" || dir == "down" {
-                    let dir = if dir == "up" { -1 } else { 1 };
-                    s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
-                        v.move_focus(dir * amount);
-                    });
-                    s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
-                        v.move_focus(dir * amount);
-                    });
-                    s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
-                        v.move_focus(dir * amount);
-                    });
-                    s.on_event(Event::Refresh);
-                    return Ok(None);
-                }
-
-                if dir == "left" || dir == "right" {
-                    return Ok(None);
-                }
-
-                Err(format!("Unrecognized direction: {}", dir))
-            }),
-        );
-
-        {
-            let queue = queue.clone();
-            self.register(
-                "queue",
-                Vec::new(),
-                Box::new(move |s, args| {
-                    if let Some(arg) = args.get(0) {
-                        if arg != "selected" {
-                            return Err("".into());
-                        }
-                    } else {
-                        s.call_on_id("main", |v: &mut Layout| {
-                            v.set_view("queue");
-                        });
-                        return Ok(None);
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
-                            v.with_selected(Box::new(move |t| {
-                                queue.append(t);
-                            }));
-                        });
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
-                            v.with_selected(Box::new(move |pl| {
-                                for track in pl.tracks.iter() {
-                                    queue.append(track);
-                                }
-                            }));
-                        });
-                    }
-
-                    Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
-                "play",
-                vec!["pause", "toggle", "toggleplay", "toggleplayback"],
-                Box::new(move |s, args| {
-                    if let Some(arg) = args.get(0) {
-                        if arg != "selected" {
-                            return Err("".into());
-                        }
-                    } else {
-                        queue.toggleplayback();
-                        return Ok(None);
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
-                            queue.play(v.get_selected_index(), true);
-                        });
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::search::LIST_ID, |v: &mut ListView<Track>| {
-                            v.with_selected(Box::new(move |t| {
-                                let index = queue.append_next(vec![t]);
-                                queue.play(index, true);
-                            }));
-                        });
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::playlists::LIST_ID, |v: &mut ListView<Playlist>| {
-                            v.with_selected(Box::new(move |pl| {
-                                let index = queue.append_next(pl.tracks.iter().collect());
-                                queue.play(index, true);
-                            }));
-                        });
-                    }
-
+            self.register_command(
+                "playpause",
+                Some(Box::new(move |_s, _args| {
+                    queue.toggleplayback();
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
-                "delete",
-                Vec::new(),
-                Box::new(move |s, args| {
-                    if let Some(arg) = args.get(0) {
-                        if arg != "selected" {
-                            return Err("".into());
-                        }
-                    } else {
-                        return Err("".into());
-                    }
-
-                    {
-                        let queue = queue.clone();
-                        s.call_on_id(ui::queue::LIST_ID, |v: &mut ListView<Track>| {
-                            queue.remove(v.get_selected_index());
-                        });
-                    }
-
-                    {
-                        if let Some(Some(dialog)) = s
-                            .call_on_id("playlists", |v: &mut ui::playlists::PlaylistView| {
-                                v.delete_dialog()
-                            })
-                        {
-                            s.add_layer(dialog);
-                        }
-                    }
-
-                    Ok(None)
-                }),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "shuffle",
-                Vec::new(),
-                Box::new(move |_s, args| {
+                Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         queue.set_shuffle(match arg.as_ref() {
                             "on" => true,
@@ -322,16 +156,15 @@ impl CommandManager {
                     }
 
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let queue = queue.clone();
-            self.register(
+            self.register_command(
                 "repeat",
-                vec!["loop"],
-                Box::new(move |_s, args| {
+                Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         queue.set_repeat(match arg.as_ref() {
                             "list" | "playlist" | "queue" => RepeatSetting::RepeatPlaylist,
@@ -350,16 +183,15 @@ impl CommandManager {
                     }
 
                     Ok(None)
-                }),
+                })),
             );
         }
 
         {
             let spotify = spotify.clone();
-            self.register(
+            self.register_command(
                 "seek",
-                Vec::new(),
-                Box::new(move |_s, args| {
+                Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         match arg.chars().next().unwrap() {
                             '+' | '-' => {
@@ -372,7 +204,7 @@ impl CommandManager {
                     }
 
                     Ok(None)
-                }),
+                })),
             );
         }
     }
@@ -385,21 +217,36 @@ impl CommandManager {
         }
     }
 
+    fn handle_callbacks(&self, s: &mut Cursive, cmd: &String, args: &[String]) -> Result<Option<String>, String> {
+        let local = {
+            let mut main: ViewRef<Layout> = s.find_id("main").unwrap();
+            main.on_command(s, cmd, args)?
+        };
+
+        if let CommandResult::Consumed(output) = local {
+            Ok(output)
+        } else if let Some(callback) = self.callbacks.get(cmd) {
+            callback.as_ref()
+                .map(|cb| cb(s, args))
+                .unwrap_or(Ok(None))
+        } else {
+            Err("Unknown command.".to_string())
+        }
+    }
+
     pub fn handle(&self, s: &mut Cursive, cmd: String) {
         let components: Vec<String> = cmd.trim().split(' ').map(|s| s.to_string()).collect();
 
-        let result = if let Some(cb) = self.commands.get(&self.handle_aliases(&components[0])) {
-            cb(s, components[1..].to_vec())
-        } else {
-            Err("Unknown command.".to_string())
-        };
+        let cmd = self.handle_aliases(&components[0]);
+        let args = components[1..].to_vec();
 
-        // TODO: handle non-error output as well
-        if let Err(e) = result {
-            s.call_on_id("main", |v: &mut Layout| {
-                v.set_error(e);
-            });
-        }
+        let result = self.handle_callbacks(s, &cmd, &args);
+
+        s.call_on_id("main", |v: &mut Layout| {
+            v.set_result(result);
+        });
+
+        s.on_event(Event::Refresh);
     }
 
     pub fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
@@ -431,24 +278,24 @@ impl CommandManager {
         let mut kb = HashMap::new();
 
         kb.insert("q".into(), "quit".into());
-        kb.insert("P".into(), "toggle".into());
+        kb.insert("P".into(), "toggleplay".into());
         kb.insert("R".into(), "playlists update".into());
         kb.insert("S".into(), "stop".into());
         kb.insert("<".into(), "previous".into());
         kb.insert(">".into(), "next".into());
         kb.insert("c".into(), "clear".into());
-        kb.insert(" ".into(), "queue selected".into());
-        kb.insert("Enter".into(), "play selected".into());
-        kb.insert("d".into(), "delete selected".into());
-        kb.insert("/".into(), "search".into());
+        kb.insert(" ".into(), "queue".into());
+        kb.insert("Enter".into(), "play".into());
+        kb.insert("d".into(), "delete".into());
+        kb.insert("/".into(), "focus search".into());
         kb.insert(".".into(), "seek +500".into());
         kb.insert(",".into(), "seek -500".into());
         kb.insert("r".into(), "repeat".into());
         kb.insert("z".into(), "shuffle".into());
 
-        kb.insert("F1".into(), "queue".into());
-        kb.insert("F2".into(), "search".into());
-        kb.insert("F3".into(), "playlists".into());
+        kb.insert("F1".into(), "focus queue".into());
+        kb.insert("F2".into(), "focus search".into());
+        kb.insert("F3".into(), "focus playlists".into());
 
         kb.insert("Up".into(), "move up".into());
         kb.insert("Down".into(), "move down".into());

@@ -133,8 +133,6 @@ fn main() {
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
 
-    let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
-
     let playlists = Arc::new(Playlists::new(&event_manager, &spotify));
 
     {
@@ -151,6 +149,14 @@ fn main() {
             playlists.save_cache();
         });
     }
+
+    let mut cmd_manager = CommandManager::new();
+    cmd_manager.register_all(spotify.clone(), queue.clone(), playlists.clone());
+
+    let cmd_manager = Arc::new(cmd_manager);
+    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings.clone());
+
+    let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 
     let playlistsview = ui::playlists::PlaylistView::new(&playlists, queue.clone());
 
@@ -191,12 +197,6 @@ fn main() {
     }
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
-
-    let mut cmd_manager = CommandManager::new();
-    cmd_manager.register_all(spotify.clone(), queue.clone(), playlists.clone());
-
-    let cmd_manager = Arc::new(cmd_manager);
-    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings);
 
     // cursive event loop
     while cursive.is_running() {

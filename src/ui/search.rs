@@ -9,9 +9,11 @@ use cursive::{Cursive, Printer, Vec2};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
 
+use commands::CommandResult;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
+use traits::ViewExt;
 use ui::listview::ListView;
 
 pub struct SearchView {
@@ -19,6 +21,7 @@ pub struct SearchView {
     edit: IdView<EditView>,
     list: IdView<ListView<Track>>,
     edit_focused: bool,
+    spotify: Arc<Spotify>,
 }
 
 pub const LIST_ID: &str = "search_list";
@@ -31,7 +34,7 @@ impl SearchView {
             .on_submit(move |s, input| {
                 if !input.is_empty() {
                     s.call_on_id("search", |v: &mut SearchView| {
-                        v.run_search(input, spotify.clone());
+                        v.run_search(input);
                         v.focus_view(&Selector::Id(LIST_ID)).unwrap();
                     });
                 }
@@ -44,10 +47,11 @@ impl SearchView {
             edit: searchfield,
             list,
             edit_focused: true,
+            spotify
         }
     }
 
-    pub fn run_search<S: Into<String>>(&mut self, query: S, spotify: Arc<Spotify>) {
+    pub fn run_search<S: Into<String>>(&mut self, query: S) {
         let query = query.into();
         let q = query.clone();
         self.edit
@@ -55,7 +59,7 @@ impl SearchView {
                 v.set_content(q);
             });
 
-        if let Some(results) = spotify.search(&query, 50, 0) {
+        if let Some(results) = self.spotify.search(&query, 50, 0) {
             let tracks = results
                 .tracks
                 .items
@@ -65,18 +69,6 @@ impl SearchView {
             let mut r = self.results.write().unwrap();
             *r = tracks;
             self.edit_focused = false;
-        }
-    }
-
-    fn list_index(&self) -> usize {
-        self.list.with_view(|v| v.get_selected_index()).unwrap_or(0)
-    }
-
-    fn pass_event_focused(&mut self, event: Event) -> EventResult {
-        if self.edit_focused {
-            self.edit.on_event(event)
-        } else {
-            self.list.on_event(event)
         }
     }
 }
@@ -118,24 +110,46 @@ impl View for SearchView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        match event {
-            Event::Key(Key::Tab) => {
-                self.edit_focused = !self.edit_focused;
-                EventResult::Consumed(None)
-            }
-            Event::Key(Key::Esc) if self.edit_focused => {
-                self.edit_focused = false;
-                EventResult::Consumed(None)
-            }
-            Event::Key(Key::Down) if self.edit_focused => {
-                self.edit_focused = false;
-                EventResult::Consumed(None)
-            }
-            Event::Key(Key::Up) if (!self.edit_focused && self.list_index() == 0) => {
-                self.edit_focused = true;
-                EventResult::Consumed(None)
-            }
-            _ => self.pass_event_focused(event),
+        if self.edit_focused {
+            self.edit.on_event(event)
+        } else {
+            self.list.on_event(event)
         }
+    }
+}
+
+
+impl ViewExt for SearchView {
+    fn on_command(&mut self,
+        s: &mut Cursive,
+        cmd: &String,
+        args: &[String]
+    ) -> Result<CommandResult, String> {
+        if cmd == "search" && !args.is_empty() {
+            self.run_search(args.join(" "));
+            return Ok(CommandResult::Consumed(None));
+        }
+
+        let result = if !self.edit_focused {
+            self.list.on_command(s, cmd, args)?
+        } else {
+            CommandResult::Ignored
+        };
+
+        if result == CommandResult::Ignored && cmd == "move" {
+            if let Some(dir) = args.get(0) {
+                if dir == "up" && !self.edit_focused {
+                    self.edit_focused = true;
+                    return Ok(CommandResult::Consumed(None));
+                }
+
+                if dir == "down" && self.edit_focused {
+                    self.edit_focused = false;
+                    return Ok(CommandResult::Consumed(None));
+                }
+            }
+        }
+
+        Ok(result)
     }
 }

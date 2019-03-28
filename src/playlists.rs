@@ -48,6 +48,17 @@ impl ListItem for Playlist {
     fn display_right(&self) -> String {
         format!("{} tracks", self.tracks.len())
     }
+
+    fn play(&self, queue: Arc<Queue>) {
+        let index = queue.append_next(self.tracks.iter().collect());
+        queue.play(index, true);
+    }
+
+    fn queue(&self, queue: Arc<Queue>) {
+        for track in self.tracks.iter() {
+            queue.append(track);
+        }
+    }
 }
 
 impl Playlists {

@@ -1,20 +1,21 @@
 use std::cmp::{max, min};
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::view::ScrollBase;
-use cursive::{Printer, Rect, Vec2};
+use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use queue::Queue;
-use traits::ListItem;
+use traits::{ListItem, ViewExt};
+use commands::CommandResult;
 
 pub struct ListView<I: 'static + ListItem> {
     content: Arc<RwLock<Vec<I>>>,
-    last_content_length: usize,
+    last_content_len: usize,
     selected: usize,
     last_size: Vec2,
     scrollbar: ScrollBase,
@@ -25,18 +26,11 @@ impl<I: ListItem> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>) -> Self {
         Self {
             content,
-            last_content_length: 0,
+            last_content_len: 0,
             selected: 0,
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
-        }
-    }
-
-    pub fn with_selected(&self, cb: Box<Fn(&I) -> ()>) {
-        match self.content.read().unwrap().get(self.selected) {
-            Some(x) => cb(x),
-            None => error!("listview: invalid item index: {})", self.selected),
         }
     }
 
@@ -53,12 +47,6 @@ impl<I: ListItem> ListView<I> {
     pub fn move_focus(&mut self, delta: i32) {
         let new = self.selected as i32 + delta;
         self.move_focus_to(max(new, 0) as usize);
-    }
-
-    pub fn content(&self) -> RwLockReadGuard<Vec<I>> {
-        self.content
-            .read()
-            .expect("could not readlock listview content")
     }
 }
 
@@ -116,13 +104,13 @@ impl<I: ListItem> View for ListView<I> {
     }
 
     fn layout(&mut self, size: Vec2) {
-        self.last_content_length = self.content.read().unwrap().len();
+        self.last_content_len = self.content.read().unwrap().len();
         self.last_size = size;
-        self.scrollbar.set_heights(size.y, self.last_content_length);
+        self.scrollbar.set_heights(size.y, self.last_content_len);
     }
 
     fn needs_relayout(&self) -> bool {
-        self.content.read().unwrap().len() != self.last_content_length
+        self.content.read().unwrap().len() != self.last_content_len
     }
 
     fn on_event(&mut self, e: Event) -> EventResult {
@@ -182,5 +170,55 @@ impl<I: ListItem> View for ListView<I> {
         } else {
             Rect::from((0, 0))
         }
+    }
+}
+
+impl<I: ListItem> ViewExt for ListView<I> {
+    fn on_command(&mut self,
+        _s: &mut Cursive,
+        cmd: &String,
+        args: &[String]
+    ) -> Result<CommandResult, String> {
+        if cmd == "play" {
+            let content = self.content.read().unwrap();
+            if let Some(item) = content.get(self.selected) {
+                item.play(self.queue.clone());
+            }
+            return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd == "queue" {
+            let content = self.content.read().unwrap();
+            if let Some(item) = content.get(self.selected) {
+                item.queue(self.queue.clone());
+            }
+            return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd != "move" {
+            return Ok(CommandResult::Ignored);
+        }
+
+        if let Some(dir) = args.get(0) {
+            let amount: i32 = args
+                .get(1)
+                .unwrap_or(&"1".to_string())
+                .parse()
+                .map_err(|e| format!("{:?}", e))?;
+
+            let len = self.content.read().unwrap().len();
+
+            if dir == "up" && self.selected > 0 {
+                self.move_focus(amount * -1);
+                return Ok(CommandResult::Consumed(None));
+            }
+
+            if dir == "down" && self.selected < len - 1 {
+                self.move_focus(amount);
+                return Ok(CommandResult::Consumed(None));
+            }
+        }
+
+        Ok(CommandResult::Ignored)
     }
 }
