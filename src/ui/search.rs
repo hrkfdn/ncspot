@@ -47,7 +47,7 @@ impl SearchView {
             edit: searchfield,
             list,
             edit_focused: true,
-            spotify
+            spotify,
         }
     }
 
@@ -118,12 +118,12 @@ impl View for SearchView {
     }
 }
 
-
 impl ViewExt for SearchView {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "search" && !args.is_empty() {
             self.run_search(args.join(" "));

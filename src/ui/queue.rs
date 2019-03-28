@@ -24,10 +24,19 @@ impl QueueView {
     pub fn new(queue: Arc<Queue>, playlists: Arc<Playlists>) -> QueueView {
         let list = ListView::new(queue.queue.clone(), queue.clone());
 
-        QueueView { list, playlists, queue }
+        QueueView {
+            list,
+            playlists,
+            queue,
+        }
     }
 
-    fn save_dialog_cb(s: &mut Cursive, queue: Arc<Queue>, playlists: Arc<Playlists>, id: Option<String>) {
+    fn save_dialog_cb(
+        s: &mut Cursive,
+        queue: Arc<Queue>,
+        playlists: Arc<Playlists>,
+        id: Option<String>,
+    ) {
         let tracks = queue.queue.read().unwrap().clone();
         match id {
             Some(id) => {
@@ -95,10 +104,11 @@ impl ViewWrapper for QueueView {
 }
 
 impl ViewExt for QueueView {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
             self.queue.play(self.list.get_selected_index(), true);
@@ -114,8 +124,7 @@ impl ViewExt for QueueView {
             return Ok(CommandResult::Consumed(None));
         }
 
-        self.with_view_mut(move |v| {
-            v.on_command(s, cmd, args)
-        }).unwrap()
+        self.with_view_mut(move |v| v.on_command(s, cmd, args))
+            .unwrap()
     }
 }

@@ -9,9 +9,9 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use commands::CommandResult;
 use queue::Queue;
 use traits::{ListItem, ViewExt};
-use commands::CommandResult;
 
 pub struct ListView<I: 'static + ListItem> {
     content: Arc<RwLock<Vec<I>>>,
@@ -174,10 +174,11 @@ impl<I: ListItem> View for ListView<I> {
 }
 
 impl<I: ListItem> ViewExt for ListView<I> {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         _s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
             let content = self.content.read().unwrap();
@@ -195,27 +196,25 @@ impl<I: ListItem> ViewExt for ListView<I> {
             return Ok(CommandResult::Consumed(None));
         }
 
-        if cmd != "move" {
-            return Ok(CommandResult::Ignored);
-        }
+        if cmd == "move" {
+            if let Some(dir) = args.get(0) {
+                let amount: i32 = args
+                    .get(1)
+                    .unwrap_or(&"1".to_string())
+                    .parse()
+                    .map_err(|e| format!("{:?}", e))?;
 
-        if let Some(dir) = args.get(0) {
-            let amount: i32 = args
-                .get(1)
-                .unwrap_or(&"1".to_string())
-                .parse()
-                .map_err(|e| format!("{:?}", e))?;
+                let len = self.content.read().unwrap().len();
 
-            let len = self.content.read().unwrap().len();
+                if dir == "up" && self.selected > 0 {
+                    self.move_focus(-amount);
+                    return Ok(CommandResult::Consumed(None));
+                }
 
-            if dir == "up" && self.selected > 0 {
-                self.move_focus(amount * -1);
-                return Ok(CommandResult::Consumed(None));
-            }
-
-            if dir == "down" && self.selected < len - 1 {
-                self.move_focus(amount);
-                return Ok(CommandResult::Consumed(None));
+                if dir == "down" && self.selected < len - 1 {
+                    self.move_focus(amount);
+                    return Ok(CommandResult::Consumed(None));
+                }
             }
         }
 

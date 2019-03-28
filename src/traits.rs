@@ -16,24 +16,25 @@ pub trait ListItem {
 }
 
 pub trait ViewExt: View {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         _s: &mut Cursive,
-        _cmd: &String,
-        _args: &[String]
+        _cmd: &str,
+        _args: &[String],
     ) -> Result<CommandResult, String> {
         Ok(CommandResult::Ignored)
     }
 }
 
 impl<V: ViewExt> ViewExt for IdView<V> {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
-        self.with_view_mut(move |v| {
-            v.on_command(s, cmd, args)
-        }).unwrap()
+        self.with_view_mut(move |v| v.on_command(s, cmd, args))
+            .unwrap()
     }
 }
 

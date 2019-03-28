@@ -56,10 +56,11 @@ impl ViewWrapper for PlaylistView {
 }
 
 impl ViewExt for PlaylistView {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "delete" {
             if let Some(dialog) = self.delete_dialog() {
@@ -69,6 +70,5 @@ impl ViewExt for PlaylistView {
         }
 
         self.list.on_command(s, cmd, args)
-
     }
 }

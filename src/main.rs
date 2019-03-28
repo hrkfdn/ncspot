@@ -154,7 +154,11 @@ fn main() {
     cmd_manager.register_all(spotify.clone(), queue.clone(), playlists.clone());
 
     let cmd_manager = Arc::new(cmd_manager);
-    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive, cfg.keybindings.clone());
+    CommandManager::register_keybindings(
+        cmd_manager.clone(),
+        &mut cursive,
+        cfg.keybindings.clone(),
+    );
 
     let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
 

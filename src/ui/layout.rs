@@ -12,9 +12,9 @@ use cursive::views::EditView;
 use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
-use events;
-use traits::{ViewExt, IntoBoxedViewExt};
 use commands::CommandResult;
+use events;
+use traits::{IntoBoxedViewExt, ViewExt};
 
 struct Screen {
     title: String,
@@ -77,7 +77,12 @@ impl Layout {
         self.focus = Some(s);
     }
 
-    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T, title: &str) -> Self {
+    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(
+        mut self,
+        id: S,
+        view: T,
+        title: &str,
+    ) -> Self {
         (&mut self).add_view(id, view, title);
         self
     }
@@ -156,7 +161,10 @@ impl View for Layout {
 
             printer.with_color(style, |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
-                printer.print((0, printer.size.y - cmdline_height), &format!("ERROR: {}", e));
+                printer.print(
+                    (0, printer.size.y - cmdline_height),
+                    &format!("ERROR: {}", e),
+                );
             });
         }
 
@@ -248,10 +256,11 @@ impl View for Layout {
 }
 
 impl ViewExt for Layout {
-    fn on_command(&mut self,
+    fn on_command(
+        &mut self,
         s: &mut Cursive,
-        cmd: &String,
-        args: &[String]
+        cmd: &str,
+        args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "focus" {
             if let Some(view) = args.get(0) {

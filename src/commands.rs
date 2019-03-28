@@ -217,7 +217,12 @@ impl CommandManager {
         }
     }
 
-    fn handle_callbacks(&self, s: &mut Cursive, cmd: &String, args: &[String]) -> Result<Option<String>, String> {
+    fn handle_callbacks(
+        &self,
+        s: &mut Cursive,
+        cmd: &str,
+        args: &[String],
+    ) -> Result<Option<String>, String> {
         let local = {
             let mut main: ViewRef<Layout> = s.find_id("main").unwrap();
             main.on_command(s, cmd, args)?
@@ -226,9 +231,7 @@ impl CommandManager {
         if let CommandResult::Consumed(output) = local {
             Ok(output)
         } else if let Some(callback) = self.callbacks.get(cmd) {
-            callback.as_ref()
-                .map(|cb| cb(s, args))
-                .unwrap_or(Ok(None))
+            callback.as_ref().map(|cb| cb(s, args)).unwrap_or(Ok(None))
         } else {
             Err("Unknown command.".to_string())
         }
