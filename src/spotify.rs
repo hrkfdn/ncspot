@@ -15,7 +15,7 @@ use rspotify::spotify::client::ApiError;
 use rspotify::spotify::client::Spotify as SpotifyAPI;
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
-use rspotify::spotify::model::search::SearchTracks;
+use rspotify::spotify::model::search::{SearchTracks, SearchPlaylists};
 
 use failure::Error;
 
@@ -428,8 +428,12 @@ impl Spotify {
         result.map(|r| r.id)
     }
 
-    pub fn search(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
+    pub fn search_track(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
         self.api_with_retry(|api| api.search_track(query, limit, offset, None))
+    }
+
+    pub fn search_playlist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchPlaylists> {
+        self.api_with_retry(|api| api.search_playlist(query, limit, offset, None))
     }
 
     pub fn current_user_playlist(

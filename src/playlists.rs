@@ -108,7 +108,7 @@ impl Playlists {
         }
     }
 
-    fn process_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
+    pub fn process_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
         debug!("got list: {}", list.name);
         let id = list.id.clone();
 

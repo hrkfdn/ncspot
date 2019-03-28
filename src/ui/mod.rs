@@ -5,3 +5,4 @@ pub mod playlists;
 pub mod queue;
 pub mod search;
 pub mod statusbar;
+pub mod tabview;

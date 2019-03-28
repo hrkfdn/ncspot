@@ -10,16 +10,19 @@ use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
 
 use commands::CommandResult;
+use playlists::{Playlist, Playlists};
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
 use traits::ViewExt;
 use ui::listview::ListView;
+use ui::tabview::TabView;
 
 pub struct SearchView {
-    results: Arc<RwLock<Vec<Track>>>,
+    results_tracks: Arc<RwLock<Vec<Track>>>,
+    results_playlists: Arc<RwLock<Vec<Playlist>>>,
     edit: IdView<EditView>,
-    list: IdView<ListView<Track>>,
+    list: IdView<TabView>,
     edit_focused: bool,
     spotify: Arc<Spotify>,
 }
@@ -28,7 +31,8 @@ pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
-        let results = Arc::new(RwLock::new(Vec::new()));
+        let results_tracks = Arc::new(RwLock::new(Vec::new()));
+        let results_playlists = Arc::new(RwLock::new(Vec::new()));
 
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
@@ -40,14 +44,18 @@ impl SearchView {
                 }
             })
             .with_id(EDIT_ID);
-        let list = ListView::new(results.clone(), queue).with_id(LIST_ID);
+
+        let tabs = TabView::new()
+            .tab("tracks", "Tracks", ListView::new(results_tracks.clone(), queue.clone()))
+            .tab("playlists", "Playlists", ListView::new(results_playlists.clone(), queue.clone()));
 
         SearchView {
-            results,
+            results_tracks,
+            results_playlists,
             edit: searchfield,
-            list,
+            list: tabs.with_id(LIST_ID),
             edit_focused: true,
-            spotify,
+            spotify
         }
     }
 
@@ -66,15 +74,27 @@ impl SearchView {
                 v.set_content(q);
             });
 
-        if let Some(results) = self.spotify.search(&query, 50, 0) {
+        if let Some(results) = self.spotify.search_track(&query, 50, 0) {
             let tracks = results
                 .tracks
                 .items
                 .iter()
                 .map(|ft| Track::new(ft))
                 .collect();
-            let mut r = self.results.write().unwrap();
+            let mut r = self.results_tracks.write().unwrap();
             *r = tracks;
+            self.edit_focused = false;
+        }
+
+        if let Some(results) = self.spotify.search_playlist(&query, 50, 0) {
+            let pls = results
+                .playlists
+                .items
+                .iter()
+                .map(|sp| Playlists::process_playlist(sp, &&self.spotify))
+                .collect();
+            let mut r = self.results_playlists.write().unwrap();
+            *r = pls;
             self.edit_focused = false;
         }
     }
