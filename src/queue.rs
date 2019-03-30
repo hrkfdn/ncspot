@@ -87,7 +87,7 @@ impl Queue {
     pub fn append(&self, track: &Track) {
         let mut random_order = self.random_order.write().unwrap();
         if let Some(order) = random_order.as_mut() {
-            let index = order.len() - 1;
+            let index = order.len().saturating_sub(1);
             order.push(index);
         }
 
@@ -101,7 +101,7 @@ impl Queue {
         {
             let mut random_order = self.random_order.write().unwrap();
             if let Some(order) = random_order.as_mut() {
-                order.extend((q.len() - 1)..(q.len() + tracks.len()));
+                order.extend((q.len().saturating_sub(1))..(q.len() + tracks.len()));
             }
         }
 
