@@ -62,7 +62,8 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
             let login_view = LinearLayout::new(cursive::direction::Orientation::Vertical)
                 .child(url_notice)
                 .child(controls);
-            url_open(urls.get("login_url").unwrap().to_string());
+            let url = urls.get("login_url").unwrap();
+            webbrowser::open(url).ok();
             crappy_poller(urls.get("credentials_url").unwrap(), &s.cb_sink());
             s.pop_layer();
             s.add_layer(login_view)
@@ -134,36 +135,4 @@ fn crappy_poller(url: &str, app_sink: &CbSink) {
 pub struct AuthResponse {
     pub credentials: RespotCredentials,
     pub error: Option<String>,
-}
-
-// Thanks to Marko Mijalkovic for this, but I don't want the url crate
-
-#[cfg(target_os = "windows")]
-pub fn url_open(url: String) {
-    extern crate shell32;
-    extern crate winapi;
-
-    use std::ffi::CString;
-    use std::ptr;
-
-    unsafe {
-        shell32::ShellExecuteA(
-            ptr::null_mut(),
-            CString::new("open").unwrap().as_ptr(),
-            CString::new(url.replace("\n", "%0A")).unwrap().as_ptr(),
-            ptr::null(),
-            ptr::null(),
-            winapi::SW_SHOWNORMAL,
-        );
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub fn url_open(url: String) {
-    let _ = std::process::Command::new("open").arg(url).output();
-}
-
-#[cfg(target_os = "linux")]
-pub fn url_open(url: String) {
-    let _ = std::process::Command::new("xdg-open").arg(url).output();
 }
