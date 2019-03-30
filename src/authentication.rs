@@ -17,12 +17,12 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
     let info_view = Dialog::around(TextView::new_with_content(info_buf.clone()))
         .button("Login", move |s| {
             let login_view = Dialog::new()
-                .title("Login with Spotify username and password")
+                .title("Spotify login")
                 .content(
                     ListView::new()
-                        .child("username", EditView::new().with_id("spotify_user"))
+                        .child("Username", EditView::new().with_id("spotify_user"))
                         .child(
-                            "password",
+                            "Password",
                             EditView::new().secret().with_id("spotify_password"),
                         ),
                 )
@@ -64,7 +64,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
                 .child(controls);
             let url = urls.get("login_url").unwrap();
             webbrowser::open(url).ok();
-            crappy_poller(urls.get("credentials_url").unwrap(), &s.cb_sink());
+            auth_poller(urls.get("credentials_url").unwrap(), &s.cb_sink());
             s.pop_layer();
             s.add_layer(login_view)
         })
@@ -80,7 +80,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
 }
 
 // TODO: better with futures?
-fn crappy_poller(url: &str, app_sink: &CbSink) {
+fn auth_poller(url: &str, app_sink: &CbSink) {
     let app_sink = app_sink.clone();
     let url = url.to_string();
     std::thread::spawn(move || {
