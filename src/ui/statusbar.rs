@@ -93,7 +93,7 @@ impl View for StatusBar {
             if self.use_nerdfont {
                 "\u{f99c} "
             } else {
-                "[Z]"
+                "[Z] "
             }
         } else {
             ""
