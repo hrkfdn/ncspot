@@ -26,7 +26,6 @@ future. Contributions welcome, but please be kind ;)
 
 ## Usage
 
-* Set your login credentials (see configuration)
 * Build using `cargo build --release`
 * The initial screen is the debug log. Press `F1` for the queue and `F2` to
   search for a track. More key bindings are described below.
@@ -70,18 +69,7 @@ the search view.
 
 ## Configuration
 
-For now, a configuration file containing Spotify login data needs to be created
-manually, until a login-screen is implemented
-(https://github.com/hrkfdn/ncspot/issues/1).
-
-The file needs to look like this:
-
-```
-username = "spotify_user"
-password = "spotify_password"
-```
-
-Please save it to `~/.config/ncspot/config.toml`.
+Configuration is saved to `~/.config/ncspot/config.toml`.
 
 ### Theming
 
