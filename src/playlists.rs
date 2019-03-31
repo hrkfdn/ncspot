@@ -49,12 +49,12 @@ impl ListItem for Playlist {
         format!("{} tracks", self.tracks.len())
     }
 
-    fn play(&self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(self.tracks.iter().collect());
         queue.play(index, true);
     }
 
-    fn queue(&self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: Arc<Queue>) {
         for track in self.tracks.iter() {
             queue.append(track);
         }
@@ -117,7 +117,7 @@ impl Playlists {
         let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
         while let Some(ref tracks) = tracks_result.clone() {
             for listtrack in &tracks.items {
-                collected_tracks.push(Track::new(&listtrack.track));
+                collected_tracks.push((&listtrack.track).into());
             }
             debug!("got {} tracks", tracks.items.len());
 

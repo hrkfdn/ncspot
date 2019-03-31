@@ -38,6 +38,8 @@ use cursive::Cursive;
 
 use librespot::core::authentication::Credentials;
 
+mod album;
+mod artist;
 mod authentication;
 mod commands;
 mod config;

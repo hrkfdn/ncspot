@@ -1,7 +1,8 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rspotify::spotify::model::track::FullTrack;
+use rspotify::spotify::model::album::FullAlbum;
+use rspotify::spotify::model::track::{FullTrack, SimplifiedTrack};
 
 use queue::Queue;
 use traits::ListItem;
@@ -21,7 +22,46 @@ pub struct Track {
 }
 
 impl Track {
-    pub fn new(track: &FullTrack) -> Track {
+    pub fn from_simplified_track(track: &SimplifiedTrack, album: &FullAlbum) -> Track {
+        let artists = track
+            .artists
+            .iter()
+            .map(|ref artist| artist.name.clone())
+            .collect::<Vec<String>>();
+        let album_artists = album
+            .artists
+            .iter()
+            .map(|ref artist| artist.name.clone())
+            .collect::<Vec<String>>();
+
+        let cover_url = match album.images.get(0) {
+            Some(image) => image.url.clone(),
+            None => "".to_owned(),
+        };
+
+        Self {
+            id: track.id.clone(),
+            title: track.name.clone(),
+            track_number: track.track_number,
+            disc_number: track.disc_number,
+            duration: track.duration_ms,
+            artists,
+            album: album.name.clone(),
+            album_artists,
+            cover_url,
+            url: track.uri.clone(),
+        }
+    }
+
+    pub fn duration_str(&self) -> String {
+        let minutes = self.duration / 60_000;
+        let seconds = (self.duration / 1000) % 60;
+        format!("{:02}:{:02}", minutes, seconds)
+    }
+}
+
+impl From<&FullTrack> for Track {
+    fn from(track: &FullTrack) -> Self {
         let artists = track
             .artists
             .iter()
@@ -39,7 +79,7 @@ impl Track {
             None => "".to_owned(),
         };
 
-        Track {
+        Self {
             id: track.id.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
@@ -51,12 +91,6 @@ impl Track {
             cover_url,
             url: track.uri.clone(),
         }
-    }
-
-    pub fn duration_str(&self) -> String {
-        let minutes = self.duration / 60_000;
-        let seconds = (self.duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
     }
 }
 
@@ -92,12 +126,12 @@ impl ListItem for Track {
         self.duration_str()
     }
 
-    fn play(&self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(vec![self]);
         queue.play(index, true);
     }
 
-    fn queue(&self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: Arc<Queue>) {
         queue.append(self);
     }
 }

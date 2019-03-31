@@ -9,6 +9,8 @@ use cursive::{Cursive, Printer, Vec2};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
 
+use album::Album;
+use artist::Artist;
 use commands::CommandResult;
 use playlists::{Playlist, Playlists};
 use queue::Queue;
@@ -20,6 +22,8 @@ use ui::tabview::TabView;
 
 pub struct SearchView {
     results_tracks: Arc<RwLock<Vec<Track>>>,
+    results_albums: Arc<RwLock<Vec<Album>>>,
+    results_artists: Arc<RwLock<Vec<Artist>>>,
     results_playlists: Arc<RwLock<Vec<Playlist>>>,
     edit: IdView<EditView>,
     list: IdView<TabView>,
@@ -32,6 +36,8 @@ pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
+        let results_albums = Arc::new(RwLock::new(Vec::new()));
+        let results_artists = Arc::new(RwLock::new(Vec::new()));
         let results_playlists = Arc::new(RwLock::new(Vec::new()));
 
         let searchfield = EditView::new()
@@ -47,10 +53,14 @@ impl SearchView {
 
         let tabs = TabView::new()
             .tab("tracks", "Tracks", ListView::new(results_tracks.clone(), queue.clone()))
+            .tab("albums", "Albums", ListView::new(results_albums.clone(), queue.clone()))
+            .tab("artists", "Artists", ListView::new(results_artists.clone(), queue.clone()))
             .tab("playlists", "Playlists", ListView::new(results_playlists.clone(), queue.clone()));
 
         SearchView {
             results_tracks,
+            results_albums,
+            results_artists,
             results_playlists,
             edit: searchfield,
             list: tabs.with_id(LIST_ID),
@@ -76,10 +86,44 @@ impl SearchView {
                 .tracks
                 .items
                 .iter()
-                .map(|ft| Track::new(ft))
+                .map(|ft| ft.into())
                 .collect();
             let mut r = tracks.write().unwrap();
             *r = t;
+        }
+    }
+
+    fn search_album(
+        spotify: Arc<Spotify>,
+        albums: Arc<RwLock<Vec<Album>>>,
+        query: String,
+    ) {
+        if let Some(results) = spotify.search_album(&query, 50, 0) {
+            let a = results
+                .albums
+                .items
+                .iter()
+                .map(|sa| sa.into())
+                .collect();
+            let mut r = albums.write().unwrap();
+            *r = a;
+        }
+    }
+
+    fn search_artist(
+        spotify: Arc<Spotify>,
+        artists: Arc<RwLock<Vec<Artist>>>,
+        query: String,
+    ) {
+        if let Some(results) = spotify.search_artist(&query, 50, 0) {
+            let a = results
+                .artists
+                .items
+                .iter()
+                .map(|fa| fa.into())
+                .collect();
+            let mut r = artists.write().unwrap();
+            *r = a;
         }
     }
 
@@ -119,6 +163,24 @@ impl SearchView {
             let query = query.clone();
             std::thread::spawn(|| {
                 Self::search_track(spotify, results, query);
+            });
+        }
+
+        {
+            let spotify = self.spotify.clone();
+            let results = self.results_albums.clone();
+            let query = query.clone();
+            std::thread::spawn(|| {
+                Self::search_album(spotify, results, query);
+            });
+        }
+
+        {
+            let spotify = self.spotify.clone();
+            let results = self.results_artists.clone();
+            let query = query.clone();
+            std::thread::spawn(|| {
+                Self::search_artist(spotify, results, query);
             });
         }
 

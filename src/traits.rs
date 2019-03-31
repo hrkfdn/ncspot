@@ -11,8 +11,8 @@ pub trait ListItem {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
     fn display_left(&self) -> String;
     fn display_right(&self) -> String;
-    fn play(&self, queue: Arc<Queue>);
-    fn queue(&self, queue: Arc<Queue>);
+    fn play(&mut self, queue: Arc<Queue>);
+    fn queue(&mut self, queue: Arc<Queue>);
 }
 
 pub trait ViewExt: View {

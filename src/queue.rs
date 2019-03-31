@@ -255,4 +255,8 @@ impl Queue {
             *random_order = None;
         }
     }
+
+    pub fn get_spotify(&self) -> Arc<Spotify> {
+        self.spotify.clone()
+    }
 }

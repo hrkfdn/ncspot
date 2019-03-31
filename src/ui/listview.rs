@@ -181,16 +181,16 @@ impl<I: ListItem> ViewExt for ListView<I> {
         args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
-            let content = self.content.read().unwrap();
-            if let Some(item) = content.get(self.selected) {
+            let mut content = self.content.write().unwrap();
+            if let Some(item) = content.get_mut(self.selected) {
                 item.play(self.queue.clone());
             }
             return Ok(CommandResult::Consumed(None));
         }
 
         if cmd == "queue" {
-            let content = self.content.read().unwrap();
-            if let Some(item) = content.get(self.selected) {
+            let mut content = self.content.write().unwrap();
+            if let Some(item) = content.get_mut(self.selected) {
                 item.queue(self.queue.clone());
             }
             return Ok(CommandResult::Consumed(None));

@@ -13,9 +13,10 @@ use librespot::playback::player::Player;
 
 use rspotify::spotify::client::ApiError;
 use rspotify::spotify::client::Spotify as SpotifyAPI;
+use rspotify::spotify::model::album::{FullAlbum, SimplifiedAlbum};
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
-use rspotify::spotify::model::search::{SearchTracks, SearchPlaylists};
+use rspotify::spotify::model::search::{SearchTracks, SearchAlbums, SearchArtists, SearchPlaylists};
 
 use failure::Error;
 
@@ -432,6 +433,14 @@ impl Spotify {
         self.api_with_retry(|api| api.search_track(query, limit, offset, None))
     }
 
+    pub fn search_album(&self, query: &str, limit: u32, offset: u32) -> Option<SearchAlbums> {
+        self.api_with_retry(|api| api.search_album(query, limit, offset, None))
+    }
+
+    pub fn search_artist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchArtists> {
+        self.api_with_retry(|api| api.search_artist(query, limit, offset, None))
+    }
+
     pub fn search_playlist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchPlaylists> {
         self.api_with_retry(|api| api.search_playlist(query, limit, offset, None))
     }
@@ -454,6 +463,25 @@ impl Spotify {
         self.api_with_retry(|api| {
             api.user_playlist_tracks(&user, playlist_id, None, limit, offset, None)
         })
+    }
+
+    pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
+        self.api_with_retry(|api| api.album(album_id))
+    }
+
+    pub fn artist_albums(
+        &self,
+        artist_id: &str,
+        limit: u32,
+        offset: u32
+    ) -> Option<Page<SimplifiedAlbum>> {
+        self.api_with_retry(|api| api.artist_albums(
+            artist_id,
+            None,
+            None,
+            Some(limit),
+            Some(offset)
+        ))
     }
 
     pub fn load(&self, track: &Track) {
