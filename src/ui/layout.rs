@@ -266,6 +266,8 @@ impl ViewExt for Layout {
             if let Some(view) = args.get(0) {
                 if self.views.keys().any(|k| k == view) {
                     self.set_view(view.clone());
+                    let screen = self.views.get_mut(view).unwrap();
+                    screen.view.on_command(s, cmd, args)?;
                 }
             }
 

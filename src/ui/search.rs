@@ -51,6 +51,13 @@ impl SearchView {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.edit
+            .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
+                v.set_content("");
+            });
+    }
+
     pub fn run_search<S: Into<String>>(&mut self, query: S) {
         let query = query.into();
         let q = query.clone();
@@ -127,6 +134,12 @@ impl ViewExt for SearchView {
     ) -> Result<CommandResult, String> {
         if cmd == "search" && !args.is_empty() {
             self.run_search(args.join(" "));
+            return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd == "focus" {
+            self.edit_focused = true;
+            self.clear();
             return Ok(CommandResult::Consumed(None));
         }
 
