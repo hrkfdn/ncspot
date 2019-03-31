@@ -32,7 +32,7 @@ tokio-timer = "0.2"
 unicode-width = "0.1.5"
 dbus = { version = "0.6.4", optional = true }
 rand = "0.6.5"
-webbrowser = "0.4"
+webbrowser = "0.5"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
