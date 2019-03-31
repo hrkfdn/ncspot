@@ -5,7 +5,6 @@ use spotify::PlayerEvent;
 
 pub enum Event {
     Player(PlayerEvent),
-    Command(String),
 }
 
 pub type EventSender = Sender<Event>;

@@ -197,11 +197,12 @@ fn main() {
 
     {
         let ev = event_manager.clone();
+        let cmd_manager = cmd_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
-            s.call_on_id("main", |v: &mut ui::layout::Layout| {
-                v.clear_cmdline();
-                ev.send(Event::Command(cmd.to_string()[1..].to_string()));
-            });
+            let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
+            main.clear_cmdline();
+            cmd_manager.handle(s, cmd.to_string()[1..].to_string());
+            ev.trigger();
         });
     }
 
@@ -221,9 +222,6 @@ fn main() {
 
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
-                }
-                Event::Command(cmd) => {
-                    cmd_manager.handle(&mut cursive, cmd);
                 }
             }
         }
