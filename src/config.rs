@@ -26,6 +26,7 @@ pub struct ConfigTheme {
     pub error: Option<String>,
     pub error_bg: Option<String>,
     pub statusbar_progress: Option<String>,
+    pub statusbar_progress_bg: Option<String>,
     pub statusbar: Option<String>,
     pub statusbar_bg: Option<String>,
     pub cmdline: Option<String>,

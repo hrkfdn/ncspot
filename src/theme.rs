@@ -34,6 +34,10 @@ pub fn load(cfg: &Config) -> Theme {
         "statusbar_progress",
         load_color!(cfg, statusbar_progress, Dark(Blue)),
     );
+    palette.set_color(
+        "statusbar_progress_bg",
+        load_color!(cfg, statusbar_progress_bg, Light(Black)),
+    );
     palette.set_color("statusbar", load_color!(cfg, statusbar, Dark(Yellow)));
     palette.set_color(
         "statusbar_bg",

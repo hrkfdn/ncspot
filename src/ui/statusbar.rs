@@ -39,6 +39,10 @@ impl View for StatusBar {
             ColorType::Color(*printer.theme.palette.custom("statusbar_progress").unwrap()),
             ColorType::Palette(PaletteColor::Background),
         );
+        let style_bar_bg = ColorStyle::new(
+            ColorType::Color(*printer.theme.palette.custom("statusbar_progress_bg").unwrap()),
+            ColorType::Palette(PaletteColor::Background),
+        );
         let style = ColorStyle::new(
             ColorType::Color(*printer.theme.palette.custom("statusbar").unwrap()),
             ColorType::Color(*printer.theme.palette.custom("statusbar_bg").unwrap()),
@@ -100,6 +104,10 @@ impl View for StatusBar {
         }
         .to_string();
 
+        printer.with_color(style_bar_bg, |printer| {
+            printer.print((0, 0), &"┉".repeat(printer.size.x));
+        });
+
         if let Some(ref t) = self.queue.get_current() {
             let elapsed = self.spotify.get_current_progress();
             let elapsed_ms = elapsed.as_secs() as u32 * 1000 + elapsed.subsec_millis();
@@ -120,9 +128,8 @@ impl View for StatusBar {
             });
 
             printer.with_color(style_bar, |printer| {
-                printer.print((0, 0), &"—".repeat(printer.size.x));
                 let duration_width = (((printer.size.x as u32) * elapsed_ms) / t.duration) as usize;
-                printer.print((0, 0), &format!("{}{}", "=".repeat(duration_width), ">"));
+                printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
         } else {
             let right = repeat + &shuffle;
@@ -130,10 +137,6 @@ impl View for StatusBar {
 
             printer.with_color(style, |printer| {
                 printer.print((offset, 1), &right);
-            });
-
-            printer.with_color(style_bar, |printer| {
-                printer.print((0, 0), &"—".repeat(printer.size.x));
             });
         }
     }
