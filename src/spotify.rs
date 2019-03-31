@@ -1,4 +1,5 @@
 use librespot::core::authentication::Credentials;
+use librespot::core::cache::Cache;
 use librespot::core::config::SessionConfig;
 use librespot::core::keymaster::Token;
 use librespot::core::mercury::MercuryError;
@@ -214,11 +215,17 @@ impl Spotify {
 
     fn create_session(core: &mut Core, credentials: Credentials) -> Session {
         let session_config = SessionConfig::default();
+        let cache = Cache::new(config::cache_path("librespot"), true);
         let handle = core.handle();
         debug!("opening spotify session");
-        core.run(Session::connect(session_config, credentials, None, handle))
-            .ok()
-            .unwrap()
+        core.run(Session::connect(
+            session_config,
+            credentials,
+            Some(cache),
+            handle,
+        ))
+        .ok()
+        .unwrap()
     }
 
     fn get_token(
