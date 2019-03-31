@@ -66,36 +66,69 @@ impl SearchView {
             });
     }
 
-    pub fn run_search<S: Into<String>>(&mut self, query: S) {
-        let query = query.into();
-        let q = query.clone();
-        self.edit
-            .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
-                v.set_content(q);
-            });
-
-        if let Some(results) = self.spotify.search_track(&query, 50, 0) {
-            let tracks = results
+    fn search_track(
+        spotify: Arc<Spotify>,
+        tracks: Arc<RwLock<Vec<Track>>>,
+        query: String,
+    ) {
+        if let Some(results) = spotify.search_track(&query, 50, 0) {
+            let t = results
                 .tracks
                 .items
                 .iter()
                 .map(|ft| Track::new(ft))
                 .collect();
-            let mut r = self.results_tracks.write().unwrap();
-            *r = tracks;
-            self.edit_focused = false;
+            let mut r = tracks.write().unwrap();
+            *r = t;
         }
+    }
 
-        if let Some(results) = self.spotify.search_playlist(&query, 50, 0) {
+    fn search_playlist(
+        spotify: Arc<Spotify>,
+        playlists: Arc<RwLock<Vec<Playlist>>>,
+        query: String,
+    ) {
+        if let Some(results) = spotify.search_playlist(&query, 50, 0) {
             let pls = results
                 .playlists
                 .items
                 .iter()
-                .map(|sp| Playlists::process_playlist(sp, &&self.spotify))
+                .map(|sp| Playlists::process_playlist(sp, &&spotify))
                 .collect();
-            let mut r = self.results_playlists.write().unwrap();
+            let mut r = playlists.write().unwrap();
             *r = pls;
-            self.edit_focused = false;
+        }
+    }
+
+    pub fn run_search<S: Into<String>>(&mut self, query: S) {
+        let query = query.into();
+
+        self.edit_focused = false;
+
+        {
+            let query = query.clone();
+            self.edit
+                .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
+                    v.set_content(query);
+                });
+        }
+
+        {
+            let spotify = self.spotify.clone();
+            let results = self.results_tracks.clone();
+            let query = query.clone();
+            std::thread::spawn(|| {
+                Self::search_track(spotify, results, query);
+            });
+        }
+
+        {
+            let spotify = self.spotify.clone();
+            let results = self.results_playlists.clone();
+            let query = query.clone();
+            std::thread::spawn(|| {
+                Self::search_playlist(spotify, results, query);
+            });
         }
     }
 }
