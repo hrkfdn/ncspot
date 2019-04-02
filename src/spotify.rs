@@ -59,6 +59,7 @@ pub struct Spotify {
     api: RwLock<SpotifyAPI>,
     elapsed: RwLock<Option<Duration>>,
     since: RwLock<Option<SystemTime>>,
+    token_issued: RwLock<Option<SystemTime>>,
     channel: mpsc::UnboundedSender<WorkerCommand>,
     user: String,
 }
@@ -205,6 +206,7 @@ impl Spotify {
             api: RwLock::new(SpotifyAPI::default()),
             elapsed: RwLock::new(None),
             since: RwLock::new(None),
+            token_issued: RwLock::new(None),
             channel: tx,
             user,
         };
@@ -324,7 +326,16 @@ impl Spotify {
         (*since)
     }
 
-    fn refresh_token(&self) {
+    pub fn refresh_token(&self) {
+        {
+            let expiry = self.token_issued.read().unwrap();
+            if let Some(time) = *expiry {
+                if time.elapsed().unwrap() < Duration::from_secs(3000) {
+                    return;
+                }
+            }
+        }
+
         let (token_tx, token_rx) = oneshot::channel();
         self.channel
             .unbounded_send(WorkerCommand::RequestToken(token_tx))
@@ -333,6 +344,7 @@ impl Spotify {
 
         // update token used by web api calls
         self.api.write().expect("can't writelock api").access_token = Some(token.access_token);
+        self.token_issued.write().unwrap().replace(SystemTime::now());
     }
 
     /// retries once when rate limits are hit

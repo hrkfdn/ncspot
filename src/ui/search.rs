@@ -157,6 +157,8 @@ impl SearchView {
                 });
         }
 
+        self.spotify.refresh_token();
+
         {
             let spotify = self.spotify.clone();
             let results = self.results_tracks.clone();
