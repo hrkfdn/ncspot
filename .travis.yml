@@ -4,6 +4,9 @@ rust:
   - beta
 matrix:
   fast_finish: true
+  allow_failures:
+    - rust: beta
+
 before_install:
   - sudo apt-get install -y libasound2-dev libdbus-1-dev
 script:
