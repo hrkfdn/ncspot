@@ -211,7 +211,7 @@ impl<I: ListItem> ViewExt for ListView<I> {
                     return Ok(CommandResult::Consumed(None));
                 }
 
-                if dir == "down" && self.selected < len - 1 {
+                if dir == "down" && self.selected < len.saturating_sub(1) {
                     self.move_focus(amount);
                     return Ok(CommandResult::Consumed(None));
                 }
