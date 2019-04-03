@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use album::Album;
 use artist::Artist;
 use commands::CommandResult;
+use events::EventManager;
 use playlists::{Playlist, Playlists};
 use queue::Queue;
 use spotify::Spotify;
@@ -28,13 +29,14 @@ pub struct SearchView {
     edit: IdView<EditView>,
     list: IdView<TabView>,
     edit_focused: bool,
+    events: EventManager,
     spotify: Arc<Spotify>,
 }
 
 pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
-    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
+    pub fn new(events: EventManager, spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
         let results_artists = Arc::new(RwLock::new(Vec::new()));
@@ -65,7 +67,8 @@ impl SearchView {
             edit: searchfield,
             list: tabs.with_id(LIST_ID),
             edit_focused: true,
-            spotify
+            events,
+            spotify,
         }
     }
 
@@ -160,38 +163,46 @@ impl SearchView {
         self.spotify.refresh_token();
 
         {
+            let ev = self.events.clone();
             let spotify = self.spotify.clone();
             let results = self.results_tracks.clone();
             let query = query.clone();
-            std::thread::spawn(|| {
+            std::thread::spawn(move || {
                 Self::search_track(spotify, results, query);
+                ev.trigger();
             });
         }
 
         {
+            let ev = self.events.clone();
             let spotify = self.spotify.clone();
             let results = self.results_albums.clone();
             let query = query.clone();
-            std::thread::spawn(|| {
+            std::thread::spawn(move || {
                 Self::search_album(spotify, results, query);
+                ev.trigger();
             });
         }
 
         {
+            let ev = self.events.clone();
             let spotify = self.spotify.clone();
             let results = self.results_artists.clone();
             let query = query.clone();
-            std::thread::spawn(|| {
+            std::thread::spawn(move || {
                 Self::search_artist(spotify, results, query);
+                ev.trigger();
             });
         }
 
         {
+            let ev = self.events.clone();
             let spotify = self.spotify.clone();
             let results = self.results_playlists.clone();
             let query = query.clone();
-            std::thread::spawn(|| {
+            std::thread::spawn(move || {
                 Self::search_playlist(spotify, results, query);
+                ev.trigger();
             });
         }
     }

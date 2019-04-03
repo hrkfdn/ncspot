@@ -163,7 +163,7 @@ fn main() {
         cfg.keybindings.clone(),
     );
 
-    let search = ui::search::SearchView::new(spotify.clone(), queue.clone());
+    let search = ui::search::SearchView::new(event_manager.clone(), spotify.clone(), queue.clone());
 
     let playlistsview = ui::playlists::PlaylistView::new(&playlists, queue.clone());
 
