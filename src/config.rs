@@ -88,11 +88,9 @@ pub fn load_or_generate_default<
 
     // Deserialize the content, optionally fall back to default if it fails
     let result = toml::from_str(&contents);
-    if default_on_parse_failure {
-        if let Err(_) = result {
-            let value = default(&path)?;
-            return write_content_helper(&path, value);
-        }
+    if default_on_parse_failure && result.is_err() {
+        let value = default(&path)?;
+        return write_content_helper(&path, value);
     }
     result.map_err(|e| format!("Unable to parse {}: {}", path.to_string_lossy(), e))
 }

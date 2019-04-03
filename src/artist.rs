@@ -14,7 +14,7 @@ pub struct Artist {
     pub id: String,
     pub name: String,
     pub url: String,
-    pub albums: Option<Vec<Album>>
+    pub albums: Option<Vec<Album>>,
 }
 
 impl Artist {
@@ -42,11 +42,12 @@ impl Artist {
 
     fn tracks(&self) -> Option<Vec<&Track>> {
         if let Some(albums) = self.albums.as_ref() {
-            Some(albums
-                .iter()
-                .map(|a| a.tracks.as_ref().unwrap())
-                .flatten()
-                .collect()
+            Some(
+                albums
+                    .iter()
+                    .map(|a| a.tracks.as_ref().unwrap())
+                    .flatten()
+                    .collect(),
             )
         } else {
             None
@@ -60,7 +61,7 @@ impl From<&FullArtist> for Artist {
             id: fa.id.clone(),
             name: fa.name.clone(),
             url: fa.uri.clone(),
-            albums: None
+            albums: None,
         }
     }
 }

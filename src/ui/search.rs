@@ -54,10 +54,26 @@ impl SearchView {
             .with_id(EDIT_ID);
 
         let tabs = TabView::new()
-            .tab("tracks", "Tracks", ListView::new(results_tracks.clone(), queue.clone()))
-            .tab("albums", "Albums", ListView::new(results_albums.clone(), queue.clone()))
-            .tab("artists", "Artists", ListView::new(results_artists.clone(), queue.clone()))
-            .tab("playlists", "Playlists", ListView::new(results_playlists.clone(), queue.clone()));
+            .tab(
+                "tracks",
+                "Tracks",
+                ListView::new(results_tracks.clone(), queue.clone()),
+            )
+            .tab(
+                "albums",
+                "Albums",
+                ListView::new(results_albums.clone(), queue.clone()),
+            )
+            .tab(
+                "artists",
+                "Artists",
+                ListView::new(results_artists.clone(), queue.clone()),
+            )
+            .tab(
+                "playlists",
+                "Playlists",
+                ListView::new(results_playlists.clone(), queue.clone()),
+            );
 
         SearchView {
             results_tracks,
@@ -79,52 +95,25 @@ impl SearchView {
             });
     }
 
-    fn search_track(
-        spotify: Arc<Spotify>,
-        tracks: Arc<RwLock<Vec<Track>>>,
-        query: String,
-    ) {
+    fn search_track(spotify: Arc<Spotify>, tracks: Arc<RwLock<Vec<Track>>>, query: String) {
         if let Some(results) = spotify.search_track(&query, 50, 0) {
-            let t = results
-                .tracks
-                .items
-                .iter()
-                .map(|ft| ft.into())
-                .collect();
+            let t = results.tracks.items.iter().map(|ft| ft.into()).collect();
             let mut r = tracks.write().unwrap();
             *r = t;
         }
     }
 
-    fn search_album(
-        spotify: Arc<Spotify>,
-        albums: Arc<RwLock<Vec<Album>>>,
-        query: String,
-    ) {
+    fn search_album(spotify: Arc<Spotify>, albums: Arc<RwLock<Vec<Album>>>, query: String) {
         if let Some(results) = spotify.search_album(&query, 50, 0) {
-            let a = results
-                .albums
-                .items
-                .iter()
-                .map(|sa| sa.into())
-                .collect();
+            let a = results.albums.items.iter().map(|sa| sa.into()).collect();
             let mut r = albums.write().unwrap();
             *r = a;
         }
     }
 
-    fn search_artist(
-        spotify: Arc<Spotify>,
-        artists: Arc<RwLock<Vec<Artist>>>,
-        query: String,
-    ) {
+    fn search_artist(spotify: Arc<Spotify>, artists: Arc<RwLock<Vec<Artist>>>, query: String) {
         if let Some(results) = spotify.search_artist(&query, 50, 0) {
-            let a = results
-                .artists
-                .items
-                .iter()
-                .map(|fa| fa.into())
-                .collect();
+            let a = results.artists.items.iter().map(|fa| fa.into()).collect();
             let mut r = artists.write().unwrap();
             *r = a;
         }

@@ -40,7 +40,13 @@ impl View for StatusBar {
             ColorType::Palette(PaletteColor::Background),
         );
         let style_bar_bg = ColorStyle::new(
-            ColorType::Color(*printer.theme.palette.custom("statusbar_progress_bg").unwrap()),
+            ColorType::Color(
+                *printer
+                    .theme
+                    .palette
+                    .custom("statusbar_progress_bg")
+                    .unwrap(),
+            ),
             ColorType::Palette(PaletteColor::Background),
         );
         let style = ColorStyle::new(

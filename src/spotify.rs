@@ -16,7 +16,9 @@ use rspotify::spotify::client::Spotify as SpotifyAPI;
 use rspotify::spotify::model::album::{FullAlbum, SimplifiedAlbum};
 use rspotify::spotify::model::page::Page;
 use rspotify::spotify::model::playlist::{PlaylistTrack, SimplifiedPlaylist};
-use rspotify::spotify::model::search::{SearchTracks, SearchAlbums, SearchArtists, SearchPlaylists};
+use rspotify::spotify::model::search::{
+    SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
+};
 
 use failure::Error;
 
@@ -344,7 +346,10 @@ impl Spotify {
 
         // update token used by web api calls
         self.api.write().expect("can't writelock api").access_token = Some(token.access_token);
-        self.token_issued.write().unwrap().replace(SystemTime::now());
+        self.token_issued
+            .write()
+            .unwrap()
+            .replace(SystemTime::now());
     }
 
     /// retries once when rate limits are hit
@@ -485,15 +490,11 @@ impl Spotify {
         &self,
         artist_id: &str,
         limit: u32,
-        offset: u32
+        offset: u32,
     ) -> Option<Page<SimplifiedAlbum>> {
-        self.api_with_retry(|api| api.artist_albums(
-            artist_id,
-            None,
-            None,
-            Some(limit),
-            Some(offset)
-        ))
+        self.api_with_retry(|api| {
+            api.artist_albums(artist_id, None, None, Some(limit), Some(offset))
+        })
     }
 
     pub fn load(&self, track: &Track) {

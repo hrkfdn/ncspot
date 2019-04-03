@@ -8,7 +8,7 @@ use cursive::{Cursive, Printer, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use commands::CommandResult;
-use traits::{ViewExt, IntoBoxedViewExt};
+use traits::{IntoBoxedViewExt, ViewExt};
 
 pub struct Tab {
     title: String,
@@ -18,7 +18,7 @@ pub struct Tab {
 pub struct TabView {
     tabs: Vec<Tab>,
     ids: HashMap<String, usize>,
-    selected: usize
+    selected: usize,
 }
 
 impl TabView {
@@ -26,14 +26,14 @@ impl TabView {
         Self {
             tabs: Vec::new(),
             ids: HashMap::new(),
-            selected: 0
+            selected: 0,
         }
     }
 
     pub fn add_tab<S: Into<String>, V: IntoBoxedViewExt>(&mut self, id: S, title: S, view: V) {
         let tab = Tab {
             title: title.into(),
-            view: view.as_boxed_view_ext()
+            view: view.as_boxed_view_ext(),
         };
         self.tabs.push(tab);
         self.ids.insert(id.into(), self.tabs.len() - 1);
@@ -57,7 +57,7 @@ impl TabView {
 
 impl View for TabView {
     fn draw(&self, printer: &Printer<'_, '_>) {
-        if self.tabs.len() == 0 {
+        if self.tabs.is_empty() {
             return;
         }
 

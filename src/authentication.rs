@@ -55,16 +55,16 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
                     .json()
                     .expect("didn't parse");
             // not a dialog to let people copy & paste the URL
-            let url_notice = TextView::new(format!("Browse to {}", urls.get("login_url").unwrap()));
+            let url_notice = TextView::new(format!("Browse to {}", &urls["login_url"]));
 
             let controls = Button::new("Quit", |s| s.quit());
 
             let login_view = LinearLayout::new(cursive::direction::Orientation::Vertical)
                 .child(url_notice)
                 .child(controls);
-            let url = urls.get("login_url").unwrap();
+            let url = &urls["login_url"];
             webbrowser::open(url).ok();
-            auth_poller(urls.get("credentials_url").unwrap(), &s.cb_sink());
+            auth_poller(&urls["credentials_url"], &s.cb_sink());
             s.pop_layer();
             s.add_layer(login_view)
         })
@@ -76,7 +76,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
     login_cursive
         .user_data()
         .cloned()
-        .unwrap_or(Err("Didn't obtain any credentials".to_string()))
+        .unwrap_or_else(|| Err("Didn't obtain any credentials".to_string()))
 }
 
 // TODO: better with futures?
