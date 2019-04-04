@@ -273,7 +273,11 @@ impl CommandManager {
         kb.extend(keybindings.unwrap_or_default());
 
         for (k, v) in kb {
-            Self::register_keybinding(this.clone(), cursive, Self::parse_keybinding(k), v);
+            if let Some(binding) = Self::parse_keybinding(&k) {
+                Self::register_keybinding(this.clone(), cursive, binding, v);
+            } else {
+                error!("Could not parse keybinding: \"{}\"", &k);
+            }
         }
     }
 
@@ -314,8 +318,8 @@ impl CommandManager {
         kb
     }
 
-    fn parse_keybinding(kb: String) -> cursive::event::Event {
-        match kb.as_ref() {
+    fn parse_key(key: &str) -> Event {
+        match key {
             "Enter" => Event::Key(Key::Enter),
             "Tab" => Event::Key(Key::Tab),
             "Backspace" => Event::Key(Key::Backspace),
@@ -346,6 +350,26 @@ impl CommandManager {
             "F11" => Event::Key(Key::F11),
             "F12" => Event::Key(Key::F12),
             s => Event::Char(s.chars().next().unwrap()),
+        }
+    }
+
+    fn parse_keybinding(kb: &str) -> Option<cursive::event::Event> {
+        let mut split = kb.split('+');
+        if split.clone().count() == 2 {
+            let modifier = split.next().unwrap();
+            let key = split.next().unwrap();
+            if let Event::Key(parsed) = Self::parse_key(key) {
+                match modifier {
+                    "Shift" => Some(Event::Shift(parsed)),
+                    "Alt" => Some(Event::Alt(parsed)),
+                    "Ctrl" => Some(Event::Ctrl(parsed)),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            Some(Self::parse_key(&kb))
         }
     }
 }
