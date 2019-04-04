@@ -115,11 +115,21 @@ fn main() {
 
     let credentials: Credentials = {
         let path = config::config_path("credentials.toml");
-        ::config::load_or_generate_default(path, authentication::create_credentials, true)
+        let creds =
+            ::config::load_or_generate_default(&path, authentication::create_credentials, true)
+                .unwrap_or_else(|e| {
+                    eprintln!("{}", e);
+                    process::exit(1);
+                });
+
+        #[cfg(target_family = "unix")]
+        std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
             .unwrap_or_else(|e| {
                 eprintln!("{}", e);
                 process::exit(1);
-            })
+            });
+
+        creds
     };
 
     let theme = theme::load(&cfg);
