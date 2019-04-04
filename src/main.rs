@@ -211,8 +211,10 @@ fn main() {
         let ev = event_manager.clone();
         let cmd_manager = cmd_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
-            let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
-            main.clear_cmdline();
+            {
+                let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
+                main.clear_cmdline();
+            }
             cmd_manager.handle(s, cmd.to_string()[1..].to_string());
             ev.trigger();
         });
