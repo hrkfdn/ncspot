@@ -20,6 +20,7 @@ pub struct ListView<I: 'static + ListItem> {
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
+    shiftable: bool,
 }
 
 impl<I: ListItem> ListView<I> {
@@ -31,7 +32,13 @@ impl<I: ListItem> ListView<I> {
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
+            shiftable: false,
         }
+    }
+
+    pub fn shiftable(mut self) -> Self {
+        self.shiftable = true;
+        self
     }
 
     pub fn get_selected_index(&self) -> usize {
@@ -47,6 +54,11 @@ impl<I: ListItem> ListView<I> {
     pub fn move_focus(&mut self, delta: i32) {
         let new = self.selected as i32 + delta;
         self.move_focus_to(max(new, 0) as usize);
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        let mut content = self.content.write().expect("can't writelock content");
+        content.swap(a, b);
     }
 }
 
@@ -196,23 +208,31 @@ impl<I: ListItem> ViewExt for ListView<I> {
             return Ok(CommandResult::Consumed(None));
         }
 
-        if cmd == "move" {
+        if cmd == "move" || cmd == "shift" {
             if let Some(dir) = args.get(0) {
-                let amount: i32 = args
+                let amount: usize = args
                     .get(1)
                     .unwrap_or(&"1".to_string())
                     .parse()
                     .map_err(|e| format!("{:?}", e))?;
 
+                let shift = cmd == "shift" && self.shiftable;
+                let selected = self.selected;
                 let len = self.content.read().unwrap().len();
 
                 if dir == "up" && self.selected > 0 {
-                    self.move_focus(-amount);
+                    if shift {
+                        self.swap(selected, selected.saturating_sub(amount));
+                    }
+                    self.move_focus(-(amount as i32));
                     return Ok(CommandResult::Consumed(None));
                 }
 
                 if dir == "down" && self.selected < len.saturating_sub(1) {
-                    self.move_focus(amount);
+                    if shift {
+                        self.swap(selected, min(selected + amount as usize, len - 1));
+                    }
+                    self.move_focus(amount as i32);
                     return Ok(CommandResult::Consumed(None));
                 }
             }

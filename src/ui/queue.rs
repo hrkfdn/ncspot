@@ -22,7 +22,7 @@ pub struct QueueView {
 
 impl QueueView {
     pub fn new(queue: Arc<Queue>, playlists: Arc<Playlists>) -> QueueView {
-        let list = ListView::new(queue.queue.clone(), queue.clone());
+        let list = ListView::new(queue.queue.clone(), queue.clone()).shiftable();
 
         QueueView {
             list,

@@ -55,6 +55,7 @@ impl CommandManager {
 
         self.register_command("search", None);
         self.register_command("move", None);
+        self.register_command("shift", None);
         self.register_command("play", None);
         self.register_command("queue", None);
         self.register_command("delete", None);
@@ -314,6 +315,9 @@ impl CommandManager {
         kb.insert("j".into(), "move down".into());
         kb.insert("h".into(), "move left".into());
         kb.insert("l".into(), "move right".into());
+
+        kb.insert("Shift+Up".into(), "shift up".into());
+        kb.insert("Shift+Down".into(), "shift down".into());
 
         kb
     }
