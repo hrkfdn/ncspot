@@ -4,6 +4,7 @@ use cursive::view::ViewWrapper;
 use cursive::views::{Dialog, EditView, ScrollView, SelectView};
 use cursive::Cursive;
 
+use std::cmp::min;
 use std::sync::Arc;
 
 use commands::CommandResult;
@@ -22,7 +23,7 @@ pub struct QueueView {
 
 impl QueueView {
     pub fn new(queue: Arc<Queue>, playlists: Arc<Playlists>) -> QueueView {
-        let list = ListView::new(queue.queue.clone(), queue.clone()).shiftable();
+        let list = ListView::new(queue.queue.clone(), queue.clone());
 
         QueueView {
             list,
@@ -122,6 +123,28 @@ impl ViewExt for QueueView {
         if cmd == "delete" {
             self.queue.remove(self.list.get_selected_index());
             return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd == "shift" {
+            if let Some(dir) = args.get(0) {
+                let amount: usize = args
+                    .get(1)
+                    .unwrap_or(&"1".to_string())
+                    .parse()
+                    .map_err(|e| format!("{:?}", e))?;
+                let selected = self.list.get_selected_index();
+                let len = self.queue.len();
+                if dir == "up" && selected > 0 {
+                    self.queue.shift(selected, selected.saturating_sub(amount));
+                    self.list.move_focus(-(amount as i32));
+                    return Ok(CommandResult::Consumed(None));
+                } else if dir == "down" && selected < len.saturating_sub(1) {
+                    self.queue
+                        .shift(selected, min(selected + amount as usize, len - 1));
+                    self.list.move_focus(amount as i32);
+                    return Ok(CommandResult::Consumed(None));
+                }
+            }
         }
 
         self.with_view_mut(move |v| v.on_command(s, cmd, args))

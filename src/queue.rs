@@ -163,6 +163,29 @@ impl Queue {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.queue.read().unwrap().len()
+    }
+
+    pub fn shift(&self, from: usize, to: usize) {
+        let mut queue = self.queue.write().unwrap();
+        let item = queue.remove(from);
+        queue.insert(to, item);
+
+        // if the currently playing track is affected by the shift, update its
+        // index
+        let mut current = self.current_track.write().unwrap();
+        if let Some(index) = *current {
+            if index == from {
+                current.replace(to);
+            } else if index == to && from > index {
+                current.replace(to + 1);
+            } else if index == to && from < index {
+                current.replace(to - 1);
+            }
+        }
+    }
+
     pub fn play(&self, index: usize, reshuffle: bool) {
         if let Some(track) = &self.queue.read().unwrap().get(index) {
             self.spotify.load(&track);
