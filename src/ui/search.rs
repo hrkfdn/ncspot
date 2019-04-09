@@ -182,6 +182,19 @@ impl SearchView {
         let is_track = Spotify::is_track(&query);
         let is_spotify_uri = is_album || is_artist || is_playlist || is_track;
 
+        // Set the active tab if the query is either one of the following
+        // cases.
+        let mut tab_idx = 0;
+        if is_album {
+            tab_idx = 1;
+        } else if is_artist {
+            tab_idx = 2;
+        } else if is_playlist {
+            tab_idx = 3;
+        }
+        let mut tab_view = self.list.get_mut();
+        tab_view.move_focus_to(tab_idx);
+
         self.edit_focused = false;
 
         {
