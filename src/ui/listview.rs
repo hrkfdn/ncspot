@@ -86,9 +86,9 @@ impl<I: ListItem> View for ListView<I> {
             });
 
             // draw ".." to indicate a cut off string
-            let max_length = printer.size.x.checked_sub(right.width() + 1).unwrap_or(0);
+            let max_length = printer.size.x.saturating_sub(right.width() + 1);
             if max_length < left.width() {
-                let offset = max_length.checked_sub(1).unwrap_or(0);
+                let offset = max_length.saturating_sub(1);
                 printer.with_color(style, |printer| {
                     printer.print((offset, 0), "..");
                 });
