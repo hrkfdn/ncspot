@@ -188,7 +188,7 @@ impl View for Layout {
                 cmdline_height += 1;
             }
 
-            if position.y < self.last_size.y - 2 - cmdline_height {
+            if position.y < self.last_size.y.saturating_sub(2 + cmdline_height) {
                 if let Some(ref id) = self.focus {
                     let screen = self.views.get_mut(id).unwrap();
                     screen.view.on_event(event.clone());
