@@ -68,7 +68,7 @@ impl QueueView {
         list_select.add_item("[Create new]", None);
 
         for list in playlists.items().iter() {
-            list_select.add_item(list.meta.name.clone(), Some(list.meta.id.clone()));
+            list_select.add_item(list.name.clone(), Some(list.id.clone()));
         }
 
         list_select.set_on_submit(move |s, selected| {

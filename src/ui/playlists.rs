@@ -35,7 +35,7 @@ impl PlaylistView {
 
         if let Some(playlist) = current {
             let playlists = self.playlists.clone();
-            let id = playlist.meta.id.clone();
+            let id = playlist.id.clone();
             let dialog = Dialog::text("Are you sure you want to delete this playlist?")
                 .padding((1, 1, 1, 0))
                 .title("Delete playlist")

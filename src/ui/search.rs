@@ -129,7 +129,7 @@ impl SearchView {
                 .playlists
                 .items
                 .iter()
-                .map(|sp| Playlists::process_playlist(sp, &&spotify))
+                .map(|sp| Playlists::process_simplified_playlist(sp, &&spotify))
                 .collect();
             let mut r = playlists.write().unwrap();
             *r = pls;
