@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 
-use rspotify::spotify::model::playlist::SimplifiedPlaylist;
+use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use config;
 use events::EventManager;
@@ -16,7 +16,9 @@ const CACHE_FILE: &str = "playlists.db";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Playlist {
-    pub meta: SimplifiedPlaylist,
+    pub id: String,
+    pub name: String,
+    pub snapshot_id: String,
     pub tracks: Vec<Track>,
 }
 
@@ -42,7 +44,7 @@ impl ListItem for Playlist {
     }
 
     fn display_left(&self) -> String {
-        self.meta.name.clone()
+        self.name.clone()
     }
 
     fn display_right(&self) -> String {
@@ -108,10 +110,30 @@ impl Playlists {
         }
     }
 
-    pub fn process_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
-        debug!("got list: {}", list.name);
-        let id = list.id.clone();
+    pub fn process_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
+        Playlists::_process_playlist(
+            list.id.clone(),
+            list.name.clone(),
+            list.snapshot_id.clone(),
+            spotify,
+        )
+    }
 
+    pub fn process_full_playlist(list: &FullPlaylist, spotify: &Spotify) -> Playlist {
+        Playlists::_process_playlist(
+            list.id.clone(),
+            list.name.clone(),
+            list.snapshot_id.clone(),
+            spotify,
+        )
+    }
+
+    pub fn _process_playlist(
+        id: String,
+        name: String,
+        snapshot_id: String,
+        spotify: &Spotify,
+    ) -> Playlist {
         let mut collected_tracks = Vec::new();
 
         let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
@@ -135,15 +157,17 @@ impl Playlists {
             }
         }
         Playlist {
-            meta: list.clone(),
+            id: id.clone(),
+            name: name.clone(),
+            snapshot_id: snapshot_id.clone(),
             tracks: collected_tracks,
         }
     }
 
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
         for local in self.store.read().expect("can't readlock playlists").iter() {
-            if local.meta.id == remote.id {
-                return local.meta.snapshot_id != remote.snapshot_id;
+            if local.id == remote.id {
+                return local.snapshot_id != remote.snapshot_id;
             }
         }
         true
@@ -152,7 +176,7 @@ impl Playlists {
     fn append_or_update(&self, updated: &Playlist) -> usize {
         let mut store = self.store.write().expect("can't writelock playlists");
         for (index, mut local) in store.iter_mut().enumerate() {
-            if local.meta.id == updated.meta.id {
+            if local.id == updated.id {
                 *local = updated.clone();
                 return index;
             }
@@ -163,7 +187,7 @@ impl Playlists {
 
     pub fn delete_playlist(&self, id: &str) {
         let mut store = self.store.write().expect("can't writelock playlists");
-        if let Some(position) = store.iter().position(|ref i| i.meta.id == id) {
+        if let Some(position) = store.iter().position(|ref i| i.id == id) {
             if self.spotify.delete_playlist(id) {
                 store.remove(position);
                 self.save_cache();
@@ -195,13 +219,13 @@ impl Playlists {
         while let Some(ref lists) = lists_result.clone() {
             for remote in &lists.items {
                 // remove from stale playlists so we won't prune it later on
-                if let Some(index) = stale_lists.iter().position(|x| x.meta.id == remote.id) {
+                if let Some(index) = stale_lists.iter().position(|x| x.id == remote.id) {
                     stale_lists.remove(index);
                 }
 
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
-                    let playlist = Self::process_playlist(&remote, &self.spotify);
+                    let playlist = Self::process_simplified_playlist(remote, &self.spotify);
                     self.append_or_update(&playlist);
                     // trigger redraw
                     self.ev.trigger();
@@ -226,9 +250,9 @@ impl Playlists {
                 .read()
                 .unwrap()
                 .iter()
-                .position(|x| x.meta.id == stale.meta.id);
+                .position(|x| x.id == stale.id);
             if let Some(index) = index {
-                debug!("removing stale list: {:?}", stale.meta.name);
+                debug!("removing stale list: {:?}", stale.name);
                 self.store.write().unwrap().remove(index);
             }
         }
