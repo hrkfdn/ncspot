@@ -13,13 +13,77 @@ use commands::CommandResult;
 use queue::Queue;
 use traits::{ListItem, ViewExt};
 
-pub struct ListView<I: 'static + ListItem> {
+pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
+pub struct Pagination<I: ListItem> {
+    max_content: Arc<RwLock<Option<usize>>>,
+    callback: Arc<RwLock<Option<Paginator<I>>>>,
+    busy: Arc<RwLock<bool>>,
+}
+
+impl<I: ListItem> Default for Pagination<I> {
+    fn default() -> Self {
+        Pagination {
+            max_content: Arc::new(RwLock::new(None)),
+            callback: Arc::new(RwLock::new(None)),
+            busy: Arc::new(RwLock::new(false)),
+        }
+    }
+}
+
+// TODO: figure out why deriving Clone doesn't work
+impl<I: ListItem> Clone for Pagination<I> {
+    fn clone(&self) -> Self {
+        Pagination {
+            max_content: self.max_content.clone(),
+            callback: self.callback.clone(),
+            busy: self.busy.clone(),
+        }
+    }
+}
+
+impl<I: ListItem> Pagination<I> {
+    pub fn clear(&mut self) {
+        *self.max_content.write().unwrap() = None;
+        *self.callback.write().unwrap() = None;
+    }
+    pub fn set(&mut self, max_content: usize, callback: Paginator<I>) {
+        *self.max_content.write().unwrap() = Some(max_content);
+        *self.callback.write().unwrap() = Some(callback);
+    }
+
+    fn max_content(&self) -> Option<usize> {
+        *self.max_content.read().unwrap()
+    }
+
+    fn is_busy(&self) -> bool {
+        *self.busy.read().unwrap()
+    }
+
+    fn call(&self, content: &Arc<RwLock<Vec<I>>>) {
+        let pagination = self.clone();
+        let content = content.clone();
+        if !self.is_busy() {
+            *self.busy.write().unwrap() = true;
+            std::thread::spawn(move || {
+                let cb = pagination.callback.read().unwrap();
+                if let Some(ref cb) = *cb {
+                    debug!("calling paginator!");
+                    cb(content);
+                    *pagination.busy.write().unwrap() = false;
+                }
+            });
+        }
+    }
+}
+
+pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
     last_content_len: usize,
     selected: usize,
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
+    pagination: Pagination<I>,
 }
 
 impl<I: ListItem> ListView<I> {
@@ -31,7 +95,26 @@ impl<I: ListItem> ListView<I> {
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
+            pagination: Pagination::default(),
         }
+    }
+
+    pub fn get_pagination(&self) -> &Pagination<I> {
+        &self.pagination
+    }
+
+    fn can_paginate(&self) -> bool {
+        if let Some(max) = self.get_pagination().max_content() {
+            trace!(
+                "pagination: total: {}, current: {}",
+                max,
+                self.last_content_len
+            );
+            if max > self.last_content_len {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn get_selected_index(&self) -> usize {
@@ -211,9 +294,13 @@ impl<I: ListItem> ViewExt for ListView<I> {
                     return Ok(CommandResult::Consumed(None));
                 }
 
-                if dir == "down" && self.selected < len.saturating_sub(1) {
-                    self.move_focus(amount as i32);
-                    return Ok(CommandResult::Consumed(None));
+                if dir == "down" {
+                    if self.selected < len.saturating_sub(1) {
+                        self.move_focus(amount as i32);
+                        return Ok(CommandResult::Consumed(None));
+                    } else if self.selected == len.saturating_sub(1) && self.can_paginate() {
+                        self.pagination.call(&self.content);
+                    }
                 }
             }
         }

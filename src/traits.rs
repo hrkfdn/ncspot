@@ -7,7 +7,7 @@ use cursive::Cursive;
 use commands::CommandResult;
 use queue::Queue;
 
-pub trait ListItem {
+pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
     fn display_left(&self) -> String;
     fn display_right(&self) -> String;
