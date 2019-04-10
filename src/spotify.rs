@@ -594,20 +594,27 @@ impl Spotify {
         let new = (progress.as_secs() * 1000) as i32 + progress.subsec_millis() as i32 + delta;
         self.seek(std::cmp::max(0, new) as u32);
     }
+}
 
-    pub fn is_album(s: &str) -> bool {
-        s.starts_with("spotify:album:")
-    }
+pub enum URIType {
+    Album,
+    Artist,
+    Track,
+    Playlist,
+}
 
-    pub fn is_artist(s: &str) -> bool {
-        s.starts_with("spotify:artist:")
-    }
-
-    pub fn is_track(s: &str) -> bool {
-        s.starts_with("spotify:track:")
-    }
-
-    pub fn is_playlist(s: &str) -> bool {
-        s.starts_with("spotify:user:") && s.contains(":playlist:")
+impl URIType {
+    pub fn from_uri(s: &str) -> Option<URIType> {
+        if s.starts_with("spotify:album:") {
+            Some(URIType::Album)
+        } else if s.starts_with("spotify:artist:") {
+            Some(URIType::Artist)
+        } else if s.starts_with("spotify:track:") {
+            Some(URIType::Track)
+        } else if s.starts_with("spotify:user:") && s.contains(":playlist:") {
+            Some(URIType::Playlist)
+        } else {
+            None
+        }
     }
 }
