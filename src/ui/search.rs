@@ -229,7 +229,7 @@ impl SearchView {
             let mut tab_view = self.tabs.get_mut();
             match uritype {
                 URIType::Track => {
-                    self.perform_uri_lookup::<Track>(
+                    self.perform_uri_lookup(
                         Box::new(Self::get_track),
                         &self.results_tracks,
                         &query,
@@ -237,7 +237,7 @@ impl SearchView {
                     tab_view.move_focus_to(0);
                 }
                 URIType::Album => {
-                    self.perform_uri_lookup::<Album>(
+                    self.perform_uri_lookup(
                         Box::new(Self::get_album),
                         &self.results_albums,
                         &query,
@@ -245,7 +245,7 @@ impl SearchView {
                     tab_view.move_focus_to(1);
                 }
                 URIType::Artist => {
-                    self.perform_uri_lookup::<Artist>(
+                    self.perform_uri_lookup(
                         Box::new(Self::get_artist),
                         &self.results_artists,
                         &query,
@@ -253,7 +253,7 @@ impl SearchView {
                     tab_view.move_focus_to(2);
                 }
                 URIType::Playlist => {
-                    self.perform_uri_lookup::<Playlist>(
+                    self.perform_uri_lookup(
                         Box::new(Self::get_playlist),
                         &self.results_playlists,
                         &query,
@@ -262,14 +262,10 @@ impl SearchView {
                 }
             }
         } else {
-            self.perform_search::<Track>(Box::new(Self::search_track), &self.results_tracks, &query);
-            self.perform_search::<Album>(Box::new(Self::search_album), &self.results_albums, &query);
-            self.perform_search::<Artist>(
-                Box::new(Self::search_artist),
-                &self.results_artists,
-                &query,
-            );
-            self.perform_search::<Playlist>(
+            self.perform_search(Box::new(Self::search_track), &self.results_tracks, &query);
+            self.perform_search(Box::new(Self::search_album), &self.results_albums, &query);
+            self.perform_search(Box::new(Self::search_artist), &self.results_artists, &query);
+            self.perform_search(
                 Box::new(Self::search_playlist),
                 &self.results_playlists,
                 &query,
