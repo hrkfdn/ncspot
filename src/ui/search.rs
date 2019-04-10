@@ -18,20 +18,27 @@ use queue::Queue;
 use spotify::{Spotify, URIType};
 use track::Track;
 use traits::{ListItem, ViewExt};
-use ui::listview::ListView;
+use ui::listview::{ListView, Pagination};
 use ui::tabview::TabView;
 
 pub struct SearchView {
     results_tracks: Arc<RwLock<Vec<Track>>>,
+    pagination_tracks: Pagination<Track>,
     results_albums: Arc<RwLock<Vec<Album>>>,
+    pagination_albums: Pagination<Album>,
     results_artists: Arc<RwLock<Vec<Artist>>>,
+    pagination_artists: Pagination<Artist>,
     results_playlists: Arc<RwLock<Vec<Playlist>>>,
+    pagination_playlists: Pagination<Playlist>,
     edit: IdView<EditView>,
     tabs: IdView<TabView>,
     edit_focused: bool,
     events: EventManager,
     spotify: Arc<Spotify>,
 }
+
+type SearchHandler<I> =
+    Box<Fn(&Arc<Spotify>, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
 
 pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";
@@ -53,33 +60,30 @@ impl SearchView {
             })
             .with_id(EDIT_ID);
 
+        let list_tracks = ListView::new(results_tracks.clone(), queue.clone());
+        let pagination_tracks = list_tracks.get_pagination().clone();
+        let list_albums = ListView::new(results_albums.clone(), queue.clone());
+        let pagination_albums = list_albums.get_pagination().clone();
+        let list_artists = ListView::new(results_artists.clone(), queue.clone());
+        let pagination_artists = list_artists.get_pagination().clone();
+        let list_playlists = ListView::new(results_playlists.clone(), queue.clone());
+        let pagination_playlists = list_playlists.get_pagination().clone();
+
         let tabs = TabView::new()
-            .tab(
-                "tracks",
-                "Tracks",
-                ListView::new(results_tracks.clone(), queue.clone()),
-            )
-            .tab(
-                "albums",
-                "Albums",
-                ListView::new(results_albums.clone(), queue.clone()),
-            )
-            .tab(
-                "artists",
-                "Artists",
-                ListView::new(results_artists.clone(), queue.clone()),
-            )
-            .tab(
-                "playlists",
-                "Playlists",
-                ListView::new(results_playlists.clone(), queue.clone()),
-            );
+            .tab("tracks", "Tracks", list_tracks)
+            .tab("albums", "Albums", list_albums)
+            .tab("artists", "Artists", list_artists)
+            .tab("playlists", "Playlists", list_playlists);
 
         SearchView {
             results_tracks,
+            pagination_tracks,
             results_albums,
+            pagination_albums,
             results_artists,
+            pagination_artists,
             results_playlists,
+            pagination_playlists,
             edit: searchfield,
             tabs: tabs.with_id(LIST_ID),
             edit_focused: true,
@@ -95,104 +99,190 @@ impl SearchView {
             });
     }
 
-    fn get_track(spotify: Arc<Spotify>, tracks: Arc<RwLock<Vec<Track>>>, query: &str) {
+    fn get_track(
+        spotify: &Arc<Spotify>,
+        tracks: &Arc<RwLock<Vec<Track>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
         if let Some(results) = spotify.track(&query) {
-            let t = vec![(&results).into()];
+            let mut t = vec![(&results).into()];
             let mut r = tracks.write().unwrap();
             *r = t;
+            return 1;
         }
+        0
     }
 
-    fn search_track(spotify: Arc<Spotify>, tracks: Arc<RwLock<Vec<Track>>>, query: &str) {
-        if let Some(results) = spotify.search_track(&query, 50, 0) {
-            let t = results.tracks.items.iter().map(|ft| ft.into()).collect();
+    fn search_track(
+        spotify: &Arc<Spotify>,
+        tracks: &Arc<RwLock<Vec<Track>>>,
+        query: &str,
+        offset: usize,
+        append: bool,
+    ) -> u32 {
+        if let Some(results) = spotify.search_track(&query, 50, offset as u32) {
+            let mut t = results.tracks.items.iter().map(|ft| ft.into()).collect();
             let mut r = tracks.write().unwrap();
-            *r = t;
+
+            if append {
+                r.append(&mut t);
+            } else {
+                *r = t;
+            }
+            return results.tracks.total;
         }
+        0
     }
 
-    fn get_album(spotify: Arc<Spotify>, albums: Arc<RwLock<Vec<Album>>>, query: &str) {
+    fn get_album(
+        spotify: &Arc<Spotify>,
+        albums: &Arc<RwLock<Vec<Album>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
         if let Some(results) = spotify.album(&query) {
             let a = vec![(&results).into()];
             let mut r = albums.write().unwrap();
             *r = a;
+            return 1;
         }
+        0
     }
 
-    fn search_album(spotify: Arc<Spotify>, albums: Arc<RwLock<Vec<Album>>>, query: &str) {
-        if let Some(results) = spotify.search_album(&query, 50, 0) {
-            let a = results.albums.items.iter().map(|sa| sa.into()).collect();
+    fn search_album(
+        spotify: &Arc<Spotify>,
+        albums: &Arc<RwLock<Vec<Album>>>,
+        query: &str,
+        offset: usize,
+        append: bool,
+    ) -> u32 {
+        if let Some(results) = spotify.search_album(&query, 50, offset as u32) {
+            let mut a = results.albums.items.iter().map(|sa| sa.into()).collect();
             let mut r = albums.write().unwrap();
-            *r = a;
+
+            if append {
+                r.append(&mut a);
+            } else {
+                *r = a;
+            }
+            return results.albums.total;
         }
+        0
     }
 
-    fn get_artist(spotify: Arc<Spotify>, artists: Arc<RwLock<Vec<Artist>>>, query: &str) {
+    fn get_artist(
+        spotify: &Arc<Spotify>,
+        artists: &Arc<RwLock<Vec<Artist>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
         if let Some(results) = spotify.artist(&query) {
             let a = vec![(&results).into()];
             let mut r = artists.write().unwrap();
             *r = a;
+            return 1;
         }
+        0
     }
 
-    fn search_artist(spotify: Arc<Spotify>, artists: Arc<RwLock<Vec<Artist>>>, query: &str) {
-        if let Some(results) = spotify.search_artist(&query, 50, 0) {
-            let a = results.artists.items.iter().map(|fa| fa.into()).collect();
+    fn search_artist(
+        spotify: &Arc<Spotify>,
+        artists: &Arc<RwLock<Vec<Artist>>>,
+        query: &str,
+        offset: usize,
+        append: bool,
+    ) -> u32 {
+        if let Some(results) = spotify.search_artist(&query, 50, offset as u32) {
+            let mut a = results.artists.items.iter().map(|fa| fa.into()).collect();
             let mut r = artists.write().unwrap();
-            *r = a;
+
+            if append {
+                r.append(&mut a);
+            } else {
+                *r = a;
+            }
+            return results.artists.total;
         }
+        0
     }
 
-    fn get_playlist(spotify: Arc<Spotify>, playlists: Arc<RwLock<Vec<Playlist>>>, query: &str) {
+    fn get_playlist(
+        spotify: &Arc<Spotify>,
+        playlists: &Arc<RwLock<Vec<Playlist>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
         if let Some(results) = spotify.playlist(&query) {
             let pls = vec![Playlists::process_full_playlist(&results, &&spotify)];
             let mut r = playlists.write().unwrap();
             *r = pls;
+            return 1;
         }
+        0
     }
 
-    fn search_playlist(spotify: Arc<Spotify>, playlists: Arc<RwLock<Vec<Playlist>>>, query: &str) {
-        if let Some(results) = spotify.search_playlist(&query, 50, 0) {
-            let pls = results
+    fn search_playlist(
+        spotify: &Arc<Spotify>,
+        playlists: &Arc<RwLock<Vec<Playlist>>>,
+        query: &str,
+        offset: usize,
+        append: bool,
+    ) -> u32 {
+        if let Some(results) = spotify.search_playlist(&query, 50, offset as u32) {
+            let mut pls = results
                 .playlists
                 .items
                 .iter()
                 .map(|sp| Playlists::process_simplified_playlist(sp, &&spotify))
                 .collect();
             let mut r = playlists.write().unwrap();
-            *r = pls;
-        }
-    }
 
-    fn perform_uri_lookup<I: ListItem>(
-        &self,
-        handler: Box<Fn(Arc<Spotify>, Arc<RwLock<Vec<I>>>, &str) + Send>,
-        results: &Arc<RwLock<Vec<I>>>,
-        query: &str,
-    ) {
-        let spotify = self.spotify.clone();
-        let query = query.to_owned();
-        let results = results.clone();
-        let ev = self.events.clone();
-        std::thread::spawn(move || {
-            handler(spotify, results, &query);
-            ev.trigger();
-        });
+            if append {
+                r.append(&mut pls);
+            } else {
+                *r = pls;
+            }
+            return results.playlists.total;
+        }
+        0
     }
 
     fn perform_search<I: ListItem>(
         &self,
-        handler: Box<Fn(Arc<Spotify>, Arc<RwLock<Vec<I>>>, &str) + Send>,
+        handler: SearchHandler<I>,
         results: &Arc<RwLock<Vec<I>>>,
         query: &str,
+        paginator: Option<&Pagination<I>>,
     ) {
         let spotify = self.spotify.clone();
         let query = query.to_owned();
         let results = results.clone();
         let ev = self.events.clone();
+        let paginator = paginator.cloned();
 
         std::thread::spawn(move || {
-            handler(spotify, results, &query);
+            let total_items = handler(&spotify, &results, &query, 0, false) as usize;
+
+            // register paginator if the API has more than one page of results
+            if paginator.is_some() && total_items > results.read().unwrap().len() {
+                let mut paginator = paginator.unwrap();
+                let ev = ev.clone();
+
+                // paginator callback
+                let cb = move |items: Arc<RwLock<Vec<I>>>| {
+                    let offset = items.read().unwrap().len();
+                    handler(&spotify, &results, &query, offset, true);
+                    ev.trigger();
+                };
+                paginator.set(total_items, Box::new(cb));
+            } else if let Some(mut p) = paginator {
+                p.clear()
+            }
             ev.trigger();
         });
     }
@@ -210,6 +300,9 @@ impl SearchView {
                 });
         }
 
+        // check if API token refresh is necessary before commencing multiple
+        // requests to avoid deadlock, as the parallel requests might
+        // simultaneously try to refresh the token
         self.spotify.refresh_token();
 
         // is the query a Spotify URI?
@@ -229,46 +322,66 @@ impl SearchView {
             let mut tab_view = self.tabs.get_mut();
             match uritype {
                 URIType::Track => {
-                    self.perform_uri_lookup(
+                    self.perform_search(
                         Box::new(Self::get_track),
                         &self.results_tracks,
                         &query,
+                        None,
                     );
                     tab_view.move_focus_to(0);
                 }
                 URIType::Album => {
-                    self.perform_uri_lookup(
+                    self.perform_search(
                         Box::new(Self::get_album),
                         &self.results_albums,
                         &query,
+                        None,
                     );
                     tab_view.move_focus_to(1);
                 }
                 URIType::Artist => {
-                    self.perform_uri_lookup(
+                    self.perform_search(
                         Box::new(Self::get_artist),
                         &self.results_artists,
                         &query,
+                        None,
                     );
                     tab_view.move_focus_to(2);
                 }
                 URIType::Playlist => {
-                    self.perform_uri_lookup(
+                    self.perform_search(
                         Box::new(Self::get_playlist),
                         &self.results_playlists,
                         &query,
+                        None,
                     );
                     tab_view.move_focus_to(3);
                 }
             }
         } else {
-            self.perform_search(Box::new(Self::search_track), &self.results_tracks, &query);
-            self.perform_search(Box::new(Self::search_album), &self.results_albums, &query);
-            self.perform_search(Box::new(Self::search_artist), &self.results_artists, &query);
+            self.perform_search(
+                Box::new(Self::search_track),
+                &self.results_tracks,
+                &query,
+                Some(&self.pagination_tracks),
+            );
+            self.perform_search(
+                Box::new(Self::search_album),
+                &self.results_albums,
+                &query,
+                Some(&self.pagination_albums),
+            );
+            self.perform_search(
+                Box::new(Self::search_artist),
+                &self.results_artists,
+                &query,
+                Some(&self.pagination_artists),
+            );
             self.perform_search(
                 Box::new(Self::search_playlist),
                 &self.results_playlists,
                 &query,
+                Some(&self.pagination_playlists),
             );
         }
     }
