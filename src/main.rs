@@ -86,14 +86,11 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
 
 fn get_credentials(reset: bool) -> Credentials {
     let path = config::config_path("credentials.toml");
-    if reset {
-        if fs::remove_file(&path).is_err() {
-            error!("could not delete credential file");
-        }
+    if reset && fs::remove_file(&path).is_err() {
+        error!("could not delete credential file");
     }
 
-    let creds =
-        ::config::load_or_generate_default(&path, authentication::create_credentials, true)
+    let creds = ::config::load_or_generate_default(&path, authentication::create_credentials, true)
         .unwrap_or_else(|e| {
             eprintln!("{}", e);
             process::exit(1);

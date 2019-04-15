@@ -226,7 +226,8 @@ impl Spotify {
             let config = SessionConfig::default();
             let handle = core.handle();
 
-            core.run(Session::connect(config, credentials, None, handle)).unwrap();
+            core.run(Session::connect(config, credentials, None, handle))
+                .unwrap();
         });
         th.join().is_ok()
     }
