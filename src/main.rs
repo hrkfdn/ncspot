@@ -28,6 +28,7 @@ extern crate fern;
 
 extern crate rand;
 
+use std::fs;
 use std::process;
 use std::sync::Arc;
 use std::thread;
@@ -83,6 +84,31 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     Ok(())
 }
 
+fn get_credentials(reset: bool) -> Credentials {
+    let path = config::config_path("credentials.toml");
+    if reset {
+        if fs::remove_file(&path).is_err() {
+            error!("could not delete credential file");
+        }
+    }
+
+    let creds =
+        ::config::load_or_generate_default(&path, authentication::create_credentials, true)
+        .unwrap_or_else(|e| {
+            eprintln!("{}", e);
+            process::exit(1);
+        });
+
+    #[cfg(target_family = "unix")]
+    std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
+        .unwrap_or_else(|e| {
+            eprintln!("{}", e);
+            process::exit(1);
+        });
+
+    creds
+}
+
 fn main() {
     let matches = App::new("ncspot")
         .version("0.1.0")
@@ -113,24 +139,11 @@ fn main() {
             })
     };
 
-    let credentials: Credentials = {
-        let path = config::config_path("credentials.toml");
-        let creds =
-            ::config::load_or_generate_default(&path, authentication::create_credentials, true)
-                .unwrap_or_else(|e| {
-                    eprintln!("{}", e);
-                    process::exit(1);
-                });
+    let mut credentials = get_credentials(false);
 
-        #[cfg(target_family = "unix")]
-        std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
-            .unwrap_or_else(|e| {
-                eprintln!("{}", e);
-                process::exit(1);
-            });
-
-        creds
-    };
+    while !spotify::Spotify::test_credentials(credentials.clone()) {
+        credentials = get_credentials(true);
+    }
 
     let theme = theme::load(&cfg);
 

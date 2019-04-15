@@ -220,6 +220,17 @@ impl Spotify {
         spotify
     }
 
+    pub fn test_credentials(credentials: Credentials) -> bool {
+        let th = thread::spawn(|| {
+            let mut core = Core::new().unwrap();
+            let config = SessionConfig::default();
+            let handle = core.handle();
+
+            core.run(Session::connect(config, credentials, None, handle)).unwrap();
+        });
+        th.join().is_ok()
+    }
+
     fn create_session(core: &mut Core, credentials: Credentials) -> Session {
         let session_config = SessionConfig::default();
         let cache = Cache::new(config::cache_path("librespot"), true);
