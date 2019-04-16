@@ -362,11 +362,19 @@ impl CommandManager {
         if split.clone().count() == 2 {
             let modifier = split.next().unwrap();
             let key = split.next().unwrap();
-            if let Event::Key(parsed) = Self::parse_key(key) {
+            let parsed = Self::parse_key(key);
+            if let Event::Key(parsed) = parsed {
                 match modifier {
                     "Shift" => Some(Event::Shift(parsed)),
                     "Alt" => Some(Event::Alt(parsed)),
                     "Ctrl" => Some(Event::Ctrl(parsed)),
+                    _ => None,
+                }
+            } else if let Event::Char(parsed) = parsed {
+                match modifier {
+                    "Shift" => Some(Event::Char(parsed.to_uppercase().next().unwrap())),
+                    "Alt" => Some(Event::AltChar(parsed)),
+                    "Ctrl" => Some(Event::CtrlChar(parsed)),
                     _ => None,
                 }
             } else {
