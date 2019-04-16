@@ -1,7 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rspotify::spotify::model::artist::FullArtist;
+use rspotify::spotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use album::Album;
 use queue::Queue;
@@ -15,11 +15,15 @@ pub struct Artist {
     pub name: String,
     pub url: String,
     pub albums: Option<Vec<Album>>,
+    pub tracks: Option<Vec<Track>>,
 }
 
 impl Artist {
     fn load_albums(&mut self, spotify: Arc<Spotify>) {
-        if self.albums.is_some() {
+        if let Some(albums) = self.albums.as_mut() {
+            for album in albums {
+                album.load_tracks(spotify.clone());
+            }
             return;
         }
 
@@ -41,7 +45,9 @@ impl Artist {
     }
 
     fn tracks(&self) -> Option<Vec<&Track>> {
-        if let Some(albums) = self.albums.as_ref() {
+        if let Some(tracks) = self.tracks.as_ref() {
+            Some(tracks.iter().collect())
+        } else if let Some(albums) = self.albums.as_ref() {
             Some(
                 albums
                     .iter()
@@ -55,6 +61,18 @@ impl Artist {
     }
 }
 
+impl From<&SimplifiedArtist> for Artist {
+    fn from(sa: &SimplifiedArtist) -> Self {
+        Self {
+            id: sa.id.clone(),
+            name: sa.name.clone(),
+            url: sa.uri.clone(),
+            albums: None,
+            tracks: None,
+        }
+    }
+}
+
 impl From<&FullArtist> for Artist {
     fn from(fa: &FullArtist) -> Self {
         Self {
@@ -62,6 +80,7 @@ impl From<&FullArtist> for Artist {
             name: fa.name.clone(),
             url: fa.uri.clone(),
             albums: None,
+            tracks: None,
         }
     }
 }
@@ -100,7 +119,12 @@ impl ListItem for Artist {
     }
 
     fn display_right(&self) -> String {
-        "".into()
+        // TODO: indicate following status
+        if let Some(tracks) = self.tracks.as_ref() {
+            format!("{} saved tracks", tracks.len())
+        } else {
+            "".into()
+        }
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

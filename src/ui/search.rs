@@ -13,7 +13,8 @@ use album::Album;
 use artist::Artist;
 use commands::CommandResult;
 use events::EventManager;
-use playlists::{Playlist, Playlists};
+use library::Library;
+use playlist::Playlist;
 use queue::Queue;
 use spotify::{Spotify, URIType};
 use track::Track;
@@ -218,7 +219,7 @@ impl SearchView {
         _append: bool,
     ) -> u32 {
         if let Some(results) = spotify.playlist(&query) {
-            let pls = vec![Playlists::process_full_playlist(&results, &&spotify)];
+            let pls = vec![Library::process_full_playlist(&results, &&spotify)];
             let mut r = playlists.write().unwrap();
             *r = pls;
             return 1;
@@ -238,7 +239,7 @@ impl SearchView {
                 .playlists
                 .items
                 .iter()
-                .map(|sp| Playlists::process_simplified_playlist(sp, &&spotify))
+                .map(|sp| Library::process_simplified_playlist(sp, &&spotify))
                 .collect();
             let mut r = playlists.write().unwrap();
 

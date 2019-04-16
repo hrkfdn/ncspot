@@ -5,7 +5,7 @@ use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
 
-use playlists::Playlists;
+use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
 use traits::ViewExt;
@@ -47,7 +47,7 @@ impl CommandManager {
         &mut self,
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
-        playlists: Arc<Playlists>,
+        library: Arc<Library>,
     ) {
         self.register_aliases("quit", vec!["q", "x"]);
         self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
@@ -113,14 +113,13 @@ impl CommandManager {
         }
 
         {
-            let playlists = playlists.clone();
+            let library = library.clone();
             self.register_command(
                 "playlists",
                 Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         if arg == "update" {
-                            playlists.fetch_playlists();
-                            playlists.save_cache();
+                            library.update_playlists();
                         }
                     }
                     Ok(None)
@@ -303,7 +302,7 @@ impl CommandManager {
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());
-        kb.insert("F3".into(), "focus playlists".into());
+        kb.insert("F3".into(), "focus library".into());
 
         kb.insert("Up".into(), "move up".into());
         kb.insert("Down".into(), "move down".into());

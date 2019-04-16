@@ -13,14 +13,14 @@ use librespot::playback::player::Player;
 
 use rspotify::spotify::client::ApiError;
 use rspotify::spotify::client::Spotify as SpotifyAPI;
-use rspotify::spotify::model::album::{FullAlbum, SimplifiedAlbum};
+use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 use rspotify::spotify::model::artist::FullArtist;
-use rspotify::spotify::model::page::Page;
+use rspotify::spotify::model::page::{CursorBasedPage, Page};
 use rspotify::spotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
 use rspotify::spotify::model::search::{
     SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
 };
-use rspotify::spotify::model::track::FullTrack;
+use rspotify::spotify::model::track::{FullTrack, SavedTrack};
 
 use failure::Error;
 
@@ -525,6 +525,19 @@ impl Spotify {
         self.api_with_retry(|api| {
             api.artist_albums(artist_id, None, None, Some(limit), Some(offset))
         })
+    }
+
+    pub fn current_user_followed_artists(&self, last: Option<String>) -> Option<CursorBasedPage<FullArtist>> {
+        self.api_with_retry(|api| api.current_user_followed_artists(50, last.clone()))
+            .map(|cp| cp.artists)
+    }
+
+    pub fn current_user_saved_albums(&self, offset: u32) -> Option<Page<SavedAlbum>> {
+        self.api_with_retry(|api| api.current_user_saved_albums(50, offset))
+    }
+
+    pub fn current_user_saved_tracks(&self, offset: u32) -> Option<Page<SavedTrack>> {
+        self.api_with_retry(|api| api.current_user_saved_tracks(50, offset))
     }
 
     pub fn load(&self, track: &Track) {
