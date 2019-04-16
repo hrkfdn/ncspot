@@ -11,6 +11,7 @@ use unicode_width::UnicodeWidthStr;
 
 use commands::CommandResult;
 use queue::Queue;
+use track::Track;
 use traits::{ListItem, ViewExt};
 
 pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
@@ -130,6 +131,19 @@ impl<I: ListItem> ListView<I> {
     pub fn move_focus(&mut self, delta: i32) {
         let new = self.selected as i32 + delta;
         self.move_focus_to(max(new, 0) as usize);
+    }
+
+    fn attempt_play_all_tracks(&self) -> bool {
+        let content = self.content.read().unwrap();
+        let any = &(*content) as &dyn std::any::Any;
+        if let Some(tracks) = any.downcast_ref::<Vec<Track>>() {
+            let tracks: Vec<&Track> = tracks.iter().collect();
+            let index = self.queue.append_next(tracks);
+            self.queue.play(index + self.selected, true);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -264,10 +278,13 @@ impl<I: ListItem> ViewExt for ListView<I> {
         args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
-            let mut content = self.content.write().unwrap();
-            if let Some(item) = content.get_mut(self.selected) {
-                item.play(self.queue.clone());
+            if !self.attempt_play_all_tracks() {
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    item.play(self.queue.clone());
+                }
             }
+
             return Ok(CommandResult::Consumed(None));
         }
 
