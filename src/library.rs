@@ -293,13 +293,19 @@ impl Library {
             }
         }
 
+        let mut store = self.artists.write().unwrap();
+
         for artist in artists.iter_mut() {
+            if store.iter().any(|a| &a.id == &artist.id) {
+                continue;
+            }
+
             // Only play saved tracks
             artist.albums = Some(Vec::new());
             artist.tracks = Some(Vec::new());
-        }
 
-        *(self.artists.write().unwrap()) = artists;
+            store.push(artist.clone());
+        }
     }
 
     fn insert_artist(&self, artist: &SimplifiedArtist) {
@@ -409,6 +415,10 @@ impl Library {
                         }
 
                         if let Some(albums) = artist.albums.as_mut() {
+                            if albums.iter().any(|a| a.id == album.id) {
+                                continue;
+                            }
+
                             albums.push(album.clone());
                         }
                     }
@@ -435,6 +445,10 @@ impl Library {
                         }
 
                         if let Some(tracks) = artist.tracks.as_mut() {
+                            if tracks.iter().any(|t| t.id == track.id) {
+                                continue;
+                            }
+
                             tracks.push(track.clone());
                         }
                     }
