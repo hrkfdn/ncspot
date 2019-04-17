@@ -10,12 +10,12 @@ use traits::ListItem;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Album {
-    pub id: String,
+    pub id: Option<String>,
     pub title: String,
     pub artists: Vec<String>,
     pub year: String,
     pub cover_url: Option<String>,
-    pub url: String,
+    pub url: Option<String>,
     pub tracks: Option<Vec<Track>>,
 }
 
@@ -25,14 +25,16 @@ impl Album {
             return;
         }
 
-        if let Some(fa) = spotify.full_album(&self.id) {
-            self.tracks = Some(
-                fa.tracks
-                    .items
-                    .iter()
-                    .map(|st| Track::from_simplified_track(&st, &fa))
-                    .collect(),
-            );
+        if let Some(ref album_id) = self.id {
+            if let Some(fa) = spotify.full_album(&album_id) {
+                self.tracks = Some(
+                    fa.tracks
+                        .items
+                        .iter()
+                        .map(|st| Track::from_simplified_track(&st, &fa))
+                        .collect(),
+                );
+            }
         }
     }
 }
@@ -43,7 +45,14 @@ impl From<&SimplifiedAlbum> for Album {
             id: sa.id.clone(),
             title: sa.name.clone(),
             artists: sa.artists.iter().map(|sa| sa.name.clone()).collect(),
-            year: sa.release_date.split('-').next().unwrap().into(),
+            year: sa
+                .release_date
+                .clone()
+                .unwrap_or_default()
+                .split('-')
+                .next()
+                .unwrap()
+                .into(),
             cover_url: sa.images.get(0).map(|i| i.url.clone()),
             url: sa.uri.clone(),
             tracks: None,
@@ -62,12 +71,12 @@ impl From<&FullAlbum> for Album {
         );
 
         Self {
-            id: fa.id.clone(),
+            id: Some(fa.id.clone()),
             title: fa.name.clone(),
             artists: fa.artists.iter().map(|sa| sa.name.clone()).collect(),
             year: fa.release_date.split('-').next().unwrap().into(),
             cover_url: fa.images.get(0).map(|i| i.url.clone()),
-            url: fa.uri.clone(),
+            url: Some(fa.uri.clone()),
             tracks,
         }
     }
@@ -83,7 +92,7 @@ impl fmt::Debug for Album {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({} - {} ({}))",
+            "({} - {} ({:?}))",
             self.artists.join(", "),
             self.title,
             self.id
@@ -99,9 +108,14 @@ impl ListItem for Album {
                 .read()
                 .unwrap()
                 .iter()
-                .map(|t| t.id.clone())
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
                 .collect();
-            let ids: Vec<String> = tracks.iter().map(|t| t.id.clone()).collect();
+            let ids: Vec<String> = tracks
+                .iter()
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
             !ids.is_empty() && playing == ids
         } else {
             false

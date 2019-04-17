@@ -31,8 +31,10 @@ impl Artist {
                     continue;
                 }
 
-                if let Some(fa) = spotify.full_album(&sa.id).as_ref() {
-                    albums.push(fa.into());
+                if let Some(album_id) = sa.id {
+                    if let Some(fa) = spotify.full_album(&album_id).as_ref() {
+                        albums.push(fa.into());
+                    }
                 }
             }
 
@@ -86,9 +88,14 @@ impl ListItem for Artist {
                 .read()
                 .unwrap()
                 .iter()
-                .map(|t| t.id.clone())
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
                 .collect();
-            let ids: Vec<String> = tracks.iter().map(|t| t.id.clone()).collect();
+            let ids: Vec<String> = tracks
+                .iter()
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
             !ids.is_empty() && playing == ids
         } else {
             false

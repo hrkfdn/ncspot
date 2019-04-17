@@ -29,7 +29,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
         "mpris:trackid".to_string(),
         Variant(Box::new(
             track
-                .map(|t| format!("spotify:track:{}", t.id))
+                .map(|t| format!("spotify:track:{}", t.id.clone().unwrap_or("0".to_string())))
                 .unwrap_or_default(),
         )),
     );

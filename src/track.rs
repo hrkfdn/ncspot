@@ -9,7 +9,7 @@ use traits::ListItem;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
-    pub id: String,
+    pub id: Option<String>,
     pub title: String,
     pub track_number: u32,
     pub disc_number: i32,
@@ -104,7 +104,7 @@ impl fmt::Debug for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({} - {} ({}))",
+            "({} - {} ({:?}))",
             self.artists.join(", "),
             self.title,
             self.id
