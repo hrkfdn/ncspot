@@ -190,10 +190,17 @@ impl Library {
     }
 
     pub fn delete_playlist(&self, id: &str) {
-        let mut store = self.playlists.write().expect("can't writelock playlists");
-        if let Some(position) = store.iter().position(|ref i| i.id == id) {
+        let pos = {
+            let store = self.playlists.read().expect("can't readlock playlists");
+            store.iter().position(|ref i| i.id == id)
+        };
+
+        if let Some(position) = pos {
             if self.spotify.delete_playlist(id) {
-                store.remove(position);
+                {
+                    let mut store = self.playlists.write().expect("can't writelock playlists");
+                    store.remove(position);
+                }
                 self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
             }
         }
