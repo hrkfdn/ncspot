@@ -31,10 +31,11 @@ pub struct Library {
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
     ev: EventManager,
     spotify: Arc<Spotify>,
+    pub use_nerdfont: bool,
 }
 
 impl Library {
-    pub fn new(ev: &EventManager, spotify: Arc<Spotify>) -> Self {
+    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, use_nerdfont: bool) -> Self {
         let library = Self {
             tracks: Arc::new(RwLock::new(Vec::new())),
             albums: Arc::new(RwLock::new(Vec::new())),
@@ -42,6 +43,7 @@ impl Library {
             playlists: Arc::new(RwLock::new(Vec::new())),
             ev: ev.clone(),
             spotify,
+            use_nerdfont,
         };
 
         {
@@ -303,13 +305,16 @@ impl Library {
         let mut store = self.artists.write().unwrap();
 
         for artist in artists.iter_mut() {
-            if store.iter().any(|a| &a.id == &artist.id) {
+            let pos = store.iter().position(|a| &a.id == &artist.id);
+            if let Some(i) = pos {
+                store[i].is_followed = true;
                 continue;
             }
 
             // Only play saved tracks
             artist.albums = Some(Vec::new());
             artist.tracks = Some(Vec::new());
+            artist.is_followed = true;
 
             store.push(artist.clone());
         }
@@ -462,5 +467,25 @@ impl Library {
                 }
             }
         }
+    }
+
+    pub fn is_saved_track(&self, track: &Track) -> bool {
+        let tracks = self.tracks.read().unwrap();
+        tracks.iter().any(|t| t.id == track.id)
+    }
+
+    pub fn is_saved_album(&self, album: &Album) -> bool {
+        let albums = self.albums.read().unwrap();
+        albums.iter().any(|a| a.id == album.id)
+    }
+
+    pub fn is_followed_artist(&self, artist: &Artist) -> bool {
+        let artists = self.artists.read().unwrap();
+        artists.iter().any(|a| a.id == artist.id && a.is_followed)
+    }
+
+    pub fn is_saved_playlist(&self, playlist: &Playlist) -> bool {
+        let playlists = self.playlists.read().unwrap();
+        playlists.iter().any(|p| p.id == playlist.id)
     }
 }

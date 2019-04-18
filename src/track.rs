@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::FullAlbum;
 use rspotify::spotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 
+use library::Library;
 use queue::Queue;
 use traits::ListItem;
 
@@ -147,8 +148,17 @@ impl ListItem for Track {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        self.duration_str()
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let saved = if library.is_saved_track(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        format!("{}{}", saved, self.duration_str())
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

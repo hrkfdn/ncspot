@@ -44,7 +44,12 @@ type SearchHandler<I> =
 pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
-    pub fn new(events: EventManager, spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
+    pub fn new(
+        events: EventManager,
+        spotify: Arc<Spotify>,
+        queue: Arc<Queue>,
+        library: Arc<Library>
+    ) -> SearchView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
         let results_artists = Arc::new(RwLock::new(Vec::new()));
@@ -61,13 +66,13 @@ impl SearchView {
             })
             .with_id(EDIT_ID);
 
-        let list_tracks = ListView::new(results_tracks.clone(), queue.clone());
+        let list_tracks = ListView::new(results_tracks.clone(), queue.clone(), library.clone());
         let pagination_tracks = list_tracks.get_pagination().clone();
-        let list_albums = ListView::new(results_albums.clone(), queue.clone());
+        let list_albums = ListView::new(results_albums.clone(), queue.clone(), library.clone());
         let pagination_albums = list_albums.get_pagination().clone();
-        let list_artists = ListView::new(results_artists.clone(), queue.clone());
+        let list_artists = ListView::new(results_artists.clone(), queue.clone(), library.clone());
         let pagination_artists = list_artists.get_pagination().clone();
-        let list_playlists = ListView::new(results_playlists.clone(), queue.clone());
+        let list_playlists = ListView::new(results_playlists.clone(), queue.clone(), library.clone());
         let pagination_playlists = list_playlists.get_pagination().clone();
 
         let tabs = TabView::new()

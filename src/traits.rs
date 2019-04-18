@@ -5,12 +5,13 @@ use cursive::views::IdView;
 use cursive::Cursive;
 
 use commands::CommandResult;
+use library::Library;
 use queue::Queue;
 
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
     fn display_left(&self) -> String;
-    fn display_right(&self) -> String;
+    fn display_right(&self, library: Arc<Library>) -> String;
     fn play(&mut self, queue: Arc<Queue>);
     fn queue(&mut self, queue: Arc<Queue>);
 }

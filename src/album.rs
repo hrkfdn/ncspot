@@ -4,6 +4,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
+use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -127,8 +128,17 @@ impl ListItem for Album {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        self.year.clone()
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let saved = if library.is_saved_album(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        format!("{}{}", saved, self.year)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

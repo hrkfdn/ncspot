@@ -10,6 +10,7 @@ use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use commands::CommandResult;
+use library::Library;
 use queue::Queue;
 use track::Track;
 use traits::{ListItem, ViewExt};
@@ -84,11 +85,12 @@ pub struct ListView<I: ListItem> {
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
+    library: Arc<Library>,
     pagination: Pagination<I>,
 }
 
 impl<I: ListItem> ListView<I> {
-    pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>) -> Self {
+    pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         Self {
             content,
             last_content_len: 0,
@@ -96,6 +98,7 @@ impl<I: ListItem> ListView<I> {
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
+            library,
             pagination: Pagination::default(),
         }
     }
@@ -174,7 +177,7 @@ impl<I: ListItem> View for ListView<I> {
             };
 
             let left = item.display_left();
-            let right = item.display_right();
+            let right = item.display_right(self.library.clone());
 
             // draw left string
             printer.with_color(style, |printer| {

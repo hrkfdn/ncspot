@@ -20,7 +20,7 @@ pub struct PlaylistsView {
 impl PlaylistsView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
         Self {
-            list: ListView::new(library.playlists.clone(), queue.clone()),
+            list: ListView::new(library.playlists.clone(), queue.clone(), library.clone()),
             library,
         }
     }

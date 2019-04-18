@@ -4,6 +4,7 @@ use std::sync::Arc;
 use rspotify::spotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use album::Album;
+use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -16,6 +17,7 @@ pub struct Artist {
     pub url: String,
     pub albums: Option<Vec<Album>>,
     pub tracks: Option<Vec<Track>>,
+    pub is_followed: bool,
 }
 
 impl Artist {
@@ -69,6 +71,7 @@ impl From<&SimplifiedArtist> for Artist {
             url: sa.uri.clone(),
             albums: None,
             tracks: None,
+            is_followed: false,
         }
     }
 }
@@ -81,6 +84,7 @@ impl From<&FullArtist> for Artist {
             url: fa.uri.clone(),
             albums: None,
             tracks: None,
+            is_followed: false,
         }
     }
 }
@@ -118,13 +122,24 @@ impl ListItem for Artist {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        // TODO: indicate following status
-        if let Some(tracks) = self.tracks.as_ref() {
-            format!("{} saved tracks", tracks.len())
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let followed = if library.is_followed_artist(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+
+        let tracks = if let Some(tracks) = self.tracks.as_ref() {
+            format!("{:>3} saved tracks", tracks.len())
         } else {
             "".into()
-        }
+        };
+
+        format!("{}{}", followed, tracks)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

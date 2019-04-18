@@ -2,6 +2,7 @@ use std::iter::Iterator;
 use std::sync::Arc;
 
 use queue::Queue;
+use library::Library;
 use track::Track;
 use traits::ListItem;
 
@@ -30,8 +31,17 @@ impl ListItem for Playlist {
         self.name.clone()
     }
 
-    fn display_right(&self) -> String {
-        format!("{} tracks", self.tracks.len())
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let saved = if library.is_saved_playlist(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        format!("{}{:>3} tracks", saved, self.tracks.len())
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
