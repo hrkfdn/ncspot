@@ -273,7 +273,7 @@ impl<I: ListItem> View for ListView<I> {
     }
 }
 
-impl<I: ListItem> ViewExt for ListView<I> {
+impl<I: ListItem + Clone> ViewExt for ListView<I> {
     fn on_command(
         &mut self,
         _s: &mut Cursive,
@@ -297,6 +297,17 @@ impl<I: ListItem> ViewExt for ListView<I> {
                 item.queue(self.queue.clone());
             }
             return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd == "save" {
+            let mut item = {
+                let content = self.content.read().unwrap();
+                content.get(self.selected).cloned()
+            };
+
+            if let Some(item) = item.as_mut() {
+                item.toggle_saved(self.library.clone());
+            }
         }
 
         if cmd == "move" {

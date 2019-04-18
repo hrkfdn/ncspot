@@ -54,4 +54,8 @@ impl ListItem for Playlist {
             queue.append(track);
         }
     }
+
+    fn toggle_saved(&mut self, _library: Arc<Library>) {
+        // TODO
+    }
 }

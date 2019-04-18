@@ -169,4 +169,12 @@ impl ListItem for Track {
     fn queue(&mut self, queue: Arc<Queue>) {
         queue.append(self);
     }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_saved_track(self) {
+            library.unsave_tracks(vec![self], true);
+        } else {
+            library.save_tracks(vec![self], true);
+        }
+    }
 }

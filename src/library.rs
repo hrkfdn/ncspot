@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
-use rspotify::spotify::model::artist::SimplifiedArtist;
 use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -311,22 +310,31 @@ impl Library {
                 continue;
             }
 
-            // Only play saved tracks
-            artist.albums = Some(Vec::new());
-            artist.tracks = Some(Vec::new());
             artist.is_followed = true;
 
             store.push(artist.clone());
         }
     }
 
-    fn insert_artist(&self, artist: &SimplifiedArtist) {
+    fn insert_artist(&self, track: &Track) {
         let mut artists = self.artists.write().unwrap();
-        if artists.iter().any(|a| a.id == artist.id) {
-            return;
-        }
 
-        artists.push(artist.into());
+        for (id, name) in track.artist_ids.iter().zip(track.artists.iter()) {
+            let artist = Artist {
+                id: id.clone(),
+                name: name.clone(),
+                url: "".into(),
+                albums: Some(Vec::new()),
+                tracks: Some(Vec::new()),
+                is_followed: false,
+            };
+
+            if artists.iter().any(|a| a.id == artist.id) {
+                continue;
+            }
+
+            artists.push(artist.into());
+        }
     }
 
     fn fetch_albums(&self) {
@@ -387,12 +395,7 @@ impl Library {
                 }
             }
 
-            for track in page.items.iter() {
-                for artist in track.track.artists.iter() {
-                    self.insert_artist(artist);
-                }
-                tracks.push(track.into());
-            }
+            tracks.extend(page.items.iter().map(|t| t.into()));
 
             if page.next.is_none() {
                 break;
@@ -403,11 +406,35 @@ impl Library {
     }
 
     fn populate_artists(&self) {
+        // Remove old unfollowed artists
+        {
+            let mut artists = self.artists.write().unwrap();
+            *artists = artists
+                .iter()
+                .filter(|a| a.is_followed)
+                .cloned()
+                .collect();
+        }
+
+        // Add artists that aren't followed but have saved tracks/albums
+        {
+            let tracks = self.tracks.read().unwrap();
+            for track in tracks.iter() {
+                self.insert_artist(track);
+            }
+        }
+
         let mut artists = self.artists.write().unwrap();
         let mut lookup: HashMap<String, Option<usize>> = HashMap::new();
 
+        for artist in artists.iter_mut() {
+            artist.albums = Some(Vec::new());
+            artist.tracks = Some(Vec::new());
+        }
+
         artists.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
 
+        // Add saved albums to artists
         {
             let albums = self.albums.read().unwrap();
             for album in albums.iter() {
@@ -438,6 +465,7 @@ impl Library {
             }
         }
 
+        // Add saved tracks to artists
         {
             let tracks = self.tracks.read().unwrap();
             for track in tracks.iter() {
@@ -474,14 +502,142 @@ impl Library {
         tracks.iter().any(|t| t.id == track.id)
     }
 
+    pub fn save_tracks(&self, tracks: Vec<&Track>, api: bool) {
+        if api {
+            self.spotify.current_user_saved_tracks_add(
+                tracks
+                    .iter()
+                    .map(|t| t.id.clone())
+                    .collect()
+            );
+        }
+
+        {
+            let mut store = self.tracks.write().unwrap();
+            let mut i = 0;
+            for track in tracks {
+                if store.iter().any(|t| t.id == track.id) {
+                    continue;
+                }
+
+                store.insert(i, track.clone());
+                i += 1;
+            }
+        }
+
+        self.populate_artists();
+
+        self.save_cache(config::cache_path(CACHE_TRACKS), self.tracks.clone());
+        self.save_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
+    }
+
+    pub fn unsave_tracks(&self, tracks: Vec<&Track>, api: bool) {
+        if api {
+            self.spotify.current_user_saved_tracks_delete(
+                tracks
+                    .iter()
+                    .map(|t| t.id.clone())
+                    .collect()
+            );
+        }
+
+        {
+            let mut store = self.tracks.write().unwrap();
+            *store = store
+                .iter()
+                .filter(|t| !tracks.iter().any(|tt| t.id == tt.id))
+                .cloned()
+                .collect();
+        }
+
+        self.populate_artists();
+
+        self.save_cache(config::cache_path(CACHE_TRACKS), self.tracks.clone());
+        self.save_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
+    }
+
     pub fn is_saved_album(&self, album: &Album) -> bool {
         let albums = self.albums.read().unwrap();
         albums.iter().any(|a| a.id == album.id)
     }
 
+    pub fn save_album(&self, album: &mut Album) {
+        self.spotify.current_user_saved_albums_add(vec![album.id.clone()]);
+
+        album.load_tracks(self.spotify.clone());
+
+        {
+            let mut store = self.albums.write().unwrap();
+            if !store.iter().any(|a| a.id == album.id) {
+                store.insert(0, album.clone());
+            }
+        }
+
+        if let Some(tracks) = album.tracks.as_ref() {
+            self.save_tracks(tracks.iter().collect(), false);
+        }
+
+        self.save_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
+    }
+
+    pub fn unsave_album(&self, album: &mut Album) {
+        self.spotify.current_user_saved_albums_delete(vec![album.id.clone()]);
+
+        album.load_tracks(self.spotify.clone());
+
+        {
+            let mut store = self.albums.write().unwrap();
+            *store = store
+                .iter()
+                .filter(|a| a.id != album.id)
+                .cloned()
+                .collect();
+        }
+
+        if let Some(tracks) = album.tracks.as_ref() {
+            self.unsave_tracks(tracks.iter().collect(), false);
+        }
+
+        self.save_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
+    }
+
     pub fn is_followed_artist(&self, artist: &Artist) -> bool {
         let artists = self.artists.read().unwrap();
         artists.iter().any(|a| a.id == artist.id && a.is_followed)
+    }
+
+    pub fn follow_artist(&self, artist: &Artist) {
+        self.spotify.user_follow_artists(vec![artist.id.clone()]);
+
+        {
+            let mut store = self.artists.write().unwrap();
+            if let Some(i) = store.iter().position(|a| a.id == artist.id) {
+                store[i].is_followed = true;
+            } else {
+                let mut artist = artist.clone();
+                artist.is_followed = true;
+                store.push(artist);
+            }
+        }
+
+        self.populate_artists();
+
+        self.save_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
+    }
+
+    pub fn unfollow_artist(&self, artist: &Artist) {
+        self.spotify.user_unfollow_artists(vec![artist.id.clone()]);
+
+        {
+            let mut store = self.artists.write().unwrap();
+            if let Some(i) = store.iter().position(|a| a.id == artist.id) {
+                store[i].is_followed = false;
+            }
+        }
+
+        self.populate_artists();
+
+        self.save_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
     }
 
     pub fn is_saved_playlist(&self, playlist: &Playlist) -> bool {

@@ -160,4 +160,12 @@ impl ListItem for Artist {
             }
         }
     }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_followed_artist(self) {
+            library.unfollow_artist(self);
+        } else {
+            library.follow_artist(self);
+        }
+    }
 }

@@ -14,6 +14,7 @@ pub trait ListItem: Sync + Send + 'static {
     fn display_right(&self, library: Arc<Library>) -> String;
     fn play(&mut self, queue: Arc<Queue>);
     fn queue(&mut self, queue: Arc<Queue>);
+    fn toggle_saved(&mut self, library: Arc<Library>);
 }
 
 pub trait ViewExt: View {

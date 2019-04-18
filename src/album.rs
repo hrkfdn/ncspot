@@ -160,4 +160,12 @@ impl ListItem for Album {
             }
         }
     }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_saved_album(self) {
+            library.unsave_album(self);
+        } else {
+            library.save_album(self);
+        }
+    }
 }

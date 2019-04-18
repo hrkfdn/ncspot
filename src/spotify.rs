@@ -532,12 +532,36 @@ impl Spotify {
             .map(|cp| cp.artists)
     }
 
+    pub fn user_follow_artists(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.user_follow_artists(&ids))
+    }
+
+    pub fn user_unfollow_artists(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.user_unfollow_artists(&ids))
+    }
+
     pub fn current_user_saved_albums(&self, offset: u32) -> Option<Page<SavedAlbum>> {
         self.api_with_retry(|api| api.current_user_saved_albums(50, offset))
     }
 
+    pub fn current_user_saved_albums_add(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.current_user_saved_albums_add(&ids))
+    }
+
+    pub fn current_user_saved_albums_delete(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.current_user_saved_albums_delete(&ids))
+    }
+
     pub fn current_user_saved_tracks(&self, offset: u32) -> Option<Page<SavedTrack>> {
         self.api_with_retry(|api| api.current_user_saved_tracks(50, offset))
+    }
+
+    pub fn current_user_saved_tracks_add(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.current_user_saved_tracks_add(&ids))
+    }
+
+    pub fn current_user_saved_tracks_delete(&self, ids: Vec<String>) -> Option<()> {
+        self.api_with_retry(|api| api.current_user_saved_tracks_delete(ids.clone()))
     }
 
     pub fn load(&self, track: &Track) {
