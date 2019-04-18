@@ -58,6 +58,7 @@ impl CommandManager {
         self.register_command("shift", None);
         self.register_command("play", None);
         self.register_command("queue", None);
+        self.register_command("save", None);
         self.register_command("delete", None);
 
         self.register_command(
@@ -293,6 +294,8 @@ impl CommandManager {
         kb.insert("c".into(), "clear".into());
         kb.insert(" ".into(), "queue".into());
         kb.insert("Enter".into(), "play".into());
+        kb.insert("s".into(), "save".into());
+        kb.insert("Ctrl+s".into(), "save queue".into());
         kb.insert("d".into(), "delete".into());
         kb.insert("/".into(), "focus search".into());
         kb.insert(".".into(), "seek +500".into());

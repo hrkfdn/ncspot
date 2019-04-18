@@ -1,5 +1,4 @@
-use cursive::event::{Callback, Event, EventResult};
-use cursive::traits::{Boxable, Identifiable, View};
+use cursive::traits::{Boxable, Identifiable};
 use cursive::view::ViewWrapper;
 use cursive::views::{Dialog, EditView, ScrollView, SelectView};
 use cursive::Cursive;
@@ -86,22 +85,6 @@ impl QueueView {
 
 impl ViewWrapper for QueueView {
     wrap_impl!(self.list: ListView<Track>);
-
-    fn wrap_on_event(&mut self, ch: Event) -> EventResult {
-        match ch {
-            Event::Char('s') => {
-                debug!("save list");
-                let queue = self.queue.clone();
-                let library = self.library.clone();
-                let cb = move |s: &mut Cursive| {
-                    let dialog = Self::save_dialog(queue.clone(), library.clone());
-                    s.add_layer(dialog)
-                };
-                EventResult::Consumed(Some(Callback::from_fn(cb)))
-            }
-            _ => self.list.on_event(ch),
-        }
-    }
 }
 
 impl ViewExt for QueueView {
@@ -145,6 +128,12 @@ impl ViewExt for QueueView {
                     return Ok(CommandResult::Consumed(None));
                 }
             }
+        }
+
+        if cmd == "save" && args.get(0).unwrap_or(&"".to_string()) == "queue" {
+            let dialog = Self::save_dialog(self.queue.clone(), self.library.clone());
+            s.add_layer(dialog);
+            return Ok(CommandResult::Consumed(None));
         }
 
         self.with_view_mut(move |v| v.on_command(s, cmd, args))
