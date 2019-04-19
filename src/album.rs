@@ -20,7 +20,7 @@ pub struct Album {
     pub cover_url: Option<String>,
     pub url: String,
     pub tracks: Option<Vec<Track>>,
-    pub added_at: Option<DateTime<Utc>>
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 impl Album {

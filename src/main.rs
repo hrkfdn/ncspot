@@ -156,7 +156,11 @@ fn main() {
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
 
-    let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.use_nerdfont.unwrap_or(false)));
+    let library = Arc::new(Library::new(
+        &event_manager,
+        spotify.clone(),
+        cfg.use_nerdfont.unwrap_or(false),
+    ));
 
     let mut cmd_manager = CommandManager::new();
     cmd_manager.register_all(spotify.clone(), queue.clone(), library.clone());
@@ -172,7 +176,7 @@ fn main() {
         event_manager.clone(),
         spotify.clone(),
         queue.clone(),
-        library.clone()
+        library.clone(),
     );
 
     let libraryview = ui::library::LibraryView::new(queue.clone(), library.clone());

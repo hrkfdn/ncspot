@@ -18,14 +18,28 @@ pub struct LibraryView {
 impl LibraryView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let tabs = TabView::new()
-            .tab("tracks", "Tracks", ListView::new(library.tracks.clone(), queue.clone(), library.clone()))
-            .tab("albums", "Albums", ListView::new(library.albums.clone(), queue.clone(), library.clone()))
-            .tab("artists", "Artists", ListView::new(library.artists.clone(), queue.clone(), library.clone()))
-            .tab("playlists", "Playlists", PlaylistsView::new(queue.clone(), library.clone()));
+            .tab(
+                "tracks",
+                "Tracks",
+                ListView::new(library.tracks.clone(), queue.clone(), library.clone()),
+            )
+            .tab(
+                "albums",
+                "Albums",
+                ListView::new(library.albums.clone(), queue.clone(), library.clone()),
+            )
+            .tab(
+                "artists",
+                "Artists",
+                ListView::new(library.artists.clone(), queue.clone(), library.clone()),
+            )
+            .tab(
+                "playlists",
+                "Playlists",
+                PlaylistsView::new(queue.clone(), library.clone()),
+            );
 
-        Self {
-            tabs
-        }
+        Self { tabs }
     }
 }
 

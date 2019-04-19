@@ -22,7 +22,7 @@ pub struct Track {
     pub album_artists: Vec<String>,
     pub cover_url: String,
     pub url: String,
-    pub added_at: Option<DateTime<Utc>>
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 impl Track {

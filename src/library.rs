@@ -53,25 +53,30 @@ impl Library {
                 let t_tracks = {
                     let library = library.clone();
                     thread::spawn(move || {
-                        library.load_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                        library
+                            .load_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
                         library.fetch_tracks();
-                        library.save_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                        library
+                            .save_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
                     })
                 };
 
                 let t_albums = {
                     let library = library.clone();
                     thread::spawn(move || {
-                        library.load_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                        library
+                            .load_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
                         library.fetch_albums();
-                        library.save_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                        library
+                            .save_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
                     })
                 };
 
                 let t_artists = {
                     let library = library.clone();
                     thread::spawn(move || {
-                        library.load_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
+                        library
+                            .load_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
                         library.fetch_artists();
                     })
                 };
@@ -79,9 +84,15 @@ impl Library {
                 let t_playlists = {
                     let library = library.clone();
                     thread::spawn(move || {
-                        library.load_cache(config::cache_path(CACHE_PLAYLISTS), library.playlists.clone());
+                        library.load_cache(
+                            config::cache_path(CACHE_PLAYLISTS),
+                            library.playlists.clone(),
+                        );
                         library.fetch_playlists();
-                        library.save_cache(config::cache_path(CACHE_PLAYLISTS), library.playlists.clone());
+                        library.save_cache(
+                            config::cache_path(CACHE_PLAYLISTS),
+                            library.playlists.clone(),
+                        );
                     })
                 };
 
@@ -114,7 +125,11 @@ impl Library {
             let parsed: Result<Vec<T>, _> = serde_json::from_str(&contents);
             match parsed {
                 Ok(cache) => {
-                    debug!("cache from {} loaded ({} lists)", cache_path.display(), cache.len());
+                    debug!(
+                        "cache from {} loaded ({} lists)",
+                        cache_path.display(),
+                        cache.len()
+                    );
                     let mut store = store.write().expect("can't writelock store");
                     store.clear();
                     store.extend(cache);
@@ -196,7 +211,12 @@ impl Library {
     }
 
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
-        for local in self.playlists.read().expect("can't readlock playlists").iter() {
+        for local in self
+            .playlists
+            .read()
+            .expect("can't readlock playlists")
+            .iter()
+        {
             if local.id == remote.id {
                 return local.snapshot_id != remote.snapshot_id;
             }
@@ -382,8 +402,9 @@ impl Library {
 
                 let store = self.albums.read().unwrap();
 
-                if page.total as usize == store.len() &&
-                    !page.items
+                if page.total as usize == store.len()
+                    && !page
+                        .items
                         .iter()
                         .enumerate()
                         .any(|(i, a)| &a.album.id != &store[i].id)
@@ -425,8 +446,9 @@ impl Library {
 
                 let store = self.tracks.read().unwrap();
 
-                if page.total as usize == store.len() &&
-                    !page.items
+                if page.total as usize == store.len()
+                    && !page
+                        .items
                         .iter()
                         .enumerate()
                         .any(|(i, t)| &t.track.id != &store[i].id)
@@ -449,11 +471,7 @@ impl Library {
         // Remove old unfollowed artists
         {
             let mut artists = self.artists.write().unwrap();
-            *artists = artists
-                .iter()
-                .filter(|a| a.is_followed)
-                .cloned()
-                .collect();
+            *artists = artists.iter().filter(|a| a.is_followed).cloned().collect();
         }
 
         // Add artists that aren't followed but have saved tracks
@@ -527,12 +545,11 @@ impl Library {
         }
 
         if api {
-            if self.spotify.current_user_saved_tracks_add(
-                tracks
-                    .iter()
-                    .map(|t| t.id.clone())
-                    .collect()
-            ).is_none() {
+            if self
+                .spotify
+                .current_user_saved_tracks_add(tracks.iter().map(|t| t.id.clone()).collect())
+                .is_none()
+            {
                 return;
             }
         }
@@ -562,12 +579,11 @@ impl Library {
         }
 
         if api {
-            if self.spotify.current_user_saved_tracks_delete(
-                tracks
-                    .iter()
-                    .map(|t| t.id.clone())
-                    .collect()
-            ).is_none() {
+            if self
+                .spotify
+                .current_user_saved_tracks_delete(tracks.iter().map(|t| t.id.clone()).collect())
+                .is_none()
+            {
                 return;
             }
         }
@@ -601,7 +617,11 @@ impl Library {
             return;
         }
 
-        if self.spotify.current_user_saved_albums_add(vec![album.id.clone()]).is_none() {
+        if self
+            .spotify
+            .current_user_saved_albums_add(vec![album.id.clone()])
+            .is_none()
+        {
             return;
         }
 
@@ -626,7 +646,11 @@ impl Library {
             return;
         }
 
-        if self.spotify.current_user_saved_albums_delete(vec![album.id.clone()]).is_none() {
+        if self
+            .spotify
+            .current_user_saved_albums_delete(vec![album.id.clone()])
+            .is_none()
+        {
             return;
         }
 
@@ -634,11 +658,7 @@ impl Library {
 
         {
             let mut store = self.albums.write().unwrap();
-            *store = store
-                .iter()
-                .filter(|a| a.id != album.id)
-                .cloned()
-                .collect();
+            *store = store.iter().filter(|a| a.id != album.id).cloned().collect();
         }
 
         if let Some(tracks) = album.tracks.as_ref() {
@@ -662,7 +682,11 @@ impl Library {
             return;
         }
 
-        if self.spotify.user_follow_artists(vec![artist.id.clone()]).is_none() {
+        if self
+            .spotify
+            .user_follow_artists(vec![artist.id.clone()])
+            .is_none()
+        {
             return;
         }
 
@@ -687,7 +711,11 @@ impl Library {
             return;
         }
 
-        if self.spotify.user_unfollow_artists(vec![artist.id.clone()]).is_none() {
+        if self
+            .spotify
+            .user_unfollow_artists(vec![artist.id.clone()])
+            .is_none()
+        {
             return;
         }
 
@@ -717,7 +745,11 @@ impl Library {
             return;
         }
 
-        if self.spotify.user_playlist_follow_playlist(playlist.owner_id.clone(), playlist.id.clone()).is_none() {
+        if self
+            .spotify
+            .user_playlist_follow_playlist(playlist.owner_id.clone(), playlist.id.clone())
+            .is_none()
+        {
             return;
         }
 

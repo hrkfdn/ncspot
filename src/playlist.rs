@@ -1,8 +1,8 @@
 use std::iter::Iterator;
 use std::sync::Arc;
 
-use queue::Queue;
 use library::Library;
+use queue::Queue;
 use track::Track;
 use traits::ListItem;
 

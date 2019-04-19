@@ -48,7 +48,7 @@ impl SearchView {
         events: EventManager,
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
-        library: Arc<Library>
+        library: Arc<Library>,
     ) -> SearchView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
@@ -72,7 +72,8 @@ impl SearchView {
         let pagination_albums = list_albums.get_pagination().clone();
         let list_artists = ListView::new(results_artists.clone(), queue.clone(), library.clone());
         let pagination_artists = list_artists.get_pagination().clone();
-        let list_playlists = ListView::new(results_playlists.clone(), queue.clone(), library.clone());
+        let list_playlists =
+            ListView::new(results_playlists.clone(), queue.clone(), library.clone());
         let pagination_playlists = list_playlists.get_pagination().clone();
 
         let tabs = TabView::new()

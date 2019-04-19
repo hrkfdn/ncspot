@@ -527,7 +527,10 @@ impl Spotify {
         })
     }
 
-    pub fn current_user_followed_artists(&self, last: Option<String>) -> Option<CursorBasedPage<FullArtist>> {
+    pub fn current_user_followed_artists(
+        &self,
+        last: Option<String>,
+    ) -> Option<CursorBasedPage<FullArtist>> {
         self.api_with_retry(|api| api.current_user_followed_artists(50, last.clone()))
             .map(|cp| cp.artists)
     }
