@@ -10,6 +10,7 @@ use traits::ListItem;
 pub struct Playlist {
     pub id: String,
     pub name: String,
+    pub owner_id: String,
     pub snapshot_id: String,
     pub tracks: Vec<Track>,
 }
@@ -55,7 +56,11 @@ impl ListItem for Playlist {
         }
     }
 
-    fn toggle_saved(&mut self, _library: Arc<Library>) {
-        // TODO
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_saved_playlist(self) {
+            library.delete_playlist(&self.id);
+        } else {
+            library.follow_playlist(self);
+        }
     }
 }

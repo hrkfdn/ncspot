@@ -140,6 +140,7 @@ impl Library {
         Self::_process_playlist(
             list.id.clone(),
             list.name.clone(),
+            list.owner.id.clone(),
             list.snapshot_id.clone(),
             spotify,
         )
@@ -149,6 +150,7 @@ impl Library {
         Self::_process_playlist(
             list.id.clone(),
             list.name.clone(),
+            list.owner.id.clone(),
             list.snapshot_id.clone(),
             spotify,
         )
@@ -157,6 +159,7 @@ impl Library {
     fn _process_playlist(
         id: String,
         name: String,
+        owner_id: String,
         snapshot_id: String,
         spotify: &Spotify,
     ) -> Playlist {
@@ -182,10 +185,12 @@ impl Library {
                 None => None,
             }
         }
+
         Playlist {
-            id: id.clone(),
-            name: name.clone(),
-            snapshot_id: snapshot_id.clone(),
+            id,
+            name,
+            owner_id,
+            snapshot_id,
             tracks: collected_tracks,
         }
     }
@@ -212,6 +217,10 @@ impl Library {
     }
 
     pub fn delete_playlist(&self, id: &str) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         let pos = {
             let store = self.playlists.read().expect("can't readlock playlists");
             store.iter().position(|ref i| i.id == id)
@@ -518,12 +527,14 @@ impl Library {
         }
 
         if api {
-            self.spotify.current_user_saved_tracks_add(
+            if self.spotify.current_user_saved_tracks_add(
                 tracks
                     .iter()
                     .map(|t| t.id.clone())
                     .collect()
-            );
+            ).is_none() {
+                return;
+            }
         }
 
         {
@@ -551,12 +562,14 @@ impl Library {
         }
 
         if api {
-            self.spotify.current_user_saved_tracks_delete(
+            if self.spotify.current_user_saved_tracks_delete(
                 tracks
                     .iter()
                     .map(|t| t.id.clone())
                     .collect()
-            );
+            ).is_none() {
+                return;
+            }
         }
 
         {
@@ -588,7 +601,9 @@ impl Library {
             return;
         }
 
-        self.spotify.current_user_saved_albums_add(vec![album.id.clone()]);
+        if self.spotify.current_user_saved_albums_add(vec![album.id.clone()]).is_none() {
+            return;
+        }
 
         album.load_tracks(self.spotify.clone());
 
@@ -611,7 +626,9 @@ impl Library {
             return;
         }
 
-        self.spotify.current_user_saved_albums_delete(vec![album.id.clone()]);
+        if self.spotify.current_user_saved_albums_delete(vec![album.id.clone()]).is_none() {
+            return;
+        }
 
         album.load_tracks(self.spotify.clone());
 
@@ -645,7 +662,9 @@ impl Library {
             return;
         }
 
-        self.spotify.user_follow_artists(vec![artist.id.clone()]);
+        if self.spotify.user_follow_artists(vec![artist.id.clone()]).is_none() {
+            return;
+        }
 
         {
             let mut store = self.artists.write().unwrap();
@@ -668,7 +687,9 @@ impl Library {
             return;
         }
 
-        self.spotify.user_unfollow_artists(vec![artist.id.clone()]);
+        if self.spotify.user_unfollow_artists(vec![artist.id.clone()]).is_none() {
+            return;
+        }
 
         {
             let mut store = self.artists.write().unwrap();
@@ -689,5 +710,24 @@ impl Library {
 
         let playlists = self.playlists.read().unwrap();
         playlists.iter().any(|p| p.id == playlist.id)
+    }
+
+    pub fn follow_playlist(&self, playlist: &Playlist) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
+        if self.spotify.user_playlist_follow_playlist(playlist.owner_id.clone(), playlist.id.clone()).is_none() {
+            return;
+        }
+
+        {
+            let mut store = self.playlists.write().unwrap();
+            if !store.iter().any(|p| p.id == playlist.id) {
+                store.insert(0, playlist.clone());
+            }
+        }
+
+        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 }

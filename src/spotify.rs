@@ -564,6 +564,10 @@ impl Spotify {
         self.api_with_retry(|api| api.current_user_saved_tracks_delete(ids.clone()))
     }
 
+    pub fn user_playlist_follow_playlist(&self, owner_id: String, id: String) -> Option<()> {
+        self.api_with_retry(|api| api.user_playlist_follow_playlist(&owner_id, &id, true))
+    }
+
     pub fn load(&self, track: &Track) {
         info!("loading track: {:?}", track);
         self.channel
