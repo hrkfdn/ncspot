@@ -48,21 +48,52 @@ impl Library {
         };
 
         {
-            // download playlists via web api in a background thread
             let library = library.clone();
             thread::spawn(move || {
-                // load cache (if existing)
-                library.load_caches();
+                let t_tracks = {
+                    let library = library.clone();
+                    thread::spawn(move || {
+                        library.load_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                        library.fetch_tracks();
+                        library.save_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                    })
+                };
 
-                library.fetch_artists();
-                library.fetch_tracks();
-                library.fetch_albums();
-                library.fetch_playlists();
+                let t_albums = {
+                    let library = library.clone();
+                    thread::spawn(move || {
+                        library.load_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                        library.fetch_albums();
+                        library.save_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                    })
+                };
+
+                let t_artists = {
+                    let library = library.clone();
+                    thread::spawn(move || {
+                        library.load_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
+                        library.fetch_artists();
+                    })
+                };
+
+                let t_playlists = {
+                    let library = library.clone();
+                    thread::spawn(move || {
+                        library.load_cache(config::cache_path(CACHE_PLAYLISTS), library.playlists.clone());
+                        library.fetch_playlists();
+                        library.save_cache(config::cache_path(CACHE_PLAYLISTS), library.playlists.clone());
+                    })
+                };
+
+                t_tracks.join().unwrap();
+                t_artists.join().unwrap();
 
                 library.populate_artists();
+                library.save_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
 
-                // re-cache for next startup
-                library.save_caches();
+                t_albums.join().unwrap();
+                t_playlists.join().unwrap();
+
                 let mut is_done = library.is_done.write().unwrap();
                 *is_done = true;
             });
@@ -98,25 +129,11 @@ impl Library {
         }
     }
 
-    fn load_caches(&self) {
-        self.load_cache(config::cache_path(CACHE_TRACKS), self.tracks.clone());
-        self.load_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
-        self.load_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
-        self.load_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
-    }
-
     fn save_cache<T: Serialize>(&self, cache_path: PathBuf, store: Arc<RwLock<Vec<T>>>) {
         match serde_json::to_string(&store.deref()) {
             Ok(contents) => std::fs::write(cache_path, contents).unwrap(),
             Err(e) => error!("could not write cache: {:?}", e),
         }
-    }
-
-    fn save_caches(&self) {
-        self.save_cache(config::cache_path(CACHE_TRACKS), self.tracks.clone());
-        self.save_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
-        self.save_cache(config::cache_path(CACHE_ARTISTS), self.artists.clone());
-        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 
     pub fn process_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
@@ -320,24 +337,18 @@ impl Library {
         }
     }
 
-    fn insert_artist(&self, track: &Track) {
+    fn insert_artist(&self, id: &String, name: &String) {
         let mut artists = self.artists.write().unwrap();
 
-        for (id, name) in track.artist_ids.iter().zip(track.artists.iter()) {
-            let artist = Artist {
+        if !artists.iter().any(|a| &a.id == id) {
+            artists.push(Artist {
                 id: id.clone(),
                 name: name.clone(),
                 url: "".into(),
-                albums: Some(Vec::new()),
+                albums: None,
                 tracks: Some(Vec::new()),
                 is_followed: false,
-            };
-
-            if artists.iter().any(|a| a.id == artist.id) {
-                continue;
-            }
-
-            artists.push(artist.into());
+            });
         }
     }
 
@@ -355,6 +366,22 @@ impl Library {
                 return;
             }
             let page = page.unwrap();
+
+            if page.offset == 0 {
+                // If first page matches the first items in store and total is
+                // identical, assume list is unchanged.
+
+                let store = self.albums.read().unwrap();
+
+                if page.total as usize == store.len() &&
+                    !page.items
+                        .iter()
+                        .enumerate()
+                        .any(|(i, a)| &a.album.id != &store[i].id)
+                {
+                    return;
+                }
+            }
 
             albums.extend(page.items.iter().map(|a| a.into()));
 
@@ -420,54 +447,29 @@ impl Library {
                 .collect();
         }
 
-        // Add artists that aren't followed but have saved tracks/albums
+        // Add artists that aren't followed but have saved tracks
         {
             let tracks = self.tracks.read().unwrap();
-            for track in tracks.iter() {
-                self.insert_artist(track);
+            let mut track_artists: Vec<(&String, &String)> = tracks
+                .iter()
+                .flat_map(|t| t.artist_ids.iter().zip(t.artists.iter()))
+                .collect();
+            track_artists.dedup_by(|a, b| a.0 == b.0);
+
+            for (id, name) in track_artists.iter() {
+                self.insert_artist(id, name);
             }
         }
 
         let mut artists = self.artists.write().unwrap();
         let mut lookup: HashMap<String, Option<usize>> = HashMap::new();
 
+        // Make sure only saved tracks are played when playing artists
         for artist in artists.iter_mut() {
-            artist.albums = Some(Vec::new());
             artist.tracks = Some(Vec::new());
         }
 
         artists.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
-
-        // Add saved albums to artists
-        {
-            let albums = self.albums.read().unwrap();
-            for album in albums.iter() {
-                for artist_id in &album.artist_ids {
-                    let index = if let Some(i) = lookup.get(artist_id).cloned() {
-                        i
-                    } else {
-                        let i = artists.iter().position(|a| &a.id == artist_id);
-                        lookup.insert(artist_id.clone(), i);
-                        i
-                    };
-
-                    if let Some(i) = index {
-                        let mut artist = artists.get_mut(i).unwrap();
-                        if artist.albums.is_none() {
-                            artist.albums = Some(Vec::new());
-                        }
-
-                        if let Some(albums) = artist.albums.as_mut() {
-                            if albums.iter().any(|a| a.id == album.id) {
-                                continue;
-                            }
-
-                            albums.push(album.clone());
-                        }
-                    }
-                }
-            }
-        }
 
         // Add saved tracks to artists
         {
