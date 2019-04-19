@@ -28,6 +28,7 @@ pub struct Library {
     pub albums: Arc<RwLock<Vec<Album>>>,
     pub artists: Arc<RwLock<Vec<Artist>>>,
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
+    is_done: Arc<RwLock<bool>>,
     ev: EventManager,
     spotify: Arc<Spotify>,
     pub use_nerdfont: bool,
@@ -40,6 +41,7 @@ impl Library {
             albums: Arc::new(RwLock::new(Vec::new())),
             artists: Arc::new(RwLock::new(Vec::new())),
             playlists: Arc::new(RwLock::new(Vec::new())),
+            is_done: Arc::new(RwLock::new(false)),
             ev: ev.clone(),
             spotify,
             use_nerdfont,
@@ -61,6 +63,8 @@ impl Library {
 
                 // re-cache for next startup
                 library.save_caches();
+                let mut is_done = library.is_done.write().unwrap();
+                *is_done = true;
             });
         }
 
@@ -498,11 +502,19 @@ impl Library {
     }
 
     pub fn is_saved_track(&self, track: &Track) -> bool {
+        if !*self.is_done.read().unwrap() {
+            return false;
+        }
+
         let tracks = self.tracks.read().unwrap();
         tracks.iter().any(|t| t.id == track.id)
     }
 
     pub fn save_tracks(&self, tracks: Vec<&Track>, api: bool) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         if api {
             self.spotify.current_user_saved_tracks_add(
                 tracks
@@ -532,6 +544,10 @@ impl Library {
     }
 
     pub fn unsave_tracks(&self, tracks: Vec<&Track>, api: bool) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         if api {
             self.spotify.current_user_saved_tracks_delete(
                 tracks
@@ -557,11 +573,19 @@ impl Library {
     }
 
     pub fn is_saved_album(&self, album: &Album) -> bool {
+        if !*self.is_done.read().unwrap() {
+            return false;
+        }
+
         let albums = self.albums.read().unwrap();
         albums.iter().any(|a| a.id == album.id)
     }
 
     pub fn save_album(&self, album: &mut Album) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         self.spotify.current_user_saved_albums_add(vec![album.id.clone()]);
 
         album.load_tracks(self.spotify.clone());
@@ -581,6 +605,10 @@ impl Library {
     }
 
     pub fn unsave_album(&self, album: &mut Album) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         self.spotify.current_user_saved_albums_delete(vec![album.id.clone()]);
 
         album.load_tracks(self.spotify.clone());
@@ -602,11 +630,19 @@ impl Library {
     }
 
     pub fn is_followed_artist(&self, artist: &Artist) -> bool {
+        if !*self.is_done.read().unwrap() {
+            return false;
+        }
+
         let artists = self.artists.read().unwrap();
         artists.iter().any(|a| a.id == artist.id && a.is_followed)
     }
 
     pub fn follow_artist(&self, artist: &Artist) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         self.spotify.user_follow_artists(vec![artist.id.clone()]);
 
         {
@@ -626,6 +662,10 @@ impl Library {
     }
 
     pub fn unfollow_artist(&self, artist: &Artist) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
         self.spotify.user_unfollow_artists(vec![artist.id.clone()]);
 
         {
@@ -641,6 +681,10 @@ impl Library {
     }
 
     pub fn is_saved_playlist(&self, playlist: &Playlist) -> bool {
+        if !*self.is_done.read().unwrap() {
+            return false;
+        }
+
         let playlists = self.playlists.read().unwrap();
         playlists.iter().any(|p| p.id == playlist.id)
     }
