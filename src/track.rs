@@ -1,9 +1,11 @@
 use std::fmt;
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::FullAlbum;
-use rspotify::spotify::model::track::{FullTrack, SimplifiedTrack};
+use rspotify::spotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 
+use library::Library;
 use queue::Queue;
 use traits::ListItem;
 
@@ -15,10 +17,12 @@ pub struct Track {
     pub disc_number: i32,
     pub duration: u32,
     pub artists: Vec<String>,
+    pub artist_ids: Vec<String>,
     pub album: String,
     pub album_artists: Vec<String>,
     pub cover_url: String,
     pub url: String,
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 impl Track {
@@ -27,6 +31,11 @@ impl Track {
             .artists
             .iter()
             .map(|ref artist| artist.name.clone())
+            .collect::<Vec<String>>();
+        let artist_ids = track
+            .artists
+            .iter()
+            .map(|ref artist| artist.id.clone())
             .collect::<Vec<String>>();
         let album_artists = album
             .artists
@@ -46,10 +55,12 @@ impl Track {
             disc_number: track.disc_number,
             duration: track.duration_ms,
             artists,
+            artist_ids,
             album: album.name.clone(),
             album_artists,
             cover_url,
             url: track.uri.clone(),
+            added_at: None,
         }
     }
 
@@ -66,6 +77,11 @@ impl From<&FullTrack> for Track {
             .artists
             .iter()
             .map(|ref artist| artist.name.clone())
+            .collect::<Vec<String>>();
+        let artist_ids = track
+            .artists
+            .iter()
+            .map(|ref artist| artist.id.clone())
             .collect::<Vec<String>>();
         let album_artists = track
             .album
@@ -86,11 +102,21 @@ impl From<&FullTrack> for Track {
             disc_number: track.disc_number,
             duration: track.duration_ms,
             artists,
+            artist_ids,
             album: track.album.name.clone(),
             album_artists,
             cover_url,
             url: track.uri.clone(),
+            added_at: None,
         }
+    }
+}
+
+impl From<&SavedTrack> for Track {
+    fn from(st: &SavedTrack) -> Self {
+        let mut track: Self = (&st.track).into();
+        track.added_at = Some(st.added_at);
+        track
     }
 }
 
@@ -122,8 +148,17 @@ impl ListItem for Track {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        self.duration_str()
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let saved = if library.is_saved_track(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        format!("{}{}", saved, self.duration_str())
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -133,5 +168,13 @@ impl ListItem for Track {
 
     fn queue(&mut self, queue: Arc<Queue>) {
         queue.append(self);
+    }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_saved_track(self) {
+            library.unsave_tracks(vec![self], true);
+        } else {
+            library.save_tracks(vec![self], true);
+        }
     }
 }

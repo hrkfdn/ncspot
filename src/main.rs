@@ -31,7 +31,6 @@ extern crate rand;
 use std::fs;
 use std::process;
 use std::sync::Arc;
-use std::thread;
 
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
@@ -45,7 +44,8 @@ mod authentication;
 mod commands;
 mod config;
 mod events;
-mod playlists;
+mod library;
+mod playlist;
 mod queue;
 mod spotify;
 mod theme;
@@ -58,7 +58,7 @@ mod mpris;
 
 use commands::CommandManager;
 use events::{Event, EventManager};
-use playlists::Playlists;
+use library::Library;
 use spotify::PlayerEvent;
 
 fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
@@ -156,25 +156,14 @@ fn main() {
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
 
-    let playlists = Arc::new(Playlists::new(&event_manager, &spotify));
-
-    {
-        // download playlists via web api in a background thread
-        let playlists = playlists.clone();
-        thread::spawn(move || {
-            // load cache (if existing)
-            playlists.load_cache();
-
-            // fetch or update cached playlists
-            playlists.fetch_playlists();
-
-            // re-cache for next startup
-            playlists.save_cache();
-        });
-    }
+    let library = Arc::new(Library::new(
+        &event_manager,
+        spotify.clone(),
+        cfg.use_nerdfont.unwrap_or(false),
+    ));
 
     let mut cmd_manager = CommandManager::new();
-    cmd_manager.register_all(spotify.clone(), queue.clone(), playlists.clone());
+    cmd_manager.register_all(spotify.clone(), queue.clone(), library.clone());
 
     let cmd_manager = Arc::new(cmd_manager);
     CommandManager::register_keybindings(
@@ -183,11 +172,16 @@ fn main() {
         cfg.keybindings.clone(),
     );
 
-    let search = ui::search::SearchView::new(event_manager.clone(), spotify.clone(), queue.clone());
+    let search = ui::search::SearchView::new(
+        event_manager.clone(),
+        spotify.clone(),
+        queue.clone(),
+        library.clone(),
+    );
 
-    let playlistsview = ui::playlists::PlaylistView::new(&playlists, queue.clone());
+    let libraryview = ui::library::LibraryView::new(queue.clone(), library.clone());
 
-    let queueview = ui::queue::QueueView::new(queue.clone(), playlists.clone());
+    let queueview = ui::queue::QueueView::new(queue.clone(), library.clone());
 
     let status = ui::statusbar::StatusBar::new(
         queue.clone(),
@@ -197,7 +191,7 @@ fn main() {
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_id("search"), "Search")
-        .view("playlists", playlistsview.with_id("playlists"), "Playlists")
+        .view("library", libraryview.with_id("library"), "Library")
         .view("queue", queueview, "Queue");
 
     // initial view is queue

@@ -13,7 +13,8 @@ use album::Album;
 use artist::Artist;
 use commands::CommandResult;
 use events::EventManager;
-use playlists::{Playlist, Playlists};
+use library::Library;
+use playlist::Playlist;
 use queue::Queue;
 use spotify::{Spotify, URIType};
 use track::Track;
@@ -43,7 +44,12 @@ type SearchHandler<I> =
 pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";
 impl SearchView {
-    pub fn new(events: EventManager, spotify: Arc<Spotify>, queue: Arc<Queue>) -> SearchView {
+    pub fn new(
+        events: EventManager,
+        spotify: Arc<Spotify>,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+    ) -> SearchView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
         let results_artists = Arc::new(RwLock::new(Vec::new()));
@@ -60,13 +66,14 @@ impl SearchView {
             })
             .with_id(EDIT_ID);
 
-        let list_tracks = ListView::new(results_tracks.clone(), queue.clone());
+        let list_tracks = ListView::new(results_tracks.clone(), queue.clone(), library.clone());
         let pagination_tracks = list_tracks.get_pagination().clone();
-        let list_albums = ListView::new(results_albums.clone(), queue.clone());
+        let list_albums = ListView::new(results_albums.clone(), queue.clone(), library.clone());
         let pagination_albums = list_albums.get_pagination().clone();
-        let list_artists = ListView::new(results_artists.clone(), queue.clone());
+        let list_artists = ListView::new(results_artists.clone(), queue.clone(), library.clone());
         let pagination_artists = list_artists.get_pagination().clone();
-        let list_playlists = ListView::new(results_playlists.clone(), queue.clone());
+        let list_playlists =
+            ListView::new(results_playlists.clone(), queue.clone(), library.clone());
         let pagination_playlists = list_playlists.get_pagination().clone();
 
         let tabs = TabView::new()
@@ -218,7 +225,7 @@ impl SearchView {
         _append: bool,
     ) -> u32 {
         if let Some(results) = spotify.playlist(&query) {
-            let pls = vec![Playlists::process_full_playlist(&results, &&spotify)];
+            let pls = vec![Library::process_full_playlist(&results, &&spotify)];
             let mut r = playlists.write().unwrap();
             *r = pls;
             return 1;
@@ -238,7 +245,7 @@ impl SearchView {
                 .playlists
                 .items
                 .iter()
-                .map(|sp| Playlists::process_simplified_playlist(sp, &&spotify))
+                .map(|sp| Library::process_simplified_playlist(sp, &&spotify))
                 .collect();
             let mut r = playlists.write().unwrap();
 

@@ -5,7 +5,7 @@ use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
 
-use playlists::Playlists;
+use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
 use traits::ViewExt;
@@ -47,7 +47,7 @@ impl CommandManager {
         &mut self,
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
-        playlists: Arc<Playlists>,
+        library: Arc<Library>,
     ) {
         self.register_aliases("quit", vec!["q", "x"]);
         self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
@@ -58,6 +58,7 @@ impl CommandManager {
         self.register_command("shift", None);
         self.register_command("play", None);
         self.register_command("queue", None);
+        self.register_command("save", None);
         self.register_command("delete", None);
 
         self.register_command(
@@ -113,14 +114,13 @@ impl CommandManager {
         }
 
         {
-            let playlists = playlists.clone();
+            let library = library.clone();
             self.register_command(
                 "playlists",
                 Some(Box::new(move |_s, args| {
                     if let Some(arg) = args.get(0) {
                         if arg == "update" {
-                            playlists.fetch_playlists();
-                            playlists.save_cache();
+                            library.update_playlists();
                         }
                     }
                     Ok(None)
@@ -294,6 +294,8 @@ impl CommandManager {
         kb.insert("c".into(), "clear".into());
         kb.insert(" ".into(), "queue".into());
         kb.insert("Enter".into(), "play".into());
+        kb.insert("s".into(), "save".into());
+        kb.insert("Ctrl+s".into(), "save queue".into());
         kb.insert("d".into(), "delete".into());
         kb.insert("/".into(), "focus search".into());
         kb.insert(".".into(), "seek +500".into());
@@ -303,7 +305,7 @@ impl CommandManager {
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());
-        kb.insert("F3".into(), "focus playlists".into());
+        kb.insert("F3".into(), "focus library".into());
 
         kb.insert("Up".into(), "move up".into());
         kb.insert("Down".into(), "move down".into());
@@ -362,11 +364,19 @@ impl CommandManager {
         if split.clone().count() == 2 {
             let modifier = split.next().unwrap();
             let key = split.next().unwrap();
-            if let Event::Key(parsed) = Self::parse_key(key) {
+            let parsed = Self::parse_key(key);
+            if let Event::Key(parsed) = parsed {
                 match modifier {
                     "Shift" => Some(Event::Shift(parsed)),
                     "Alt" => Some(Event::Alt(parsed)),
                     "Ctrl" => Some(Event::Ctrl(parsed)),
+                    _ => None,
+                }
+            } else if let Event::Char(parsed) = parsed {
+                match modifier {
+                    "Shift" => Some(Event::Char(parsed.to_uppercase().next().unwrap())),
+                    "Alt" => Some(Event::AltChar(parsed)),
+                    "Ctrl" => Some(Event::CtrlChar(parsed)),
                     _ => None,
                 }
             } else {

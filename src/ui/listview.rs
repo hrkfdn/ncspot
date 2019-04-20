@@ -10,7 +10,9 @@ use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use commands::CommandResult;
+use library::Library;
 use queue::Queue;
+use track::Track;
 use traits::{ListItem, ViewExt};
 
 pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
@@ -83,11 +85,12 @@ pub struct ListView<I: ListItem> {
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
+    library: Arc<Library>,
     pagination: Pagination<I>,
 }
 
 impl<I: ListItem> ListView<I> {
-    pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>) -> Self {
+    pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         Self {
             content,
             last_content_len: 0,
@@ -95,6 +98,7 @@ impl<I: ListItem> ListView<I> {
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
+            library,
             pagination: Pagination::default(),
         }
     }
@@ -131,6 +135,19 @@ impl<I: ListItem> ListView<I> {
         let new = self.selected as i32 + delta;
         self.move_focus_to(max(new, 0) as usize);
     }
+
+    fn attempt_play_all_tracks(&self) -> bool {
+        let content = self.content.read().unwrap();
+        let any = &(*content) as &dyn std::any::Any;
+        if let Some(tracks) = any.downcast_ref::<Vec<Track>>() {
+            let tracks: Vec<&Track> = tracks.iter().collect();
+            let index = self.queue.append_next(tracks);
+            self.queue.play(index + self.selected, true);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<I: ListItem> View for ListView<I> {
@@ -160,7 +177,7 @@ impl<I: ListItem> View for ListView<I> {
             };
 
             let left = item.display_left();
-            let right = item.display_right();
+            let right = item.display_right(self.library.clone());
 
             // draw left string
             printer.with_color(style, |printer| {
@@ -256,7 +273,7 @@ impl<I: ListItem> View for ListView<I> {
     }
 }
 
-impl<I: ListItem> ViewExt for ListView<I> {
+impl<I: ListItem + Clone> ViewExt for ListView<I> {
     fn on_command(
         &mut self,
         _s: &mut Cursive,
@@ -264,10 +281,13 @@ impl<I: ListItem> ViewExt for ListView<I> {
         args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
-            let mut content = self.content.write().unwrap();
-            if let Some(item) = content.get_mut(self.selected) {
-                item.play(self.queue.clone());
+            if !self.attempt_play_all_tracks() {
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    item.play(self.queue.clone());
+                }
             }
+
             return Ok(CommandResult::Consumed(None));
         }
 
@@ -277,6 +297,17 @@ impl<I: ListItem> ViewExt for ListView<I> {
                 item.queue(self.queue.clone());
             }
             return Ok(CommandResult::Consumed(None));
+        }
+
+        if cmd == "save" {
+            let mut item = {
+                let content = self.content.read().unwrap();
+                content.get(self.selected).cloned()
+            };
+
+            if let Some(item) = item.as_mut() {
+                item.toggle_saved(self.library.clone());
+            }
         }
 
         if cmd == "move" {

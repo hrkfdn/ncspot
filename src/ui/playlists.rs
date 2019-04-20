@@ -1,47 +1,43 @@
 use std::sync::Arc;
 
-use cursive::traits::Identifiable;
 use cursive::view::ViewWrapper;
-use cursive::views::{Dialog, IdView};
+use cursive::views::Dialog;
 use cursive::Cursive;
 
 use commands::CommandResult;
-use playlists::{Playlist, Playlists};
+use library::Library;
+use playlist::Playlist;
 use queue::Queue;
 use traits::ViewExt;
 use ui::listview::ListView;
 use ui::modal::Modal;
 
-pub struct PlaylistView {
-    list: IdView<ListView<Playlist>>,
-    playlists: Playlists,
+pub struct PlaylistsView {
+    list: ListView<Playlist>,
+    library: Arc<Library>,
 }
 
-pub const LIST_ID: &str = "playlist_list";
-impl PlaylistView {
-    pub fn new(playlists: &Playlists, queue: Arc<Queue>) -> PlaylistView {
-        let list = ListView::new(playlists.store.clone(), queue).with_id(LIST_ID);
-
-        PlaylistView {
-            list,
-            playlists: playlists.clone(),
+impl PlaylistsView {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
+        Self {
+            list: ListView::new(library.playlists.clone(), queue.clone(), library.clone()),
+            library,
         }
     }
 
     pub fn delete_dialog(&mut self) -> Option<Modal<Dialog>> {
-        let list = self.list.get_mut();
-        let store = self.playlists.items();
-        let current = store.get(list.get_selected_index());
+        let store = self.library.items();
+        let current = store.get(self.list.get_selected_index());
 
         if let Some(playlist) = current {
-            let playlists = self.playlists.clone();
+            let library = self.library.clone();
             let id = playlist.id.clone();
             let dialog = Dialog::text("Are you sure you want to delete this playlist?")
                 .padding((1, 1, 1, 0))
                 .title("Delete playlist")
                 .dismiss_button("No")
                 .button("Yes", move |s: &mut Cursive| {
-                    playlists.delete_playlist(&id);
+                    library.delete_playlist(&id);
                     s.pop_layer();
                 });
             Some(Modal::new(dialog))
@@ -51,11 +47,11 @@ impl PlaylistView {
     }
 }
 
-impl ViewWrapper for PlaylistView {
-    wrap_impl!(self.list: IdView<ListView<Playlist>>);
+impl ViewWrapper for PlaylistsView {
+    wrap_impl!(self.list: ListView<Playlist>);
 }
 
-impl ViewExt for PlaylistView {
+impl ViewExt for PlaylistsView {
     fn on_command(
         &mut self,
         s: &mut Cursive,

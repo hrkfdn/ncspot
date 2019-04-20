@@ -1,8 +1,10 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rspotify::spotify::model::album::{FullAlbum, SimplifiedAlbum};
+use chrono::{DateTime, Utc};
+use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
+use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -13,14 +15,16 @@ pub struct Album {
     pub id: String,
     pub title: String,
     pub artists: Vec<String>,
+    pub artist_ids: Vec<String>,
     pub year: String,
     pub cover_url: Option<String>,
     pub url: String,
     pub tracks: Option<Vec<Track>>,
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 impl Album {
-    fn load_tracks(&mut self, spotify: Arc<Spotify>) {
+    pub fn load_tracks(&mut self, spotify: Arc<Spotify>) {
         if self.tracks.is_some() {
             return;
         }
@@ -43,10 +47,12 @@ impl From<&SimplifiedAlbum> for Album {
             id: sa.id.clone(),
             title: sa.name.clone(),
             artists: sa.artists.iter().map(|sa| sa.name.clone()).collect(),
+            artist_ids: sa.artists.iter().map(|sa| sa.id.clone()).collect(),
             year: sa.release_date.split('-').next().unwrap().into(),
             cover_url: sa.images.get(0).map(|i| i.url.clone()),
             url: sa.uri.clone(),
             tracks: None,
+            added_at: None,
         }
     }
 }
@@ -65,11 +71,21 @@ impl From<&FullAlbum> for Album {
             id: fa.id.clone(),
             title: fa.name.clone(),
             artists: fa.artists.iter().map(|sa| sa.name.clone()).collect(),
+            artist_ids: fa.artists.iter().map(|sa| sa.id.clone()).collect(),
             year: fa.release_date.split('-').next().unwrap().into(),
             cover_url: fa.images.get(0).map(|i| i.url.clone()),
             url: fa.uri.clone(),
             tracks,
+            added_at: None,
         }
+    }
+}
+
+impl From<&SavedAlbum> for Album {
+    fn from(sa: &SavedAlbum) -> Self {
+        let mut album: Self = (&sa.album).into();
+        album.added_at = Some(sa.added_at);
+        album
     }
 }
 
@@ -112,8 +128,17 @@ impl ListItem for Album {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        self.year.clone()
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let saved = if library.is_saved_album(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        format!("{}{}", saved, self.year)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -133,6 +158,14 @@ impl ListItem for Album {
             for t in tracks {
                 queue.append(&t);
             }
+        }
+    }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_saved_album(self) {
+            library.unsave_album(self);
+        } else {
+            library.save_album(self);
         }
     }
 }

@@ -1,9 +1,10 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rspotify::spotify::model::artist::FullArtist;
+use rspotify::spotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use album::Album;
+use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
@@ -15,11 +16,16 @@ pub struct Artist {
     pub name: String,
     pub url: String,
     pub albums: Option<Vec<Album>>,
+    pub tracks: Option<Vec<Track>>,
+    pub is_followed: bool,
 }
 
 impl Artist {
     fn load_albums(&mut self, spotify: Arc<Spotify>) {
-        if self.albums.is_some() {
+        if let Some(albums) = self.albums.as_mut() {
+            for album in albums {
+                album.load_tracks(spotify.clone());
+            }
             return;
         }
 
@@ -41,7 +47,9 @@ impl Artist {
     }
 
     fn tracks(&self) -> Option<Vec<&Track>> {
-        if let Some(albums) = self.albums.as_ref() {
+        if let Some(tracks) = self.tracks.as_ref() {
+            Some(tracks.iter().collect())
+        } else if let Some(albums) = self.albums.as_ref() {
             Some(
                 albums
                     .iter()
@@ -55,6 +63,19 @@ impl Artist {
     }
 }
 
+impl From<&SimplifiedArtist> for Artist {
+    fn from(sa: &SimplifiedArtist) -> Self {
+        Self {
+            id: sa.id.clone(),
+            name: sa.name.clone(),
+            url: sa.uri.clone(),
+            albums: None,
+            tracks: None,
+            is_followed: false,
+        }
+    }
+}
+
 impl From<&FullArtist> for Artist {
     fn from(fa: &FullArtist) -> Self {
         Self {
@@ -62,6 +83,8 @@ impl From<&FullArtist> for Artist {
             name: fa.name.clone(),
             url: fa.uri.clone(),
             albums: None,
+            tracks: None,
+            is_followed: false,
         }
     }
 }
@@ -99,8 +122,24 @@ impl ListItem for Artist {
         format!("{}", self)
     }
 
-    fn display_right(&self) -> String {
-        "".into()
+    fn display_right(&self, library: Arc<Library>) -> String {
+        let followed = if library.is_followed_artist(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+
+        let tracks = if let Some(tracks) = self.tracks.as_ref() {
+            format!("{:>3} saved tracks", tracks.len())
+        } else {
+            "".into()
+        };
+
+        format!("{}{}", followed, tracks)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -119,6 +158,14 @@ impl ListItem for Artist {
             for t in tracks {
                 queue.append(t);
             }
+        }
+    }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        if library.is_followed_artist(self) {
+            library.unfollow_artist(self);
+        } else {
+            library.follow_artist(self);
         }
     }
 }
