@@ -75,7 +75,7 @@ impl QueueView {
         });
 
         let dialog = Dialog::new()
-            .title("Save to existing or new playlist?")
+            .title("Create new or overwrite existing playlist?")
             .dismiss_button("Cancel")
             .padding((1, 1, 1, 0))
             .content(ScrollView::new(list_select));

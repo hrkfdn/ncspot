@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use cursive::traits::Boxable;
 use cursive::view::Identifiable;
 use cursive::views::*;
 use cursive::{CbSink, Cursive};
@@ -20,10 +21,16 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
                 .title("Spotify login")
                 .content(
                     ListView::new()
-                        .child("Username", EditView::new().with_id("spotify_user"))
+                        .child(
+                            "Username",
+                            EditView::new().with_id("spotify_user").fixed_width(18),
+                        )
                         .child(
                             "Password",
-                            EditView::new().secret().with_id("spotify_password"),
+                            EditView::new()
+                                .secret()
+                                .with_id("spotify_password")
+                                .fixed_width(18),
                         ),
                 )
                 .button("Login", |s| {

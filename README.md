@@ -27,8 +27,6 @@ future. Contributions welcome, but please be kind ;)
 ## Usage
 
 * Build using `cargo build --release`
-* The initial screen is the debug log. Press `F1` for the queue and `F2` to
-  search for a track. More key bindings are described below.
 * For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
 
 ### Key Bindings
@@ -40,11 +38,12 @@ have them configurable.
   * `F1`: Queue
     * `c` clears the entire queue
     * `d` deletes the currently selected track
-    * `s` opens a dialog to save the queue to a playlist
+    * `Ctrl-s` opens a dialog to save the queue to a playlist
   * `F2`: Search
-  * `F3`: Playlists
+  * `F3`: Library
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
+* `s` will save or remove the currently selected track to your library
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
 * `Shift-r` updates the playlist cache
