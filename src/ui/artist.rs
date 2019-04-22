@@ -63,7 +63,11 @@ impl ArtistView {
             tabs.add_tab(
                 "tracks",
                 "Saved Tracks",
-                ListView::new(Arc::new(RwLock::new(tracks)), queue.clone(), library.clone()),
+                ListView::new(
+                    Arc::new(RwLock::new(tracks)),
+                    queue.clone(),
+                    library.clone(),
+                ),
             );
         }
 
@@ -76,7 +80,11 @@ impl ArtistView {
         tabs.add_tab(
             "albums",
             "Albums",
-            ListView::new(Arc::new(RwLock::new(albums)), queue.clone(), library.clone()),
+            ListView::new(
+                Arc::new(RwLock::new(albums)),
+                queue.clone(),
+                library.clone(),
+            ),
         );
 
         tabs.add_tab(
@@ -85,10 +93,7 @@ impl ArtistView {
             ListView::new(related.clone(), queue.clone(), library.clone()),
         );
 
-        Self {
-            artist,
-            tabs
-        }
+        Self { artist, tabs }
     }
 }
 

@@ -358,16 +358,14 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 if arg == "album" {
                     if let Some(album) = item.album(queue.clone()) {
-                        let view = AlbumView::new(queue, library, &album)
-                            .as_boxed_view_ext();
+                        let view = AlbumView::new(queue, library, &album).as_boxed_view_ext();
                         return Ok(CommandResult::View(view));
                     }
                 }
 
                 if arg == "artist" {
                     if let Some(artist) = item.artist() {
-                        let view = ArtistView::new(queue, library, &artist)
-                            .as_boxed_view_ext();
+                        let view = ArtistView::new(queue, library, &artist).as_boxed_view_ext();
                         return Ok(CommandResult::View(view));
                     }
                 }

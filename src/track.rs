@@ -194,6 +194,9 @@ impl ListItem for Track {
     }
 
     fn artist(&self) -> Option<Artist> {
-        Some(Artist::new(self.artist_ids[0].clone(), self.artists[0].clone()))
+        Some(Artist::new(
+            self.artist_ids[0].clone(),
+            self.artists[0].clone(),
+        ))
     }
 }

@@ -76,12 +76,7 @@ impl Layout {
         self.focus = Some(s);
     }
 
-    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(
-        mut self,
-        id: S,
-        view: T,
-        title: S,
-    ) -> Self {
+    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T, title: S) -> Self {
         (&mut self).add_view(id, view, title);
         self
     }
@@ -120,10 +115,7 @@ impl Layout {
 
     pub fn push_view(&mut self, view: Box<dyn ViewExt>) {
         let title = view.title();
-        let screen = Screen {
-            title,
-            view
-        };
+        let screen = Screen { title, view };
 
         self.stack.push(screen);
     }

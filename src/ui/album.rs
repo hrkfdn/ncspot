@@ -29,7 +29,8 @@ impl AlbumView {
             Vec::new()
         };
 
-        let artists = album.artist_ids
+        let artists = album
+            .artist_ids
             .iter()
             .zip(album.artists.iter())
             .map(|(id, name)| Artist::new(id.clone(), name.clone()))
@@ -39,18 +40,23 @@ impl AlbumView {
             .tab(
                 "tracks",
                 "Tracks",
-                ListView::new(Arc::new(RwLock::new(tracks)), queue.clone(), library.clone()),
+                ListView::new(
+                    Arc::new(RwLock::new(tracks)),
+                    queue.clone(),
+                    library.clone(),
+                ),
             )
             .tab(
                 "artists",
                 "Artists",
-                ListView::new(Arc::new(RwLock::new(artists)), queue.clone(), library.clone()),
+                ListView::new(
+                    Arc::new(RwLock::new(artists)),
+                    queue.clone(),
+                    library.clone(),
+                ),
             );
 
-        Self {
-            album,
-            tabs
-        }
+        Self { album, tabs }
     }
 }
 
