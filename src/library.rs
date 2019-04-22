@@ -370,14 +370,9 @@ impl Library {
         let mut artists = self.artists.write().unwrap();
 
         if !artists.iter().any(|a| &a.id == id) {
-            artists.push(Artist {
-                id: id.clone(),
-                name: name.clone(),
-                url: "".into(),
-                albums: None,
-                tracks: Some(Vec::new()),
-                is_followed: false,
-            });
+            let mut artist = Artist::new(id.clone(), name.clone());
+            artist.tracks = Some(Vec::new());
+            artists.push(artist);
         }
     }
 

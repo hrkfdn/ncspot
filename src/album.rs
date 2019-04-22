@@ -4,11 +4,13 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
+use artist::Artist;
 use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
-use traits::ListItem;
+use traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use ui::album::AlbumView;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Album {
@@ -167,5 +169,13 @@ impl ListItem for Album {
         } else {
             library.save_album(self);
         }
+    }
+
+    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+        Some(AlbumView::new(queue, library, self).as_boxed_view_ext())
+    }
+
+    fn artist(&self) -> Option<Artist> {
+        Some(Artist::new(self.artist_ids[0].clone(), self.artists[0].clone()))
     }
 }
