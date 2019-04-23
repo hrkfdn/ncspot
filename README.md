@@ -44,6 +44,10 @@ have them configurable.
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `s` will save or remove the currently selected track to your library
+* `o` will open a detail view for the selected item
+* `a` will open the album view for the selected item
+* `A` will open the artist view for the selected item
+* `Backspace` closes the current view
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
 * `Shift-r` updates the playlist cache
