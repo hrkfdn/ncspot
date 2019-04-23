@@ -51,7 +51,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
                     }));
                     s.quit();
                 })
-                .button("Quit", |s| s.quit());
+                .button("Quit", Cursive::quit);
             s.pop_layer();
             s.add_layer(login_view);
         })
@@ -64,7 +64,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
             // not a dialog to let people copy & paste the URL
             let url_notice = TextView::new(format!("Browse to {}", &urls["login_url"]));
 
-            let controls = Button::new("Quit", |s| s.quit());
+            let controls = Button::new("Quit", Cursive::quit);
 
             let login_view = LinearLayout::new(cursive::direction::Orientation::Vertical)
                 .child(url_notice)
@@ -75,7 +75,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
             s.pop_layer();
             s.add_layer(login_view)
         })
-        .button("Quit", |s| s.quit());
+        .button("Quit", Cursive::quit);
 
     login_cursive.add_layer(info_view);
     login_cursive.run();

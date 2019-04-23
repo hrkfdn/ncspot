@@ -354,7 +354,7 @@ impl Library {
         let mut store = self.artists.write().unwrap();
 
         for artist in artists.iter_mut() {
-            let pos = store.iter().position(|a| &a.id == &artist.id);
+            let pos = store.iter().position(|a| a.id == artist.id);
             if let Some(i) = pos {
                 store[i].is_followed = true;
                 continue;
@@ -366,11 +366,11 @@ impl Library {
         }
     }
 
-    fn insert_artist(&self, id: &String, name: &String) {
+    fn insert_artist(&self, id: &str, name: &str) {
         let mut artists = self.artists.write().unwrap();
 
-        if !artists.iter().any(|a| &a.id == id) {
-            let mut artist = Artist::new(id.clone(), name.clone());
+        if !artists.iter().any(|a| a.id == id) {
+            let mut artist = Artist::new(id.to_string(), name.to_string());
             artist.tracks = Some(Vec::new());
             artists.push(artist);
         }
@@ -402,7 +402,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, a)| &a.album.id != &store[i].id)
+                        .any(|(i, a)| a.album.id != store[i].id)
                 {
                     return;
                 }
@@ -446,7 +446,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, t)| &t.track.id != &store[i].id)
+                        .any(|(i, t)| t.track.id != store[i].id)
                 {
                     return;
                 }
@@ -539,14 +539,13 @@ impl Library {
             return;
         }
 
-        if api {
-            if self
+        if api
+            && self
                 .spotify
                 .current_user_saved_tracks_add(tracks.iter().map(|t| t.id.clone()).collect())
                 .is_none()
-            {
-                return;
-            }
+        {
+            return;
         }
 
         {
@@ -573,14 +572,13 @@ impl Library {
             return;
         }
 
-        if api {
-            if self
+        if api
+            && self
                 .spotify
                 .current_user_saved_tracks_delete(tracks.iter().map(|t| t.id.clone()).collect())
                 .is_none()
-            {
-                return;
-            }
+        {
+            return;
         }
 
         {

@@ -43,7 +43,7 @@ use events::{Event, EventManager};
 use track::Track;
 
 enum WorkerCommand {
-    Load(Track),
+    Load(Box<Track>),
     Play,
     Pause,
     Stop,
@@ -585,7 +585,7 @@ impl Spotify {
     pub fn load(&self, track: &Track) {
         info!("loading track: {:?}", track);
         self.channel
-            .unbounded_send(WorkerCommand::Load(track.clone()))
+            .unbounded_send(WorkerCommand::Load(Box::new(track.clone())))
             .unwrap();
     }
 

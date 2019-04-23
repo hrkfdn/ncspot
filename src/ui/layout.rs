@@ -125,7 +125,7 @@ impl Layout {
     }
 
     fn get_current_screen(&self) -> Option<&Screen> {
-        if self.stack.len() > 0 {
+        if !self.stack.is_empty() {
             return self.stack.last();
         }
 
@@ -137,7 +137,7 @@ impl Layout {
     }
 
     fn get_current_screen_mut(&mut self) -> Option<&mut Screen> {
-        if self.stack.len() > 0 {
+        if !self.stack.is_empty() {
             return self.stack.last_mut();
         }
 
@@ -155,7 +155,7 @@ impl View for Layout {
 
         let cmdline_visible = self.cmdline.get_content().len() > 0;
         let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
-        if result.as_ref().map(|o| o.is_some()).unwrap_or(true) {
+        if result.as_ref().map(Option::is_some).unwrap_or(true) {
             cmdline_height += 1;
         }
 
@@ -165,7 +165,7 @@ impl View for Layout {
                 let offset = HAlign::Center.get_offset(screen.title.width(), printer.size.x);
                 printer.print((offset, 0), &screen.title);
 
-                if self.stack.len() > 0 {
+                if !self.stack.is_empty() {
                     printer.print((1, 0), "<");
                 }
             });
@@ -215,7 +215,7 @@ impl View for Layout {
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
             let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
-            if result.as_ref().map(|o| o.is_some()).unwrap_or(true) {
+            if result.as_ref().map(Option::is_some).unwrap_or(true) {
                 cmdline_height += 1;
             }
 

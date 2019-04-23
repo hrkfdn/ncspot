@@ -354,7 +354,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             if let Some(item) = content.get_mut(self.selected) {
                 let queue = self.queue.clone();
                 let library = self.library.clone();
-                let arg = args.get(0).map(|s| s.clone()).unwrap_or_default();
+                let arg = args.get(0).cloned().unwrap_or_default();
 
                 if arg == "album" {
                     if let Some(album) = item.album(queue.clone()) {

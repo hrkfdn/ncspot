@@ -248,7 +248,11 @@ impl CommandManager {
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: String) {
-        let components: Vec<String> = cmd.trim().split(' ').map(|s| s.to_string()).collect();
+        let components: Vec<String> = cmd
+            .trim()
+            .split(' ')
+            .map(std::string::ToString::to_string)
+            .collect();
 
         let cmd = self.handle_aliases(&components[0]);
         let args = components[1..].to_vec();
