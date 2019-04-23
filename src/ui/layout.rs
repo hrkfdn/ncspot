@@ -23,7 +23,7 @@ struct Screen {
 
 pub struct Layout {
     views: HashMap<String, Screen>,
-    title: String,
+    stack: Vec<Screen>,
     statusbar: Box<dyn View>,
     focus: Option<String>,
     pub cmdline: EditView,
@@ -45,7 +45,7 @@ impl Layout {
 
         Layout {
             views: HashMap::new(),
-            title: String::new(),
+            stack: Vec::new(),
             statusbar: status.as_boxed_view(),
             focus: None,
             cmdline: EditView::new().filler(" ").style(style),
@@ -66,34 +66,27 @@ impl Layout {
         }
     }
 
-    pub fn add_view<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: &str) {
+    pub fn add_view<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: S) {
         let s = id.into();
         let screen = Screen {
-            title: title.to_string(),
+            title: title.into(),
             view: view.as_boxed_view_ext(),
         };
         self.views.insert(s.clone(), screen);
-        self.title = title.to_owned();
         self.focus = Some(s);
     }
 
-    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(
-        mut self,
-        id: S,
-        view: T,
-        title: &str,
-    ) -> Self {
+    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T, title: S) -> Self {
         (&mut self).add_view(id, view, title);
         self
     }
 
     pub fn set_view<S: Into<String>>(&mut self, id: S) {
         let s = id.into();
-        let title = &self.views[&s].title;
-        self.title = title.clone();
         self.focus = Some(s);
         self.cmdline_focus = false;
         self.screenchange = true;
+        self.stack.clear();
 
         // trigger a redraw
         self.ev.trigger();
@@ -119,6 +112,41 @@ impl Layout {
         }
         self.result.clone()
     }
+
+    pub fn push_view(&mut self, view: Box<dyn ViewExt>) {
+        let title = view.title();
+        let screen = Screen { title, view };
+
+        self.stack.push(screen);
+    }
+
+    pub fn pop_view(&mut self) {
+        self.stack.pop();
+    }
+
+    fn get_current_screen(&self) -> Option<&Screen> {
+        if self.stack.len() > 0 {
+            return self.stack.last();
+        }
+
+        if let Some(id) = self.focus.as_ref() {
+            self.views.get(id)
+        } else {
+            None
+        }
+    }
+
+    fn get_current_screen_mut(&mut self) -> Option<&mut Screen> {
+        if self.stack.len() > 0 {
+            return self.stack.last_mut();
+        }
+
+        if let Some(id) = self.focus.as_ref() {
+            self.views.get_mut(id)
+        } else {
+            None
+        }
+    }
 }
 
 impl View for Layout {
@@ -131,15 +159,18 @@ impl View for Layout {
             cmdline_height += 1;
         }
 
-        // screen title
-        printer.with_color(ColorStyle::title_primary(), |printer| {
-            let offset = HAlign::Center.get_offset(self.title.width(), printer.size.x);
-            printer.print((offset, 0), &self.title);
-        });
+        if let Some(screen) = self.get_current_screen() {
+            // screen title
+            printer.with_color(ColorStyle::title_primary(), |printer| {
+                let offset = HAlign::Center.get_offset(screen.title.width(), printer.size.x);
+                printer.print((offset, 0), &screen.title);
 
-        // screen content
-        if let Some(ref id) = self.focus {
-            let screen = &self.views[id];
+                if self.stack.len() > 0 {
+                    printer.print((1, 0), "<");
+                }
+            });
+
+            // screen content
             let printer = &printer
                 .offset((0, 1))
                 .cropped((printer.size.x, printer.size.y - 3 - cmdline_height))
@@ -206,8 +237,7 @@ impl View for Layout {
             return self.cmdline.on_event(event);
         }
 
-        if let Some(ref id) = self.focus {
-            let screen = self.views.get_mut(id).unwrap();
+        if let Some(screen) = self.get_current_screen_mut() {
             screen.view.on_event(event)
         } else {
             EventResult::Ignored
@@ -221,22 +251,20 @@ impl View for Layout {
 
         self.cmdline.layout(Vec2::new(size.x, 1));
 
-        if let Some(ref id) = self.focus {
-            let screen = self.views.get_mut(id).unwrap();
+        if let Some(screen) = self.get_current_screen_mut() {
             screen.view.layout(Vec2::new(size.x, size.y - 3));
+        }
 
-            // the focus view has changed, let the views know so they can redraw
-            // their items
-            if self.screenchange {
-                debug!("layout: new screen selected: {}", &id);
-                self.screenchange = false;
-            }
+        // the focus view has changed, let the views know so they can redraw
+        // their items
+        if self.screenchange {
+            debug!("layout: new screen selected: {:?}", self.focus);
+            self.screenchange = false;
         }
     }
 
     fn call_on_any<'a>(&mut self, s: &Selector, c: AnyCb<'a>) {
-        if let Some(ref id) = self.focus {
-            let screen = self.views.get_mut(id).unwrap();
+        if let Some(screen) = self.get_current_screen_mut() {
             screen.view.call_on_any(s, c);
         }
     }
@@ -246,8 +274,7 @@ impl View for Layout {
             return self.cmdline.take_focus(source);
         }
 
-        if let Some(ref id) = self.focus {
-            let screen = self.views.get_mut(id).unwrap();
+        if let Some(screen) = self.get_current_screen_mut() {
             screen.view.take_focus(source)
         } else {
             false
@@ -272,8 +299,10 @@ impl ViewExt for Layout {
             }
 
             Ok(CommandResult::Consumed(None))
-        } else if let Some(ref id) = self.focus {
-            let screen = self.views.get_mut(id).unwrap();
+        } else if cmd == "back" {
+            self.pop_view();
+            Ok(CommandResult::Consumed(None))
+        } else if let Some(screen) = self.get_current_screen_mut() {
             screen.view.on_command(s, cmd, args)
         } else {
             Ok(CommandResult::Ignored)

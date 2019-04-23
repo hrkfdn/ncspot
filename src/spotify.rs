@@ -37,6 +37,7 @@ use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
+use artist::Artist;
 use config;
 use events::{Event, EventManager};
 use track::Track;
@@ -569,6 +570,16 @@ impl Spotify {
 
     pub fn user_playlist_follow_playlist(&self, owner_id: String, id: String) -> Option<()> {
         self.api_with_retry(|api| api.user_playlist_follow_playlist(&owner_id, &id, true))
+    }
+
+    pub fn artist_top_tracks(&self, id: String) -> Option<Vec<Track>> {
+        self.api_with_retry(|api| api.artist_top_tracks(&id, None))
+            .map(|ft| ft.tracks.iter().map(|t| t.into()).collect())
+    }
+
+    pub fn artist_related_artists(&self, id: String) -> Option<Vec<Artist>> {
+        self.api_with_retry(|api| api.artist_related_artists(&id))
+            .map(|fa| fa.artists.iter().map(|a| a.into()).collect())
     }
 
     pub fn load(&self, track: &Track) {

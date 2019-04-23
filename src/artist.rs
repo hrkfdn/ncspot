@@ -8,7 +8,8 @@ use library::Library;
 use queue::Queue;
 use spotify::Spotify;
 use track::Track;
-use traits::ListItem;
+use traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use ui::artist::ArtistView;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Artist {
@@ -21,7 +22,18 @@ pub struct Artist {
 }
 
 impl Artist {
-    fn load_albums(&mut self, spotify: Arc<Spotify>) {
+    pub fn new(id: String, name: String) -> Self {
+        Self {
+            id,
+            name,
+            url: "".into(),
+            albums: None,
+            tracks: None,
+            is_followed: false,
+        }
+    }
+
+    pub fn load_albums(&mut self, spotify: Arc<Spotify>) {
         if let Some(albums) = self.albums.as_mut() {
             for album in albums {
                 album.load_tracks(spotify.clone());
@@ -167,5 +179,9 @@ impl ListItem for Artist {
         } else {
             library.follow_artist(self);
         }
+    }
+
+    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+        Some(ArtistView::new(queue, library, self).as_boxed_view_ext())
     }
 }

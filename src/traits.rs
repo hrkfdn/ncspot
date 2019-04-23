@@ -4,6 +4,8 @@ use cursive::view::{View, ViewWrapper};
 use cursive::views::IdView;
 use cursive::Cursive;
 
+use album::Album;
+use artist::Artist;
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -15,9 +17,22 @@ pub trait ListItem: Sync + Send + 'static {
     fn play(&mut self, queue: Arc<Queue>);
     fn queue(&mut self, queue: Arc<Queue>);
     fn toggle_saved(&mut self, library: Arc<Library>);
+    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>>;
+
+    fn album(&self, _queue: Arc<Queue>) -> Option<Album> {
+        None
+    }
+
+    fn artist(&self) -> Option<Artist> {
+        None
+    }
 }
 
 pub trait ViewExt: View {
+    fn title(&self) -> String {
+        "".into()
+    }
+
     fn on_command(
         &mut self,
         _s: &mut Cursive,

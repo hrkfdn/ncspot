@@ -463,16 +463,18 @@ impl ViewExt for SearchView {
             CommandResult::Ignored
         };
 
-        if result == CommandResult::Ignored && cmd == "move" {
-            if let Some(dir) = args.get(0) {
-                if dir == "up" && !self.edit_focused {
-                    self.edit_focused = true;
-                    return Ok(CommandResult::Consumed(None));
-                }
+        if let CommandResult::Ignored = result {
+            if cmd == "move" {
+                if let Some(dir) = args.get(0) {
+                    if dir == "up" && !self.edit_focused {
+                        self.edit_focused = true;
+                        return Ok(CommandResult::Consumed(None));
+                    }
 
-                if dir == "down" && self.edit_focused {
-                    self.edit_focused = false;
-                    return Ok(CommandResult::Consumed(None));
+                    if dir == "down" && self.edit_focused {
+                        self.edit_focused = false;
+                        return Ok(CommandResult::Consumed(None));
+                    }
                 }
             }
         }

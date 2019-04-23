@@ -13,7 +13,9 @@ use commands::CommandResult;
 use library::Library;
 use queue::Queue;
 use track::Track;
-use traits::{ListItem, ViewExt};
+use traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use ui::album::AlbumView;
+use ui::artist::ArtistView;
 
 pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 pub struct Pagination<I: ListItem> {
@@ -331,6 +333,40 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         return Ok(CommandResult::Consumed(None));
                     } else if self.selected == len.saturating_sub(1) && self.can_paginate() {
                         self.pagination.call(&self.content);
+                    }
+                }
+            }
+        }
+
+        if cmd == "open" {
+            let mut content = self.content.write().unwrap();
+            if let Some(item) = content.get_mut(self.selected) {
+                let queue = self.queue.clone();
+                let library = self.library.clone();
+                if let Some(view) = item.open(queue, library) {
+                    return Ok(CommandResult::View(view));
+                }
+            }
+        }
+
+        if cmd == "goto" {
+            let mut content = self.content.write().unwrap();
+            if let Some(item) = content.get_mut(self.selected) {
+                let queue = self.queue.clone();
+                let library = self.library.clone();
+                let arg = args.get(0).map(|s| s.clone()).unwrap_or_default();
+
+                if arg == "album" {
+                    if let Some(album) = item.album(queue.clone()) {
+                        let view = AlbumView::new(queue, library, &album).as_boxed_view_ext();
+                        return Ok(CommandResult::View(view));
+                    }
+                }
+
+                if arg == "artist" {
+                    if let Some(artist) = item.artist() {
+                        let view = ArtistView::new(queue, library, &artist).as_boxed_view_ext();
+                        return Ok(CommandResult::View(view));
                     }
                 }
             }

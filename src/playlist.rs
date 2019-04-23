@@ -4,7 +4,8 @@ use std::sync::Arc;
 use library::Library;
 use queue::Queue;
 use track::Track;
-use traits::ListItem;
+use traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use ui::playlist::PlaylistView;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Playlist {
@@ -62,5 +63,9 @@ impl ListItem for Playlist {
         } else {
             library.follow_playlist(self);
         }
+    }
+
+    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+        Some(PlaylistView::new(queue, library, self).as_boxed_view_ext())
     }
 }

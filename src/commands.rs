@@ -13,9 +13,9 @@ use ui::layout::Layout;
 
 type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
 
-#[derive(PartialEq)]
 pub enum CommandResult {
     Consumed(Option<String>),
+    View(Box<dyn ViewExt>),
     Ignored,
 }
 
@@ -60,6 +60,9 @@ impl CommandManager {
         self.register_command("queue", None);
         self.register_command("save", None);
         self.register_command("delete", None);
+        self.register_command("back", None);
+        self.register_command("open", None);
+        self.register_command("goto", None);
 
         self.register_command(
             "quit",
@@ -231,6 +234,12 @@ impl CommandManager {
 
         if let CommandResult::Consumed(output) = local {
             Ok(output)
+        } else if let CommandResult::View(view) = local {
+            s.call_on_id("main", move |v: &mut Layout| {
+                v.push_view(view);
+            });
+
+            Ok(None)
         } else if let Some(callback) = self.callbacks.get(cmd) {
             callback.as_ref().map(|cb| cb(s, args)).unwrap_or(Ok(None))
         } else {
@@ -306,6 +315,11 @@ impl CommandManager {
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());
         kb.insert("F3".into(), "focus library".into());
+        kb.insert("Backspace".into(), "back".into());
+
+        kb.insert("o".into(), "open".into());
+        kb.insert("a".into(), "goto album".into());
+        kb.insert("A".into(), "goto artist".into());
 
         kb.insert("Up".into(), "move up".into());
         kb.insert("Down".into(), "move down".into());

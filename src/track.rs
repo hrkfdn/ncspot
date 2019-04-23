@@ -5,9 +5,11 @@ use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::FullAlbum;
 use rspotify::spotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 
+use album::Album;
+use artist::Artist;
 use library::Library;
 use queue::Queue;
-use traits::ListItem;
+use traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
@@ -19,6 +21,7 @@ pub struct Track {
     pub artists: Vec<String>,
     pub artist_ids: Vec<String>,
     pub album: String,
+    pub album_id: String,
     pub album_artists: Vec<String>,
     pub cover_url: String,
     pub url: String,
@@ -57,6 +60,7 @@ impl Track {
             artists,
             artist_ids,
             album: album.name.clone(),
+            album_id: album.id.clone(),
             album_artists,
             cover_url,
             url: track.uri.clone(),
@@ -104,6 +108,7 @@ impl From<&FullTrack> for Track {
             artists,
             artist_ids,
             album: track.album.name.clone(),
+            album_id: track.album.id.clone(),
             album_artists,
             cover_url,
             url: track.uri.clone(),
@@ -176,5 +181,22 @@ impl ListItem for Track {
         } else {
             library.save_tracks(vec![self], true);
         }
+    }
+
+    fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+        None
+    }
+
+    fn album(&self, queue: Arc<Queue>) -> Option<Album> {
+        let spotify = queue.get_spotify();
+
+        spotify.album(&self.album_id).map(|ref fa| fa.into())
+    }
+
+    fn artist(&self) -> Option<Artist> {
+        Some(Artist::new(
+            self.artist_ids[0].clone(),
+            self.artists[0].clone(),
+        ))
     }
 }
