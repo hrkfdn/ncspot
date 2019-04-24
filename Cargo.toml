@@ -51,6 +51,7 @@ default-features = false
 git = "https://github.com/overdrivenpotato/winapi-rs"
 
 [features]
+alsa_backend = ["librespot/alsa-backend"]
 pulseaudio_backend = ["librespot/pulseaudio-backend"]
 rodio_backend = ["librespot/rodio-backend"]
 portaudio_backend = ["librespot/portaudio-backend"]

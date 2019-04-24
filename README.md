@@ -104,7 +104,7 @@ https://github.com/hrkfdn/ncspot/pull/40.
 
 ## Audio backends
 
-By default ncspot is built using the Rudio backend.  To make it use the
+By default ncspot is built using the Rodio backend.  To make it use the
 PortAudio backend (e.g. *BSD), you need to recompile ncspot with the
 `portaudio_backend` feature:
 
