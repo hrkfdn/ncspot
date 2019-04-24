@@ -13,7 +13,7 @@ use traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
-    pub id: String,
+    pub id: Option<String>,
     pub title: String,
     pub track_number: u32,
     pub disc_number: i32,
@@ -21,7 +21,7 @@ pub struct Track {
     pub artists: Vec<String>,
     pub artist_ids: Vec<String>,
     pub album: String,
-    pub album_id: String,
+    pub album_id: Option<String>,
     pub album_artists: Vec<String>,
     pub cover_url: String,
     pub url: String,
@@ -38,7 +38,8 @@ impl Track {
         let artist_ids = track
             .artists
             .iter()
-            .map(|ref artist| artist.id.clone())
+            .filter(|a| a.id.is_some())
+            .map(|ref artist| artist.id.clone().unwrap())
             .collect::<Vec<String>>();
         let album_artists = album
             .artists
@@ -60,7 +61,7 @@ impl Track {
             artists,
             artist_ids,
             album: album.name.clone(),
-            album_id: album.id.clone(),
+            album_id: Some(album.id.clone()),
             album_artists,
             cover_url,
             url: track.uri.clone(),
@@ -85,7 +86,8 @@ impl From<&FullTrack> for Track {
         let artist_ids = track
             .artists
             .iter()
-            .map(|ref artist| artist.id.clone())
+            .filter(|a| a.id.is_some())
+            .map(|ref artist| artist.id.clone().unwrap())
             .collect::<Vec<String>>();
         let album_artists = track
             .album
@@ -135,7 +137,7 @@ impl fmt::Debug for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({} - {} ({}))",
+            "({} - {} ({:?}))",
             self.artists.join(", "),
             self.title,
             self.id
@@ -190,7 +192,10 @@ impl ListItem for Track {
     fn album(&self, queue: Arc<Queue>) -> Option<Album> {
         let spotify = queue.get_spotify();
 
-        spotify.album(&self.album_id).map(|ref fa| fa.into())
+        match self.album_id {
+            Some(ref album_id) => spotify.album(&album_id).map(|ref fa| fa.into()),
+            None => None,
+        }
     }
 
     fn artist(&self) -> Option<Artist> {

@@ -23,9 +23,15 @@ impl ListItem for Playlist {
             .read()
             .unwrap()
             .iter()
-            .map(|t| t.id.clone())
+            .filter(|t| t.id.is_some())
+            .map(|t| t.id.clone().unwrap())
             .collect();
-        let ids: Vec<String> = self.tracks.iter().map(|t| t.id.clone()).collect();
+        let ids: Vec<String> = self
+            .tracks
+            .iter()
+            .filter(|t| t.id.is_some())
+            .map(|t| t.id.clone().unwrap())
+            .collect();
         !ids.is_empty() && playing == ids
     }
 

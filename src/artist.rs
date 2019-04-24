@@ -13,9 +13,9 @@ use ui::artist::ArtistView;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Artist {
-    pub id: String,
+    pub id: Option<String>,
     pub name: String,
-    pub url: String,
+    pub url: Option<String>,
     pub albums: Option<Vec<Album>>,
     pub tracks: Option<Vec<Track>>,
     pub is_followed: bool,
@@ -24,9 +24,9 @@ pub struct Artist {
 impl Artist {
     pub fn new(id: String, name: String) -> Self {
         Self {
-            id,
+            id: Some(id),
             name,
-            url: "".into(),
+            url: None,
             albums: None,
             tracks: None,
             is_followed: false,
@@ -41,20 +41,24 @@ impl Artist {
             return;
         }
 
-        if let Some(sas) = spotify.artist_albums(&self.id, 50, 0) {
-            let mut albums: Vec<Album> = Vec::new();
+        if let Some(ref artist_id) = self.id {
+            if let Some(sas) = spotify.artist_albums(artist_id, 50, 0) {
+                let mut albums: Vec<Album> = Vec::new();
 
-            for sa in sas.items {
-                if Some("appears_on".into()) == sa.album_group {
-                    continue;
+                for sa in sas.items {
+                    if Some("appears_on".into()) == sa.album_group {
+                        continue;
+                    }
+
+                    if let Some(album_id) = sa.id {
+                        if let Some(fa) = spotify.full_album(&album_id).as_ref() {
+                            albums.push(fa.into());
+                        }
+                    }
                 }
 
-                if let Some(fa) = spotify.full_album(&sa.id).as_ref() {
-                    albums.push(fa.into());
-                }
+                self.albums = Some(albums);
             }
-
-            self.albums = Some(albums);
         }
     }
 
@@ -91,9 +95,9 @@ impl From<&SimplifiedArtist> for Artist {
 impl From<&FullArtist> for Artist {
     fn from(fa: &FullArtist) -> Self {
         Self {
-            id: fa.id.clone(),
+            id: Some(fa.id.clone()),
             name: fa.name.clone(),
-            url: fa.uri.clone(),
+            url: Some(fa.uri.clone()),
             albums: None,
             tracks: None,
             is_followed: false,
@@ -109,7 +113,7 @@ impl fmt::Display for Artist {
 
 impl fmt::Debug for Artist {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} ({})", self.name, self.id)
+        write!(f, "{} ({:?})", self.name, self.id)
     }
 }
 
@@ -121,9 +125,14 @@ impl ListItem for Artist {
                 .read()
                 .unwrap()
                 .iter()
-                .map(|t| t.id.clone())
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
                 .collect();
-            let ids: Vec<String> = tracks.iter().map(|t| t.id.clone()).collect();
+            let ids: Vec<String> = tracks
+                .iter()
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
             !ids.is_empty() && playing == ids
         } else {
             false

@@ -345,7 +345,7 @@ impl Library {
             artists.extend(page.items.iter().map(|fa| fa.into()));
 
             if page.next.is_some() {
-                last = Some(artists.last().unwrap().id.clone());
+                last = artists.last().unwrap().id.clone();
             } else {
                 break;
             }
@@ -369,7 +369,10 @@ impl Library {
     fn insert_artist(&self, id: &str, name: &str) {
         let mut artists = self.artists.write().unwrap();
 
-        if !artists.iter().any(|a| a.id == id) {
+        if !artists
+            .iter()
+            .any(|a| a.id.clone().unwrap_or_default() == id)
+        {
             let mut artist = Artist::new(id.to_string(), name.to_string());
             artist.tracks = Some(Vec::new());
             artists.push(artist);
@@ -402,7 +405,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, a)| a.album.id != store[i].id)
+                        .any(|(i, a)| a.album.id != store[i].id.clone().unwrap_or_default())
                 {
                     return;
                 }
@@ -501,7 +504,9 @@ impl Library {
                     let index = if let Some(i) = lookup.get(artist_id).cloned() {
                         i
                     } else {
-                        let i = artists.iter().position(|a| &a.id == artist_id);
+                        let i = artists
+                            .iter()
+                            .position(|a| &a.id.clone().unwrap_or_default() == artist_id);
                         lookup.insert(artist_id.clone(), i);
                         i
                     };
@@ -542,7 +547,13 @@ impl Library {
         if api
             && self
                 .spotify
-                .current_user_saved_tracks_add(tracks.iter().map(|t| t.id.clone()).collect())
+                .current_user_saved_tracks_add(
+                    tracks
+                        .iter()
+                        .filter(|t| t.id.is_some())
+                        .map(|t| t.id.clone().unwrap())
+                        .collect(),
+                )
                 .is_none()
         {
             return;
@@ -575,7 +586,13 @@ impl Library {
         if api
             && self
                 .spotify
-                .current_user_saved_tracks_delete(tracks.iter().map(|t| t.id.clone()).collect())
+                .current_user_saved_tracks_delete(
+                    tracks
+                        .iter()
+                        .filter(|t| t.id.is_some())
+                        .map(|t| t.id.clone().unwrap())
+                        .collect(),
+                )
                 .is_none()
         {
             return;
@@ -610,12 +627,14 @@ impl Library {
             return;
         }
 
-        if self
-            .spotify
-            .current_user_saved_albums_add(vec![album.id.clone()])
-            .is_none()
-        {
-            return;
+        if let Some(ref album_id) = album.id {
+            if self
+                .spotify
+                .current_user_saved_albums_add(vec![album_id.clone()])
+                .is_none()
+            {
+                return;
+            }
         }
 
         album.load_tracks(self.spotify.clone());
@@ -639,12 +658,14 @@ impl Library {
             return;
         }
 
-        if self
-            .spotify
-            .current_user_saved_albums_delete(vec![album.id.clone()])
-            .is_none()
-        {
-            return;
+        if let Some(ref album_id) = album.id {
+            if self
+                .spotify
+                .current_user_saved_albums_delete(vec![album_id.clone()])
+                .is_none()
+            {
+                return;
+            }
         }
 
         album.load_tracks(self.spotify.clone());
@@ -675,12 +696,14 @@ impl Library {
             return;
         }
 
-        if self
-            .spotify
-            .user_follow_artists(vec![artist.id.clone()])
-            .is_none()
-        {
-            return;
+        if let Some(ref artist_id) = artist.id {
+            if self
+                .spotify
+                .user_follow_artists(vec![artist_id.clone()])
+                .is_none()
+            {
+                return;
+            }
         }
 
         {
@@ -704,12 +727,14 @@ impl Library {
             return;
         }
 
-        if self
-            .spotify
-            .user_unfollow_artists(vec![artist.id.clone()])
-            .is_none()
-        {
-            return;
+        if let Some(ref artist_id) = artist.id {
+            if self
+                .spotify
+                .user_unfollow_artists(vec![artist_id.clone()])
+                .is_none()
+            {
+                return;
+            }
         }
 
         {

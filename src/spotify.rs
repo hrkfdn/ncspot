@@ -124,9 +124,13 @@ impl futures::Future for Worker {
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
-                        let id = SpotifyId::from_base62(&track.id).expect("could not parse id");
-                        self.play_task = Box::new(self.player.load(id, false, 0));
-                        info!("player loading track: {:?}", track);
+                        if let Some(track_id) = &track.id {
+                            let id = SpotifyId::from_base62(track_id).expect("could not parse id");
+                            self.play_task = Box::new(self.player.load(id, false, 0));
+                            info!("player loading track: {:?}", track);
+                        } else {
+                            self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+                        }
                     }
                     WorkerCommand::Play => {
                         self.player.play();
@@ -408,7 +412,11 @@ impl Spotify {
 
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
         // extract only track IDs
-        let mut tracks: Vec<String> = tracks.iter().map(|track| track.id.clone()).collect();
+        let mut tracks: Vec<String> = tracks
+            .iter()
+            .filter(|track| track.id.is_some())
+            .map(|track| track.id.clone().unwrap())
+            .collect();
 
         // we can only send 100 tracks per request
         let mut remainder = if tracks.len() > 100 {
