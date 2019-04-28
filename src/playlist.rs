@@ -122,7 +122,11 @@ impl ListItem for Playlist {
             ""
         };
 
-        let num_tracks = self.tracks.as_ref().map(|t| t.len()).unwrap_or(self.num_tracks);
+        let num_tracks = self
+            .tracks
+            .as_ref()
+            .map(|t| t.len())
+            .unwrap_or(self.num_tracks);
 
         format!("{}{:>4} tracks", followed, num_tracks)
     }

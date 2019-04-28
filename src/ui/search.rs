@@ -241,12 +241,7 @@ impl SearchView {
         append: bool,
     ) -> u32 {
         if let Some(results) = spotify.search_playlist(&query, 50, offset as u32) {
-            let mut pls = results
-                .playlists
-                .items
-                .iter()
-                .map(|sp| sp.into())
-                .collect();
+            let mut pls = results.playlists.items.iter().map(|sp| sp.into()).collect();
             let mut r = playlists.write().unwrap();
 
             if append {

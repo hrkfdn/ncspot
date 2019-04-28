@@ -28,11 +28,7 @@ impl PlaylistView {
             Vec::new()
         };
 
-        let list = ListView::new(
-            Arc::new(RwLock::new(tracks)),
-            queue,
-            library,
-        );
+        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library);
 
         Self { playlist, list }
     }
