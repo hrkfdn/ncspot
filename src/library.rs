@@ -236,7 +236,8 @@ impl Library {
 
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
-                    let playlist = Playlist::from_simplified_playlist(remote, &self.spotify);
+                    let mut playlist: Playlist = remote.into();
+                    playlist.load_tracks(self.spotify.clone());
                     self.append_or_update(&playlist);
                     // trigger redraw
                     self.ev.trigger();
@@ -722,6 +723,9 @@ impl Library {
         {
             return;
         }
+
+        let mut playlist = playlist.clone();
+        playlist.load_tracks(self.spotify.clone());
 
         {
             let mut store = self.playlists.write().unwrap();

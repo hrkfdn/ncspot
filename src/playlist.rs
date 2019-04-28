@@ -16,40 +16,19 @@ pub struct Playlist {
     pub name: String,
     pub owner_id: String,
     pub snapshot_id: String,
-    pub tracks: Vec<Track>,
+    pub num_tracks: usize,
+    pub tracks: Option<Vec<Track>>,
 }
 
 impl Playlist {
-    pub fn from_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
+    pub fn load_tracks(&mut self, spotify: Arc<Spotify>) {
+        if self.tracks.is_some() {
+            return;
+        }
 
-    pub fn from_full_playlist(list: &FullPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
-
-    fn _process_playlist(
-        id: String,
-        name: String,
-        owner_id: String,
-        snapshot_id: String,
-        spotify: &Spotify,
-    ) -> Playlist {
         let mut collected_tracks = Vec::new();
 
-        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
+        let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
         while let Some(ref tracks) = tracks_result.clone() {
             for listtrack in &tracks.items {
                 collected_tracks.push((&listtrack.track).into());
@@ -61,7 +40,7 @@ impl Playlist {
                 Some(_) => {
                     debug!("requesting tracks again..");
                     spotify.user_playlist_tracks(
-                        &id,
+                        &self.id,
                         100,
                         tracks.offset + tracks.items.len() as u32,
                     )
@@ -70,33 +49,62 @@ impl Playlist {
             }
         }
 
+        self.tracks = Some(collected_tracks);
+    }
+}
+
+impl From<&SimplifiedPlaylist> for Playlist {
+    fn from(list: &SimplifiedPlaylist) -> Self {
+        let num_tracks = if let Some(number) = list.tracks.get("total") {
+            number.as_u64().unwrap() as usize
+        } else {
+            0
+        };
+
         Playlist {
-            id,
-            name,
-            owner_id,
-            snapshot_id,
-            tracks: collected_tracks,
+            id: list.id.clone(),
+            name: list.name.clone(),
+            owner_id: list.owner.id.clone(),
+            snapshot_id: list.snapshot_id.clone(),
+            num_tracks,
+            tracks: None,
+        }
+    }
+}
+
+impl From<&FullPlaylist> for Playlist {
+    fn from(list: &FullPlaylist) -> Self {
+        Playlist {
+            id: list.id.clone(),
+            name: list.name.clone(),
+            owner_id: list.owner.id.clone(),
+            snapshot_id: list.snapshot_id.clone(),
+            num_tracks: list.tracks.total as usize,
+            tracks: None,
         }
     }
 }
 
 impl ListItem for Playlist {
     fn is_playing(&self, queue: Arc<Queue>) -> bool {
-        let playing: Vec<String> = queue
-            .queue
-            .read()
-            .unwrap()
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.id.clone().unwrap())
-            .collect();
-        let ids: Vec<String> = self
-            .tracks
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.id.clone().unwrap())
-            .collect();
-        !ids.is_empty() && playing == ids
+        if let Some(tracks) = self.tracks.as_ref() {
+            let playing: Vec<String> = queue
+                .queue
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
+            let ids: Vec<String> = tracks
+                .iter()
+                .filter(|t| t.id.is_some())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
+            !ids.is_empty() && playing == ids
+        } else {
+            false
+        }
     }
 
     fn display_left(&self) -> String {
@@ -113,17 +121,28 @@ impl ListItem for Playlist {
         } else {
             ""
         };
-        format!("{}{:>3} tracks", followed, self.tracks.len())
+
+        let num_tracks = self.tracks.as_ref().map(|t| t.len()).unwrap_or(self.num_tracks);
+
+        format!("{}{:>4} tracks", followed, num_tracks)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(self.tracks.iter().collect());
-        queue.play(index, true);
+        self.load_tracks(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks.as_ref() {
+            let index = queue.append_next(tracks.iter().collect());
+            queue.play(index, true);
+        }
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        for track in self.tracks.iter() {
-            queue.append(track);
+        self.load_tracks(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks.as_ref() {
+            for track in tracks.iter() {
+                queue.append(track);
+            }
         }
     }
 
