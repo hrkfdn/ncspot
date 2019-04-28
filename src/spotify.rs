@@ -21,6 +21,7 @@ use rspotify::spotify::model::search::{
     SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
 };
 use rspotify::spotify::model::track::{FullTrack, SavedTrack};
+use rspotify::spotify::model::user::PrivateUser;
 
 use failure::Error;
 
@@ -588,6 +589,10 @@ impl Spotify {
     pub fn artist_related_artists(&self, id: String) -> Option<Vec<Artist>> {
         self.api_with_retry(|api| api.artist_related_artists(&id))
             .map(|fa| fa.artists.iter().map(|a| a.into()).collect())
+    }
+
+    pub fn current_user(&self) -> Option<PrivateUser> {
+        self.api_with_retry(|api| api.current_user())
     }
 
     pub fn load(&self, track: &Track) {

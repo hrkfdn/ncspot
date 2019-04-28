@@ -35,8 +35,8 @@ rand = "0.6.5"
 webbrowser = "0.5"
 
 [dependencies.rspotify]
-git = "https://github.com/samrayleung/rspotify"
-rev = "9d9cf7c"
+git = "https://github.com/KoffeinFlummi/rspotify"
+rev = "9d6c544"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"

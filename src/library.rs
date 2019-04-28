@@ -29,6 +29,7 @@ pub struct Library {
     pub artists: Arc<RwLock<Vec<Artist>>>,
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
     is_done: Arc<RwLock<bool>>,
+    user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
     pub use_nerdfont: bool,
@@ -36,12 +37,15 @@ pub struct Library {
 
 impl Library {
     pub fn new(ev: &EventManager, spotify: Arc<Spotify>, use_nerdfont: bool) -> Self {
+        let user_id = spotify.current_user().map(|u| u.id);
+
         let library = Self {
             tracks: Arc::new(RwLock::new(Vec::new())),
             albums: Arc::new(RwLock::new(Vec::new())),
             artists: Arc::new(RwLock::new(Vec::new())),
             playlists: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
+            user_id,
             ev: ev.clone(),
             spotify,
             use_nerdfont,
@@ -697,6 +701,13 @@ impl Library {
 
         let playlists = self.playlists.read().unwrap();
         playlists.iter().any(|p| p.id == playlist.id)
+    }
+
+    pub fn is_followed_playlist(&self, playlist: &Playlist) -> bool {
+        self.user_id
+            .as_ref()
+            .map(|id| id != &playlist.owner_id)
+            .unwrap_or(false)
     }
 
     pub fn follow_playlist(&self, playlist: &Playlist) {

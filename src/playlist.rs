@@ -104,7 +104,7 @@ impl ListItem for Playlist {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_playlist(self) {
+        let followed = if library.is_followed_playlist(self) {
             if library.use_nerdfont {
                 "\u{f62b} "
             } else {
@@ -113,7 +113,7 @@ impl ListItem for Playlist {
         } else {
             ""
         };
-        format!("{}{:>3} tracks", saved, self.tracks.len())
+        format!("{}{:>3} tracks", followed, self.tracks.len())
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
