@@ -224,8 +224,8 @@ impl SearchView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.playlist(&query) {
-            let pls = vec![Library::process_full_playlist(&results, &&spotify)];
+        if let Some(result) = spotify.playlist(&query).as_ref() {
+            let pls = vec![result.into()];
             let mut r = playlists.write().unwrap();
             *r = pls;
             return 1;
@@ -241,12 +241,7 @@ impl SearchView {
         append: bool,
     ) -> u32 {
         if let Some(results) = spotify.search_playlist(&query, 50, offset as u32) {
-            let mut pls = results
-                .playlists
-                .items
-                .iter()
-                .map(|sp| Library::process_simplified_playlist(sp, &&spotify))
-                .collect();
+            let mut pls = results.playlists.items.iter().map(|sp| sp.into()).collect();
             let mut r = playlists.write().unwrap();
 
             if append {

@@ -36,7 +36,7 @@ webbrowser = "0.5"
 
 [dependencies.rspotify]
 git = "https://github.com/samrayleung/rspotify"
-rev = "9d9cf7c"
+rev = "8f8dc17"
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"

@@ -18,12 +18,17 @@ pub struct PlaylistView {
 
 impl PlaylistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, playlist: &Playlist) -> Self {
-        let playlist = playlist.clone();
-        let list = ListView::new(
-            Arc::new(RwLock::new(playlist.tracks.clone())),
-            queue,
-            library,
-        );
+        let mut playlist = playlist.clone();
+
+        playlist.load_tracks(queue.get_spotify());
+
+        let tracks = if let Some(t) = playlist.tracks.as_ref() {
+            t.clone()
+        } else {
+            Vec::new()
+        };
+
+        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library);
 
         Self { playlist, list }
     }

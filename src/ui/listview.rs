@@ -283,6 +283,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
         args: &[String],
     ) -> Result<CommandResult, String> {
         if cmd == "play" {
+            self.queue.clear();
+
             if !self.attempt_play_all_tracks() {
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {

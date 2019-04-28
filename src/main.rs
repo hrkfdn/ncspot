@@ -185,7 +185,7 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(
         queue.clone(),
-        spotify.clone(),
+        library.clone(),
         cfg.use_nerdfont.unwrap_or(false),
     );
 
@@ -194,8 +194,8 @@ fn main() {
         .view("library", libraryview.with_id("library"), "Library")
         .view("queue", queueview, "Queue");
 
-    // initial view is queue
-    layout.set_view("queue");
+    // initial view is library
+    layout.set_view("library");
 
     cursive.add_global_callback(':', move |s| {
         s.call_on_id("main", |v: &mut ui::layout::Layout| {

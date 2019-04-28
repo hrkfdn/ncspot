@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
-use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
+use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -29,6 +29,7 @@ pub struct Library {
     pub artists: Arc<RwLock<Vec<Artist>>>,
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
     is_done: Arc<RwLock<bool>>,
+    user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
     pub use_nerdfont: bool,
@@ -36,12 +37,15 @@ pub struct Library {
 
 impl Library {
     pub fn new(ev: &EventManager, spotify: Arc<Spotify>, use_nerdfont: bool) -> Self {
+        let user_id = spotify.current_user().map(|u| u.id);
+
         let library = Self {
             tracks: Arc::new(RwLock::new(Vec::new())),
             albums: Arc::new(RwLock::new(Vec::new())),
             artists: Arc::new(RwLock::new(Vec::new())),
             playlists: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
+            user_id,
             ev: ev.clone(),
             spotify,
             use_nerdfont,
@@ -107,6 +111,8 @@ impl Library {
 
                 let mut is_done = library.is_done.write().unwrap();
                 *is_done = true;
+
+                library.ev.trigger();
             });
         }
 
@@ -148,65 +154,6 @@ impl Library {
         match serde_json::to_string(&store.deref()) {
             Ok(contents) => std::fs::write(cache_path, contents).unwrap(),
             Err(e) => error!("could not write cache: {:?}", e),
-        }
-    }
-
-    pub fn process_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
-
-    pub fn process_full_playlist(list: &FullPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
-
-    fn _process_playlist(
-        id: String,
-        name: String,
-        owner_id: String,
-        snapshot_id: String,
-        spotify: &Spotify,
-    ) -> Playlist {
-        let mut collected_tracks = Vec::new();
-
-        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
-        while let Some(ref tracks) = tracks_result.clone() {
-            for listtrack in &tracks.items {
-                collected_tracks.push((&listtrack.track).into());
-            }
-            debug!("got {} tracks", tracks.items.len());
-
-            // load next batch if necessary
-            tracks_result = match tracks.next {
-                Some(_) => {
-                    debug!("requesting tracks again..");
-                    spotify.user_playlist_tracks(
-                        &id,
-                        100,
-                        tracks.offset + tracks.items.len() as u32,
-                    )
-                }
-                None => None,
-            }
-        }
-
-        Playlist {
-            id,
-            name,
-            owner_id,
-            snapshot_id,
-            tracks: collected_tracks,
         }
     }
 
@@ -291,7 +238,8 @@ impl Library {
 
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
-                    let playlist = Self::process_simplified_playlist(remote, &self.spotify);
+                    let mut playlist: Playlist = remote.into();
+                    playlist.load_tracks(self.spotify.clone());
                     self.append_or_update(&playlist);
                     // trigger redraw
                     self.ev.trigger();
@@ -758,6 +706,13 @@ impl Library {
         playlists.iter().any(|p| p.id == playlist.id)
     }
 
+    pub fn is_followed_playlist(&self, playlist: &Playlist) -> bool {
+        self.user_id
+            .as_ref()
+            .map(|id| id != &playlist.owner_id)
+            .unwrap_or(false)
+    }
+
     pub fn follow_playlist(&self, playlist: &Playlist) {
         if !*self.is_done.read().unwrap() {
             return;
@@ -770,6 +725,9 @@ impl Library {
         {
             return;
         }
+
+        let mut playlist = playlist.clone();
+        playlist.load_tracks(self.spotify.clone());
 
         {
             let mut store = self.playlists.write().unwrap();
