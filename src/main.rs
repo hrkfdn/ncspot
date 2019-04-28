@@ -185,7 +185,7 @@ fn main() {
 
     let status = ui::statusbar::StatusBar::new(
         queue.clone(),
-        spotify.clone(),
+        library.clone(),
         cfg.use_nerdfont.unwrap_or(false),
     );
 

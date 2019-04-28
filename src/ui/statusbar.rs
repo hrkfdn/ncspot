@@ -8,21 +8,26 @@ use cursive::vec::Vec2;
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
+use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
     queue: Arc<Queue>,
     spotify: Arc<Spotify>,
+    library: Arc<Library>,
     last_size: Vec2,
     use_nerdfont: bool,
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Queue>, spotify: Arc<Spotify>, use_nerdfont: bool) -> StatusBar {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>, use_nerdfont: bool) -> StatusBar {
+        let spotify = queue.get_spotify();
+
         StatusBar {
             queue,
             spotify,
+            library,
             last_size: Vec2::new(0, 0),
             use_nerdfont,
         }
@@ -96,8 +101,7 @@ impl View for StatusBar {
                 RepeatSetting::RepeatPlaylist => "[R] ",
                 RepeatSetting::RepeatTrack => "[R1] ",
             }
-        }
-        .to_string();
+        };
 
         let shuffle = if self.queue.get_shuffle() {
             if self.use_nerdfont {
@@ -107,8 +111,7 @@ impl View for StatusBar {
             }
         } else {
             ""
-        }
-        .to_string();
+        };
 
         printer.with_color(style_bar_bg, |printer| {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
@@ -124,8 +127,20 @@ impl View for StatusBar {
                 elapsed.as_secs() % 60
             );
 
-            let right =
-                repeat + &shuffle + &format!("{} / {} ", formatted_elapsed, t.duration_str());
+            let saved = if self.library.is_saved_track(t) {
+                if self.use_nerdfont {
+                    "\u{f62b} "
+                } else {
+                    "✓ "
+                }
+            } else {
+                ""
+            };
+
+            let right = repeat.to_string()
+                + shuffle
+                + saved
+                + &format!("{} / {} ", formatted_elapsed, t.duration_str());
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
@@ -138,7 +153,7 @@ impl View for StatusBar {
                 printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
         } else {
-            let right = repeat + &shuffle;
+            let right = repeat.to_string() + shuffle;
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
