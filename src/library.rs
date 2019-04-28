@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
-use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
+use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -151,65 +151,6 @@ impl Library {
         }
     }
 
-    pub fn process_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
-
-    pub fn process_full_playlist(list: &FullPlaylist, spotify: &Spotify) -> Playlist {
-        Self::_process_playlist(
-            list.id.clone(),
-            list.name.clone(),
-            list.owner.id.clone(),
-            list.snapshot_id.clone(),
-            spotify,
-        )
-    }
-
-    fn _process_playlist(
-        id: String,
-        name: String,
-        owner_id: String,
-        snapshot_id: String,
-        spotify: &Spotify,
-    ) -> Playlist {
-        let mut collected_tracks = Vec::new();
-
-        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
-        while let Some(ref tracks) = tracks_result.clone() {
-            for listtrack in &tracks.items {
-                collected_tracks.push((&listtrack.track).into());
-            }
-            debug!("got {} tracks", tracks.items.len());
-
-            // load next batch if necessary
-            tracks_result = match tracks.next {
-                Some(_) => {
-                    debug!("requesting tracks again..");
-                    spotify.user_playlist_tracks(
-                        &id,
-                        100,
-                        tracks.offset + tracks.items.len() as u32,
-                    )
-                }
-                None => None,
-            }
-        }
-
-        Playlist {
-            id,
-            name,
-            owner_id,
-            snapshot_id,
-            tracks: collected_tracks,
-        }
-    }
-
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
         for local in self
             .playlists
@@ -291,7 +232,7 @@ impl Library {
 
                 if self.needs_download(remote) {
                     info!("updating playlist {}", remote.name);
-                    let playlist = Self::process_simplified_playlist(remote, &self.spotify);
+                    let playlist = Playlist::from_simplified_playlist(remote, &self.spotify);
                     self.append_or_update(&playlist);
                     // trigger redraw
                     self.ev.trigger();

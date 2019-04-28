@@ -1,8 +1,11 @@
 use std::iter::Iterator;
 use std::sync::Arc;
 
+use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
+
 use library::Library;
 use queue::Queue;
+use spotify::Spotify;
 use track::Track;
 use traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use ui::playlist::PlaylistView;
@@ -14,6 +17,67 @@ pub struct Playlist {
     pub owner_id: String,
     pub snapshot_id: String,
     pub tracks: Vec<Track>,
+}
+
+impl Playlist {
+    pub fn from_simplified_playlist(list: &SimplifiedPlaylist, spotify: &Spotify) -> Playlist {
+        Self::_process_playlist(
+            list.id.clone(),
+            list.name.clone(),
+            list.owner.id.clone(),
+            list.snapshot_id.clone(),
+            spotify,
+        )
+    }
+
+    pub fn from_full_playlist(list: &FullPlaylist, spotify: &Spotify) -> Playlist {
+        Self::_process_playlist(
+            list.id.clone(),
+            list.name.clone(),
+            list.owner.id.clone(),
+            list.snapshot_id.clone(),
+            spotify,
+        )
+    }
+
+    fn _process_playlist(
+        id: String,
+        name: String,
+        owner_id: String,
+        snapshot_id: String,
+        spotify: &Spotify,
+    ) -> Playlist {
+        let mut collected_tracks = Vec::new();
+
+        let mut tracks_result = spotify.user_playlist_tracks(&id, 100, 0);
+        while let Some(ref tracks) = tracks_result.clone() {
+            for listtrack in &tracks.items {
+                collected_tracks.push((&listtrack.track).into());
+            }
+            debug!("got {} tracks", tracks.items.len());
+
+            // load next batch if necessary
+            tracks_result = match tracks.next {
+                Some(_) => {
+                    debug!("requesting tracks again..");
+                    spotify.user_playlist_tracks(
+                        &id,
+                        100,
+                        tracks.offset + tracks.items.len() as u32,
+                    )
+                }
+                None => None,
+            }
+        }
+
+        Playlist {
+            id,
+            name,
+            owner_id,
+            snapshot_id,
+            tracks: collected_tracks,
+        }
+    }
 }
 
 impl ListItem for Playlist {

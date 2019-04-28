@@ -225,7 +225,7 @@ impl SearchView {
         _append: bool,
     ) -> u32 {
         if let Some(results) = spotify.playlist(&query) {
-            let pls = vec![Library::process_full_playlist(&results, &&spotify)];
+            let pls = vec![Playlist::from_full_playlist(&results, &&spotify)];
             let mut r = playlists.write().unwrap();
             *r = pls;
             return 1;
@@ -245,7 +245,7 @@ impl SearchView {
                 .playlists
                 .items
                 .iter()
-                .map(|sp| Library::process_simplified_playlist(sp, &&spotify))
+                .map(|sp| Playlist::from_simplified_playlist(sp, &&spotify))
                 .collect();
             let mut r = playlists.write().unwrap();
 
