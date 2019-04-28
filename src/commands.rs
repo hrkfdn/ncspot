@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
@@ -85,10 +86,15 @@ impl CommandManager {
 
         {
             let queue = queue.clone();
+            let spotify = spotify.clone();
             self.register_command(
                 "previous",
                 Some(Box::new(move |_s, _args| {
-                    queue.previous();
+                    if spotify.get_current_progress() < Duration::from_secs(5) {
+                        queue.previous();
+                    } else {
+                        spotify.seek(0);
+                    }
                     Ok(None)
                 })),
             );
