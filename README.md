@@ -56,6 +56,7 @@ have them configurable.
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot
+* `m` copies a sharable URL to the song to the system clipboard
 
 You can also open a Vim style commandprompt using `:`, the following commands
 are supported:
@@ -65,6 +66,7 @@ are supported:
 * `stop`: Stop playback
 * `previous`/`next`: Play previous/next track
 * `clear`: Clear playlist
+* `share`: Copies a sharable URL to the song to the system clipboard
 
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening
