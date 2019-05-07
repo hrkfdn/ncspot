@@ -2,6 +2,7 @@ extern crate clap;
 extern crate crossbeam_channel;
 #[macro_use]
 extern crate cursive;
+extern crate clipboard;
 extern crate directories;
 extern crate failure;
 extern crate futures;

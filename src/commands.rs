@@ -6,6 +6,7 @@ use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
 
+use clipboard::{ClipboardContext, ClipboardProvider};
 use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
@@ -198,6 +199,25 @@ impl CommandManager {
         }
 
         {
+            let queue = queue.clone();
+            self.register_command(
+                "share",
+                Some(Box::new(move |_, _| {
+                    if let Some(url) = queue
+                        .get_current()
+                        .and_then(|t| t.id)
+                        .map(|id| format!("https://open.spotify.com/track/{}", id))
+                    {
+                        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                        ctx.set_contents(url).unwrap();
+                    }
+
+                    Ok(None)
+                })),
+            )
+        }
+
+        {
             let spotify = spotify.clone();
             self.register_command(
                 "seek",
@@ -284,9 +304,9 @@ impl CommandManager {
         });
     }
 
-    pub fn register_keybindings<'a>(
+    pub fn register_keybindings(
         this: Arc<Self>,
-        cursive: &'a mut Cursive,
+        cursive: &mut Cursive,
         keybindings: Option<HashMap<String, String>>,
     ) {
         let mut kb = Self::default_keybindings();
@@ -321,6 +341,7 @@ impl CommandManager {
         kb.insert(",".into(), "seek -500".into());
         kb.insert("r".into(), "repeat".into());
         kb.insert("z".into(), "shuffle".into());
+        kb.insert("m".into(), "share".into());
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());
