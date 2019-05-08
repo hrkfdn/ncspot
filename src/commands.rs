@@ -341,7 +341,7 @@ impl CommandManager {
         kb.insert(",".into(), "seek -500".into());
         kb.insert("r".into(), "repeat".into());
         kb.insert("z".into(), "shuffle".into());
-        kb.insert("m".into(), "share".into());
+        kb.insert("x".into(), "share".into());
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());
