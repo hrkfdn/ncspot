@@ -10,7 +10,7 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
-use traits::ViewExt;
+use traits::{ListItem, ViewExt};
 use ui::layout::Layout;
 
 type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
@@ -202,14 +202,14 @@ impl CommandManager {
             let queue = queue.clone();
             self.register_command(
                 "share",
-                Some(Box::new(move |_, _| {
-                    if let Some(url) = queue
-                        .get_current()
-                        .and_then(|t| t.id)
-                        .map(|id| format!("https://open.spotify.com/track/{}", id))
-                    {
-                        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-                        ctx.set_contents(url).unwrap();
+                Some(Box::new(move |_, args| {
+                    if let Some(url) = args.get(0).and_then(|source| match source.as_str() {
+                        "current" => queue.get_current().and_then(|t| t.share_url()),
+                        _ => None,
+                    }) {
+                        ClipboardProvider::new()
+                            .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
+                            .unwrap();
                     }
 
                     Ok(None)
@@ -341,7 +341,8 @@ impl CommandManager {
         kb.insert(",".into(), "seek -500".into());
         kb.insert("r".into(), "repeat".into());
         kb.insert("z".into(), "shuffle".into());
-        kb.insert("x".into(), "share".into());
+        kb.insert("x".into(), "share current".into());
+        kb.insert("Shift+x".into(), "share selected".into());
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());

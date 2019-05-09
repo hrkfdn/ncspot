@@ -9,6 +9,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use clipboard::{ClipboardContext, ClipboardProvider};
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -312,6 +313,26 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             if let Some(item) = item.as_mut() {
                 item.toggle_saved(self.library.clone());
             }
+        }
+
+        if cmd == "share" {
+            return args.get(0).map_or_else(
+                || Err("wrong number of parameters".to_string()),
+                |source| match source.as_str() {
+                    "selected" => {
+                        if let Some(url) = self.content.read().ok().and_then(|content| {
+                            content.get(self.selected).and_then(ListItem::share_url)
+                        }) {
+                            ClipboardProvider::new()
+                                .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
+                                .unwrap();
+                        }
+
+                        Ok(CommandResult::Consumed(None))
+                    }
+                    _ => Ok(CommandResult::Ignored),
+                },
+            );
         }
 
         if cmd == "move" {

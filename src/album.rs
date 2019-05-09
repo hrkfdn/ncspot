@@ -199,6 +199,12 @@ impl ListItem for Album {
         Some(AlbumView::new(queue, library, self).as_boxed_view_ext())
     }
 
+    fn share_url(&self) -> Option<String> {
+        self.id
+            .clone()
+            .map(|id| format!("https://open.spotify.com/album/{}", id))
+    }
+
     fn artist(&self) -> Option<Artist> {
         Some(Artist::new(
             self.artist_ids[0].clone(),

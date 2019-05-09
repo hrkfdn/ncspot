@@ -18,6 +18,7 @@ pub trait ListItem: Sync + Send + 'static {
     fn queue(&mut self, queue: Arc<Queue>);
     fn toggle_saved(&mut self, library: Arc<Library>);
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>>;
+    fn share_url(&self) -> Option<String>;
 
     fn album(&self, _queue: Arc<Queue>) -> Option<Album> {
         None
