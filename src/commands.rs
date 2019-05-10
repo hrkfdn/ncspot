@@ -6,11 +6,10 @@ use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
 
-use clipboard::{ClipboardContext, ClipboardProvider};
 use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
-use traits::{ListItem, ViewExt};
+use traits::ViewExt;
 use ui::layout::Layout;
 
 type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
