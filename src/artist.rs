@@ -193,4 +193,10 @@ impl ListItem for Artist {
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
         Some(ArtistView::new(queue, library, self).as_boxed_view_ext())
     }
+
+    fn share_url(&self) -> Option<String> {
+        self.id
+            .clone()
+            .map(|id| format!("https://open.spotify.com/artist/{}", id))
+    }
 }

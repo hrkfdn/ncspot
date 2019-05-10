@@ -189,6 +189,12 @@ impl ListItem for Track {
         None
     }
 
+    fn share_url(&self) -> Option<String> {
+        self.id
+            .clone()
+            .map(|id| format!("https://open.spotify.com/track/{}", id))
+    }
+
     fn album(&self, queue: Arc<Queue>) -> Option<Album> {
         let spotify = queue.get_spotify();
 

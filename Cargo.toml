@@ -33,6 +33,7 @@ unicode-width = "0.1.5"
 dbus = { version = "0.6.4", optional = true }
 rand = "0.6.5"
 webbrowser = "0.5"
+clipboard = "0.5.0"
 
 [dependencies.rspotify]
 git = "https://github.com/samrayleung/rspotify"

@@ -166,4 +166,11 @@ impl ListItem for Playlist {
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
         Some(PlaylistView::new(queue, library, self).as_boxed_view_ext())
     }
+
+    fn share_url(&self) -> Option<String> {
+        Some(format!(
+            "https://open.spotify.com/user/{}/playlist/{}",
+            self.owner_id, self.id
+        ))
+    }
 }

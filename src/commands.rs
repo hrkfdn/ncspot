@@ -284,9 +284,9 @@ impl CommandManager {
         });
     }
 
-    pub fn register_keybindings<'a>(
+    pub fn register_keybindings(
         this: Arc<Self>,
-        cursive: &'a mut Cursive,
+        cursive: &mut Cursive,
         keybindings: Option<HashMap<String, String>>,
     ) {
         let mut kb = Self::default_keybindings();
@@ -321,6 +321,8 @@ impl CommandManager {
         kb.insert(",".into(), "seek -500".into());
         kb.insert("r".into(), "repeat".into());
         kb.insert("z".into(), "shuffle".into());
+        kb.insert("x".into(), "share current".into());
+        kb.insert("Shift+x".into(), "share selected".into());
 
         kb.insert("F1".into(), "focus queue".into());
         kb.insert("F2".into(), "focus search".into());

@@ -9,6 +9,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use clipboard::{ClipboardContext, ClipboardProvider};
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -215,6 +216,10 @@ impl<I: ListItem> View for ListView<I> {
         self.content.read().unwrap().len() != self.last_content_len
     }
 
+    fn required_size(&mut self, constraint: Vec2) -> Vec2 {
+        Vec2::new(constraint.x, self.content.read().unwrap().len())
+    }
+
     fn on_event(&mut self, e: Event) -> EventResult {
         match e {
             Event::Mouse {
@@ -260,10 +265,6 @@ impl<I: ListItem> View for ListView<I> {
         }
 
         EventResult::Consumed(None)
-    }
-
-    fn required_size(&mut self, constraint: Vec2) -> Vec2 {
-        Vec2::new(constraint.x, self.content.read().unwrap().len())
     }
 
     fn important_area(&self, view_size: Vec2) -> Rect {
@@ -312,6 +313,26 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             if let Some(item) = item.as_mut() {
                 item.toggle_saved(self.library.clone());
             }
+        }
+
+        if cmd == "share" {
+            let source = args.get(0);
+            let url =
+                source.and_then(|source| match source.as_str() {
+                    "selected" => self.content.read().ok().and_then(|content| {
+                        content.get(self.selected).and_then(ListItem::share_url)
+                    }),
+                    "current" => self.queue.get_current().and_then(|t| t.share_url()),
+                    _ => None,
+                });
+
+            if let Some(url) = url {
+                ClipboardProvider::new()
+                    .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
+                    .ok();
+            };
+
+            return Ok(CommandResult::Consumed(None));
         }
 
         if cmd == "move" {
