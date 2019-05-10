@@ -316,15 +316,14 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
         }
 
         if cmd == "share" {
-            return if let Some(url) = args.get(0).and_then(|source| match source.as_str() {
-                "selected" => self
-                    .content
-                    .read()
-                    .ok()
-                    .and_then(|content| content.get(self.selected).and_then(|i| i.share_url())), ,
-                "current" => self.queue.get_current().and_then(|t| t.share_url()),
-                _ => None,
-            }) {
+            return if let Some(url) =
+                args.get(0).and_then(|source| match source.as_str() {
+                    "selected" => self.content.read().ok().and_then(|content| {
+                        content.get(self.selected).and_then(ListItem::share_url)
+                    }),
+                    "current" => self.queue.get_current().and_then(|t| t.share_url()),
+                    _ => None,
+                }) {
                 ClipboardProvider::new()
                     .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
                     .ok();
