@@ -199,25 +199,6 @@ impl CommandManager {
         }
 
         {
-            let queue = queue.clone();
-            self.register_command(
-                "share",
-                Some(Box::new(move |_, args| {
-                    if let Some(url) = args.get(0).and_then(|source| match source.as_str() {
-                        "current" => queue.get_current().and_then(|t| t.share_url()),
-                        _ => None,
-                    }) {
-                        ClipboardProvider::new()
-                            .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
-                            .unwrap();
-                    }
-
-                    Ok(None)
-                })),
-            )
-        }
-
-        {
             let spotify = spotify.clone();
             self.register_command(
                 "seek",

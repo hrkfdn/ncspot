@@ -316,23 +316,22 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
         }
 
         if cmd == "share" {
-            return args.get(0).map_or_else(
-                || Err("wrong number of parameters".to_string()),
-                |source| match source.as_str() {
-                    "selected" => {
-                        if let Some(url) = self.content.read().ok().and_then(|content| {
-                            content.get(self.selected).and_then(ListItem::share_url)
-                        }) {
-                            ClipboardProvider::new()
-                                .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
-                                .unwrap();
-                        }
-
-                        Ok(CommandResult::Consumed(None))
-                    }
-                    _ => Ok(CommandResult::Ignored),
-                },
-            );
+            return if let Some(url) = args.get(0).and_then(|source| match source.as_str() {
+                "selected" => self
+                    .content
+                    .read()
+                    .ok()
+                    .and_then(|content| content.get(self.selected).and_then(|i| i.share_url())), ,
+                "current" => self.queue.get_current().and_then(|t| t.share_url()),
+                _ => None,
+            }) {
+                ClipboardProvider::new()
+                    .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
+                    .ok();
+                Ok(CommandResult::Consumed(None))
+            } else {
+                Ok(CommandResult::Ignored)
+            };
         }
 
         if cmd == "move" {
