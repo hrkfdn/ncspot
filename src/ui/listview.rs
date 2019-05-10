@@ -216,6 +216,10 @@ impl<I: ListItem> View for ListView<I> {
         self.content.read().unwrap().len() != self.last_content_len
     }
 
+    fn required_size(&mut self, constraint: Vec2) -> Vec2 {
+        Vec2::new(constraint.x, self.content.read().unwrap().len())
+    }
+
     fn on_event(&mut self, e: Event) -> EventResult {
         match e {
             Event::Mouse {
@@ -261,10 +265,6 @@ impl<I: ListItem> View for ListView<I> {
         }
 
         EventResult::Consumed(None)
-    }
-
-    fn required_size(&mut self, constraint: Vec2) -> Vec2 {
-        Vec2::new(constraint.x, self.content.read().unwrap().len())
     }
 
     fn important_area(&self, view_size: Vec2) -> Rect {
@@ -326,14 +326,13 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     _ => None,
                 });
 
-            return if let Some(url) = url {
+            if let Some(url) = url {
                 ClipboardProvider::new()
                     .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
                     .ok();
-                Ok(CommandResult::Consumed(None))
-            } else {
-                Ok(CommandResult::Ignored)
             };
+
+            return Ok(CommandResult::Consumed(None));
         }
 
         if cmd == "move" {
