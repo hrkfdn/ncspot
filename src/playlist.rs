@@ -169,7 +169,7 @@ impl ListItem for Playlist {
 
     fn share_url(&self) -> Option<String> {
         Some(format!(
-            "https://open.spotify.com/user/{}/{}",
+            "https://open.spotify.com/user/{}/playlist/{}",
             self.owner_id, self.id
         ))
     }
