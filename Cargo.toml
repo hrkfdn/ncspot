@@ -48,9 +48,6 @@ default-features = false
 version = "0.11.1"
 default-features = false
 
-[dependencies.winapi]
-git = "https://github.com/overdrivenpotato/winapi-rs"
-
 [features]
 alsa_backend = ["librespot/alsa-backend"]
 pulseaudio_backend = ["librespot/pulseaudio-backend"]
