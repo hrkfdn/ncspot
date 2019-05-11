@@ -111,4 +111,5 @@ By default ncspot is built using the Rodio backend.  To make it use the
 PortAudio backend (e.g. *BSD), you need to recompile ncspot with the
 `portaudio_backend` feature:
 
-* `cargo run --no-default-features --features portaudio_backend`
+* `cargo run --no-default-features --features
+  portaudio_backend,cursive/pancurses-backend`
