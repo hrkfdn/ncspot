@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{mpsc, Arc};
+use std::time::Duration;
 
 use dbus::arg::{RefArg, Variant};
 use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
@@ -342,8 +343,13 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let method_previous = {
         let queue = queue.clone();
+        let spotify = spotify.clone();
         f.method("Previous", (), move |m| {
-            queue.previous();
+            if spotify.get_current_progress() < Duration::from_secs(5) {
+                queue.previous();
+            } else {
+                spotify.seek(0);
+            }
             Ok(vec![m.msg.method_return()])
         })
     };
