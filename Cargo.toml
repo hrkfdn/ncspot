@@ -7,6 +7,7 @@ authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
 repository = "https://github.com/hrkfdn/ncspot"
 keywords = ["spotify", "ncurses", "librespot"]
 license = "BSD-2-Clause"
+readme = "README.md"
 
 [badges]
 travis-ci = { repository = "hrkfdn/ncspot", branch = "master" }
