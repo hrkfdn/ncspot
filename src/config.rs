@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use directories::ProjectDirs;
 
@@ -33,8 +34,17 @@ pub struct ConfigTheme {
     pub cmdline_bg: Option<String>,
 }
 
+lazy_static! {
+    pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
+}
+
 fn proj_dirs() -> ProjectDirs {
-    ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
+    match *BASE_PATH.read().expect("can't readlock BASE_PATH") {
+        Some(ref basepath) => ProjectDirs::from_path(basepath.clone()).expect("invalid basepath"),
+        None => {
+            ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
+        }
+    }
 }
 
 pub fn config_path(file: &str) -> PathBuf {

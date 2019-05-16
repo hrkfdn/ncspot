@@ -6,6 +6,8 @@ extern crate clipboard;
 extern crate directories;
 extern crate failure;
 extern crate futures;
+#[macro_use]
+extern crate lazy_static;
 extern crate librespot;
 extern crate rspotify;
 extern crate tokio;
@@ -30,7 +32,9 @@ extern crate fern;
 extern crate rand;
 
 use std::fs;
+use std::path::PathBuf;
 use std::process;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use clap::{App, Arg};
@@ -120,10 +124,26 @@ fn main() {
                 .help("Enable debug logging to the specified file")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("basepath")
+                .short("b")
+                .long("basepath")
+                .value_name("PATH")
+                .help("custom basepath to config/cache files")
+                .takes_value(true),
+        )
         .get_matches();
 
     if let Some(filename) = matches.value_of("debug") {
         setup_logging(filename).expect("can't setup logging");
+    }
+
+    if let Some(basepath) = matches.value_of("basepath") {
+        let path = PathBuf::from_str(basepath).expect("invalid path");
+        if !path.exists() {
+            fs::create_dir(&path).expect("could not create basepath directory");
+        }
+        *config::BASE_PATH.write().unwrap() = Some(path);
     }
 
     // Things here may cause the process to abort; we must do them before creating curses windows
