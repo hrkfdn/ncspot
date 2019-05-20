@@ -252,7 +252,8 @@ impl CommandManager {
 
             Ok(None)
         }
-        /* handle default commands
+        /*
+        TODO: handle default commands
         else if let Some(callback) = self.callbacks.get(cmd) {
             callback.as_ref().map(|cb| cb(s, args)).unwrap_or(Ok(None))
         } */

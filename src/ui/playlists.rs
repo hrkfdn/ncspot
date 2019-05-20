@@ -54,14 +54,11 @@ impl ViewWrapper for PlaylistsView {
 
 impl ViewExt for PlaylistsView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
-        match cmd {
-            Command::Delete => {
-                if let Some(dialog) = self.delete_dialog() {
-                    s.add_layer(dialog);
-                }
-                return Ok(CommandResult::Consumed(None));
+        if let Command::Delete = cmd {
+            if let Some(dialog) = self.delete_dialog() {
+                s.add_layer(dialog);
             }
-            _ => {}
+            return Ok(CommandResult::Consumed(None));
         }
 
         self.list.on_command(s, cmd)

@@ -104,28 +104,25 @@ impl View for TabView {
 
 impl ViewExt for TabView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
-        match cmd {
-            Command::Move(mode, amount) => {
-                let amount = match amount {
-                    Some(amount) => *amount,
-                    _ => 1,
-                };
+        if let Command::Move(mode, amount) = cmd {
+            let amount = match amount {
+                Some(amount) => *amount,
+                _ => 1,
+            };
 
-                let len = self.tabs.len();
+            let len = self.tabs.len();
 
-                match mode {
-                    MoveMode::Left if self.selected > 0 => {
-                        self.move_focus(-(amount as i32));
-                        return Ok(CommandResult::Consumed(None));
-                    }
-                    MoveMode::Right if self.selected < len - 1 => {
-                        self.move_focus(amount as i32);
-                        return Ok(CommandResult::Consumed(None));
-                    }
-                    _ => {}
+            match mode {
+                MoveMode::Left if self.selected > 0 => {
+                    self.move_focus(-(amount as i32));
+                    return Ok(CommandResult::Consumed(None));
                 }
+                MoveMode::Right if self.selected < len - 1 => {
+                    self.move_focus(amount as i32);
+                    return Ok(CommandResult::Consumed(None));
+                }
+                _ => {}
             }
-            _ => {}
         }
 
         if let Some(tab) = self.tabs.get_mut(self.selected) {

@@ -13,7 +13,6 @@ use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
 use command::Command;
-use command::Command::Focus;
 use commands::CommandResult;
 use events;
 use traits::{IntoBoxedViewExt, ViewExt};
@@ -207,6 +206,25 @@ impl View for Layout {
         }
     }
 
+    fn layout(&mut self, size: Vec2) {
+        self.last_size = size;
+
+        self.statusbar.layout(Vec2::new(size.x, 2));
+
+        self.cmdline.layout(Vec2::new(size.x, 1));
+
+        if let Some(screen) = self.get_current_screen_mut() {
+            screen.view.layout(Vec2::new(size.x, size.y - 3));
+        }
+
+        // the focus view has changed, let the views know so they can redraw
+        // their items
+        if self.screenchange {
+            debug!("layout: new screen selected: {:?}", self.focus);
+            self.screenchange = false;
+        }
+    }
+
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
         Vec2::new(constraint.x, constraint.y)
     }
@@ -243,25 +261,6 @@ impl View for Layout {
             screen.view.on_event(event)
         } else {
             EventResult::Ignored
-        }
-    }
-
-    fn layout(&mut self, size: Vec2) {
-        self.last_size = size;
-
-        self.statusbar.layout(Vec2::new(size.x, 2));
-
-        self.cmdline.layout(Vec2::new(size.x, 1));
-
-        if let Some(screen) = self.get_current_screen_mut() {
-            screen.view.layout(Vec2::new(size.x, size.y - 3));
-        }
-
-        // the focus view has changed, let the views know so they can redraw
-        // their items
-        if self.screenchange {
-            debug!("layout: new screen selected: {:?}", self.focus);
-            self.screenchange = false;
         }
     }
 

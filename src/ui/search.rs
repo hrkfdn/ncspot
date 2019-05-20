@@ -412,6 +412,14 @@ impl View for SearchView {
         self.tabs.layout(Vec2::new(size.x, size.y - 1));
     }
 
+    fn on_event(&mut self, event: Event) -> EventResult {
+        if self.edit_focused {
+            self.edit.on_event(event)
+        } else {
+            self.tabs.on_event(event)
+        }
+    }
+
     fn call_on_any<'a>(&mut self, selector: &Selector<'_>, mut callback: AnyCb<'a>) {
         self.edit.call_on_any(selector, Box::new(|v| callback(v)));
         self.tabs.call_on_any(selector, Box::new(|v| callback(v)));
@@ -425,21 +433,13 @@ impl View for SearchView {
             Err(())
         }
     }
-
-    fn on_event(&mut self, event: Event) -> EventResult {
-        if self.edit_focused {
-            self.edit.on_event(event)
-        } else {
-            self.tabs.on_event(event)
-        }
-    }
 }
 
 impl ViewExt for SearchView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Search(query) => self.run_search(query.to_string()),
-            Command::Focus(view) => {
+            Command::Focus(_) => {
                 self.edit_focused = true;
                 self.clear();
                 return Ok(CommandResult::Consumed(None));
@@ -454,8 +454,8 @@ impl ViewExt for SearchView {
         };
 
         if let CommandResult::Ignored = result {
-            match cmd {
-                Command::Move(mode, amount) => match mode {
+            if let Command::Move(mode, _) = cmd {
+                match mode {
                     MoveMode::Up if !self.edit_focused => {
                         self.edit_focused = true;
                         return Ok(CommandResult::Consumed(None));
@@ -465,8 +465,7 @@ impl ViewExt for SearchView {
                         return Ok(CommandResult::Consumed(None));
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
 
