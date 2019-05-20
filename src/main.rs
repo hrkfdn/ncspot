@@ -46,6 +46,7 @@ use librespot::core::authentication::Credentials;
 mod album;
 mod artist;
 mod authentication;
+mod command;
 mod commands;
 mod config;
 mod events;
@@ -232,6 +233,8 @@ fn main() {
         });
     });
 
+    /*
+    TODO: Write parser for commands
     {
         let ev = event_manager.clone();
         let cmd_manager = cmd_manager.clone();
@@ -244,6 +247,7 @@ fn main() {
             ev.trigger();
         });
     }
+    */
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
 

@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use album::Album;
 use artist::Artist;
+use command::{Command, MoveMode};
 use commands::CommandResult;
 use events::EventManager;
 use library::Library;
@@ -435,42 +436,37 @@ impl View for SearchView {
 }
 
 impl ViewExt for SearchView {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "search" && !args.is_empty() {
-            self.run_search(args.join(" "));
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        if cmd == "focus" {
-            self.edit_focused = true;
-            self.clear();
-            return Ok(CommandResult::Consumed(None));
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Search(query) => self.run_search(query.to_string()),
+            Command::Focus(view) => {
+                self.edit_focused = true;
+                self.clear();
+                return Ok(CommandResult::Consumed(None));
+            }
+            _ => {}
         }
 
         let result = if !self.edit_focused {
-            self.tabs.on_command(s, cmd, args)?
+            self.tabs.on_command(s, cmd)?
         } else {
             CommandResult::Ignored
         };
 
         if let CommandResult::Ignored = result {
-            if cmd == "move" {
-                if let Some(dir) = args.get(0) {
-                    if dir == "up" && !self.edit_focused {
+            match cmd {
+                Command::Move(mode, amount) => match mode {
+                    MoveMode::Up if !self.edit_focused => {
                         self.edit_focused = true;
                         return Ok(CommandResult::Consumed(None));
                     }
-
-                    if dir == "down" && self.edit_focused {
+                    MoveMode::Down if self.edit_focused => {
                         self.edit_focused = false;
                         return Ok(CommandResult::Consumed(None));
                     }
-                }
+                    _ => {}
+                },
+                _ => {}
             }
         }
 

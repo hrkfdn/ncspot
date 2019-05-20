@@ -6,6 +6,16 @@ use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
 
+use command::Command::{
+    Back, Clear, Delete, Focus, Goto, Move, Next, Open, Play, Playlists, Previous, Quit, Repeat,
+    Save, SaveQueue, Seek, Share, Shift, Shuffle, Stop, TogglePlay,
+};
+use command::GotoMode::{Album, Artist};
+use command::MoveMode::{Down, Left, Right, Up};
+use command::PlaylistCommands::Update;
+use command::SeekInterval::{Backwards, Forward};
+use command::TargetMode::{Current, Selected};
+use command::{Command, ShiftMode};
 use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
@@ -227,15 +237,10 @@ impl CommandManager {
         }
     }
 
-    fn handle_callbacks(
-        &self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<Option<String>, String> {
+    fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
         let local = {
             let mut main: ViewRef<Layout> = s.find_id("main").unwrap();
-            main.on_command(s, cmd, args)?
+            main.on_command(s, cmd)?
         };
 
         if let CommandResult::Consumed(output) = local {
@@ -246,24 +251,18 @@ impl CommandManager {
             });
 
             Ok(None)
-        } else if let Some(callback) = self.callbacks.get(cmd) {
+        }
+        /* handle default commands
+        else if let Some(callback) = self.callbacks.get(cmd) {
             callback.as_ref().map(|cb| cb(s, args)).unwrap_or(Ok(None))
-        } else {
+        } */
+        else {
             Err("Unknown command.".to_string())
         }
     }
 
-    pub fn handle(&self, s: &mut Cursive, cmd: String) {
-        let components: Vec<String> = cmd
-            .trim()
-            .split(' ')
-            .map(std::string::ToString::to_string)
-            .collect();
-
-        let cmd = self.handle_aliases(&components[0]);
-        let args = components[1..].to_vec();
-
-        let result = self.handle_callbacks(s, &cmd, &args);
+    pub fn handle(&self, s: &mut Cursive, cmd: Command) {
+        let result = self.handle_callbacks(s, &cmd);
 
         s.call_on_id("main", |v: &mut Layout| {
             v.set_result(result);
@@ -272,22 +271,21 @@ impl CommandManager {
         s.on_event(Event::Refresh);
     }
 
-    pub fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
+    pub fn register_keybinding<E: Into<cursive::event::Event>>(
         this: Arc<Self>,
         cursive: &mut Cursive,
         event: E,
-        command: S,
+        command: Command,
     ) {
-        let cmd = command.into();
         cursive.add_global_callback(event, move |s| {
-            this.handle(s, cmd.clone());
+            this.handle(s, command.clone());
         });
     }
 
     pub fn register_keybindings(
         this: Arc<Self>,
         cursive: &mut Cursive,
-        keybindings: Option<HashMap<String, String>>,
+        keybindings: Option<HashMap<String, Command>>,
     ) {
         let mut kb = Self::default_keybindings();
         kb.extend(keybindings.unwrap_or_default());
@@ -301,51 +299,51 @@ impl CommandManager {
         }
     }
 
-    fn default_keybindings() -> HashMap<String, String> {
+    fn default_keybindings() -> HashMap<String, Command> {
         let mut kb = HashMap::new();
 
-        kb.insert("q".into(), "quit".into());
-        kb.insert("P".into(), "toggleplay".into());
-        kb.insert("R".into(), "playlists update".into());
-        kb.insert("S".into(), "stop".into());
-        kb.insert("<".into(), "previous".into());
-        kb.insert(">".into(), "next".into());
-        kb.insert("c".into(), "clear".into());
-        kb.insert(" ".into(), "queue".into());
-        kb.insert("Enter".into(), "play".into());
-        kb.insert("s".into(), "save".into());
-        kb.insert("Ctrl+s".into(), "save queue".into());
-        kb.insert("d".into(), "delete".into());
-        kb.insert("/".into(), "focus search".into());
-        kb.insert(".".into(), "seek +500".into());
-        kb.insert(",".into(), "seek -500".into());
-        kb.insert("r".into(), "repeat".into());
-        kb.insert("z".into(), "shuffle".into());
-        kb.insert("x".into(), "share current".into());
-        kb.insert("Shift+x".into(), "share selected".into());
+        kb.insert("q".into(), Quit);
+        kb.insert("P".into(), TogglePlay);
+        kb.insert("R".into(), Playlists(Update));
+        kb.insert("S".into(), Stop);
+        kb.insert("<".into(), Previous);
+        kb.insert(">".into(), Next);
+        kb.insert("c".into(), Clear);
+        kb.insert(" ".into(), Command::Queue);
+        kb.insert("Enter".into(), Play);
+        kb.insert("s".into(), Save);
+        kb.insert("Ctrl+s".into(), SaveQueue);
+        kb.insert("d".into(), Delete);
+        kb.insert("/".into(), Focus("search".into()));
+        kb.insert(".".into(), Seek(Forward));
+        kb.insert(",".into(), Seek(Backwards));
+        kb.insert("r".into(), Repeat);
+        kb.insert("z".into(), Shuffle);
+        kb.insert("x".into(), Share(Current));
+        kb.insert("Shift+x".into(), Share(Selected));
 
-        kb.insert("F1".into(), "focus queue".into());
-        kb.insert("F2".into(), "focus search".into());
-        kb.insert("F3".into(), "focus library".into());
-        kb.insert("Backspace".into(), "back".into());
+        kb.insert("F1".into(), Focus("queue".into()));
+        kb.insert("F2".into(), Focus("search".into()));
+        kb.insert("F3".into(), Focus("library".into()));
+        kb.insert("Backspace".into(), Back);
 
-        kb.insert("o".into(), "open".into());
-        kb.insert("a".into(), "goto album".into());
-        kb.insert("A".into(), "goto artist".into());
+        kb.insert("o".into(), Open);
+        kb.insert("a".into(), Goto(Album));
+        kb.insert("A".into(), Goto(Artist));
 
-        kb.insert("Up".into(), "move up".into());
-        kb.insert("Down".into(), "move down".into());
-        kb.insert("Left".into(), "move left".into());
-        kb.insert("Right".into(), "move right".into());
-        kb.insert("PageUp".into(), "move up 5".into());
-        kb.insert("PageDown".into(), "move down 5".into());
-        kb.insert("k".into(), "move up".into());
-        kb.insert("j".into(), "move down".into());
-        kb.insert("h".into(), "move left".into());
-        kb.insert("l".into(), "move right".into());
+        kb.insert("Up".into(), Move(Up, None));
+        kb.insert("Down".into(), Move(Down, None));
+        kb.insert("Left".into(), Move(Left, None));
+        kb.insert("Right".into(), Move(Right, None));
+        kb.insert("PageUp".into(), Move(Up, Some(5)));
+        kb.insert("PageDown".into(), Move(Down, Some(5)));
+        kb.insert("k".into(), Move(Up, None));
+        kb.insert("j".into(), Move(Down, None));
+        kb.insert("h".into(), Move(Left, None));
+        kb.insert("l".into(), Move(Right, None));
 
-        kb.insert("Shift+Up".into(), "shift up".into());
-        kb.insert("Shift+Down".into(), "shift down".into());
+        kb.insert("Shift+Up".into(), Shift(ShiftMode::Up, None));
+        kb.insert("Shift+Down".into(), Shift(ShiftMode::Down, None));
 
         kb
     }

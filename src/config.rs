@@ -3,13 +3,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
+use command::Command;
 use directories::ProjectDirs;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Config {
-    pub keybindings: Option<HashMap<String, String>>,
+    pub keybindings: Option<HashMap<String, Command>>,
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
 }

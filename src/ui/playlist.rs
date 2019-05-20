@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
+use command::Command;
 use commands::CommandResult;
 use library::Library;
 use playlist::Playlist;
@@ -43,12 +44,7 @@ impl ViewExt for PlaylistView {
         self.playlist.name.clone()
     }
 
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        self.list.on_command(s, cmd, args)
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.list.on_command(s, cmd)
     }
 }

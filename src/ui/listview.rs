@@ -10,6 +10,7 @@ use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
+use command::{Command, GotoMode, MoveMode, TargetMode};
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -277,123 +278,116 @@ impl<I: ListItem> View for ListView<I> {
 }
 
 impl<I: ListItem + Clone> ViewExt for ListView<I> {
-    fn on_command(
-        &mut self,
-        _s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "play" {
-            self.queue.clear();
+    fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Play => {
+                self.queue.clear();
 
-            if !self.attempt_play_all_tracks() {
+                if !self.attempt_play_all_tracks() {
+                    let mut content = self.content.write().unwrap();
+                    if let Some(item) = content.get_mut(self.selected) {
+                        item.play(self.queue.clone());
+                    }
+                }
+
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Queue => {
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {
-                    item.play(self.queue.clone());
+                    item.queue(self.queue.clone());
+                }
+
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Save => {
+                let mut item = {
+                    let content = self.content.read().unwrap();
+                    content.get(self.selected).cloned()
+                };
+
+                if let Some(item) = item.as_mut() {
+                    item.toggle_saved(self.library.clone());
                 }
             }
 
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        if cmd == "queue" {
-            let mut content = self.content.write().unwrap();
-            if let Some(item) = content.get_mut(self.selected) {
-                item.queue(self.queue.clone());
-            }
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        if cmd == "save" {
-            let mut item = {
-                let content = self.content.read().unwrap();
-                content.get(self.selected).cloned()
-            };
-
-            if let Some(item) = item.as_mut() {
-                item.toggle_saved(self.library.clone());
-            }
-        }
-
-        if cmd == "share" {
-            let source = args.get(0);
-            let url =
-                source.and_then(|source| match source.as_str() {
-                    "selected" => self.content.read().ok().and_then(|content| {
+            Command::Share(mode) => {
+                let url = match mode {
+                    TargetMode::Selected => self.content.read().ok().and_then(|content| {
                         content.get(self.selected).and_then(ListItem::share_url)
                     }),
-                    "current" => self.queue.get_current().and_then(|t| t.share_url()),
-                    _ => None,
-                });
+                    TargetMode::Current => self.queue.get_current().and_then(|t| t.share_url()),
+                };
 
-            if let Some(url) = url {
-                ClipboardProvider::new()
-                    .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
-                    .ok();
-            };
+                if let Some(url) = url {
+                    ClipboardProvider::new()
+                        .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
+                        .ok();
+                }
 
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        if cmd == "move" {
-            if let Some(dir) = args.get(0) {
-                let amount: usize = args
-                    .get(1)
-                    .unwrap_or(&"1".to_string())
-                    .parse()
-                    .map_err(|e| format!("{:?}", e))?;
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Move(mode, amount) => {
+                let amount = match amount {
+                    Some(amount) => *amount,
+                    _ => 1,
+                };
 
                 let len = self.content.read().unwrap().len();
 
-                if dir == "up" && self.selected > 0 {
-                    self.move_focus(-(amount as i32));
-                    return Ok(CommandResult::Consumed(None));
-                }
-
-                if dir == "down" {
-                    if self.selected < len.saturating_sub(1) {
+                match mode {
+                    MoveMode::Up if self.selected > 0 => {
+                        self.move_focus(-(amount as i32));
+                        return Ok(CommandResult::Consumed(None));
+                    }
+                    MoveMode::Down if self.selected < len.saturating_sub(1) => {
                         self.move_focus(amount as i32);
                         return Ok(CommandResult::Consumed(None));
-                    } else if self.selected == len.saturating_sub(1) && self.can_paginate() {
+                    }
+                    MoveMode::Down
+                        if self.selected == len.saturating_sub(1) && self.can_paginate() =>
+                    {
                         self.pagination.call(&self.content);
                     }
+                    _ => {}
                 }
             }
-        }
-
-        if cmd == "open" {
-            let mut content = self.content.write().unwrap();
-            if let Some(item) = content.get_mut(self.selected) {
-                let queue = self.queue.clone();
-                let library = self.library.clone();
-                if let Some(view) = item.open(queue, library) {
-                    return Ok(CommandResult::View(view));
-                }
-            }
-        }
-
-        if cmd == "goto" {
-            let mut content = self.content.write().unwrap();
-            if let Some(item) = content.get_mut(self.selected) {
-                let queue = self.queue.clone();
-                let library = self.library.clone();
-                let arg = args.get(0).cloned().unwrap_or_default();
-
-                if arg == "album" {
-                    if let Some(album) = item.album(queue.clone()) {
-                        let view = AlbumView::new(queue, library, &album).as_boxed_view_ext();
-                        return Ok(CommandResult::View(view));
-                    }
-                }
-
-                if arg == "artist" {
-                    if let Some(artist) = item.artist() {
-                        let view = ArtistView::new(queue, library, &artist).as_boxed_view_ext();
+            Command::Open => {
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    let queue = self.queue.clone();
+                    let library = self.library.clone();
+                    if let Some(view) = item.open(queue, library) {
                         return Ok(CommandResult::View(view));
                     }
                 }
             }
-        }
+            Command::Goto(mode) => {
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    let queue = self.queue.clone();
+                    let library = self.library.clone();
+
+                    match mode {
+                        GotoMode::Album => {
+                            if let Some(album) = item.album(queue.clone()) {
+                                let view =
+                                    AlbumView::new(queue, library, &album).as_boxed_view_ext();
+                                return Ok(CommandResult::View(view));
+                            }
+                        }
+                        GotoMode::Artist => {
+                            if let Some(artist) = item.artist() {
+                                let view =
+                                    ArtistView::new(queue, library, &artist).as_boxed_view_ext();
+                                return Ok(CommandResult::View(view));
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        };
 
         Ok(CommandResult::Ignored)
     }

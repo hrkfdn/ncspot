@@ -4,6 +4,7 @@ use cursive::view::ViewWrapper;
 use cursive::views::Dialog;
 use cursive::Cursive;
 
+use command::Command;
 use commands::CommandResult;
 use library::Library;
 use playlist::Playlist;
@@ -52,19 +53,17 @@ impl ViewWrapper for PlaylistsView {
 }
 
 impl ViewExt for PlaylistsView {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "delete" {
-            if let Some(dialog) = self.delete_dialog() {
-                s.add_layer(dialog);
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Delete => {
+                if let Some(dialog) = self.delete_dialog() {
+                    s.add_layer(dialog);
+                }
+                return Ok(CommandResult::Consumed(None));
             }
-            return Ok(CommandResult::Consumed(None));
+            _ => {}
         }
 
-        self.list.on_command(s, cmd, args)
+        self.list.on_command(s, cmd)
     }
 }
