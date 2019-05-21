@@ -184,7 +184,7 @@ fn main() {
         cfg.use_nerdfont.unwrap_or(false),
     ));
 
-    let mut cmd_manager = CommandManager::new();
+    let mut cmd_manager = CommandManager::new(spotify.clone(), queue.clone(), library.clone());
     cmd_manager.register_all(spotify.clone(), queue.clone(), library.clone());
 
     let cmd_manager = Arc::new(cmd_manager);

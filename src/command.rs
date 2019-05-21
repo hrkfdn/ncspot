@@ -1,3 +1,5 @@
+use queue::RepeatSetting;
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum PlaylistCommands {
     Update,
@@ -37,6 +39,12 @@ pub enum GotoMode {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum SeekDirection {
+    Relative(i32),
+    Absolute(u32),
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Command {
     Quit,
     TogglePlay,
@@ -51,9 +59,9 @@ pub enum Command {
     SaveQueue,
     Delete,
     Focus(String),
-    Seek(SeekInterval),
-    Repeat,
-    Shuffle,
+    Seek(SeekDirection),
+    Repeat(Option<RepeatSetting>),
+    Shuffle(Option<bool>),
     Share(TargetMode),
     Back,
     Open,
