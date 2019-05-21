@@ -113,7 +113,8 @@ impl ViewExt for QueueView {
 
                 match mode {
                     ShiftMode::Up if selected > 0 => {
-                        self.queue.shift(selected, selected.saturating_sub(amount));
+                        self.queue
+                            .shift(selected, (selected as i32).saturating_sub(amount) as usize);
                         self.list.move_focus(-(amount as i32));
                         return Ok(CommandResult::Consumed(None));
                     }

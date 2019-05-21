@@ -233,8 +233,6 @@ fn main() {
         });
     });
 
-    /*
-    TODO: Write parser for commands
     {
         let ev = event_manager.clone();
         let cmd_manager = cmd_manager.clone();
@@ -243,11 +241,14 @@ fn main() {
                 let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
-            cmd_manager.handle(s, cmd.to_string()[1..].to_string());
+            let c = &cmd[1..];
+            let parsed = command::parse(c);
+            if let Some(parsed) = parsed {
+                cmd_manager.handle(s, parsed);
+            }
             ev.trigger();
         });
     }
-    */
 
     cursive.add_fullscreen_layer(layout.with_id("main"));
 
