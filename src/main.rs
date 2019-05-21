@@ -185,7 +185,7 @@ fn main() {
     ));
 
     let mut cmd_manager = CommandManager::new(spotify.clone(), queue.clone(), library.clone());
-    cmd_manager.register_all(spotify.clone(), queue.clone(), library.clone());
+    cmd_manager.register_all();
 
     let cmd_manager = Arc::new(cmd_manager);
     CommandManager::register_keybindings(

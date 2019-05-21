@@ -14,8 +14,6 @@ use spotify::Spotify;
 use traits::ViewExt;
 use ui::layout::Layout;
 
-type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
-
 pub enum CommandResult {
     Consumed(Option<String>),
     View(Box<dyn ViewExt>),
@@ -23,7 +21,6 @@ pub enum CommandResult {
 }
 
 pub struct CommandManager {
-    callbacks: HashMap<String, Option<Box<CommandCb>>>,
     aliases: HashMap<String, String>,
     spotify: Arc<Spotify>,
     queue: Arc<Queue>,
@@ -33,16 +30,11 @@ pub struct CommandManager {
 impl CommandManager {
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>, library: Arc<Library>) -> CommandManager {
         CommandManager {
-            callbacks: HashMap::new(),
             aliases: HashMap::new(),
             spotify,
             queue,
             library,
         }
-    }
-
-    pub fn register_command<S: Into<String>>(&mut self, name: S, cb: Option<Box<CommandCb>>) {
-        self.callbacks.insert(name.into(), cb);
     }
 
     pub fn register_aliases<S: Into<String>>(&mut self, name: S, aliases: Vec<S>) {
@@ -52,12 +44,7 @@ impl CommandManager {
         }
     }
 
-    pub fn register_all(
-        &mut self,
-        spotify: Arc<Spotify>,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) {
+    pub fn register_all(&mut self) {
         self.register_aliases("quit", vec!["q", "x"]);
         self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
         self.register_aliases("repeat", vec!["loop"]);
@@ -136,14 +123,6 @@ impl CommandManager {
             | Command::Open
             | Command::Goto(_) => Ok(None),
             _ => Err("Unknown Command".into()),
-        }
-    }
-
-    fn handle_aliases(&self, name: &str) -> String {
-        if let Some(s) = self.aliases.get(name) {
-            self.handle_aliases(s)
-        } else {
-            name.to_string()
         }
     }
 
