@@ -61,17 +61,6 @@ impl CommandManager {
         self.register_aliases("quit", vec!["q", "x"]);
         self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
         self.register_aliases("repeat", vec!["loop"]);
-
-        self.register_command("search", None);
-        self.register_command("move", None);
-        self.register_command("shift", None);
-        self.register_command("play", None);
-        self.register_command("queue", None);
-        self.register_command("save", None);
-        self.register_command("delete", None);
-        self.register_command("back", None);
-        self.register_command("open", None);
-        self.register_command("goto", None);
     }
 
     fn handle_default_commands(
@@ -104,7 +93,6 @@ impl CommandManager {
                 self.queue.clear();
                 Ok(None)
             }
-
             Command::Playlists(mode) => {
                 match mode {
                     PlaylistCommands::Update => self.library.update_playlists(),
@@ -137,6 +125,16 @@ impl CommandManager {
                 }
                 Ok(None)
             }
+            Command::Search(_)
+            | Command::Move(_, _)
+            | Command::Shift(_, _)
+            | Command::Play
+            | Command::Queue
+            | Command::Save
+            | Command::Delete
+            | Command::Back
+            | Command::Open
+            | Command::Goto(_) => Ok(None),
             _ => Err("Unknown Command".into()),
         }
     }
