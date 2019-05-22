@@ -6,6 +6,7 @@ use cursive::Cursive;
 
 use album::Album;
 use artist::Artist;
+use command::Command;
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -34,25 +35,14 @@ pub trait ViewExt: View {
         "".into()
     }
 
-    fn on_command(
-        &mut self,
-        _s: &mut Cursive,
-        _cmd: &str,
-        _args: &[String],
-    ) -> Result<CommandResult, String> {
+    fn on_command(&mut self, _s: &mut Cursive, _cmd: &Command) -> Result<CommandResult, String> {
         Ok(CommandResult::Ignored)
     }
 }
 
 impl<V: ViewExt> ViewExt for IdView<V> {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        self.with_view_mut(move |v| v.on_command(s, cmd, args))
-            .unwrap()
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.with_view_mut(move |v| v.on_command(s, cmd)).unwrap()
     }
 }
 

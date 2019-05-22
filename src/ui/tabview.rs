@@ -7,6 +7,7 @@ use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use command::{Command, MoveMode};
 use commands::CommandResult;
 use traits::{IntoBoxedViewExt, ViewExt};
 
@@ -102,36 +103,30 @@ impl View for TabView {
 }
 
 impl ViewExt for TabView {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "move" {
-            if let Some(dir) = args.get(0) {
-                let amount: i32 = args
-                    .get(1)
-                    .unwrap_or(&"1".to_string())
-                    .parse()
-                    .map_err(|e| format!("{:?}", e))?;
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        if let Command::Move(mode, amount) = cmd {
+            let amount = match amount {
+                Some(amount) => *amount,
+                _ => 1,
+            };
 
-                let len = self.tabs.len();
+            let len = self.tabs.len();
 
-                if dir == "left" && self.selected > 0 {
-                    self.move_focus(-amount);
+            match mode {
+                MoveMode::Left if self.selected > 0 => {
+                    self.move_focus(-(amount as i32));
                     return Ok(CommandResult::Consumed(None));
                 }
-
-                if dir == "right" && self.selected < len - 1 {
-                    self.move_focus(amount);
+                MoveMode::Right if self.selected < len - 1 => {
+                    self.move_focus(amount as i32);
                     return Ok(CommandResult::Consumed(None));
                 }
+                _ => {}
             }
         }
 
         if let Some(tab) = self.tabs.get_mut(self.selected) {
-            tab.view.on_command(s, cmd, args)
+            tab.view.on_command(s, cmd)
         } else {
             Ok(CommandResult::Ignored)
         }

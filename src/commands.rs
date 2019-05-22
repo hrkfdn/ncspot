@@ -2,17 +2,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use command::{
+    Command, GotoMode, MoveMode, PlaylistCommands, SeekDirection, ShiftMode, TargetMode,
+};
 use cursive::event::{Event, Key};
 use cursive::views::ViewRef;
 use cursive::Cursive;
-
 use library::Library;
 use queue::{Queue, RepeatSetting};
 use spotify::Spotify;
 use traits::ViewExt;
 use ui::layout::Layout;
-
-type CommandCb = dyn Fn(&mut Cursive, &[String]) -> Result<Option<String>, String>;
 
 pub enum CommandResult {
     Consumed(Option<String>),
@@ -21,20 +21,20 @@ pub enum CommandResult {
 }
 
 pub struct CommandManager {
-    callbacks: HashMap<String, Option<Box<CommandCb>>>,
     aliases: HashMap<String, String>,
+    spotify: Arc<Spotify>,
+    queue: Arc<Queue>,
+    library: Arc<Library>,
 }
 
 impl CommandManager {
-    pub fn new() -> CommandManager {
+    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>, library: Arc<Library>) -> CommandManager {
         CommandManager {
-            callbacks: HashMap::new(),
             aliases: HashMap::new(),
+            spotify,
+            queue,
+            library,
         }
-    }
-
-    pub fn register_command<S: Into<String>>(&mut self, name: S, cb: Option<Box<CommandCb>>) {
-        self.callbacks.insert(name.into(), cb);
     }
 
     pub fn register_aliases<S: Into<String>>(&mut self, name: S, aliases: Vec<S>) {
@@ -44,198 +44,92 @@ impl CommandManager {
         }
     }
 
-    pub fn register_all(
-        &mut self,
-        spotify: Arc<Spotify>,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) {
+    pub fn register_all(&mut self) {
         self.register_aliases("quit", vec!["q", "x"]);
         self.register_aliases("playpause", vec!["pause", "toggleplay", "toggleplayback"]);
         self.register_aliases("repeat", vec!["loop"]);
-
-        self.register_command("search", None);
-        self.register_command("move", None);
-        self.register_command("shift", None);
-        self.register_command("play", None);
-        self.register_command("queue", None);
-        self.register_command("save", None);
-        self.register_command("delete", None);
-        self.register_command("back", None);
-        self.register_command("open", None);
-        self.register_command("goto", None);
-
-        self.register_command(
-            "quit",
-            Some(Box::new(move |s, _args| {
-                s.quit();
-                Ok(None)
-            })),
-        );
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "stop",
-                Some(Box::new(move |_s, _args| {
-                    queue.stop();
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            let spotify = spotify.clone();
-            self.register_command(
-                "previous",
-                Some(Box::new(move |_s, _args| {
-                    if spotify.get_current_progress() < Duration::from_secs(5) {
-                        queue.previous();
-                    } else {
-                        spotify.seek(0);
-                    }
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "next",
-                Some(Box::new(move |_s, _args| {
-                    queue.next(true);
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "clear",
-                Some(Box::new(move |_s, _args| {
-                    queue.clear();
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let library = library.clone();
-            self.register_command(
-                "playlists",
-                Some(Box::new(move |_s, args| {
-                    if let Some(arg) = args.get(0) {
-                        if arg == "update" {
-                            library.update_playlists();
-                        }
-                    }
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "playpause",
-                Some(Box::new(move |_s, _args| {
-                    queue.toggleplayback();
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "shuffle",
-                Some(Box::new(move |_s, args| {
-                    if let Some(arg) = args.get(0) {
-                        queue.set_shuffle(match arg.as_ref() {
-                            "on" => true,
-                            "off" => false,
-                            _ => {
-                                return Err("Unknown shuffle setting.".to_string());
-                            }
-                        });
-                    } else {
-                        queue.set_shuffle(!queue.get_shuffle());
-                    }
-
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let queue = queue.clone();
-            self.register_command(
-                "repeat",
-                Some(Box::new(move |_s, args| {
-                    if let Some(arg) = args.get(0) {
-                        queue.set_repeat(match arg.as_ref() {
-                            "list" | "playlist" | "queue" => RepeatSetting::RepeatPlaylist,
-                            "track" | "once" => RepeatSetting::RepeatTrack,
-                            "none" | "off" => RepeatSetting::None,
-                            _ => {
-                                return Err("Unknown loop setting.".to_string());
-                            }
-                        });
-                    } else {
-                        queue.set_repeat(match queue.get_repeat() {
-                            RepeatSetting::None => RepeatSetting::RepeatPlaylist,
-                            RepeatSetting::RepeatPlaylist => RepeatSetting::RepeatTrack,
-                            RepeatSetting::RepeatTrack => RepeatSetting::None,
-                        });
-                    }
-
-                    Ok(None)
-                })),
-            );
-        }
-
-        {
-            let spotify = spotify.clone();
-            self.register_command(
-                "seek",
-                Some(Box::new(move |_s, args| {
-                    if let Some(arg) = args.get(0) {
-                        match arg.chars().next().unwrap() {
-                            '+' | '-' => {
-                                spotify.seek_relative(arg.parse::<i32>().unwrap_or(0));
-                            }
-                            _ => {
-                                spotify.seek(arg.parse::<u32>().unwrap_or(0));
-                            }
-                        }
-                    }
-
-                    Ok(None)
-                })),
-            );
-        }
     }
 
-    fn handle_aliases(&self, name: &str) -> String {
-        if let Some(s) = self.aliases.get(name) {
-            self.handle_aliases(s)
-        } else {
-            name.to_string()
-        }
-    }
-
-    fn handle_callbacks(
+    fn handle_default_commands(
         &self,
         s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
+        cmd: &Command,
     ) -> Result<Option<String>, String> {
+        match cmd {
+            Command::Quit => {
+                s.quit();
+                Ok(None)
+            }
+            Command::Stop => {
+                self.queue.stop();
+                Ok(None)
+            }
+            Command::Previous => {
+                if self.spotify.get_current_progress() < Duration::from_secs(5) {
+                    self.queue.previous();
+                } else {
+                    self.spotify.seek(0);
+                }
+                Ok(None)
+            }
+            Command::Next => {
+                self.queue.next(true);
+                Ok(None)
+            }
+            Command::Clear => {
+                self.queue.clear();
+                Ok(None)
+            }
+            Command::Playlists(mode) => {
+                match mode {
+                    PlaylistCommands::Update => self.library.update_playlists(),
+                }
+                Ok(None)
+            }
+            Command::TogglePlay => {
+                self.queue.toggleplayback();
+                Ok(None)
+            }
+            Command::Shuffle(mode) => {
+                let mode = mode.unwrap_or_else(|| !self.queue.get_shuffle());
+                self.queue.set_shuffle(mode);
+                Ok(None)
+            }
+            Command::Repeat(mode) => {
+                let mode = mode.unwrap_or_else(|| match self.queue.get_repeat() {
+                    RepeatSetting::None => RepeatSetting::RepeatPlaylist,
+                    RepeatSetting::RepeatPlaylist => RepeatSetting::RepeatTrack,
+                    RepeatSetting::RepeatTrack => RepeatSetting::None,
+                });
+
+                self.queue.set_repeat(mode);
+                Ok(None)
+            }
+            Command::Seek(direction) => {
+                match *direction {
+                    SeekDirection::Relative(rel) => self.spotify.seek_relative(rel),
+                    SeekDirection::Absolute(abs) => self.spotify.seek(abs),
+                }
+                Ok(None)
+            }
+            Command::Search(_)
+            | Command::Move(_, _)
+            | Command::Shift(_, _)
+            | Command::Play
+            | Command::Queue
+            | Command::Save
+            | Command::Delete
+            | Command::Back
+            | Command::Open
+            | Command::Goto(_) => Ok(None),
+            _ => Err("Unknown Command".into()),
+        }
+    }
+
+    fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
         let local = {
             let mut main: ViewRef<Layout> = s.find_id("main").unwrap();
-            main.on_command(s, cmd, args)?
+            main.on_command(s, cmd)?
         };
 
         if let CommandResult::Consumed(output) = local {
@@ -246,24 +140,13 @@ impl CommandManager {
             });
 
             Ok(None)
-        } else if let Some(callback) = self.callbacks.get(cmd) {
-            callback.as_ref().map(|cb| cb(s, args)).unwrap_or(Ok(None))
         } else {
-            Err("Unknown command.".to_string())
+            self.handle_default_commands(s, cmd)
         }
     }
 
-    pub fn handle(&self, s: &mut Cursive, cmd: String) {
-        let components: Vec<String> = cmd
-            .trim()
-            .split(' ')
-            .map(std::string::ToString::to_string)
-            .collect();
-
-        let cmd = self.handle_aliases(&components[0]);
-        let args = components[1..].to_vec();
-
-        let result = self.handle_callbacks(s, &cmd, &args);
+    pub fn handle(&self, s: &mut Cursive, cmd: Command) {
+        let result = self.handle_callbacks(s, &cmd);
 
         s.call_on_id("main", |v: &mut Layout| {
             v.set_result(result);
@@ -272,22 +155,21 @@ impl CommandManager {
         s.on_event(Event::Refresh);
     }
 
-    pub fn register_keybinding<E: Into<cursive::event::Event>, S: Into<String>>(
+    pub fn register_keybinding<E: Into<cursive::event::Event>>(
         this: Arc<Self>,
         cursive: &mut Cursive,
         event: E,
-        command: S,
+        command: Command,
     ) {
-        let cmd = command.into();
         cursive.add_global_callback(event, move |s| {
-            this.handle(s, cmd.clone());
+            this.handle(s, command.clone());
         });
     }
 
     pub fn register_keybindings(
         this: Arc<Self>,
         cursive: &mut Cursive,
-        keybindings: Option<HashMap<String, String>>,
+        keybindings: Option<HashMap<String, Command>>,
     ) {
         let mut kb = Self::default_keybindings();
         kb.extend(keybindings.unwrap_or_default());
@@ -301,51 +183,51 @@ impl CommandManager {
         }
     }
 
-    fn default_keybindings() -> HashMap<String, String> {
+    fn default_keybindings() -> HashMap<String, Command> {
         let mut kb = HashMap::new();
 
-        kb.insert("q".into(), "quit".into());
-        kb.insert("P".into(), "toggleplay".into());
-        kb.insert("R".into(), "playlists update".into());
-        kb.insert("S".into(), "stop".into());
-        kb.insert("<".into(), "previous".into());
-        kb.insert(">".into(), "next".into());
-        kb.insert("c".into(), "clear".into());
-        kb.insert(" ".into(), "queue".into());
-        kb.insert("Enter".into(), "play".into());
-        kb.insert("s".into(), "save".into());
-        kb.insert("Ctrl+s".into(), "save queue".into());
-        kb.insert("d".into(), "delete".into());
-        kb.insert("/".into(), "focus search".into());
-        kb.insert(".".into(), "seek +500".into());
-        kb.insert(",".into(), "seek -500".into());
-        kb.insert("r".into(), "repeat".into());
-        kb.insert("z".into(), "shuffle".into());
-        kb.insert("x".into(), "share current".into());
-        kb.insert("Shift+x".into(), "share selected".into());
+        kb.insert("q".into(), Command::Quit);
+        kb.insert("P".into(), Command::TogglePlay);
+        kb.insert("R".into(), Command::Playlists(PlaylistCommands::Update));
+        kb.insert("S".into(), Command::Stop);
+        kb.insert("<".into(), Command::Previous);
+        kb.insert(">".into(), Command::Next);
+        kb.insert("c".into(), Command::Clear);
+        kb.insert(" ".into(), Command::Queue);
+        kb.insert("Enter".into(), Command::Play);
+        kb.insert("s".into(), Command::Save);
+        kb.insert("Ctrl+s".into(), Command::SaveQueue);
+        kb.insert("d".into(), Command::Delete);
+        kb.insert("/".into(), Command::Focus("search".into()));
+        kb.insert(".".into(), Command::Seek(SeekDirection::Relative(500)));
+        kb.insert(",".into(), Command::Seek(SeekDirection::Relative(-500)));
+        kb.insert("r".into(), Command::Repeat(None));
+        kb.insert("z".into(), Command::Shuffle(None));
+        kb.insert("x".into(), Command::Share(TargetMode::Current));
+        kb.insert("Shift+x".into(), Command::Share(TargetMode::Selected));
 
-        kb.insert("F1".into(), "focus queue".into());
-        kb.insert("F2".into(), "focus search".into());
-        kb.insert("F3".into(), "focus library".into());
-        kb.insert("Backspace".into(), "back".into());
+        kb.insert("F1".into(), Command::Focus("queue".into()));
+        kb.insert("F2".into(), Command::Focus("search".into()));
+        kb.insert("F3".into(), Command::Focus("library".into()));
+        kb.insert("Backspace".into(), Command::Back);
 
-        kb.insert("o".into(), "open".into());
-        kb.insert("a".into(), "goto album".into());
-        kb.insert("A".into(), "goto artist".into());
+        kb.insert("o".into(), Command::Open);
+        kb.insert("a".into(), Command::Goto(GotoMode::Album));
+        kb.insert("A".into(), Command::Goto(GotoMode::Artist));
 
-        kb.insert("Up".into(), "move up".into());
-        kb.insert("Down".into(), "move down".into());
-        kb.insert("Left".into(), "move left".into());
-        kb.insert("Right".into(), "move right".into());
-        kb.insert("PageUp".into(), "move up 5".into());
-        kb.insert("PageDown".into(), "move down 5".into());
-        kb.insert("k".into(), "move up".into());
-        kb.insert("j".into(), "move down".into());
-        kb.insert("h".into(), "move left".into());
-        kb.insert("l".into(), "move right".into());
+        kb.insert("Up".into(), Command::Move(MoveMode::Up, None));
+        kb.insert("Down".into(), Command::Move(MoveMode::Down, None));
+        kb.insert("Left".into(), Command::Move(MoveMode::Left, None));
+        kb.insert("Right".into(), Command::Move(MoveMode::Right, None));
+        kb.insert("PageUp".into(), Command::Move(MoveMode::Up, Some(5)));
+        kb.insert("PageDown".into(), Command::Move(MoveMode::Down, Some(5)));
+        kb.insert("k".into(), Command::Move(MoveMode::Up, None));
+        kb.insert("j".into(), Command::Move(MoveMode::Down, None));
+        kb.insert("h".into(), Command::Move(MoveMode::Left, None));
+        kb.insert("l".into(), Command::Move(MoveMode::Right, None));
 
-        kb.insert("Shift+Up".into(), "shift up".into());
-        kb.insert("Shift+Down".into(), "shift down".into());
+        kb.insert("Shift+Up".into(), Command::Shift(ShiftMode::Up, None));
+        kb.insert("Shift+Down".into(), Command::Shift(ShiftMode::Down, None));
 
         kb
     }

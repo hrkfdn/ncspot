@@ -6,6 +6,7 @@ use cursive::Cursive;
 use std::cmp::min;
 use std::sync::Arc;
 
+use command::{Command, ShiftMode};
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -88,55 +89,52 @@ impl ViewWrapper for QueueView {
 }
 
 impl ViewExt for QueueView {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "play" {
-            self.queue.play(self.list.get_selected_index(), true);
-            return Ok(CommandResult::Consumed(None));
-        }
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Play => {
+                self.queue.play(self.list.get_selected_index(), true);
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Queue => {
+                return Ok(CommandResult::Ignored);
+            }
+            Command::Delete => {
+                self.queue.remove(self.list.get_selected_index());
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Shift(mode, amount) => {
+                let amount = match amount {
+                    Some(amount) => *amount,
+                    _ => 1,
+                };
 
-        if cmd == "queue" {
-            return Ok(CommandResult::Ignored);
-        }
-
-        if cmd == "delete" {
-            self.queue.remove(self.list.get_selected_index());
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        if cmd == "shift" {
-            if let Some(dir) = args.get(0) {
-                let amount: usize = args
-                    .get(1)
-                    .unwrap_or(&"1".to_string())
-                    .parse()
-                    .map_err(|e| format!("{:?}", e))?;
                 let selected = self.list.get_selected_index();
                 let len = self.queue.len();
-                if dir == "up" && selected > 0 {
-                    self.queue.shift(selected, selected.saturating_sub(amount));
-                    self.list.move_focus(-(amount as i32));
-                    return Ok(CommandResult::Consumed(None));
-                } else if dir == "down" && selected < len.saturating_sub(1) {
-                    self.queue
-                        .shift(selected, min(selected + amount as usize, len - 1));
-                    self.list.move_focus(amount as i32);
-                    return Ok(CommandResult::Consumed(None));
+
+                match mode {
+                    ShiftMode::Up if selected > 0 => {
+                        self.queue
+                            .shift(selected, (selected as i32).saturating_sub(amount) as usize);
+                        self.list.move_focus(-(amount as i32));
+                        return Ok(CommandResult::Consumed(None));
+                    }
+                    ShiftMode::Down if selected < len.saturating_sub(1) => {
+                        self.queue
+                            .shift(selected, min(selected + amount as usize, len - 1));
+                        self.list.move_focus(amount as i32);
+                        return Ok(CommandResult::Consumed(None));
+                    }
+                    _ => {}
                 }
             }
+            Command::SaveQueue => {
+                let dialog = Self::save_dialog(self.queue.clone(), self.library.clone());
+                s.add_layer(dialog);
+                return Ok(CommandResult::Consumed(None));
+            }
+            _ => {}
         }
 
-        if cmd == "save" && args.get(0).unwrap_or(&"".to_string()) == "queue" {
-            let dialog = Self::save_dialog(self.queue.clone(), self.library.clone());
-            s.add_layer(dialog);
-            return Ok(CommandResult::Consumed(None));
-        }
-
-        self.with_view_mut(move |v| v.on_command(s, cmd, args))
-            .unwrap()
+        self.with_view_mut(move |v| v.on_command(s, cmd)).unwrap()
     }
 }

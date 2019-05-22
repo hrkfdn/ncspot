@@ -5,7 +5,7 @@ use rand::prelude::*;
 use spotify::Spotify;
 use track::Track;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     None,
     RepeatPlaylist,

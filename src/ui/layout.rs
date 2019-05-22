@@ -12,6 +12,7 @@ use cursive::views::EditView;
 use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
+use command::Command;
 use commands::CommandResult;
 use events;
 use traits::{IntoBoxedViewExt, ViewExt};
@@ -205,6 +206,25 @@ impl View for Layout {
         }
     }
 
+    fn layout(&mut self, size: Vec2) {
+        self.last_size = size;
+
+        self.statusbar.layout(Vec2::new(size.x, 2));
+
+        self.cmdline.layout(Vec2::new(size.x, 1));
+
+        if let Some(screen) = self.get_current_screen_mut() {
+            screen.view.layout(Vec2::new(size.x, size.y - 3));
+        }
+
+        // the focus view has changed, let the views know so they can redraw
+        // their items
+        if self.screenchange {
+            debug!("layout: new screen selected: {:?}", self.focus);
+            self.screenchange = false;
+        }
+    }
+
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
         Vec2::new(constraint.x, constraint.y)
     }
@@ -244,25 +264,6 @@ impl View for Layout {
         }
     }
 
-    fn layout(&mut self, size: Vec2) {
-        self.last_size = size;
-
-        self.statusbar.layout(Vec2::new(size.x, 2));
-
-        self.cmdline.layout(Vec2::new(size.x, 1));
-
-        if let Some(screen) = self.get_current_screen_mut() {
-            screen.view.layout(Vec2::new(size.x, size.y - 3));
-        }
-
-        // the focus view has changed, let the views know so they can redraw
-        // their items
-        if self.screenchange {
-            debug!("layout: new screen selected: {:?}", self.focus);
-            self.screenchange = false;
-        }
-    }
-
     fn call_on_any<'a>(&mut self, s: &Selector, c: AnyCb<'a>) {
         if let Some(screen) = self.get_current_screen_mut() {
             screen.view.call_on_any(s, c);
@@ -283,29 +284,28 @@ impl View for Layout {
 }
 
 impl ViewExt for Layout {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        if cmd == "focus" {
-            if let Some(view) = args.get(0) {
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Focus(view) => {
                 if self.views.keys().any(|k| k == view) {
                     self.set_view(view.clone());
                     let screen = self.views.get_mut(view).unwrap();
-                    screen.view.on_command(s, cmd, args)?;
+                    screen.view.on_command(s, cmd)?;
+                }
+
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Back => {
+                self.pop_view();
+                Ok(CommandResult::Consumed(None))
+            }
+            _ => {
+                if let Some(screen) = self.get_current_screen_mut() {
+                    screen.view.on_command(s, cmd)
+                } else {
+                    Ok(CommandResult::Ignored)
                 }
             }
-
-            Ok(CommandResult::Consumed(None))
-        } else if cmd == "back" {
-            self.pop_view();
-            Ok(CommandResult::Consumed(None))
-        } else if let Some(screen) = self.get_current_screen_mut() {
-            screen.view.on_command(s, cmd, args)
-        } else {
-            Ok(CommandResult::Ignored)
         }
     }
 }

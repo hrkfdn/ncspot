@@ -3,6 +3,7 @@ use std::sync::Arc;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
+use command::Command;
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -48,12 +49,7 @@ impl ViewWrapper for LibraryView {
 }
 
 impl ViewExt for LibraryView {
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        self.tabs.on_command(s, cmd, args)
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.tabs.on_command(s, cmd)
     }
 }

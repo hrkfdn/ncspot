@@ -5,6 +5,7 @@ use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
 use artist::Artist;
+use command::Command;
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
@@ -110,12 +111,7 @@ impl ViewExt for ArtistView {
         self.artist.name.clone()
     }
 
-    fn on_command(
-        &mut self,
-        s: &mut Cursive,
-        cmd: &str,
-        args: &[String],
-    ) -> Result<CommandResult, String> {
-        self.tabs.on_command(s, cmd, args)
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.tabs.on_command(s, cmd)
     }
 }

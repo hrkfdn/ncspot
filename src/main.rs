@@ -46,6 +46,7 @@ use librespot::core::authentication::Credentials;
 mod album;
 mod artist;
 mod authentication;
+mod command;
 mod commands;
 mod config;
 mod events;
@@ -183,8 +184,8 @@ fn main() {
         cfg.use_nerdfont.unwrap_or(false),
     ));
 
-    let mut cmd_manager = CommandManager::new();
-    cmd_manager.register_all(spotify.clone(), queue.clone(), library.clone());
+    let mut cmd_manager = CommandManager::new(spotify.clone(), queue.clone(), library.clone());
+    cmd_manager.register_all();
 
     let cmd_manager = Arc::new(cmd_manager);
     CommandManager::register_keybindings(
@@ -240,7 +241,11 @@ fn main() {
                 let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
-            cmd_manager.handle(s, cmd.to_string()[1..].to_string());
+            let c = &cmd[1..];
+            let parsed = command::parse(c);
+            if let Some(parsed) = parsed {
+                cmd_manager.handle(s, parsed);
+            }
             ev.trigger();
         });
     }
