@@ -5,7 +5,6 @@ use rand::prelude::*;
 use spotify::Spotify;
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display};
-use std::mem;
 use track::Track;
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -45,12 +44,11 @@ impl<T: Clone + Display + Debug> Queue2<T> {
     }
 
     pub fn advance(&mut self) {
-        let user_queue = self.user_queue.read().unwrap();
+        let user_queue = self.user_queue.write().unwrap();
 
         // Select which queue to get the next track from
         let mut queue = if !user_queue.is_empty() {
-            mem::drop(user_queue);
-            self.user_queue.write().unwrap()
+            user_queue
         } else {
             self.play_queue.write().unwrap()
         };
