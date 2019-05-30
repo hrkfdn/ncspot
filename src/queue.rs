@@ -3,6 +3,9 @@ use std::sync::{Arc, RwLock};
 use rand::prelude::*;
 
 use spotify::Spotify;
+use std::collections::VecDeque;
+use std::fmt::{Debug, Display};
+use std::mem;
 use track::Track;
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -18,6 +21,117 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
     spotify: Arc<Spotify>,
+}
+
+pub struct Queue2<T> {
+    user_queue: RwLock<VecDeque<T>>,
+    play_queue: RwLock<VecDeque<T>>,
+    history: RwLock<Vec<T>>,
+    current_track: RwLock<Option<T>>,
+}
+
+impl<T: Clone + Display + Debug> Queue2<T> {
+    pub fn new() -> Queue2<T> {
+        Queue2 {
+            user_queue: Default::default(),
+            play_queue: Default::default(),
+            history: Default::default(),
+            current_track: Default::default(),
+        }
+    }
+
+    pub fn current_track(&self) -> Option<T> {
+        self.current_track.read().unwrap().clone()
+    }
+
+    pub fn advance(&mut self) {
+        let user_queue = self.user_queue.read().unwrap();
+
+        // Select which queue to get the next track from
+        let mut queue = if !user_queue.is_empty() {
+            mem::drop(user_queue);
+            self.user_queue.write().unwrap()
+        } else {
+            self.play_queue.write().unwrap()
+        };
+
+        let mut current_track = self.current_track.write().unwrap();
+
+        // Save previous track to history
+        if current_track.is_some() {
+            self.history
+                .write()
+                .unwrap()
+                .push(current_track.clone().unwrap())
+        }
+
+        let track = queue.pop_front();
+        *current_track = track;
+    }
+
+    pub fn queue_track(&mut self, track: T) {
+        let mut user_queue = self.user_queue.write().unwrap();
+        user_queue.push_back(track);
+    }
+
+    pub fn play(&mut self, tracks: Vec<T>) {
+        if tracks.is_empty() {
+            return;
+        }
+
+        let first = tracks.get(0).cloned();
+        *self.current_track.write().unwrap() = first;
+
+        let mut play_queue = self.play_queue.write().unwrap();
+        let new_tracks = tracks.iter().skip(1).cloned();
+        play_queue.extend(new_tracks);
+    }
+
+    pub fn print_status(&self) {
+        if let Some(track) = self.current_track.read().unwrap().clone() {
+            println!("Current track: {}", track)
+        }
+
+        println!("User queue: {:?}", self.user_queue.read().unwrap().clone());
+        println!(
+            "Play queue: {:?}\n",
+            self.play_queue.read().unwrap().clone()
+        );
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use queue::Queue2;
+
+    #[test]
+    fn test_queue() {
+        let mut q2 = Queue2::new();
+        q2.play(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        assert_eq!(q2.current_track(), Some(0));
+
+        q2.advance();
+        q2.advance();
+
+        assert_eq!(q2.current_track(), Some(2));
+
+        q2.queue_track(-9);
+        q2.queue_track(-8);
+        q2.queue_track(-7);
+
+        q2.advance();
+
+        assert_eq!(q2.current_track(), Some(-9));
+
+        q2.play(vec![15, 20, 25, 30]);
+
+        assert_eq!(q2.current_track(), Some(15));
+
+        q2.advance();
+
+        assert_eq!(q2.current_track(), Some(-8));
+    }
 }
 
 impl Queue {
