@@ -28,6 +28,8 @@ pub trait ListItem: Sync + Send + 'static {
     fn artist(&self) -> Option<Artist> {
         None
     }
+
+    fn as_listitem(&self) -> Box<ListItem>;
 }
 
 pub trait ViewExt: View {

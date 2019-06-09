@@ -139,6 +139,10 @@ impl ListItem for Artist {
         }
     }
 
+    fn as_listitem(&self) -> Box<ListItem> {
+        Box::new(self.clone())
+    }
+
     fn display_left(&self) -> String {
         format!("{}", self)
     }

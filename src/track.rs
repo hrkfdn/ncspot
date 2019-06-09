@@ -151,6 +151,10 @@ impl ListItem for Track {
         current.map(|t| t.id == self.id).unwrap_or(false)
     }
 
+    fn as_listitem(&self) -> Box<ListItem> {
+        Box::new(self.clone())
+    }
+
     fn display_left(&self) -> String {
         format!("{}", self)
     }

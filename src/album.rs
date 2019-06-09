@@ -150,6 +150,10 @@ impl ListItem for Album {
         }
     }
 
+    fn as_listitem(&self) -> Box<ListItem> {
+        Box::new(self.clone())
+    }
+
     fn display_left(&self) -> String {
         format!("{}", self)
     }
