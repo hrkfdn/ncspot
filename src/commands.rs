@@ -122,7 +122,7 @@ impl CommandManager {
             | Command::Save
             | Command::Delete
             | Command::Back
-            | Command::Open
+            | Command::Open(_)
             | Command::Goto(_) => Ok(None),
             _ => Err("Unknown Command".into()),
         }
@@ -192,9 +192,12 @@ impl CommandManager {
         let mut kb = HashMap::new();
 
         kb.insert("q".into(), Command::Quit);
-        kb.insert("P".into(), Command::TogglePlay);
-        kb.insert("R".into(), Command::Playlists(PlaylistCommands::Update));
-        kb.insert("S".into(), Command::Stop);
+        kb.insert("Shift+p".into(), Command::TogglePlay);
+        kb.insert(
+            "Shift+r".into(),
+            Command::Playlists(PlaylistCommands::Update),
+        );
+        kb.insert("Shift+s".into(), Command::Stop);
         kb.insert("<".into(), Command::Previous);
         kb.insert(">".into(), Command::Next);
         kb.insert("c".into(), Command::Clear);
@@ -216,7 +219,8 @@ impl CommandManager {
         kb.insert("F3".into(), Command::Focus("library".into()));
         kb.insert("Backspace".into(), Command::Back);
 
-        kb.insert("o".into(), Command::Open);
+        kb.insert("o".into(), Command::Open(TargetMode::Selected));
+        kb.insert("Shift+o".into(), Command::Open(TargetMode::Current));
         kb.insert("a".into(), Command::Goto(GotoMode::Album));
         kb.insert("A".into(), Command::Goto(GotoMode::Artist));
 

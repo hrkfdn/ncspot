@@ -18,6 +18,7 @@ use track::Track;
 use traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use ui::album::AlbumView;
 use ui::artist::ArtistView;
+use ui::contextmenu::ContextMenu;
 
 pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 pub struct Pagination<I: ListItem> {
@@ -352,14 +353,31 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     _ => {}
                 }
             }
-            Command::Open => {
-                let mut content = self.content.write().unwrap();
-                if let Some(item) = content.get_mut(self.selected) {
-                    let queue = self.queue.clone();
-                    let library = self.library.clone();
-                    if let Some(view) = item.open(queue, library) {
-                        return Ok(CommandResult::View(view));
+            Command::Open(mode) => {
+                let queue = self.queue.clone();
+                let library = self.library.clone();
+                let target: Option<Box<dyn ListItem>> = match mode {
+                    TargetMode::Current => {
+                        self.queue.get_current().and_then(|t| Some(t.as_listitem()))
                     }
+                    TargetMode::Selected => {
+                        let content = self.content.read().unwrap();
+                        content
+                            .get(self.selected)
+                            .and_then(|t| Some(t.as_listitem()))
+                    }
+                };
+
+                // if item has a dedicated view, show it; otherwise open the context menu
+                if let Some(target) = target {
+                    let view = target.open(queue.clone(), library.clone());
+                    return match view {
+                        Some(view) => Ok(CommandResult::View(view)),
+                        None => {
+                            let contextmenu = ContextMenu::new(&target, queue, library);
+                            Ok(CommandResult::Modal(Box::new(contextmenu)))
+                        }
+                    };
                 }
             }
             Command::Goto(mode) => {

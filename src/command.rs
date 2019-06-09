@@ -66,7 +66,7 @@ pub enum Command {
     Shuffle(Option<bool>),
     Share(TargetMode),
     Back,
-    Open,
+    Open(TargetMode),
     Goto(GotoMode),
     Move(MoveMode, Option<i32>),
     Shift(ShiftMode, Option<i32>),
@@ -123,7 +123,14 @@ pub fn parse(input: &str) -> Option<Command> {
         "play" => Some(Command::Play),
         "delete" => Some(Command::Delete),
         "back" => Some(Command::Back),
-        "open" => Some(Command::Open),
+        "open" => args
+            .get(0)
+            .and_then(|target| match *target {
+                "selected" => Some(TargetMode::Selected),
+                "current" => Some(TargetMode::Current),
+                _ => None,
+            })
+            .map(Command::Open),
         "search" => args.get(0).map(|query| Command::Search(query.to_string())),
         "shift" => {
             let amount = args.get(1).and_then(|amount| amount.parse().ok());
