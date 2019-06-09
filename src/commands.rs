@@ -6,6 +6,7 @@ use command::{
     Command, GotoMode, MoveMode, PlaylistCommands, SeekDirection, ShiftMode, TargetMode,
 };
 use cursive::event::{Event, Key};
+use cursive::traits::View;
 use cursive::views::ViewRef;
 use cursive::Cursive;
 use library::Library;
@@ -17,6 +18,7 @@ use ui::layout::Layout;
 pub enum CommandResult {
     Consumed(Option<String>),
     View(Box<dyn ViewExt>),
+    Modal(Box<dyn View>),
     Ignored,
 }
 
@@ -134,6 +136,9 @@ impl CommandManager {
 
         if let CommandResult::Consumed(output) = local {
             Ok(output)
+        } else if let CommandResult::Modal(modal) = local {
+            s.add_layer(modal);
+            Ok(None)
         } else if let CommandResult::View(view) = local {
             s.call_on_id("main", move |v: &mut Layout| {
                 v.push_view(view);
