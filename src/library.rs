@@ -227,17 +227,20 @@ impl Library {
     fn fetch_playlists(&self) {
         debug!("loading playlists");
         let mut stale_lists = self.playlists.read().unwrap().clone();
+        let mut list_order = Vec::new();
 
         let mut lists_result = self.spotify.current_user_playlist(50, 0);
         while let Some(ref lists) = lists_result.clone() {
-            for remote in &lists.items {
+            for (index, remote) in lists.items.iter().enumerate() {
+                list_order.push(remote.id.clone());
+
                 // remove from stale playlists so we won't prune it later on
                 if let Some(index) = stale_lists.iter().position(|x| x.id == remote.id) {
                     stale_lists.remove(index);
                 }
 
                 if self.needs_download(remote) {
-                    info!("updating playlist {}", remote.name);
+                    info!("updating playlist {} (index: {})", remote.name, index);
                     let mut playlist: Playlist = remote.into();
                     playlist.load_tracks(self.spotify.clone());
                     self.append_or_update(&playlist);
@@ -270,6 +273,14 @@ impl Library {
                 self.playlists.write().unwrap().remove(index);
             }
         }
+
+        // sort by remote order
+        self.playlists.write().unwrap().sort_by(|a, b| {
+            let a_index = list_order.iter().position(|x| x == &a.id);
+            let b_index = list_order.iter().position(|x| x == &b.id);
+            a_index.cmp(&b_index)
+        });
+
         // trigger redraw
         self.ev.trigger();
     }
