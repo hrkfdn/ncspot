@@ -25,7 +25,7 @@ future. Contributions welcome, but please be kind ;)
 * A Spotify premium account
 * pkg-config
 
-On Debian based system you want following packages for `libxcb` developement headers:
+On Debian based systems you need following packages for `libxcb` developement headers:
 ```
 sudo apt install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
