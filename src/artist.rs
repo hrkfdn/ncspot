@@ -186,6 +186,14 @@ impl ListItem for Artist {
         }
     }
 
+    fn save(&mut self, library: Arc<Library>) {
+        library.follow_artist(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unfollow_artist(self);
+    }
+
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_followed_artist(self) {
             library.unfollow_artist(self);

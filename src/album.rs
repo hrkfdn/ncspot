@@ -191,6 +191,14 @@ impl ListItem for Album {
         }
     }
 
+    fn save(&mut self, library: Arc<Library>) {
+        library.save_album(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unsave_album(self);
+    }
+
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_saved_album(self) {
             library.unsave_album(self);

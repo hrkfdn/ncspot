@@ -154,6 +154,14 @@ impl ListItem for Playlist {
         }
     }
 
+    fn save(&mut self, library: Arc<Library>) {
+        library.follow_playlist(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.delete_playlist(&self.id);
+    }
+
     fn toggle_saved(&mut self, library: Arc<Library>) {
         // Don't allow users to unsave their own playlists with one keypress
         if !library.is_followed_playlist(self) {

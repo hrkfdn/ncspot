@@ -309,10 +309,19 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(item) = item.as_mut() {
-                    item.toggle_saved(self.library.clone());
+                    item.save(self.library.clone());
                 }
             }
+            Command::Delete => {
+                let mut item = {
+                    let content = self.content.read().unwrap();
+                    content.get(self.selected).cloned()
+                };
 
+                if let Some(item) = item.as_mut() {
+                    item.unsave(self.library.clone());
+                }
+            }
             Command::Share(mode) => {
                 let url = match mode {
                     TargetMode::Selected => self.content.read().ok().and_then(|content| {
