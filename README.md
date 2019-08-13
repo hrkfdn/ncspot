@@ -51,7 +51,8 @@ have them configurable.
   * `F3`: Library
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
-* `s` will save or remove the currently selected track to your library
+* `s` will save, `d` will remove the currently selected track to/from your
+  library
 * `o` will open a detail view or context menu for the selected item
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
