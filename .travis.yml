@@ -10,7 +10,7 @@ matrix:
 before_install:
   - sudo apt-get install -y libasound2-dev libdbus-1-dev
 script:
-  - cargo update
-  - rustup component add clippy rustfmt
+  - cargo build
+  # - rustup component add clippy rustfmt
   # - cargo clippy --all-targets -- -D warnings
   # - cargo fmt --all -- --check
