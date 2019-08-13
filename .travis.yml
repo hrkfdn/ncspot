@@ -8,7 +8,7 @@ matrix:
     - rust: beta
 
 before_install:
-  - sudo apt-get install -y libasound2-dev libdbus-1-dev
+  - sudo apt-get install -y libasound2-dev libdbus-1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 script:
   - cargo build
   # - rustup component add clippy rustfmt
