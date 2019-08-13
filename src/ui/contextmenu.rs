@@ -46,13 +46,12 @@ impl ContextMenu {
                         v.push_view(view)
                     }
                 }
-                ContextMenuAction::ShareUrl(url) => {
-                    #[cfg(feature = "share_clipboard")]
-                    {
-                        ClipboardProvider::new()
-                            .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url.to_string()))
-                            .ok();
-                    }
+                ContextMenuAction::ShareUrl(url) =>
+                #[cfg(feature = "share_clipboard")]
+                {
+                    ClipboardProvider::new()
+                        .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url.to_string()))
+                        .ok();
                 }
             });
         });
