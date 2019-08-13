@@ -4,6 +4,7 @@ use cursive::view::ViewWrapper;
 use cursive::views::{Dialog, SelectView};
 use cursive::Cursive;
 
+#[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
 use library::Library;
 use queue::Queue;
@@ -30,6 +31,7 @@ impl ContextMenu {
             content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
         }
         if let Some(url) = item.share_url() {
+            #[cfg(feature = "share_clipboard")]
             content.add_item("Share", ContextMenuAction::ShareUrl(url));
         }
 
@@ -45,9 +47,12 @@ impl ContextMenu {
                     }
                 }
                 ContextMenuAction::ShareUrl(url) => {
-                    ClipboardProvider::new()
-                        .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url.to_string()))
-                        .ok();
+                    #[cfg(feature = "share_clipboard")]
+                    {
+                        ClipboardProvider::new()
+                            .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url.to_string()))
+                            .ok();
+                    }
                 }
             });
         });

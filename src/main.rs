@@ -2,6 +2,7 @@ extern crate clap;
 extern crate crossbeam_channel;
 #[macro_use]
 extern crate cursive;
+#[cfg(feature = "share_clipboard")]
 extern crate clipboard;
 extern crate directories;
 extern crate failure;

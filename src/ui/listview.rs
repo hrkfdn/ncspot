@@ -9,6 +9,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+#[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
 use command::{Command, GotoMode, MoveMode, TargetMode};
 use commands::CommandResult;
@@ -321,6 +322,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(url) = url {
+                    #[cfg(feature = "share_clipboard")]
                     ClipboardProvider::new()
                         .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
                         .ok();

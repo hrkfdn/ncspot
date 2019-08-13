@@ -35,7 +35,7 @@ unicode-width = "0.1.5"
 dbus = { version = "0.6.4", optional = true }
 rand = "0.6.5"
 webbrowser = "0.5"
-clipboard = "0.5"
+clipboard = { version = "0.5", optional = true }
 
 [dependencies.librespot]
 git = "https://github.com/librespot-org/librespot.git"
@@ -46,10 +46,11 @@ version = "0.12"
 default-features = false
 
 [features]
+share_clipboard = ["clipboard"]
 alsa_backend = ["librespot/alsa-backend"]
 pulseaudio_backend = ["librespot/pulseaudio-backend"]
 rodio_backend = ["librespot/rodio-backend"]
 portaudio_backend = ["librespot/portaudio-backend"]
 termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus"]
-default = ["rodio_backend", "mpris", "cursive/pancurses-backend"]
+default = ["share_clipboard", "rodio_backend", "mpris", "cursive/pancurses-backend"]
