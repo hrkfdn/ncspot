@@ -13,4 +13,4 @@ script:
   - cargo update
   - rustup component add clippy rustfmt
   # - cargo clippy --all-targets -- -D warnings
-  - cargo fmt --all -- --check
+  # - cargo fmt --all -- --check
