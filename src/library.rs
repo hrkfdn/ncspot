@@ -173,7 +173,7 @@ impl Library {
 
     fn append_or_update(&self, updated: &Playlist) -> usize {
         let mut store = self.playlists.write().expect("can't writelock playlists");
-        for (index, mut local) in store.iter_mut().enumerate() {
+        for (index, local) in store.iter_mut().enumerate() {
             if local.id == updated.id {
                 *local = updated.clone();
                 return index;

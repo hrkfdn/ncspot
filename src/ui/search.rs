@@ -115,7 +115,7 @@ impl SearchView {
         _append: bool,
     ) -> u32 {
         if let Some(results) = spotify.track(&query) {
-            let mut t = vec![(&results).into()];
+            let t = vec![(&results).into()];
             let mut r = tracks.write().unwrap();
             *r = t;
             return 1;
