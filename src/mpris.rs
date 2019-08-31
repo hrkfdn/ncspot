@@ -10,6 +10,10 @@ use dbus::{Path, SignalArgs};
 
 use queue::{Queue, RepeatSetting};
 use spotify::{PlayerEvent, Spotify};
+use track::Track;
+
+type Metadata = HashMap<String, Variant<Box<RefArg>>>;
+struct MprisState(String, Option<Track>);
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     match spotify.get_current_status() {
@@ -20,11 +24,9 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     .to_string()
 }
 
-fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
-    let mut hm: HashMap<String, Variant<Box<RefArg>>> = HashMap::new();
-
-    let t = queue.get_current();
-    let track = t.as_ref(); // TODO
+fn get_metadata(track: Option<Track>) -> Metadata {
+    let mut hm: Metadata = HashMap::new();
+    let track = track.as_ref();
 
     hm.insert(
         "mpris:trackid".to_string(),
@@ -81,7 +83,7 @@ fn get_metadata(queue: Arc<Queue>) -> HashMap<String, Variant<Box<RefArg>>> {
     hm
 }
 
-fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<()>) {
+fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<MprisState>) {
     let conn = Rc::new(
         dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to connect to dbus"),
     );
@@ -193,7 +195,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         f.property::<HashMap<String, Variant<Box<RefArg>>>, _>("Metadata", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                let hm = get_metadata(queue.clone());
+                let hm = get_metadata(queue.clone().get_current());
 
                 iter.append(hm);
                 Ok(())
@@ -397,43 +399,54 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             warn!("Unhandled dbus message: {:?}", m);
         }
 
-        if rx.try_recv().is_ok() {
+        if let Ok(state) = rx.try_recv() {
             let mut changed: PropertiesPropertiesChanged = Default::default();
+            debug!("mpris PropertiesChanged: status {}, track: {:?}", state.0, state.1);
+
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
                 "Metadata".to_string(),
-                Variant(Box::new(get_metadata(queue.clone()))),
+                Variant(Box::new(get_metadata(state.1))),
             );
+
             changed.changed_properties.insert(
                 "PlaybackStatus".to_string(),
-                Variant(Box::new(get_playbackstatus(spotify.clone()))),
+                Variant(Box::new(state.0)),
             );
 
             conn.send(
                 changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
             )
-            .unwrap();
+                .unwrap();
         }
     }
 }
 
 #[derive(Clone)]
 pub struct MprisManager {
-    tx: mpsc::Sender<()>,
+    tx: mpsc::Sender<MprisState>,
+    queue: Arc<Queue>,
+    spotify: Arc<Spotify>
 }
 
 impl MprisManager {
     pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> Self {
-        let (tx, rx) = mpsc::channel::<()>();
+        let (tx, rx) = mpsc::channel::<MprisState>();
 
-        std::thread::spawn(move || {
-            run_dbus_server(spotify, queue, rx);
-        });
+        {
+            let spotify = spotify.clone();
+            let queue = queue.clone();
+            std::thread::spawn(move || {
+                run_dbus_server(spotify.clone(), queue.clone(), rx);
+            });
+        }
 
-        MprisManager { tx }
+        MprisManager { tx, queue, spotify }
     }
 
     pub fn update(&self) {
-        self.tx.send(()).unwrap();
+        let status = get_playbackstatus(self.spotify.clone());
+        let track = self.queue.get_current();
+        self.tx.send(MprisState(status, track)).unwrap();
     }
 }
