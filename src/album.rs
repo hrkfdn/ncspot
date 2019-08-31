@@ -150,7 +150,7 @@ impl ListItem for Album {
         }
     }
 
-    fn as_listitem(&self) -> Box<ListItem> {
+    fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }
 

@@ -75,9 +75,9 @@ struct Worker {
     commands: mpsc::UnboundedReceiver<WorkerCommand>,
     session: Session,
     player: Player,
-    play_task: Box<futures::Future<Item = (), Error = oneshot::Canceled>>,
-    refresh_task: Box<futures::Stream<Item = (), Error = tokio_timer::Error>>,
-    token_task: Box<futures::Future<Item = (), Error = MercuryError>>,
+    play_task: Box<dyn futures::Future<Item = (), Error = oneshot::Canceled>>,
+    refresh_task: Box<dyn futures::Stream<Item = (), Error = tokio_timer::Error>>,
+    token_task: Box<dyn futures::Future<Item = (), Error = MercuryError>>,
     active: bool,
 }
 
@@ -102,7 +102,7 @@ impl Worker {
 }
 
 impl Worker {
-    fn create_refresh(&self) -> Box<futures::Stream<Item = (), Error = tokio_timer::Error>> {
+    fn create_refresh(&self) -> Box<dyn futures::Stream<Item = (), Error = tokio_timer::Error>> {
         let ev = self.events.clone();
         let future =
             tokio_timer::Interval::new_interval(Duration::from_millis(400)).map(move |_| {
@@ -185,8 +185,8 @@ impl futures::Future for Worker {
                 }
                 Err(e) => {
                     error!("could not generate token: {:?}", e);
-                },
-                _ => ()
+                }
+                _ => (),
             }
 
             if !progress {
@@ -256,7 +256,7 @@ impl Spotify {
     fn get_token(
         session: &Session,
         sender: oneshot::Sender<Token>,
-    ) -> Box<Future<Item = (), Error = MercuryError>> {
+    ) -> Box<dyn Future<Item = (), Error = MercuryError>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
         let url = format!(

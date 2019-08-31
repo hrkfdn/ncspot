@@ -12,7 +12,7 @@ use queue::{Queue, RepeatSetting};
 use spotify::{PlayerEvent, Spotify};
 use track::Track;
 
-type Metadata = HashMap<String, Variant<Box<RefArg>>>;
+type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 struct MprisState(String, Option<Track>);
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
@@ -192,7 +192,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let property_metadata = {
         let queue = queue.clone();
-        f.property::<HashMap<String, Variant<Box<RefArg>>>, _>("Metadata", ())
+        f.property::<HashMap<String, Variant<Box<dyn RefArg>>>, _>("Metadata", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
                 let hm = get_metadata(queue.clone().get_current());
@@ -401,7 +401,10 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
         if let Ok(state) = rx.try_recv() {
             let mut changed: PropertiesPropertiesChanged = Default::default();
-            debug!("mpris PropertiesChanged: status {}, track: {:?}", state.0, state.1);
+            debug!(
+                "mpris PropertiesChanged: status {}, track: {:?}",
+                state.0, state.1
+            );
 
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
@@ -409,15 +412,14 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                 Variant(Box::new(get_metadata(state.1))),
             );
 
-            changed.changed_properties.insert(
-                "PlaybackStatus".to_string(),
-                Variant(Box::new(state.0)),
-            );
+            changed
+                .changed_properties
+                .insert("PlaybackStatus".to_string(), Variant(Box::new(state.0)));
 
             conn.send(
                 changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
             )
-                .unwrap();
+            .unwrap();
         }
     }
 }
@@ -426,7 +428,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 pub struct MprisManager {
     tx: mpsc::Sender<MprisState>,
     queue: Arc<Queue>,
-    spotify: Arc<Spotify>
+    spotify: Arc<Spotify>,
 }
 
 impl MprisManager {

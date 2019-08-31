@@ -21,7 +21,7 @@ use ui::album::AlbumView;
 use ui::artist::ArtistView;
 use ui::contextmenu::ContextMenu;
 
-pub type Paginator<I> = Box<Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
+pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 pub struct Pagination<I: ListItem> {
     max_content: Arc<RwLock<Option<usize>>>,
     callback: Arc<RwLock<Option<Paginator<I>>>>,

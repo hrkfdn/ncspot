@@ -107,7 +107,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn as_listitem(&self) -> Box<ListItem> {
+    fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }
 

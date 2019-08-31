@@ -40,7 +40,7 @@ pub struct SearchView {
 }
 
 type SearchHandler<I> =
-    Box<Fn(&Arc<Spotify>, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
+    Box<dyn Fn(&Arc<Spotify>, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
 
 pub const LIST_ID: &str = "search_list";
 pub const EDIT_ID: &str = "search_edit";

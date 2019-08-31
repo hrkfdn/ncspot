@@ -151,7 +151,7 @@ impl ListItem for Track {
         current.map(|t| t.id == self.id).unwrap_or(false)
     }
 
-    fn as_listitem(&self) -> Box<ListItem> {
+    fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }
 

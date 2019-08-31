@@ -31,7 +31,7 @@ pub trait ListItem: Sync + Send + 'static {
         None
     }
 
-    fn as_listitem(&self) -> Box<ListItem>;
+    fn as_listitem(&self) -> Box<dyn ListItem>;
 }
 
 pub trait ViewExt: View {
