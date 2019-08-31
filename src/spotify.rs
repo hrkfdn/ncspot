@@ -52,7 +52,7 @@ enum WorkerCommand {
     RequestToken(oneshot::Sender<Token>),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlayerEvent {
     Playing,
     Paused,
@@ -183,10 +183,10 @@ impl futures::Future for Worker {
                     info!("token updated!");
                     self.token_task = Box::new(futures::empty())
                 }
-                Ok(Async::NotReady) => debug!("waiting for token"),
                 Err(e) => {
                     error!("could not generate token: {:?}", e);
-                }
+                },
+                _ => ()
             }
 
             if !progress {

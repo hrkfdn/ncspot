@@ -257,16 +257,17 @@ fn main() {
     while cursive.is_running() {
         cursive.step();
         for event in event_manager.msg_iter() {
-            trace!("event received");
             match event {
                 Event::Player(state) => {
-                    if state == PlayerEvent::FinishedTrack {
-                        queue.next(false);
-                    }
-                    spotify.update_status(state);
+                    trace!("event received: {:?}", state);
+                    spotify.update_status(state.clone());
 
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
+
+                    if state == PlayerEvent::FinishedTrack {
+                        queue.next(false);
+                    }
                 }
             }
         }
