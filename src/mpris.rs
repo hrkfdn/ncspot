@@ -38,7 +38,7 @@ fn get_metadata(track: Option<Track>) -> Metadata {
     );
     hm.insert(
         "mpris:length".to_string(),
-        Variant(Box::new(track.map(|t| t.duration * 1_000).unwrap_or(0))),
+        Variant(Box::new(track.map(|t| t.duration * 1_000).unwrap_or(0) as i64)),
     );
     hm.insert(
         "mpris:artUrl".to_string(),
@@ -73,7 +73,7 @@ fn get_metadata(track: Option<Track>) -> Metadata {
     );
     hm.insert(
         "xesam:trackNumber".to_string(),
-        Variant(Box::new(track.map(|t| t.track_number).unwrap_or(0))),
+        Variant(Box::new(track.map(|t| t.track_number).unwrap_or(0) as i32)),
     );
     hm.insert(
         "xesam:url".to_string(),
