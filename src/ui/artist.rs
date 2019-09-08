@@ -37,10 +37,12 @@ impl ArtistView {
             let top_tracks = top_tracks.clone();
             let spotify = spotify.clone();
             let id = artist.id.clone();
+            let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id {
                     if let Some(tracks) = spotify.artist_top_tracks(id) {
                         top_tracks.write().unwrap().extend(tracks);
+                        library.trigger_redraw();
                     }
                 }
             });
@@ -51,10 +53,12 @@ impl ArtistView {
             let related = related.clone();
             let spotify = spotify.clone();
             let id = artist.id.clone();
+            let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id {
                     if let Some(artists) = spotify.artist_related_artists(id) {
                         related.write().unwrap().extend(artists);
+                        library.trigger_redraw();
                     }
                 }
             });

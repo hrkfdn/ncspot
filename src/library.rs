@@ -749,4 +749,8 @@ impl Library {
 
         self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
+
+    pub fn trigger_redraw(&self) {
+        self.ev.trigger();
+    }
 }
