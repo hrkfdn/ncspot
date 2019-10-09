@@ -235,6 +235,11 @@ impl CommandManager {
         kb.insert("h".into(), Command::Move(MoveMode::Left, None));
         kb.insert("l".into(), Command::Move(MoveMode::Right, None));
 
+        kb.insert("Ctrl+p".into(), Command::Move(MoveMode::Up, None));
+        kb.insert("Ctrl+n".into(), Command::Move(MoveMode::Down, None));
+        kb.insert("Ctrl+a".into(), Command::Move(MoveMode::Left, None));
+        kb.insert("Ctrl+e".into(), Command::Move(MoveMode::Right, None));
+
         kb.insert("Shift+Up".into(), Command::Shift(ShiftMode::Up, None));
         kb.insert("Shift+Down".into(), Command::Shift(ShiftMode::Down, None));
 
