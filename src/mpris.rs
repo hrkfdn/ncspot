@@ -303,6 +303,22 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             })
     };
 
+    let property_cangoforward = f
+        .property::<bool, _>("CanGoForward", ())
+        .access(Access::Read)
+        .on_get(|iter, _| {
+            iter.append(true);
+            Ok(())
+        });
+
+    let property_canrewind = f
+        .property::<bool, _>("CanRewind", ())
+        .access(Access::Read)
+        .on_get(|iter, _| {
+            iter.append(true);
+            Ok(())
+        });
+
     let method_playpause = {
         let spotify = spotify.clone();
         f.method("PlayPause", (), move |m| {
@@ -356,6 +372,22 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
+    let method_forward = {
+        let spotify = spotify.clone();
+        f.method("Forward", (), move |m| {
+            spotify.seek_relative(5000);
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
+    let method_rewind = {
+        let spotify = spotify.clone();
+        f.method("Rewind", (), move |m| {
+            spotify.seek_relative(-5000);
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
     // TODO: Seek, SetPosition, OpenUri (?)
 
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
@@ -376,12 +408,16 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .add_p(property_cangonext)
         .add_p(property_cangoprevious)
         .add_p(property_shuffle)
+        .add_p(property_cangoforward)
+        .add_p(property_canrewind)
         .add_m(method_playpause)
         .add_m(method_play)
         .add_m(method_pause)
         .add_m(method_stop)
         .add_m(method_next)
-        .add_m(method_previous);
+        .add_m(method_previous)
+        .add_m(method_forward)
+        .add_m(method_rewind);
 
     let tree = f.tree(()).add(
         f.object_path("/org/mpris/MediaPlayer2", ())
