@@ -1,5 +1,5 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
-use cursive::{CbFunc, Cursive};
+use cursive::{CbSink, Cursive};
 
 use spotify::PlayerEvent;
 
@@ -13,11 +13,11 @@ pub type EventSender = Sender<Event>;
 pub struct EventManager {
     tx: EventSender,
     rx: Receiver<Event>,
-    cursive_sink: Sender<Box<dyn CbFunc>>,
+    cursive_sink: CbSink,
 }
 
 impl EventManager {
-    pub fn new(cursive_sink: Sender<Box<dyn CbFunc>>) -> EventManager {
+    pub fn new(cursive_sink: CbSink) -> EventManager {
         let (tx, rx) = unbounded();
 
         EventManager {

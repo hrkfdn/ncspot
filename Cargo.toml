@@ -42,7 +42,7 @@ git = "https://github.com/librespot-org/librespot.git"
 default-features = false
 
 [dependencies.cursive]
-version = "0.12"
+version = "0.13"
 default-features = false
 
 [features]
