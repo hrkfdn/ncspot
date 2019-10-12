@@ -574,7 +574,7 @@ impl Spotify {
     }
 
     pub fn current_user_saved_tracks_delete(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.current_user_saved_tracks_delete(ids.clone()))
+        self.api_with_retry(|api| api.current_user_saved_tracks_delete(&ids))
     }
 
     pub fn user_playlist_follow_playlist(&self, owner_id: String, id: String) -> Option<()> {
