@@ -430,30 +430,32 @@ impl Spotify {
             None
         };
 
-        match self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks)) {
-            Some(()) => {
-                debug!("saved {} tracks to playlist {}", tracks.len(), id);
+        if let Some(()) = self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks)) {
+            debug!("saved {} tracks to playlist {}", tracks.len(), id);
+            while let Some(ref mut tracks) = remainder.clone() {
+                // grab the next set of 100 tracks
+                remainder = if tracks.len() > 100 {
+                    Some(tracks.split_off(100))
+                } else {
+                    None
+                };
 
-                // send the remaining tracks in batches of max 100
-                while let Some(ref mut tracks) = remainder.clone() {
-                    let result = self.api_with_retry(|api| {
-                        api.user_playlist_add_tracks(&self.user, id, &tracks, None)
-                    });
-                    if result.is_some() {
-                        // grab the next set of tracks
-                        remainder = if tracks.len() > 100 {
-                            Some(tracks.split_off(100))
-                        } else {
-                            None
-                        };
-                    } else {
-                        error!("error saving tracks to playlists {}", id);
-                    }
+                debug!("adding another {} tracks to playlist", tracks.len());
+                let result = self.api_with_retry(|api| {
+                    api.user_playlist_add_tracks(&self.user, id, &tracks, None)
+                });
+
+
+                if result.is_some() {
+                    debug!("{} tracks successfully added", tracks.len());
+                } else {
+                    error!("error saving tracks to playlists {}", id);
+                    return;
                 }
             }
-            None => {
-                error!("error saving tracks to playlist {}", id);
-            }
+        }
+        else {
+            error!("error saving tracks to playlist {}", id);
         }
     }
 
