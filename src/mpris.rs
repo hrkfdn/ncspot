@@ -38,7 +38,9 @@ fn get_metadata(track: Option<Track>) -> Metadata {
     );
     hm.insert(
         "mpris:length".to_string(),
-        Variant(Box::new(track.map(|t| t.duration * 1_000).unwrap_or(0) as i64)),
+        Variant(Box::new(
+            track.map(|t| t.duration * 1_000).unwrap_or(0) as i64
+        )),
     );
     hm.insert(
         "mpris:artUrl".to_string(),

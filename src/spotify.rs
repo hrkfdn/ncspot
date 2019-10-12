@@ -203,12 +203,12 @@ impl Spotify {
             normalisation: false,
             normalisation_pregain: 0.0,
         };
-        let user = credentials.username.clone();
+        let (user_tx, user_rx) = oneshot::channel();
 
         let (tx, rx) = mpsc::unbounded();
         {
             let events = events.clone();
-            thread::spawn(move || Self::worker(events, rx, player_config, credentials));
+            thread::spawn(move || Self::worker(events, rx, player_config, credentials, user_tx));
         }
 
         let spotify = Spotify {
@@ -218,7 +218,7 @@ impl Spotify {
             since: RwLock::new(None),
             token_issued: RwLock::new(None),
             channel: tx,
-            user,
+            user: user_rx.wait().expect("error retrieving userid from worker"),
         };
 
         // acquire token for web api usage
@@ -283,10 +283,14 @@ impl Spotify {
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         player_config: PlayerConfig,
         credentials: Credentials,
+        user_tx: oneshot::Sender<String>,
     ) {
         let mut core = Core::new().unwrap();
 
         let session = Self::create_session(&mut core, credentials);
+        user_tx
+            .send(session.username())
+            .expect("could not pass username back to Spotify::new");
 
         let backend = audio_backend::find(None).unwrap();
         let (player, _eventchannel) =
