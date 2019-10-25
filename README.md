@@ -66,8 +66,8 @@ have them configurable.
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot
-* `x` copies a sharable URL to the song to the system clipboard
-* `Shift-x` copies a sharable URL to the currently selected item to the system clipboard
+* `x` copies a sharable URL of the song to the system clipboard
+* `Shift-x` copies a sharable URL of the currently selected item to the system clipboard
 
 You can also open a Vim style commandprompt using `:`, the following commands
 are supported:
