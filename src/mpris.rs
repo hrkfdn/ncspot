@@ -32,15 +32,20 @@ fn get_metadata(track: Option<Track>) -> Metadata {
         "mpris:trackid".to_string(),
         Variant(Box::new(
             track
-                .map(|t| format!("spotify:track:{}", t.id.clone().unwrap_or("0".to_string())))
+                .map(|t| {
+                    format!(
+                        "spotify:track:{}",
+                        t.id.clone().unwrap_or_else(|| "0".to_string())
+                    )
+                })
                 .unwrap_or_default(),
         )),
     );
     hm.insert(
         "mpris:length".to_string(),
-        Variant(Box::new(
-            track.map(|t| t.duration * 1_000).unwrap_or(0) as i64
-        )),
+        Variant(Box::new(i64::from(
+            track.map(|t| t.duration * 1_000).unwrap_or(0),
+        ))),
     );
     hm.insert(
         "mpris:artUrl".to_string(),

@@ -430,7 +430,9 @@ impl Spotify {
             None
         };
 
-        if let Some(()) = self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks)) {
+        if let Some(()) =
+            self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks))
+        {
             debug!("saved {} tracks to playlist {}", tracks.len(), id);
             while let Some(ref mut tracks) = remainder.clone() {
                 // grab the next set of 100 tracks
@@ -445,7 +447,6 @@ impl Spotify {
                     api.user_playlist_add_tracks(&self.user, id, &tracks, None)
                 });
 
-
                 if result.is_some() {
                     debug!("{} tracks successfully added", tracks.len());
                 } else {
@@ -453,8 +454,7 @@ impl Spotify {
                     return;
                 }
             }
-        }
-        else {
+        } else {
             error!("error saving tracks to playlist {}", id);
         }
     }
