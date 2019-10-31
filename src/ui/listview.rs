@@ -161,56 +161,75 @@ impl<I: ListItem> View for ListView<I> {
         let content = self.content.read().unwrap();
 
         self.scrollbar.draw(printer, |printer, i| {
-            let item = &content[i];
+            // draw paginator after content
+            if i == content.len() {
+                let style = ColorStyle::secondary();
 
-            let style = if self.selected == i {
-                let fg = if item.is_playing(self.queue.clone()) {
-                    *printer.theme.palette.custom("playing").unwrap()
-                } else {
-                    PaletteColor::Tertiary.resolve(&printer.theme.palette)
-                };
-                ColorStyle::new(
-                    ColorType::Color(fg),
-                    ColorType::Palette(PaletteColor::Highlight),
-                )
-            } else if item.is_playing(self.queue.clone()) {
-                ColorStyle::new(
-                    ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
-                    ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
-                )
-            } else {
-                ColorStyle::primary()
-            };
-
-            let left = item.display_left();
-            let right = item.display_right(self.library.clone());
-
-            // draw left string
-            printer.with_color(style, |printer| {
-                printer.print_hline((0, 0), printer.size.x, " ");
-                printer.print((0, 0), &left);
-            });
-
-            // draw ".." to indicate a cut off string
-            let max_length = printer.size.x.saturating_sub(right.width() + 1);
-            if max_length < left.width() {
-                let offset = max_length.saturating_sub(1);
+                let max = self.pagination.max_content().unwrap();
+                let buf = format!("{} more items, scroll to load", max - i);
                 printer.with_color(style, |printer| {
-                    printer.print((offset, 0), "..");
+                    printer.print((0, 0), &buf);
+                });
+            } else {
+                let item = &content[i];
+
+                let style = if self.selected == i {
+                    let fg = if item.is_playing(self.queue.clone()) {
+                        *printer.theme.palette.custom("playing").unwrap()
+                    } else {
+                        PaletteColor::Tertiary.resolve(&printer.theme.palette)
+                    };
+                    ColorStyle::new(
+                        ColorType::Color(fg),
+                        ColorType::Palette(PaletteColor::Highlight),
+                    )
+                } else if item.is_playing(self.queue.clone()) {
+                    ColorStyle::new(
+                        ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
+                        ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
+                    )
+                } else {
+                    ColorStyle::primary()
+                };
+
+                let left = item.display_left();
+                let right = item.display_right(self.library.clone());
+
+                // draw left string
+                printer.with_color(style, |printer| {
+                    printer.print_hline((0, 0), printer.size.x, " ");
+                    printer.print((0, 0), &left);
+                });
+
+                // draw ".." to indicate a cut off string
+                let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                if max_length < left.width() {
+                    let offset = max_length.saturating_sub(1);
+                    printer.with_color(style, |printer| {
+                        printer.print((offset, 0), "..");
+                    });
+                }
+
+                // draw right string
+                let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
+
+                printer.with_color(style, |printer| {
+                    printer.print((offset, 0), &right);
                 });
             }
-
-            // draw right string
-            let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
-
-            printer.with_color(style, |printer| {
-                printer.print((offset, 0), &right);
-            });
         });
     }
 
     fn layout(&mut self, size: Vec2) {
-        self.last_content_len = self.content.read().unwrap().len();
+        let content_len = self.content.read().unwrap().len();
+
+        // add 1 more row for paginator if we can paginate
+        self.last_content_len = if self.can_paginate() {
+            content_len + 1
+        } else {
+            content_len
+        };
+
         self.last_size = size;
         self.scrollbar.set_heights(size.y, self.last_content_len);
     }
