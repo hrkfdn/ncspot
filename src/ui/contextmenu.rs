@@ -22,7 +22,7 @@ enum ContextMenuAction {
 }
 
 impl ContextMenu {
-    pub fn new(item: &Box<dyn ListItem>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
+    pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let mut content: SelectView<ContextMenuAction> = SelectView::new().autojump();
         if let Some(a) = item.artist() {
             content.add_item("Show artist", ContextMenuAction::ShowItem(Box::new(a)));

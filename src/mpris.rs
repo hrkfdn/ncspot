@@ -215,7 +215,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         f.property::<i64, _>("Position", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                iter.append(progress.as_secs() as i64 * 1_000_000);
+                iter.append(progress.as_micros() as i64);
                 Ok(())
             })
     };

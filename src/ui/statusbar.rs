@@ -119,7 +119,7 @@ impl View for StatusBar {
 
         if let Some(ref t) = self.queue.get_current() {
             let elapsed = self.spotify.get_current_progress();
-            let elapsed_ms = elapsed.as_secs() as u32 * 1000 + elapsed.subsec_millis();
+            let elapsed_ms = elapsed.as_millis() as u32;
 
             let formatted_elapsed = format!(
                 "{:02}:{:02}",

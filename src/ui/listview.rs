@@ -404,7 +404,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     return match view {
                         Some(view) => Ok(CommandResult::View(view)),
                         None => {
-                            let contextmenu = ContextMenu::new(&target, queue, library);
+                            let contextmenu = ContextMenu::new(&*target, queue, library);
                             Ok(CommandResult::Modal(Box::new(contextmenu)))
                         }
                     };
