@@ -415,6 +415,18 @@ impl Spotify {
         }
     }
 
+    pub fn append_tracks(
+        &self,
+        playlist_id: &str,
+        tracks: &[String],
+        position: Option<i32>,
+    ) -> bool {
+        self.api_with_retry(|api| {
+            api.user_playlist_add_tracks(&self.user, playlist_id, &tracks, position)
+        })
+        .is_some()
+    }
+
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
         // extract only track IDs
         let mut tracks: Vec<String> = tracks
@@ -443,11 +455,7 @@ impl Spotify {
                 };
 
                 debug!("adding another {} tracks to playlist", tracks.len());
-                let result = self.api_with_retry(|api| {
-                    api.user_playlist_add_tracks(&self.user, id, &tracks, None)
-                });
-
-                if result.is_some() {
+                if self.append_tracks(id, tracks, None) {
                     debug!("{} tracks successfully added", tracks.len());
                 } else {
                     error!("error saving tracks to playlists {}", id);

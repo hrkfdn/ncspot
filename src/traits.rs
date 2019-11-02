@@ -10,6 +10,7 @@ use command::Command;
 use commands::CommandResult;
 use library::Library;
 use queue::Queue;
+use track::Track;
 
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
@@ -28,6 +29,10 @@ pub trait ListItem: Sync + Send + 'static {
     }
 
     fn artist(&self) -> Option<Artist> {
+        None
+    }
+
+    fn track(&self) -> Option<Track> {
         None
     }
 

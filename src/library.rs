@@ -489,6 +489,31 @@ impl Library {
         }
     }
 
+    pub fn playlist_append_tracks(&self, playlist_id: &str, new_tracks: &[Track]) {
+        let track_ids: Vec<String> = new_tracks
+            .to_vec()
+            .iter()
+            .filter(|t| t.id.is_some())
+            .map(|t| t.id.clone().unwrap())
+            .collect();
+
+        let mut has_modified = false;
+
+        if self.spotify.append_tracks(playlist_id, &track_ids, None) {
+            let mut playlists = self.playlists.write().expect("can't writelock playlists");
+            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == playlist_id) {
+                if let Some(tracks) = &mut playlist.tracks {
+                    tracks.append(&mut new_tracks.to_vec());
+                    has_modified = true;
+                }
+            }
+        }
+
+        if has_modified {
+            self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
+        }
+    }
+
     pub fn is_saved_track(&self, track: &Track) -> bool {
         if !*self.is_done.read().unwrap() {
             return false;

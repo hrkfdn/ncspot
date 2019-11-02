@@ -222,4 +222,8 @@ impl ListItem for Track {
             self.artists[0].clone(),
         ))
     }
+
+    fn track(&self) -> Option<Track> {
+        Some(self.clone())
+    }
 }
