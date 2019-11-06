@@ -38,7 +38,7 @@ webbrowser = "0.5"
 clipboard = { version = "0.5", optional = true }
 
 [dependencies.librespot]
-git = "https://github.com/librespot-org/librespot.git"
+version = "0.1.0"
 default-features = false
 
 [dependencies.cursive]
