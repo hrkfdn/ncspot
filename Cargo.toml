@@ -11,7 +11,7 @@ readme = "README.md"
 
 [badges]
 travis-ci = { repository = "hrkfdn/ncspot", branch = "master" }
-maintenance = { status = "experimental" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 clap = "2.32.0"
