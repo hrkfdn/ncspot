@@ -19,7 +19,7 @@ future. Contributions welcome, but please be kind ;)
 
 * Rust
 * Python 3 (needed for building `rust-xcb` dependency)
-* `libasound2-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
+* `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
 * `libncurses-dev` and `libssl-dev`
 * `libdbus-1-dev`
 * `libxcb` + development headers (for clipboard access)
@@ -28,7 +28,7 @@ future. Contributions welcome, but please be kind ;)
 
 On Debian based systems you need following packages for `libxcb` developement headers:
 ```
-sudo apt install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+sudo apt install libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
 
 
