@@ -1,16 +1,29 @@
 language: rust
-rust:
-  - stable
-  - beta
+
 matrix:
   fast_finish: true
   allow_failures:
     - rust: beta
+  include:
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - libpulse-dev
+            - libdbus-1-dev
+            - libxcb1-dev
+            - libxcb-render0-dev
+            - libxcb-shape0-dev
+            - libxcb-xfixes0-dev
 
-before_install:
-  - sudo apt-get install -y libpulse-dev libdbus-1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-script:
-  - cargo build
+    - os: osx
+      env: CARGO_FLAGS="--no-default-features --features portaudio_backend,cursive/pancurses-backend"
+      osx_image: xcode11.2
+      addons:
+        homebrew:
+          packages: portaudio
+
+script: cargo build $CARGO_FLAGS
   # - rustup component add clippy rustfmt
   # - cargo clippy --all-targets -- -D warnings
   # - cargo fmt --all -- --check
