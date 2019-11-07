@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Build Status](https://travis-ci.com/hrkfdn/ncspot.svg?token=DoBH2xZ13CfuTfqgEyp7&branch=develop)](https://travis-ci.com/hrkfdn/ncspot)
+[![Build Status](https://travis-ci.com/hrkfdn/ncspot.svg?token=DoBH2xZ13CfuTfqgEyp7&branch=master)](https://travis-ci.com/hrkfdn/ncspot)
 
 ncurses Spotify client written in Rust using librespot. It is heavily inspired
 by ncurses MPD clients, such as ncmpc.  My motivation was to provide a simple
@@ -35,8 +35,18 @@ sudo apt install libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-s
 
 ## Usage
 
+* Install the latest release using `cargo install ncspot`
 * Build using `cargo build --release`
 * For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
+
+## Audio backends
+
+By default ncspot is built using the Rodio backend.  To make it use the
+PortAudio backend (e.g. for *BSD or macOS), you need to recompile ncspot with
+the `portaudio_backend` feature:
+
+* `cargo run --no-default-features --features
+  portaudio_backend,cursive/pancurses-backend`
 
 ### Key Bindings
 
@@ -115,12 +125,3 @@ cmdline_bg = "black"
 
 More examples can be found in pull request
 https://github.com/hrkfdn/ncspot/pull/40.
-
-## Audio backends
-
-By default ncspot is built using the Rodio backend.  To make it use the
-PortAudio backend (e.g. *BSD), you need to recompile ncspot with the
-`portaudio_backend` feature:
-
-* `cargo run --no-default-features --features
-  portaudio_backend,cursive/pancurses-backend`
