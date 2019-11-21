@@ -91,7 +91,12 @@ the search view.
 
 ## Configuration
 
-Configuration is saved to `~/.config/ncspot/config.toml`.
+Configuration is saved to `~/.config/ncspot/config.toml`. Possible configuration
+values are:
+
+* `proxy`: Set an HTTP proxy
+* `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
+* `theme`: Set a custom color palette (see below)
 
 ### Theming
 

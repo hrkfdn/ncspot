@@ -57,7 +57,10 @@ impl ContextMenu {
             content.add_item("Share", ContextMenuAction::ShareUrl(url));
         }
         if let Some(t) = item.track() {
-            content.add_item("Add to playlist", ContextMenuAction::AddToPlaylist(Box::new(t)))
+            content.add_item(
+                "Add to playlist",
+                ContextMenuAction::AddToPlaylist(Box::new(t)),
+            )
         }
 
         // open detail view of artist/album
