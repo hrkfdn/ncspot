@@ -146,7 +146,7 @@ fn main() {
     if let Some(basepath) = matches.value_of("basepath") {
         let path = PathBuf::from_str(basepath).expect("invalid path");
         if !path.exists() {
-            fs::create_dir(&path).expect("could not create basepath directory");
+            fs::create_dir_all(&path).expect("could not create basepath directory");
         }
         *config::BASE_PATH.write().unwrap() = Some(path);
     }

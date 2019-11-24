@@ -57,7 +57,7 @@ pub fn config_path(file: &str) -> PathBuf {
         fs::remove_file(cfg_dir).expect("unable to remove old config file");
     }
     if !cfg_dir.exists() {
-        fs::create_dir(cfg_dir).expect("can't create config folder");
+        fs::create_dir_all(cfg_dir).expect("can't create config folder");
     }
     let mut cfg = cfg_dir.to_path_buf();
     cfg.push(file);
@@ -68,7 +68,7 @@ pub fn cache_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
     let cache_dir = proj_dirs.cache_dir();
     if !cache_dir.exists() {
-        fs::create_dir(cache_dir).expect("can't create cache folder");
+        fs::create_dir_all(cache_dir).expect("can't create cache folder");
     }
     let mut pb = cache_dir.to_path_buf();
     pb.push(file);
