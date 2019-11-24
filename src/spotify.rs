@@ -1,16 +1,16 @@
 use config::Config;
-use librespot::core::authentication::Credentials;
-use librespot::core::cache::Cache;
-use librespot::core::config::SessionConfig;
-use librespot::core::keymaster::Token;
-use librespot::core::mercury::MercuryError;
-use librespot::core::session::Session;
-use librespot::core::spotify_id::SpotifyId;
-use librespot::playback::config::PlayerConfig;
+use librespot_core::authentication::Credentials;
+use librespot_core::cache::Cache;
+use librespot_core::config::SessionConfig;
+use librespot_core::keymaster::Token;
+use librespot_core::mercury::MercuryError;
+use librespot_core::session::Session;
+use librespot_core::spotify_id::SpotifyId;
+use librespot_playback::config::PlayerConfig;
 
-use librespot::playback::audio_backend;
-use librespot::playback::config::Bitrate;
-use librespot::playback::player::Player;
+use librespot_playback::audio_backend;
+use librespot_playback::config::Bitrate;
+use librespot_playback::player::Player;
 
 use rspotify::spotify::client::ApiError;
 use rspotify::spotify::client::Spotify as SpotifyAPI;

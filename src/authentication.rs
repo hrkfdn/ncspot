@@ -5,8 +5,8 @@ use cursive::view::Identifiable;
 use cursive::views::*;
 use cursive::{CbSink, Cursive};
 
-use librespot::core::authentication::Credentials as RespotCredentials;
-use librespot::protocol::authentication::AuthenticationType;
+use librespot_core::authentication::Credentials as RespotCredentials;
+use librespot_protocol::authentication::AuthenticationType;
 
 pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
     let mut login_cursive = Cursive::default();

@@ -9,7 +9,9 @@ extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;
-extern crate librespot;
+extern crate librespot_core;
+extern crate librespot_playback;
+extern crate librespot_protocol;
 extern crate rspotify;
 extern crate tokio;
 extern crate tokio_core;
@@ -43,7 +45,7 @@ use clap::{App, Arg};
 use cursive::traits::Identifiable;
 use cursive::Cursive;
 
-use librespot::core::authentication::Credentials;
+use librespot_core::authentication::Credentials;
 
 mod album;
 mod artist;
