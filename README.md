@@ -4,12 +4,23 @@
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Build Status](https://travis-ci.com/hrkfdn/ncspot.svg?token=DoBH2xZ13CfuTfqgEyp7&branch=master)](https://travis-ci.com/hrkfdn/ncspot)
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
+
 ncurses Spotify client written in Rust using librespot. It is heavily inspired
 by ncurses MPD clients, such as ncmpc.  My motivation was to provide a simple
 and resource friendly alternative to the official client as well as to support
 platforms that currently don't have a Spotify client, such as the *BSDs.
 
 [![Search](/screenshots/screenshot-thumb.png?raw=true)](/screenshots/screenshot.png?raw=true)
+
+## Resource footprint comparison
+
+Measured using `ps_mem` on Linux during playback:
+
+| Client | Private Memory | Shared Memory | Total |
+| --- | --- | --- | --- |
+| ncspot | 22.1 MiB | 24.1 MiB | 46.2 MiB |
+| Spotify | 407.3 MiB | 592.7 MiB | 1000.0 MiB |
 
 ## Requirements
 
@@ -30,8 +41,9 @@ sudo apt install libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-s
 
 ## Usage
 
-* Install the latest release using `cargo install ncspot`
-* Build using `cargo build --release`
+* Install the latest ncspot release using `cargo install ncspot`
+  * or build it yourself using `cargo build --release`
+  * both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install)
 * For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
 
 ## Audio backends
