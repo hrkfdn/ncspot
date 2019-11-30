@@ -78,7 +78,7 @@ have them configurable.
 * `Backspace` closes the current view
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
-* `Shift-r` updates the playlist cache
+* `Shift-u` updates the library cache (tracks, artists, albums, playlists)
 * `<` and `>` play the previous or next track
 * `,` and `.` to rewind or skip forward
 * `r` to toggle repeat mode

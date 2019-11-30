@@ -3,11 +3,6 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum PlaylistCommands {
-    Update,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum SeekInterval {
     Forward,
     Backwards,
@@ -50,13 +45,13 @@ pub enum SeekDirection {
 pub enum Command {
     Quit,
     TogglePlay,
-    Playlists(PlaylistCommands),
     Stop,
     Previous,
     Next,
     Clear,
     Queue,
     Play,
+    UpdateLibrary,
     Save,
     SaveQueue,
     Delete,
@@ -121,6 +116,7 @@ pub fn parse(input: &str) -> Option<Command> {
         "clear" => Some(Command::Clear),
         "queue" => Some(Command::Queue),
         "play" => Some(Command::Play),
+        "update" => Some(Command::UpdateLibrary),
         "delete" => Some(Command::Delete),
         "back" => Some(Command::Back),
         "open" => args
@@ -210,13 +206,6 @@ pub fn parse(input: &str) -> Option<Command> {
                 .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),
         }),
         "focus" => args.get(0).map(|target| Command::Focus(target.to_string())),
-        "playlists" => args
-            .get(0)
-            .and_then(|action| match *action {
-                "update" => Some(PlaylistCommands::Update),
-                _ => None,
-            })
-            .map(Command::Playlists),
         "save" => args.get(0).map(|target| match *target {
             "queue" => Command::SaveQueue,
             _ => Command::Save,

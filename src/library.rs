@@ -28,7 +28,7 @@ pub struct Library {
     pub albums: Arc<RwLock<Vec<Album>>>,
     pub artists: Arc<RwLock<Vec<Artist>>>,
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
-    is_done: Arc<RwLock<bool>>,
+    pub is_done: Arc<RwLock<bool>>,
     user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
@@ -51,71 +51,7 @@ impl Library {
             use_nerdfont,
         };
 
-        {
-            let library = library.clone();
-            thread::spawn(move || {
-                let t_tracks = {
-                    let library = library.clone();
-                    thread::spawn(move || {
-                        library
-                            .load_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
-                        library.fetch_tracks();
-                        library
-                            .save_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
-                    })
-                };
-
-                let t_albums = {
-                    let library = library.clone();
-                    thread::spawn(move || {
-                        library
-                            .load_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
-                        library.fetch_albums();
-                        library
-                            .save_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
-                    })
-                };
-
-                let t_artists = {
-                    let library = library.clone();
-                    thread::spawn(move || {
-                        library
-                            .load_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
-                        library.fetch_artists();
-                    })
-                };
-
-                let t_playlists = {
-                    let library = library.clone();
-                    thread::spawn(move || {
-                        library.load_cache(
-                            config::cache_path(CACHE_PLAYLISTS),
-                            library.playlists.clone(),
-                        );
-                        library.fetch_playlists();
-                        library.save_cache(
-                            config::cache_path(CACHE_PLAYLISTS),
-                            library.playlists.clone(),
-                        );
-                    })
-                };
-
-                t_tracks.join().unwrap();
-                t_artists.join().unwrap();
-
-                library.populate_artists();
-                library.save_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
-
-                t_albums.join().unwrap();
-                t_playlists.join().unwrap();
-
-                let mut is_done = library.is_done.write().unwrap();
-                *is_done = true;
-
-                library.ev.trigger();
-            });
-        }
-
+        library.update_library();
         library
     }
 
@@ -208,7 +144,8 @@ impl Library {
         debug!("saving {} tracks to {}", tracks.len(), id);
         self.spotify.overwrite_playlist(id, &tracks);
 
-        self.update_playlists();
+        self.fetch_playlists();
+        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 
     pub fn save_playlist(&self, name: &str, tracks: &[Track]) {
@@ -219,9 +156,66 @@ impl Library {
         }
     }
 
-    pub fn update_playlists(&self) {
-        self.fetch_playlists();
-        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
+    pub fn update_library(&self) {
+        *self.is_done.write().unwrap() = false;
+
+        let library = self.clone();
+        thread::spawn(move || {
+            let t_tracks = {
+                let library = library.clone();
+                thread::spawn(move || {
+                    library.load_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                    library.fetch_tracks();
+                    library.save_cache(config::cache_path(CACHE_TRACKS), library.tracks.clone());
+                })
+            };
+
+            let t_albums = {
+                let library = library.clone();
+                thread::spawn(move || {
+                    library.load_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                    library.fetch_albums();
+                    library.save_cache(config::cache_path(CACHE_ALBUMS), library.albums.clone());
+                })
+            };
+
+            let t_artists = {
+                let library = library.clone();
+                thread::spawn(move || {
+                    library.load_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
+                    library.fetch_artists();
+                })
+            };
+
+            let t_playlists = {
+                let library = library.clone();
+                thread::spawn(move || {
+                    library.load_cache(
+                        config::cache_path(CACHE_PLAYLISTS),
+                        library.playlists.clone(),
+                    );
+                    library.fetch_playlists();
+                    library.save_cache(
+                        config::cache_path(CACHE_PLAYLISTS),
+                        library.playlists.clone(),
+                    );
+                })
+            };
+
+            t_tracks.join().unwrap();
+            t_artists.join().unwrap();
+
+            library.populate_artists();
+            library.save_cache(config::cache_path(CACHE_ARTISTS), library.artists.clone());
+
+            t_albums.join().unwrap();
+            t_playlists.join().unwrap();
+
+            let mut is_done = library.is_done.write().unwrap();
+            *is_done = true;
+
+            library.ev.trigger();
+        });
     }
 
     fn fetch_playlists(&self) {

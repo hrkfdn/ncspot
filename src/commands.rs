@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use command::{
-    Command, GotoMode, MoveMode, PlaylistCommands, SeekDirection, ShiftMode, TargetMode,
-};
+use command::{Command, GotoMode, MoveMode, SeekDirection, ShiftMode, TargetMode};
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::ViewRef;
@@ -82,10 +80,8 @@ impl CommandManager {
                 self.queue.clear();
                 Ok(None)
             }
-            Command::Playlists(mode) => {
-                match mode {
-                    PlaylistCommands::Update => self.library.update_playlists(),
-                }
+            Command::UpdateLibrary => {
+                self.library.update_library();
                 Ok(None)
             }
             Command::TogglePlay => {
@@ -193,10 +189,7 @@ impl CommandManager {
 
         kb.insert("q".into(), Command::Quit);
         kb.insert("Shift+p".into(), Command::TogglePlay);
-        kb.insert(
-            "Shift+r".into(),
-            Command::Playlists(PlaylistCommands::Update),
-        );
+        kb.insert("Shift+u".into(), Command::UpdateLibrary);
         kb.insert("Shift+s".into(), Command::Stop);
         kb.insert("<".into(), Command::Previous);
         kb.insert(">".into(), Command::Next);

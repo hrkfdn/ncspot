@@ -89,6 +89,12 @@ impl View for StatusBar {
             printer.print((1, 1), &state_icon);
         });
 
+        let updating = if !*self.library.is_done.read().unwrap() {
+            if self.use_nerdfont { "\u{f9e5} " } else { "[U] " }
+        } else {
+            ""
+        };
+
         let repeat = if self.use_nerdfont {
             match self.queue.get_repeat() {
                 RepeatSetting::None => "",
@@ -137,7 +143,8 @@ impl View for StatusBar {
                 ""
             };
 
-            let right = repeat.to_string()
+            let right = updating.to_string()
+                + repeat
                 + shuffle
                 + saved
                 + &format!("{} / {} ", formatted_elapsed, t.duration_str());
@@ -153,7 +160,7 @@ impl View for StatusBar {
                 printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
         } else {
-            let right = repeat.to_string() + shuffle;
+            let right = updating.to_string() + repeat + shuffle;
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
