@@ -118,7 +118,7 @@ fn get_credentials(reset: bool) -> Credentials {
 
 fn main() {
     let matches = App::new("ncspot")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
         .about("cross-platform ncurses Spotify client")
         .arg(
