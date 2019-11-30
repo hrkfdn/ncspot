@@ -371,6 +371,10 @@ impl Library {
             }
         }
 
+        albums.sort_unstable_by_key(|album| {
+            format!("{}{}{}", album.artists[0], album.year, album.title)
+        });
+
         *(self.albums.write().unwrap()) = albums;
     }
 
