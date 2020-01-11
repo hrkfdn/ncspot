@@ -10,6 +10,7 @@ use librespot_playback::config::PlayerConfig;
 
 use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;
+use librespot_playback::mixer::Mixer;
 use librespot_playback::player::Player;
 
 use rspotify::spotify::client::ApiError;
@@ -36,6 +37,7 @@ use tokio_core::reactor::Core;
 use tokio_timer;
 use url::Url;
 
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -45,12 +47,15 @@ use config;
 use events::{Event, EventManager};
 use track::Track;
 
+pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
+
 enum WorkerCommand {
     Load(Box<Track>),
     Play,
     Pause,
     Stop,
     Seek(u32),
+    SetVolume(u16),
     RequestToken(oneshot::Sender<Token>),
 }
 
@@ -70,6 +75,7 @@ pub struct Spotify {
     token_issued: RwLock<Option<SystemTime>>,
     channel: mpsc::UnboundedSender<WorkerCommand>,
     user: String,
+    volume: AtomicU16,
 }
 
 struct Worker {
@@ -81,6 +87,7 @@ struct Worker {
     refresh_task: Box<dyn futures::Stream<Item = (), Error = tokio_timer::Error>>,
     token_task: Box<dyn futures::Future<Item = (), Error = MercuryError>>,
     active: bool,
+    mixer: Box<dyn Mixer>,
 }
 
 impl Worker {
@@ -89,6 +96,7 @@ impl Worker {
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         session: Session,
         player: Player,
+        mixer: Box<dyn Mixer>,
     ) -> Worker {
         Worker {
             events,
@@ -99,6 +107,7 @@ impl Worker {
             refresh_task: Box::new(futures::stream::empty()),
             token_task: Box::new(futures::empty()),
             active: false,
+            mixer,
         }
     }
 }
@@ -154,6 +163,9 @@ impl futures::Future for Worker {
                     WorkerCommand::Seek(pos) => {
                         self.player.seek(pos);
                     }
+                    WorkerCommand::SetVolume(volume) => {
+                        self.mixer.set_volume(volume);
+                    }
                     WorkerCommand::RequestToken(sender) => {
                         self.token_task = Spotify::get_token(&self.session, sender);
                         progress = true;
@@ -206,12 +218,13 @@ impl Spotify {
             normalisation_pregain: 0.0,
         };
         let (user_tx, user_rx) = oneshot::channel();
+        let volume = 0xFFFF;
 
         let (tx, rx) = mpsc::unbounded();
         {
             let events = events.clone();
             thread::spawn(move || {
-                Self::worker(cfg, events, rx, player_config, credentials, user_tx)
+                Self::worker(cfg, events, rx, player_config, credentials, user_tx, volume)
             });
         }
 
@@ -223,6 +236,7 @@ impl Spotify {
             token_issued: RwLock::new(None),
             channel: tx,
             user: user_rx.wait().expect("error retrieving userid from worker"),
+            volume: AtomicU16::new(volume),
         };
 
         // acquire token for web api usage
@@ -297,6 +311,7 @@ impl Spotify {
         player_config: PlayerConfig,
         credentials: Credentials,
         user_tx: oneshot::Sender<String>,
+        volume: u16,
     ) {
         let mut core = Core::new().unwrap();
 
@@ -305,13 +320,20 @@ impl Spotify {
             .send(session.username())
             .expect("could not pass username back to Spotify::new");
 
-        let backend = audio_backend::find(None).unwrap();
-        let (player, _eventchannel) =
-            Player::new(player_config, session.clone(), None, move || {
-                (backend)(None)
-            });
+        let create_mixer = librespot_playback::mixer::find(Some("softvol".to_owned()))
+            .expect("could not create softvol mixer");
+        let mixer = create_mixer(None);
+        mixer.set_volume(volume);
 
-        let worker = Worker::new(events, commands, session, player);
+        let backend = audio_backend::find(None).unwrap();
+        let (player, _eventchannel) = Player::new(
+            player_config,
+            session.clone(),
+            mixer.get_audio_filter(),
+            move || (backend)(None),
+        );
+
+        let worker = Worker::new(events, commands, session, player, mixer);
         debug!("worker thread ready.");
         core.run(worker).unwrap();
         debug!("worker thread finished.");
@@ -700,6 +722,18 @@ impl Spotify {
         let progress = self.get_current_progress();
         let new = (progress.as_secs() * 1000) as i32 + progress.subsec_millis() as i32 + delta;
         self.seek(std::cmp::max(0, new) as u32);
+    }
+
+    pub fn volume(&self) -> u16 {
+        self.volume.load(Ordering::Relaxed) as u16
+    }
+
+    pub fn set_volume(&self, volume: u16) {
+        info!("setting volume to {}", volume);
+        self.volume.store(volume, Ordering::Relaxed);
+        self.channel
+            .unbounded_send(WorkerCommand::SetVolume(volume))
+            .unwrap();
     }
 }
 

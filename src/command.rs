@@ -57,6 +57,8 @@ pub enum Command {
     Delete,
     Focus(String),
     Seek(SeekDirection),
+    VolumeUp,
+    VolumeDown,
     Repeat(Option<RepeatSetting>),
     Shuffle(Option<bool>),
     Share(TargetMode),

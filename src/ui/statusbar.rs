@@ -90,7 +90,11 @@ impl View for StatusBar {
         });
 
         let updating = if !*self.library.is_done.read().unwrap() {
-            if self.use_nerdfont { "\u{f9e5} " } else { "[U] " }
+            if self.use_nerdfont {
+                "\u{f9e5} "
+            } else {
+                "[U] "
+            }
         } else {
             ""
         };
@@ -118,6 +122,11 @@ impl View for StatusBar {
         } else {
             ""
         };
+
+        let volume = format!(
+            " [{}%]",
+            (self.spotify.volume() as f64 / 0xffff as f64 * 100.0) as u16
+        );
 
         printer.with_color(style_bar_bg, |printer| {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
@@ -147,7 +156,8 @@ impl View for StatusBar {
                 + repeat
                 + shuffle
                 + saved
-                + &format!("{} / {} ", formatted_elapsed, t.duration_str());
+                + &format!("{} / {}", formatted_elapsed, t.duration_str())
+                + &volume;
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {
@@ -160,7 +170,7 @@ impl View for StatusBar {
                 printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
         } else {
-            let right = updating.to_string() + repeat + shuffle;
+            let right = updating.to_string() + repeat + shuffle + &volume;
             let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
             printer.with_color(style, |printer| {

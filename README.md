@@ -81,6 +81,7 @@ have them configurable.
 * `Shift-u` updates the library cache (tracks, artists, albums, playlists)
 * `<` and `>` play the previous or next track
 * `,` and `.` to rewind or skip forward
+* `-` and `+` decrease or increase the volume
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot

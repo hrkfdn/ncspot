@@ -9,7 +9,7 @@ use cursive::views::ViewRef;
 use cursive::Cursive;
 use library::Library;
 use queue::{Queue, RepeatSetting};
-use spotify::Spotify;
+use spotify::{Spotify, VOLUME_PERCENT};
 use traits::ViewExt;
 use ui::layout::Layout;
 
@@ -110,6 +110,17 @@ impl CommandManager {
                 }
                 Ok(None)
             }
+            Command::VolumeUp => {
+                let volume = self.spotify.volume().saturating_add(VOLUME_PERCENT);
+                self.spotify.set_volume(volume);
+                Ok(None)
+            }
+            Command::VolumeDown => {
+                let volume = self.spotify.volume().saturating_sub(VOLUME_PERCENT);
+                debug!("vol {}", volume);
+                self.spotify.set_volume(volume);
+                Ok(None)
+            }
             Command::Search(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)
@@ -202,6 +213,8 @@ impl CommandManager {
         kb.insert("/".into(), Command::Focus("search".into()));
         kb.insert(".".into(), Command::Seek(SeekDirection::Relative(500)));
         kb.insert(",".into(), Command::Seek(SeekDirection::Relative(-500)));
+        kb.insert("+".into(), Command::VolumeUp);
+        kb.insert("-".into(), Command::VolumeDown);
         kb.insert("r".into(), Command::Repeat(None));
         kb.insert("z".into(), Command::Shuffle(None));
         kb.insert("x".into(), Command::Share(TargetMode::Current));
