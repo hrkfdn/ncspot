@@ -276,7 +276,7 @@ impl CommandManager {
 
     fn parse_keybinding(kb: &str) -> Option<cursive::event::Event> {
         let mut split = kb.split('+');
-        if split.clone().count() == 2 {
+        if kb != "+" && split.clone().count() == 2 {
             let modifier = split.next().unwrap();
             let key = split.next().unwrap();
             let parsed = Self::parse_key(key);
