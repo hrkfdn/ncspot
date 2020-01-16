@@ -728,11 +728,28 @@ impl Spotify {
         self.volume.load(Ordering::Relaxed) as u16
     }
 
+    fn to_log_scale(volume: u16) -> u16 {
+        // https://www.dr-lex.be/info-stuff/volumecontrols.html#ideal2
+        // a * exp(b * x)
+        const A: f64 = 1.0 / 1000.0;
+        const B: f64 = 6.908;
+        let volume_percent = volume as f64 / u16::max_value() as f64;
+        let log_volume = A * (B * volume_percent).exp();
+        let result = log_volume * u16::max_value() as f64;
+
+        // u16 overflow check
+        if result > u16::max_value() as f64 {
+            u16::max_value()
+        } else {
+            result as u16
+        }
+    }
+
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
         self.volume.store(volume, Ordering::Relaxed);
         self.channel
-            .unbounded_send(WorkerCommand::SetVolume(volume))
+            .unbounded_send(WorkerCommand::SetVolume(Self::to_log_scale(volume)))
             .unwrap();
     }
 }
