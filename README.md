@@ -80,7 +80,8 @@ have them configurable.
 * `Shift-s` stops a track
 * `Shift-u` updates the library cache (tracks, artists, albums, playlists)
 * `<` and `>` play the previous or next track
-* `,` and `.` to rewind or skip forward
+* `f` and `b` to seek forward or backward
+* `Shift-f` and `Shift-b` to seek forward or backward in steps of 10s
 * `-` and `+` decrease or increase the volume
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback

@@ -211,8 +211,10 @@ impl CommandManager {
         kb.insert("Ctrl+s".into(), Command::SaveQueue);
         kb.insert("d".into(), Command::Delete);
         kb.insert("/".into(), Command::Focus("search".into()));
-        kb.insert(".".into(), Command::Seek(SeekDirection::Relative(500)));
-        kb.insert(",".into(), Command::Seek(SeekDirection::Relative(-500)));
+        kb.insert("f".into(), Command::Seek(SeekDirection::Relative(1000)));
+        kb.insert("b".into(), Command::Seek(SeekDirection::Relative(-1000)));
+        kb.insert("Shift+f".into(), Command::Seek(SeekDirection::Relative(10000)));
+        kb.insert("Shift+b".into(), Command::Seek(SeekDirection::Relative(-10000)));
         kb.insert("+".into(), Command::VolumeUp);
         kb.insert("-".into(), Command::VolumeDown);
         kb.insert("r".into(), Command::Repeat(None));
