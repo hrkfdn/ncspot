@@ -51,7 +51,7 @@ impl QueueView {
                         library.save_playlist(name, &tracks);
                         s.pop_layer();
                     })
-                    .with_id("name")
+                    .with_name("name")
                     .fixed_width(20);
                 let dialog = Dialog::new()
                     .title("Enter name")

@@ -137,7 +137,7 @@ impl CommandManager {
 
     fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
         let local = {
-            let mut main: ViewRef<Layout> = s.find_id("main").unwrap();
+            let mut main: ViewRef<Layout> = s.find_name("main").unwrap();
             main.on_command(s, cmd)?
         };
 
@@ -147,7 +147,7 @@ impl CommandManager {
             s.add_layer(modal);
             Ok(None)
         } else if let CommandResult::View(view) = local {
-            s.call_on_id("main", move |v: &mut Layout| {
+            s.call_on_name("main", move |v: &mut Layout| {
                 v.push_view(view);
             });
 
@@ -160,7 +160,7 @@ impl CommandManager {
     pub fn handle(&self, s: &mut Cursive, cmd: Command) {
         let result = self.handle_callbacks(s, &cmd);
 
-        s.call_on_id("main", |v: &mut Layout| {
+        s.call_on_name("main", |v: &mut Layout| {
             v.set_result(result);
         });
 
@@ -213,8 +213,14 @@ impl CommandManager {
         kb.insert("/".into(), Command::Focus("search".into()));
         kb.insert("f".into(), Command::Seek(SeekDirection::Relative(1000)));
         kb.insert("b".into(), Command::Seek(SeekDirection::Relative(-1000)));
-        kb.insert("Shift+f".into(), Command::Seek(SeekDirection::Relative(10000)));
-        kb.insert("Shift+b".into(), Command::Seek(SeekDirection::Relative(-10000)));
+        kb.insert(
+            "Shift+f".into(),
+            Command::Seek(SeekDirection::Relative(10000)),
+        );
+        kb.insert(
+            "Shift+b".into(),
+            Command::Seek(SeekDirection::Relative(-10000)),
+        );
         kb.insert("+".into(), Command::VolumeUp);
         kb.insert("-".into(), Command::VolumeDown);
         kb.insert("r".into(), Command::Repeat(None));

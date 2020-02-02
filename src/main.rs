@@ -220,21 +220,21 @@ fn main() {
     );
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
-        .view("search", search.with_id("search"), "Search")
-        .view("library", libraryview.with_id("library"), "Library")
+        .view("search", search.with_name("search"), "Search")
+        .view("library", libraryview.with_name("library"), "Library")
         .view("queue", queueview, "Queue");
 
     // initial view is library
     layout.set_view("library");
 
     cursive.add_global_callback(':', move |s| {
-        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+        s.call_on_name("main", |v: &mut ui::layout::Layout| {
             v.enable_cmdline();
         });
     });
 
     layout.cmdline.set_on_edit(move |s, cmd, _| {
-        s.call_on_id("main", |v: &mut ui::layout::Layout| {
+        s.call_on_name("main", |v: &mut ui::layout::Layout| {
             if cmd.is_empty() {
                 v.clear_cmdline();
             }
@@ -246,7 +246,7 @@ fn main() {
         let cmd_manager = cmd_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
             {
-                let mut main = s.find_id::<ui::layout::Layout>("main").unwrap();
+                let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
             let c = &cmd[1..];
@@ -258,7 +258,7 @@ fn main() {
         });
     }
 
-    cursive.add_fullscreen_layer(layout.with_id("main"));
+    cursive.add_fullscreen_layer(layout.with_name("main"));
 
     // cursive event loop
     while cursive.is_running() {

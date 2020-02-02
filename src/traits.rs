@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cursive::view::{View, ViewWrapper};
-use cursive::views::IdView;
+use cursive::views::NamedView;
 use cursive::Cursive;
 
 use album::Album;
@@ -49,7 +49,7 @@ pub trait ViewExt: View {
     }
 }
 
-impl<V: ViewExt> ViewExt for IdView<V> {
+impl<V: ViewExt> ViewExt for NamedView<V> {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         self.with_view_mut(move |v| v.on_command(s, cmd)).unwrap()
     }

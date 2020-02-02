@@ -4,7 +4,7 @@ use cursive::direction::Orientation;
 use cursive::event::{AnyCb, Event, EventResult, Key};
 use cursive::traits::{Boxable, Finder, Identifiable, View};
 use cursive::view::{Selector, ViewWrapper};
-use cursive::views::{EditView, IdView, ViewRef};
+use cursive::views::{EditView, NamedView, ViewRef};
 use cursive::{Cursive, Printer, Vec2};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
@@ -32,8 +32,8 @@ pub struct SearchView {
     pagination_artists: Pagination<Artist>,
     results_playlists: Arc<RwLock<Vec<Playlist>>>,
     pagination_playlists: Pagination<Playlist>,
-    edit: IdView<EditView>,
-    tabs: IdView<TabView>,
+    edit: NamedView<EditView>,
+    tabs: NamedView<TabView>,
     edit_focused: bool,
     events: EventManager,
     spotify: Arc<Spotify>,
@@ -59,13 +59,13 @@ impl SearchView {
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
                 if !input.is_empty() {
-                    s.call_on_id("search", |v: &mut SearchView| {
+                    s.call_on_name("search", |v: &mut SearchView| {
                         v.run_search(input);
-                        v.focus_view(&Selector::Id(LIST_ID)).unwrap();
+                        v.focus_view(&Selector::Name(LIST_ID)).unwrap();
                     });
                 }
             })
-            .with_id(EDIT_ID);
+            .with_name(EDIT_ID);
 
         let list_tracks = ListView::new(results_tracks.clone(), queue.clone(), library.clone());
         let pagination_tracks = list_tracks.get_pagination().clone();
@@ -93,7 +93,7 @@ impl SearchView {
             results_playlists,
             pagination_playlists,
             edit: searchfield,
-            tabs: tabs.with_id(LIST_ID),
+            tabs: tabs.with_name(LIST_ID),
             edit_focused: true,
             events,
             spotify,
@@ -102,7 +102,7 @@ impl SearchView {
 
     pub fn clear(&mut self) {
         self.edit
-            .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
+            .call_on(&Selector::Name(EDIT_ID), |v: &mut EditView| {
                 v.set_content("");
             });
     }
@@ -298,7 +298,7 @@ impl SearchView {
         {
             let query = query.clone();
             self.edit
-                .call_on(&Selector::Id(EDIT_ID), |v: &mut EditView| {
+                .call_on(&Selector::Name(EDIT_ID), |v: &mut EditView| {
                     v.set_content(query);
                 });
         }
@@ -420,13 +420,13 @@ impl View for SearchView {
         }
     }
 
-    fn call_on_any<'a>(&mut self, selector: &Selector<'_>, mut callback: AnyCb<'a>) {
+    fn call_on_any<'a>(&mut self, selector: &Selector<'_>, callback: AnyCb<'a>) {
         self.edit.call_on_any(selector, &mut |v| callback(v));
         self.tabs.call_on_any(selector, &mut |v| callback(v));
     }
 
     fn focus_view(&mut self, selector: &Selector<'_>) -> Result<(), ()> {
-        if let Selector::Id(s) = selector {
+        if let Selector::Name(s) = selector {
             self.edit_focused = s == &"search_edit";
             Ok(())
         } else {

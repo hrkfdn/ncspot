@@ -72,7 +72,7 @@ impl ContextMenu {
             match action {
                 ContextMenuAction::ShowItem(item) => {
                     if let Some(view) = item.open(queue, library) {
-                        s.call_on_id("main", move |v: &mut Layout| v.push_view(view));
+                        s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                     }
                 }
                 ContextMenuAction::ShareUrl(url) => {
