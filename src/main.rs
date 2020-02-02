@@ -192,15 +192,16 @@ fn main() {
         cfg.use_nerdfont.unwrap_or(false),
     ));
 
-    let mut cmd_manager = CommandManager::new(spotify.clone(), queue.clone(), library.clone());
+    let mut cmd_manager = CommandManager::new(
+        spotify.clone(),
+        queue.clone(),
+        library.clone(),
+        cfg.keybindings.clone(),
+    );
     cmd_manager.register_all();
 
     let cmd_manager = Arc::new(cmd_manager);
-    CommandManager::register_keybindings(
-        cmd_manager.clone(),
-        &mut cursive,
-        cfg.keybindings.clone(),
-    );
+    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive);
 
     let search = ui::search::SearchView::new(
         event_manager.clone(),

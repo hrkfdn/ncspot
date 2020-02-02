@@ -22,15 +22,25 @@ pub enum CommandResult {
 
 pub struct CommandManager {
     aliases: HashMap<String, String>,
+    bindings: HashMap<String, Command>,
     spotify: Arc<Spotify>,
     queue: Arc<Queue>,
     library: Arc<Library>,
 }
 
 impl CommandManager {
-    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>, library: Arc<Library>) -> CommandManager {
+    pub fn new(
+        spotify: Arc<Spotify>,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+        bindings: Option<HashMap<String, Command>>,
+    ) -> CommandManager {
+        let mut kb = Self::default_keybindings();
+        kb.extend(bindings.unwrap_or_default());
+
         CommandManager {
             aliases: HashMap::new(),
+            bindings: kb,
             spotify,
             queue,
             library,
@@ -178,21 +188,20 @@ impl CommandManager {
         });
     }
 
-    pub fn register_keybindings(
-        this: Arc<Self>,
-        cursive: &mut Cursive,
-        keybindings: Option<HashMap<String, Command>>,
-    ) {
-        let mut kb = Self::default_keybindings();
-        kb.extend(keybindings.unwrap_or_default());
+    pub fn register_keybindings(this: Arc<Self>, cursive: &mut Cursive) {
+        let kb = this.keybindings();
 
         for (k, v) in kb {
             if let Some(binding) = Self::parse_keybinding(&k) {
-                Self::register_keybinding(this.clone(), cursive, binding, v);
+                Self::register_keybinding(this.clone(), cursive, binding, v.clone());
             } else {
                 error!("Could not parse keybinding: \"{}\"", &k);
             }
         }
+    }
+
+    pub fn keybindings(&self) -> &HashMap<String, Command> {
+        &self.bindings
     }
 
     fn default_keybindings() -> HashMap<String, Command> {
