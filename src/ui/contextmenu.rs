@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cursive::view::ViewWrapper;
+use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, ScrollView, SelectView};
 use cursive::Cursive;
 
@@ -39,7 +39,7 @@ impl ContextMenu {
         let dialog = Dialog::new()
             .title("Add track to playlist")
             .dismiss_button("Cancel")
-            .padding((1, 1, 1, 0))
+            .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(list_select));
         Modal::new(dialog)
     }
@@ -91,7 +91,7 @@ impl ContextMenu {
         let dialog = Dialog::new()
             .title(item.display_left())
             .dismiss_button("Cancel")
-            .padding((1, 1, 1, 0))
+            .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content);
         Self {
             dialog: Modal::new(dialog),

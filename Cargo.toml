@@ -42,7 +42,7 @@ clipboard = { version = "0.5", optional = true }
 url = "1.7"
 
 [dependencies.cursive]
-version = "0.13"
+version = "0.14"
 default-features = false
 
 [features]

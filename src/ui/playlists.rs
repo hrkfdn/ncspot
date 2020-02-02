@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cursive::view::ViewWrapper;
+use cursive::view::{Margins, ViewWrapper};
 use cursive::views::Dialog;
 use cursive::Cursive;
 
@@ -34,7 +34,7 @@ impl PlaylistsView {
             let library = self.library.clone();
             let id = playlist.id.clone();
             let dialog = Dialog::text("Are you sure you want to delete this playlist?")
-                .padding((1, 1, 1, 0))
+                .padding(Margins::lrtb(1, 1, 1, 0))
                 .title("Delete playlist")
                 .dismiss_button("No")
                 .button("Yes", move |s: &mut Cursive| {

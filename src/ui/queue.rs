@@ -1,5 +1,5 @@
 use cursive::traits::{Boxable, Identifiable};
-use cursive::view::ViewWrapper;
+use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, EditView, ScrollView, SelectView};
 use cursive::Cursive;
 
@@ -56,7 +56,7 @@ impl QueueView {
                 let dialog = Dialog::new()
                     .title("Enter name")
                     .dismiss_button("Cancel")
-                    .padding((1, 1, 1, 0))
+                    .padding(Margins::lrtb(1, 1, 1, 0))
                     .content(edit);
                 s.add_layer(Modal::new(dialog));
             }
@@ -78,7 +78,7 @@ impl QueueView {
         let dialog = Dialog::new()
             .title("Create new or overwrite existing playlist?")
             .dismiss_button("Cancel")
-            .padding((1, 1, 1, 0))
+            .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(list_select));
         Modal::new(dialog)
     }

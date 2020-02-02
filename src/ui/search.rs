@@ -421,8 +421,8 @@ impl View for SearchView {
     }
 
     fn call_on_any<'a>(&mut self, selector: &Selector<'_>, mut callback: AnyCb<'a>) {
-        self.edit.call_on_any(selector, Box::new(|v| callback(v)));
-        self.tabs.call_on_any(selector, Box::new(|v| callback(v)));
+        self.edit.call_on_any(selector, &mut |v| callback(v));
+        self.tabs.call_on_any(selector, &mut |v| callback(v));
     }
 
     fn focus_view(&mut self, selector: &Selector<'_>) -> Result<(), ()> {
