@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use command::{Command, GotoMode, MoveMode, SeekDirection, ShiftMode, TargetMode};
+use command::{parse, Command, GotoMode, MoveMode, SeekDirection, ShiftMode, TargetMode};
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::ViewRef;
@@ -33,10 +33,18 @@ impl CommandManager {
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
         library: Arc<Library>,
-        bindings: Option<HashMap<String, Command>>,
+        bindings: Option<HashMap<String, String>>,
     ) -> CommandManager {
         let mut kb = Self::default_keybindings();
-        kb.extend(bindings.unwrap_or_default());
+
+        for (key, command) in bindings.unwrap_or_default() {
+            if let Some(command) = parse(&command) {
+                info!("Custom keybinding: {} -> {:?}", key, command);
+                kb.insert(key, command);
+            } else {
+                error!("Invalid command for key {}: {}", key, command);
+            }
+        }
 
         CommandManager {
             aliases: HashMap::new(),
@@ -240,6 +248,7 @@ impl CommandManager {
         kb.insert("F1".into(), Command::Focus("queue".into()));
         kb.insert("F2".into(), Command::Focus("search".into()));
         kb.insert("F3".into(), Command::Focus("library".into()));
+        kb.insert("?".into(), Command::Focus("help".into()));
         kb.insert("Backspace".into(), Command::Back);
 
         kb.insert("o".into(), Command::Open(TargetMode::Selected));

@@ -214,6 +214,8 @@ fn main() {
 
     let queueview = ui::queue::QueueView::new(queue.clone(), library.clone());
 
+    let helpview = ui::help::HelpView::new(cmd_manager.keybindings().clone());
+
     let status = ui::statusbar::StatusBar::new(
         queue.clone(),
         library.clone(),
@@ -223,7 +225,8 @@ fn main() {
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_name("search"), "Search")
         .view("library", libraryview.with_name("library"), "Library")
-        .view("queue", queueview, "Queue");
+        .view("queue", queueview, "Queue")
+        .view("help", helpview, "Help");
 
     // initial view is library
     layout.set_view("library");

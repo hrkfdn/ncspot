@@ -60,6 +60,7 @@ the `portaudio_backend` feature:
 These keybindings are hardcoded for now. In the future it may be desirable to
 have them configurable.
 
+* `?` show help screen
 * Navigate through the screens using the F-keys:
   * `F1`: Queue
     * `c` clears the entire queue
