@@ -1,0 +1,15 @@
+# docker-compose run build-linux
+version: "3"
+services:
+  build-linux:
+    image: rust:latest
+    volumes:
+      - .:/ncspot/
+    working_dir: /ncspot
+    command:
+      - bash
+      - -c 
+      - |
+        apt-get update
+        apt-get install -y libpulse-dev libdbus-1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        cargo build --release
