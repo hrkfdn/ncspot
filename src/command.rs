@@ -1,6 +1,9 @@
 use queue::RepeatSetting;
 use std::collections::HashMap;
+use std::fmt;
 use std::iter::FromIterator;
+
+use strum_macros::Display;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum SeekInterval {
@@ -9,13 +12,15 @@ pub enum SeekInterval {
     Custom(usize),
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum TargetMode {
     Current,
     Selected,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum MoveMode {
     Up,
     Down,
@@ -23,13 +28,15 @@ pub enum MoveMode {
     Right,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum ShiftMode {
     Up,
     Down,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum GotoMode {
     Album,
     Artist,
@@ -39,6 +46,18 @@ pub enum GotoMode {
 pub enum SeekDirection {
     Relative(i32),
     Absolute(u32),
+}
+
+impl fmt::Display for SeekDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let repr = match self {
+            SeekDirection::Absolute(pos) => format!("{}", pos),
+            SeekDirection::Relative(delta) => {
+                format!("{}{}", if delta > &0 { "+" } else { "" }, delta)
+            }
+        };
+        write!(f, "{}", repr)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -68,6 +87,48 @@ pub enum Command {
     Move(MoveMode, Option<i32>),
     Shift(ShiftMode, Option<i32>),
     Search(String),
+}
+
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let repr = match self {
+            Command::Quit => "quit".to_string(),
+            Command::TogglePlay => "playpause".to_string(),
+            Command::Stop => "stop".to_string(),
+            Command::Previous => "previous".to_string(),
+            Command::Next => "next".to_string(),
+            Command::Clear => "clear".to_string(),
+            Command::Queue => "queue".to_string(),
+            Command::Play => "play".to_string(),
+            Command::UpdateLibrary => "update".to_string(),
+            Command::Save => "save".to_string(),
+            Command::SaveQueue => "save queue".to_string(),
+            Command::Delete => "delete".to_string(),
+            Command::Focus(tab) => format!("focus {}", tab),
+            Command::Seek(direction) => format!("seek {}", direction),
+            Command::VolumeUp => "volup".to_string(),
+            Command::VolumeDown => "voldown".to_string(),
+            Command::Repeat(mode) => {
+                let param = match mode {
+                    Some(mode) => format!("{}", mode),
+                    None => "".to_string(),
+                };
+                format!("repeat {}", param)
+            }
+            Command::Shuffle(on) => {
+                let param = on.map(|x| if x == true { "on" } else { "off" });
+                format!("shuffle {}", param.unwrap_or(""))
+            }
+            Command::Share(mode) => format!("share {}", mode),
+            Command::Back => "back".to_string(),
+            Command::Open(mode) => format!("open {}", mode),
+            Command::Goto(mode) => format!("goto {}", mode),
+            Command::Move(mode, amount) => format!("move {} {}", mode, amount.unwrap_or(1)),
+            Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
+            Command::Search(term) => format!("search {}", term),
+        };
+        write!(f, "{}", repr)
+    }
 }
 
 fn register_aliases(map: &mut HashMap<&str, &str>, cmd: &'static str, names: Vec<&'static str>) {
@@ -212,6 +273,8 @@ pub fn parse(input: &str) -> Option<Command> {
             "queue" => Command::SaveQueue,
             _ => Command::Save,
         }),
+        "volup" => Some(Command::VolumeUp),
+        "voldown" => Some(Command::VolumeDown),
         _ => None,
     }
 }

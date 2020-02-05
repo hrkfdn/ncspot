@@ -27,7 +27,7 @@ impl HelpView {
         keys.sort();
 
         for key in keys {
-            let command = serde_json::to_string(&bindings[key]).unwrap_or_default();
+            let command = &bindings[key];
             let binding = format!("{} -> {}\n", key, command);
             text.append(binding);
         }

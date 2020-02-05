@@ -35,6 +35,9 @@ extern crate fern;
 extern crate rand;
 extern crate url;
 
+extern crate strum;
+extern crate strum_macros;
+
 use std::fs;
 use std::path::PathBuf;
 use std::process;

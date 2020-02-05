@@ -1,11 +1,12 @@
 use std::sync::{Arc, RwLock};
 
 use rand::prelude::*;
+use strum_macros::Display;
 
 use spotify::Spotify;
 use track::Track;
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     None,
     RepeatPlaylist,
