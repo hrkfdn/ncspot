@@ -112,6 +112,15 @@ values are:
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `theme`: Set a custom color palette (see below)
 
+Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
+
+```
+[keybindings]
+"Shift+i" = "seek +10000"
+```
+
+See the help screen by pressing `?` for a list of possible commands.
+
 ncspot will respect system proxy settings defined via the `http_proxy`
 environment variable.
 
