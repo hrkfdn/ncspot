@@ -109,9 +109,11 @@ the search view.
 Configuration is saved to `~/.config/ncspot/config.toml`. Possible configuration
 values are:
 
-* `proxy`: Set an HTTP proxy
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `theme`: Set a custom color palette (see below)
+
+ncspot will respect system proxy settings defined via the `http_proxy`
+environment variable.
 
 ### Theming
 

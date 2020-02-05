@@ -37,6 +37,7 @@ use tokio_core::reactor::Core;
 use tokio_timer;
 use url::Url;
 
+use std::env;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
@@ -246,8 +247,12 @@ impl Spotify {
 
     pub fn session_config(cfg: &Config) -> SessionConfig {
         let mut session_config = SessionConfig::default();
-        if let Some(ref proxy) = cfg.proxy {
-            session_config.proxy = Url::parse(&proxy).ok();
+        match env::var("http_proxy") {
+            Ok(proxy) => {
+                info!("Setting HTTP proxy {}", proxy);
+                session_config.proxy = Url::parse(&proxy).ok();
+            }
+            Err(_) => debug!("No HTTP proxy set"),
         }
         session_config
     }

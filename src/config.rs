@@ -13,7 +13,6 @@ pub struct Config {
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
-    pub proxy: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
