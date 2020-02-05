@@ -164,7 +164,7 @@ fn main() {
 
     let mut credentials = get_credentials(false);
 
-    while !spotify::Spotify::test_credentials(cfg.clone(), credentials.clone()) {
+    while !spotify::Spotify::test_credentials(credentials.clone()) {
         credentials = get_credentials(true);
     }
 
@@ -175,11 +175,7 @@ fn main() {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    let spotify = Arc::new(spotify::Spotify::new(
-        cfg.clone(),
-        event_manager.clone(),
-        credentials,
-    ));
+    let spotify = Arc::new(spotify::Spotify::new(event_manager.clone(), credentials));
 
     let queue = Arc::new(queue::Queue::new(spotify.clone()));
 

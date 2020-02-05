@@ -1,4 +1,3 @@
-use config::Config;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_core::config::SessionConfig;
@@ -212,7 +211,7 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(cfg: Config, events: EventManager, credentials: Credentials) -> Spotify {
+    pub fn new(events: EventManager, credentials: Credentials) -> Spotify {
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
             normalisation: false,
@@ -225,7 +224,7 @@ impl Spotify {
         {
             let events = events.clone();
             thread::spawn(move || {
-                Self::worker(cfg, events, rx, player_config, credentials, user_tx, volume)
+                Self::worker(events, rx, player_config, credentials, user_tx, volume)
             });
         }
 
@@ -245,7 +244,7 @@ impl Spotify {
         spotify
     }
 
-    pub fn session_config(cfg: &Config) -> SessionConfig {
+    pub fn session_config() -> SessionConfig {
         let mut session_config = SessionConfig::default();
         match env::var("http_proxy") {
             Ok(proxy) => {
@@ -257,10 +256,10 @@ impl Spotify {
         session_config
     }
 
-    pub fn test_credentials(cfg: Config, credentials: Credentials) -> bool {
+    pub fn test_credentials(credentials: Credentials) -> bool {
         let th = thread::spawn(move || {
             let mut core = Core::new().unwrap();
-            let config = Self::session_config(&cfg);
+            let config = Self::session_config();
             let handle = core.handle();
 
             core.run(Session::connect(config, credentials, None, handle))
@@ -269,8 +268,8 @@ impl Spotify {
         th.join().is_ok()
     }
 
-    fn create_session(cfg: &Config, core: &mut Core, credentials: Credentials) -> Session {
-        let session_config = Self::session_config(cfg);
+    fn create_session(core: &mut Core, credentials: Credentials) -> Session {
+        let session_config = Self::session_config();
         let cache = Cache::new(config::cache_path("librespot"), true);
         let handle = core.handle();
         debug!("opening spotify session");
@@ -310,7 +309,6 @@ impl Spotify {
     }
 
     fn worker(
-        cfg: Config,
         events: EventManager,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         player_config: PlayerConfig,
@@ -320,7 +318,7 @@ impl Spotify {
     ) {
         let mut core = Core::new().unwrap();
 
-        let session = Self::create_session(&cfg, &mut core, credentials);
+        let session = Self::create_session(&mut core, credentials);
         user_tx
             .send(session.username())
             .expect("could not pass username back to Spotify::new");

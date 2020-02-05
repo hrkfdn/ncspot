@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use command::Command;
 use directories::ProjectDirs;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
