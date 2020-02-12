@@ -3,8 +3,12 @@
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Build Status](https://travis-ci.com/hrkfdn/ncspot.svg?token=DoBH2xZ13CfuTfqgEyp7&branch=master)](https://travis-ci.com/hrkfdn/ncspot)
+[![Snap Status](https://build.snapcraft.io/badge/popey/ncspot-snap.svg)](https://build.snapcraft.io/user/popey/ncspot-snap)
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
+
+[![ncspot](https://snapcraft.io//ncspot/badge.svg)](https://snapcraft.io/ncspot)
+[![ncspot](https://snapcraft.io//ncspot/trending.svg?name=0)](https://snapcraft.io/ncspot)
 
 ncurses Spotify client written in Rust using librespot. It is heavily inspired
 by ncurses MPD clients, such as ncmpc.  My motivation was to provide a simple
