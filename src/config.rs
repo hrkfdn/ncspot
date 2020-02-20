@@ -12,6 +12,14 @@ pub struct Config {
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
+    pub saved_state: Option<SavedState>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct SavedState {
+    pub volume: Option<u16>,
+    pub shuffle: Option<bool>,
+    pub repeat: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
