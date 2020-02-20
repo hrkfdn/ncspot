@@ -46,6 +46,7 @@ use artist::Artist;
 use config;
 use events::{Event, EventManager};
 use track::Track;
+use queue;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -75,7 +76,9 @@ pub struct Spotify {
     token_issued: RwLock<Option<SystemTime>>,
     channel: mpsc::UnboundedSender<WorkerCommand>,
     user: String,
-    volume: AtomicU16,
+    pub volume: AtomicU16,
+    pub repeat: queue::RepeatSetting,
+    pub shuffle: bool,
 }
 
 struct Worker {
@@ -211,14 +214,38 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(events: EventManager, credentials: Credentials) -> Spotify {
+    pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
             normalisation: false,
             normalisation_pregain: 0.0,
         };
         let (user_tx, user_rx) = oneshot::channel();
-        let volume = 0xFFFF;
+        let volume = match &cfg.saved_state {
+            Some(state) => match state.volume {
+                Some(vol) => vol,
+                None => 0xFFFF as u16,
+            },
+            None => 0xFFFF as u16,
+        };
+        let repeat = match &cfg.saved_state {
+            Some(state) => match &state.repeat {
+                Some(s) => match s.as_str() {
+                    "track" => queue::RepeatSetting::RepeatTrack,
+                    "playlist" => queue::RepeatSetting::RepeatPlaylist,
+                    _ => queue::RepeatSetting::None,
+                }
+                _ => queue::RepeatSetting::None,
+            },
+            _ => queue::RepeatSetting::None,
+        };
+        let shuffle = match &cfg.saved_state {
+            Some(state) => match &state.shuffle {
+                Some(true) => true,
+                _ => false,
+            },
+            None => false,
+        };
 
         let (tx, rx) = mpsc::unbounded();
         {
@@ -237,6 +264,8 @@ impl Spotify {
             channel: tx,
             user: user_rx.wait().expect("error retrieving userid from worker"),
             volume: AtomicU16::new(volume),
+            repeat: repeat,
+            shuffle: shuffle,
         };
 
         // acquire token for web api usage

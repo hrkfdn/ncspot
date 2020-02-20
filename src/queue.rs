@@ -23,13 +23,16 @@ pub struct Queue {
 
 impl Queue {
     pub fn new(spotify: Arc<Spotify>) -> Queue {
-        Queue {
+        let q = Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
+            spotify,
             current_track: RwLock::new(None),
             repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
-            spotify,
-        }
+        };
+        q.set_repeat(q.spotify.repeat);
+        q.set_shuffle(q.spotify.shuffle);
+        q
     }
 
     pub fn next_index(&self) -> Option<usize> {
