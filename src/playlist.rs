@@ -140,7 +140,7 @@ impl ListItem for Playlist {
 
         if let Some(tracks) = self.tracks.as_ref() {
             let index = queue.append_next(tracks.iter().collect());
-            queue.play(index, true);
+            queue.play(index, true, true);
         }
     }
 

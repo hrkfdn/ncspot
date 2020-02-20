@@ -172,7 +172,7 @@ impl ListItem for Artist {
 
         if let Some(tracks) = self.tracks() {
             let index = queue.append_next(tracks);
-            queue.play(index, true);
+            queue.play(index, true, true);
         }
     }
 

@@ -148,7 +148,7 @@ impl<I: ListItem> ListView<I> {
         if let Some(tracks) = any.downcast_ref::<Vec<Track>>() {
             let tracks: Vec<&Track> = tracks.iter().collect();
             let index = self.queue.append_next(tracks);
-            self.queue.play(index + self.selected, true);
+            self.queue.play(index + self.selected, true, false);
             true
         } else {
             false
