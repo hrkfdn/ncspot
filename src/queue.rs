@@ -140,7 +140,7 @@ impl Queue {
         let current = *self.current_track.read().unwrap();
         if let Some(current_track) = current {
             if index == current_track {
-                self.play(index, false);
+                self.play(index, false, false);
             } else if index < current_track {
                 let mut current = self.current_track.write().unwrap();
                 current.replace(current_track - 1);
@@ -187,7 +187,12 @@ impl Queue {
         }
     }
 
-    pub fn play(&self, index: usize, reshuffle: bool) {
+    pub fn play(&self, mut index: usize, reshuffle: bool, shuffle_index: bool) {
+        if shuffle_index && self.get_shuffle() {
+            let mut rng = rand::thread_rng();
+            index = rng.gen_range(0, &self.queue.read().unwrap().len());
+        }
+
         if let Some(track) = &self.queue.read().unwrap().get(index) {
             self.spotify.load(&track);
             let mut current = self.current_track.write().unwrap();
@@ -218,13 +223,13 @@ impl Queue {
 
         if repeat == RepeatSetting::RepeatTrack && !manual {
             if let Some(index) = current {
-                self.play(index, false);
+                self.play(index, false, false);
             }
         } else if let Some(index) = self.next_index() {
-            self.play(index, false);
+            self.play(index, false, false);
         } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
             let random_order = self.random_order.read().unwrap();
-            self.play(random_order.as_ref().map(|o| o[0]).unwrap_or(0), false);
+            self.play(random_order.as_ref().map(|o| o[0]).unwrap_or(0), false, false);
         } else {
             self.spotify.stop();
         }
@@ -232,7 +237,7 @@ impl Queue {
 
     pub fn previous(&self) {
         if let Some(index) = self.previous_index() {
-            self.play(index, false);
+            self.play(index, false, false);
         } else {
             self.spotify.stop();
         }

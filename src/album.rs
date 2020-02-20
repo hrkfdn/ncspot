@@ -177,7 +177,7 @@ impl ListItem for Album {
         if let Some(tracks) = self.tracks.as_ref() {
             let tracks: Vec<&Track> = tracks.iter().collect();
             let index = queue.append_next(tracks);
-            queue.play(index, true);
+            queue.play(index, true, true);
         }
     }
 

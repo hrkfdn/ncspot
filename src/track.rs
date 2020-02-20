@@ -174,7 +174,7 @@ impl ListItem for Track {
 
     fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(vec![self]);
-        queue.play(index, true);
+        queue.play(index, true, false);
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
