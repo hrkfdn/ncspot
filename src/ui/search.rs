@@ -73,8 +73,7 @@ impl SearchView {
         let pagination_albums = list_albums.get_pagination().clone();
         let list_artists = ListView::new(results_artists.clone(), queue.clone(), library.clone());
         let pagination_artists = list_artists.get_pagination().clone();
-        let list_playlists =
-            ListView::new(results_playlists.clone(), queue.clone(), library.clone());
+        let list_playlists = ListView::new(results_playlists.clone(), queue, library);
         let pagination_playlists = list_playlists.get_pagination().clone();
 
         let tabs = TabView::new()
@@ -272,19 +271,20 @@ impl SearchView {
             let total_items = handler(&spotify, &results, &query, 0, false) as usize;
 
             // register paginator if the API has more than one page of results
-            if paginator.is_some() && total_items > results.read().unwrap().len() {
-                let mut paginator = paginator.unwrap();
-                let ev = ev.clone();
+            if let Some(mut paginator) = paginator {
+                if total_items > results.read().unwrap().len() {
+                    let ev = ev.clone();
 
-                // paginator callback
-                let cb = move |items: Arc<RwLock<Vec<I>>>| {
-                    let offset = items.read().unwrap().len();
-                    handler(&spotify, &results, &query, offset, true);
-                    ev.trigger();
-                };
-                paginator.set(total_items, Box::new(cb));
-            } else if let Some(mut p) = paginator {
-                p.clear()
+                    // paginator callback
+                    let cb = move |items: Arc<RwLock<Vec<I>>>| {
+                        let offset = items.read().unwrap().len();
+                        handler(&spotify, &results, &query, offset, true);
+                        ev.trigger();
+                    };
+                    paginator.set(total_items, Box::new(cb));
+                } else {
+                    paginator.clear()
+                }
             }
             ev.trigger();
         });

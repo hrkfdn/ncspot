@@ -367,7 +367,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     };
 
     let method_previous = {
-        let queue = queue.clone();
         let spotify = spotify.clone();
         f.method("Previous", (), move |m| {
             if spotify.get_current_progress() < Duration::from_secs(5) {
@@ -388,7 +387,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     };
 
     let method_rewind = {
-        let spotify = spotify.clone();
         f.method("Rewind", (), move |m| {
             spotify.seek_relative(-5000);
             Ok(vec![m.msg.method_return()])

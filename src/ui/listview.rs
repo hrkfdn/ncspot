@@ -387,14 +387,10 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let queue = self.queue.clone();
                 let library = self.library.clone();
                 let target: Option<Box<dyn ListItem>> = match mode {
-                    TargetMode::Current => {
-                        self.queue.get_current().and_then(|t| Some(t.as_listitem()))
-                    }
+                    TargetMode::Current => self.queue.get_current().map(|t| t.as_listitem()),
                     TargetMode::Selected => {
                         let content = self.content.read().unwrap();
-                        content
-                            .get(self.selected)
-                            .and_then(|t| Some(t.as_listitem()))
+                        content.get(self.selected).map(|t| t.as_listitem())
                     }
                 };
 

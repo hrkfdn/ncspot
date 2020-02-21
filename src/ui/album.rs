@@ -50,11 +50,7 @@ impl AlbumView {
             .tab(
                 "artists",
                 "Artists",
-                ListView::new(
-                    Arc::new(RwLock::new(artists)),
-                    queue.clone(),
-                    library.clone(),
-                ),
+                ListView::new(Arc::new(RwLock::new(artists)), queue, library),
             );
 
         Self { album, tabs }

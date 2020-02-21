@@ -222,7 +222,6 @@ impl Spotify {
 
         let (tx, rx) = mpsc::unbounded();
         {
-            let events = events.clone();
             thread::spawn(move || {
                 Self::worker(events, rx, player_config, credentials, user_tx, volume)
             });
@@ -731,7 +730,7 @@ impl Spotify {
         self.volume.load(Ordering::Relaxed) as u16
     }
 
-    fn to_log_scale(volume: u16) -> u16 {
+    fn log_scale(volume: u16) -> u16 {
         // https://www.dr-lex.be/info-stuff/volumecontrols.html#ideal2
         // a * exp(b * x)
         const A: f64 = 1.0 / 1000.0;
@@ -752,7 +751,7 @@ impl Spotify {
         info!("setting volume to {}", volume);
         self.volume.store(volume, Ordering::Relaxed);
         self.channel
-            .unbounded_send(WorkerCommand::SetVolume(Self::to_log_scale(volume)))
+            .unbounded_send(WorkerCommand::SetVolume(Self::log_scale(volume)))
             .unwrap();
     }
 }

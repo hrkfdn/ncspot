@@ -766,7 +766,7 @@ impl Library {
         {
             let mut store = self.playlists.write().unwrap();
             if !store.iter().any(|p| p.id == playlist.id) {
-                store.insert(0, playlist.clone());
+                store.insert(0, playlist);
             }
         }
 

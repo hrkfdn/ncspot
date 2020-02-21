@@ -51,7 +51,6 @@ impl ArtistView {
         let related: Arc<RwLock<Vec<Artist>>> = Arc::new(RwLock::new(Vec::new()));
         {
             let related = related.clone();
-            let spotify = spotify.clone();
             let id = artist.id.clone();
             let library = library.clone();
             thread::spawn(move || {
@@ -83,7 +82,7 @@ impl ArtistView {
         tabs.add_tab(
             "top_tracks",
             "Top 10",
-            ListView::new(top_tracks.clone(), queue.clone(), library.clone()),
+            ListView::new(top_tracks, queue.clone(), library.clone()),
         );
 
         tabs.add_tab(
@@ -99,7 +98,7 @@ impl ArtistView {
         tabs.add_tab(
             "related",
             "Related Artists",
-            ListView::new(related.clone(), queue.clone(), library.clone()),
+            ListView::new(related, queue, library),
         );
 
         Self { artist, tabs }

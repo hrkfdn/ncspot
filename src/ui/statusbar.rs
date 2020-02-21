@@ -125,7 +125,7 @@ impl View for StatusBar {
 
         let volume = format!(
             " [{}%]",
-            (self.spotify.volume() as f64 / 0xffff as f64 * 100.0) as u16
+            (self.spotify.volume() as f64 / 65535_f64 * 100.0) as u16
         );
 
         printer.with_color(style_bar_bg, |printer| {

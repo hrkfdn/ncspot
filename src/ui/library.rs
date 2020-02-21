@@ -37,7 +37,7 @@ impl LibraryView {
             .tab(
                 "playlists",
                 "Playlists",
-                PlaylistsView::new(queue.clone(), library.clone()),
+                PlaylistsView::new(queue, library.clone()),
             );
 
         Self { tabs }

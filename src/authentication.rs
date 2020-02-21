@@ -15,7 +15,7 @@ pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
         "Cannot read config file from {}\n",
         path.to_str().unwrap()
     ));
-    let info_view = Dialog::around(TextView::new_with_content(info_buf.clone()))
+    let info_view = Dialog::around(TextView::new_with_content(info_buf))
         .button("Login", move |s| {
             let login_view = Dialog::new()
                 .title("Spotify login")

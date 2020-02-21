@@ -116,7 +116,7 @@ impl fmt::Display for Command {
                 format!("repeat {}", param)
             }
             Command::Shuffle(on) => {
-                let param = on.map(|x| if x == true { "on" } else { "off" });
+                let param = on.map(|x| if x { "on" } else { "off" });
                 format!("shuffle {}", param.unwrap_or(""))
             }
             Command::Share(mode) => format!("share {}", mode),
@@ -190,7 +190,9 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => None,
             })
             .map(Command::Open),
-        "search" => args.get(0).map(|query| Command::Search(query.to_string())),
+        "search" => args
+            .get(0)
+            .map(|query| Command::Search((*query).to_string())),
         "shift" => {
             let amount = args.get(1).and_then(|amount| amount.parse().ok());
 
@@ -268,7 +270,9 @@ pub fn parse(input: &str) -> Option<Command> {
                 .ok()
                 .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),
         }),
-        "focus" => args.get(0).map(|target| Command::Focus(target.to_string())),
+        "focus" => args
+            .get(0)
+            .map(|target| Command::Focus((*target).to_string())),
         "save" => args.get(0).map(|target| match *target {
             "queue" => Command::SaveQueue,
             _ => Command::Save,

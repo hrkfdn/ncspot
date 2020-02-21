@@ -215,11 +215,8 @@ fn main() {
 
     let helpview = ui::help::HelpView::new(cmd_manager.keybindings().clone());
 
-    let status = ui::statusbar::StatusBar::new(
-        queue.clone(),
-        library.clone(),
-        cfg.use_nerdfont.unwrap_or(false),
-    );
+    let status =
+        ui::statusbar::StatusBar::new(queue.clone(), library, cfg.use_nerdfont.unwrap_or(false));
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .view("search", search.with_name("search"), "Search")
@@ -246,7 +243,6 @@ fn main() {
 
     {
         let ev = event_manager.clone();
-        let cmd_manager = cmd_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
             {
                 let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();

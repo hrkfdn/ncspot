@@ -229,7 +229,11 @@ impl Queue {
             self.play(index, false, false);
         } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
             let random_order = self.random_order.read().unwrap();
-            self.play(random_order.as_ref().map(|o| o[0]).unwrap_or(0), false, false);
+            self.play(
+                random_order.as_ref().map(|o| o[0]).unwrap_or(0),
+                false,
+                false,
+            );
         } else {
             self.spotify.stop();
         }
