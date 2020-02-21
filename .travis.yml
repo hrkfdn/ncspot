@@ -22,6 +22,7 @@ matrix:
       addons:
         homebrew:
           packages: portaudio
+          update: true
 
 script: cargo build $CARGO_FLAGS
   # - rustup component add clippy rustfmt
