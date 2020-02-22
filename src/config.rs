@@ -17,7 +17,7 @@ pub struct Config {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SavedState {
-    pub volume: Option<u16>,
+    pub volume: Option<u8>,
     pub shuffle: Option<bool>,
     pub repeat: Option<String>,
 }

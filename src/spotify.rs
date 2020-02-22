@@ -223,7 +223,7 @@ impl Spotify {
         let (user_tx, user_rx) = oneshot::channel();
         let volume = match &cfg.saved_state {
             Some(state) => match state.volume {
-                Some(vol) => vol,
+                Some(vol) => ((std::cmp::min(vol, 100) as f32)/100.0 * (0xFFFF as f32)).ceil() as u16,
                 None => 0xFFFF as u16,
             },
             None => 0xFFFF as u16,
