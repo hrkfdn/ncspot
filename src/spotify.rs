@@ -370,7 +370,7 @@ impl Spotify {
             .elapsed
             .read()
             .expect("could not acquire read lock on elapsed time");
-        (*elapsed)
+        *elapsed
     }
 
     fn set_since(&self, new_since: Option<SystemTime>) {
@@ -386,7 +386,7 @@ impl Spotify {
             .since
             .read()
             .expect("could not acquire read lock on since time");
-        (*since)
+        *since
     }
 
     pub fn refresh_token(&self) {
