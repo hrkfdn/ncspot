@@ -413,6 +413,11 @@ impl View for SearchView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
+        if event == Event::Key(Key::Esc) || event == Event::Key(Key::Tab) {
+            self.edit_focused = !self.edit_focused;
+            return EventResult::Consumed(None);
+        }
+
         if self.edit_focused {
             self.edit.on_event(event)
         } else {
