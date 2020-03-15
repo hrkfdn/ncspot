@@ -9,13 +9,13 @@ use rspotify::spotify::model::playlist::SimplifiedPlaylist;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use album::Album;
-use artist::Artist;
-use config;
-use events::EventManager;
-use playlist::Playlist;
-use spotify::Spotify;
-use track::Track;
+use crate::album::Album;
+use crate::artist::Artist;
+use crate::config;
+use crate::events::EventManager;
+use crate::playlist::Playlist;
+use crate::spotify::Spotify;
+use crate::track::Track;
 
 const CACHE_TRACKS: &str = "tracks.db";
 const CACHE_ALBUMS: &str = "albums.db";

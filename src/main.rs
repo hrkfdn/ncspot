@@ -69,10 +69,10 @@ mod ui;
 #[cfg(feature = "mpris")]
 mod mpris;
 
-use commands::CommandManager;
-use events::{Event, EventManager};
-use library::Library;
-use spotify::PlayerEvent;
+use crate::commands::CommandManager;
+use crate::events::{Event, EventManager};
+use crate::library::Library;
+use crate::spotify::PlayerEvent;
 
 fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -103,11 +103,12 @@ fn get_credentials(reset: bool) -> Credentials {
         error!("could not delete credential file");
     }
 
-    let creds = ::config::load_or_generate_default(&path, authentication::create_credentials, true)
-        .unwrap_or_else(|e| {
-            eprintln!("{}", e);
-            process::exit(1);
-        });
+    let creds =
+        crate::config::load_or_generate_default(&path, authentication::create_credentials, true)
+            .unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                process::exit(1);
+            });
 
     #[cfg(target_family = "unix")]
     std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
@@ -156,13 +157,17 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let cfg: ::config::Config = {
+    let cfg: crate::config::Config = {
         let path = config::config_path("config.toml");
-        ::config::load_or_generate_default(path, |_| Ok(::config::Config::default()), false)
-            .unwrap_or_else(|e| {
-                eprintln!("{}", e);
-                process::exit(1);
-            })
+        crate::config::load_or_generate_default(
+            path,
+            |_| Ok(crate::config::Config::default()),
+            false,
+        )
+        .unwrap_or_else(|e| {
+            eprintln!("{}", e);
+            process::exit(1);
+        })
     };
 
     let mut credentials = get_credentials(false);
@@ -178,7 +183,11 @@ fn main() {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    let spotify = Arc::new(spotify::Spotify::new(event_manager.clone(), credentials, &cfg));
+    let spotify = Arc::new(spotify::Spotify::new(
+        event_manager.clone(),
+        credentials,
+        &cfg,
+    ));
 
     let queue = Arc::new(queue::Queue::new(spotify.clone()));
 

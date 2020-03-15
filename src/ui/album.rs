@@ -3,15 +3,15 @@ use std::sync::{Arc, RwLock};
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
-use album::Album;
-use artist::Artist;
-use command::Command;
-use commands::CommandResult;
-use library::Library;
-use queue::Queue;
-use traits::ViewExt;
-use ui::listview::ListView;
-use ui::tabview::TabView;
+use crate::album::Album;
+use crate::artist::Artist;
+use crate::command::Command;
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::traits::ViewExt;
+use crate::ui::listview::ListView;
+use crate::ui::tabview::TabView;
 
 pub struct AlbumView {
     album: Album,

@@ -42,11 +42,11 @@ use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-use artist::Artist;
-use config;
-use events::{Event, EventManager};
-use track::Track;
-use queue;
+use crate::artist::Artist;
+use crate::config;
+use crate::events::{Event, EventManager};
+use crate::queue;
+use crate::track::Track;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -223,7 +223,7 @@ impl Spotify {
         let (user_tx, user_rx) = oneshot::channel();
         let volume = match &cfg.saved_state {
             Some(state) => match state.volume {
-                Some(vol) => ((std::cmp::min(vol, 100) as f32)/100.0 * (0xFFFF as f32)).ceil() as u16,
+                Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
                 None => 0xFFFF as u16,
             },
             None => 0xFFFF as u16,
@@ -234,7 +234,7 @@ impl Spotify {
                     "track" => queue::RepeatSetting::RepeatTrack,
                     "playlist" => queue::RepeatSetting::RepeatPlaylist,
                     _ => queue::RepeatSetting::None,
-                }
+                },
                 _ => queue::RepeatSetting::None,
             },
             _ => queue::RepeatSetting::None,
@@ -263,8 +263,8 @@ impl Spotify {
             channel: tx,
             user: user_rx.wait().expect("error retrieving userid from worker"),
             volume: AtomicU16::new(volume),
-            repeat: repeat,
-            shuffle: shuffle,
+            repeat,
+            shuffle,
         };
 
         // acquire token for web api usage

@@ -8,9 +8,9 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
-use queue::{Queue, RepeatSetting};
-use spotify::{PlayerEvent, Spotify};
-use track::Track;
+use crate::queue::{Queue, RepeatSetting};
+use crate::spotify::{PlayerEvent, Spotify};
+use crate::track::Track;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 struct MprisState(String, Option<Track>);

@@ -1,10 +1,11 @@
+use std::cmp::Ordering;
 use std::sync::{Arc, RwLock};
 
 use rand::prelude::*;
 use strum_macros::Display;
 
-use spotify::Spotify;
-use track::Track;
+use crate::spotify::Spotify;
+use crate::track::Track;
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -142,11 +143,13 @@ impl Queue {
         // of the one we deleted
         let current = *self.current_track.read().unwrap();
         if let Some(current_track) = current {
-            if index == current_track {
-                self.play(index, false, false);
-            } else if index < current_track {
-                let mut current = self.current_track.write().unwrap();
-                current.replace(current_track - 1);
+            match current_track.cmp(&index) {
+                Ordering::Equal => self.play(index, false, false),
+                Ordering::Greater => {
+                    let mut current = self.current_track.write().unwrap();
+                    current.replace(current_track - 1);
+                }
+                _ => (),
             }
         }
 

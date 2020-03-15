@@ -12,10 +12,10 @@ use cursive::views::EditView;
 use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
-use command::Command;
-use commands::CommandResult;
-use events;
-use traits::{IntoBoxedViewExt, ViewExt};
+use crate::command::Command;
+use crate::commands::CommandResult;
+use crate::events;
+use crate::traits::{IntoBoxedViewExt, ViewExt};
 
 struct Screen {
     title: String,

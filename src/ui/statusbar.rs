@@ -8,9 +8,9 @@ use cursive::vec::Vec2;
 use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
-use library::Library;
-use queue::{Queue, RepeatSetting};
-use spotify::{PlayerEvent, Spotify};
+use crate::library::Library;
+use crate::queue::{Queue, RepeatSetting};
+use crate::spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
     queue: Arc<Queue>,

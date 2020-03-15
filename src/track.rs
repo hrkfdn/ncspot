@@ -5,11 +5,11 @@ use chrono::{DateTime, Utc};
 use rspotify::spotify::model::album::FullAlbum;
 use rspotify::spotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 
-use album::Album;
-use artist::Artist;
-use library::Library;
-use queue::Queue;
-use traits::{ListItem, ViewExt};
+use crate::album::Album;
+use crate::artist::Artist;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {

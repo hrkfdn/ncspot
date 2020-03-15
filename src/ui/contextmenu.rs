@@ -4,14 +4,14 @@ use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, ScrollView, SelectView};
 use cursive::Cursive;
 
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::track::Track;
+use crate::traits::ListItem;
+use crate::ui::layout::Layout;
+use crate::ui::modal::Modal;
 #[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
-use library::Library;
-use queue::Queue;
-use track::Track;
-use traits::ListItem;
-use ui::layout::Layout;
-use ui::modal::Modal;
 
 pub struct ContextMenu {
     dialog: Modal<Dialog>,

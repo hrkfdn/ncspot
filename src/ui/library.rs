@@ -3,14 +3,14 @@ use std::sync::Arc;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
-use command::Command;
-use commands::CommandResult;
-use library::Library;
-use queue::Queue;
-use traits::ViewExt;
-use ui::listview::ListView;
-use ui::playlists::PlaylistsView;
-use ui::tabview::TabView;
+use crate::command::Command;
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::traits::ViewExt;
+use crate::ui::listview::ListView;
+use crate::ui::playlists::PlaylistsView;
+use crate::ui::tabview::TabView;
 
 pub struct LibraryView {
     tabs: TabView,

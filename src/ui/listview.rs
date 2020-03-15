@@ -9,17 +9,17 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use crate::command::{Command, GotoMode, MoveMode, TargetMode};
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::track::Track;
+use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use crate::ui::album::AlbumView;
+use crate::ui::artist::ArtistView;
+use crate::ui::contextmenu::ContextMenu;
 #[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
-use command::{Command, GotoMode, MoveMode, TargetMode};
-use commands::CommandResult;
-use library::Library;
-use queue::Queue;
-use track::Track;
-use traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use ui::album::AlbumView;
-use ui::artist::ArtistView;
-use ui::contextmenu::ContextMenu;
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 pub struct Pagination<I: ListItem> {

@@ -3,7 +3,7 @@ use cursive::theme::Color::*;
 use cursive::theme::PaletteColor::*;
 use cursive::theme::*;
 
-use config::Config;
+use crate::config::Config;
 
 macro_rules! load_color {
     ( $cfg: expr, $member: ident, $default: expr ) => {

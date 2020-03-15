@@ -1,4 +1,4 @@
-use queue::RepeatSetting;
+use crate::queue::RepeatSetting;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::FromIterator;
@@ -252,7 +252,7 @@ pub fn parse(input: &str) -> Option<Command> {
 
             Some(Command::Repeat(mode))
         }
-        "seek" => args.get(0).and_then(|arg| match arg.chars().nth(0) {
+        "seek" => args.get(0).and_then(|arg| match arg.chars().next() {
             Some(x) if x == '-' || x == '+' => String::from_iter(arg.chars().skip(1))
                 .parse::<i32>()
                 .ok()

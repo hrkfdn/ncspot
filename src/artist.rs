@@ -3,13 +3,13 @@ use std::sync::Arc;
 
 use rspotify::spotify::model::artist::{FullArtist, SimplifiedArtist};
 
-use album::Album;
-use library::Library;
-use queue::Queue;
-use spotify::Spotify;
-use track::Track;
-use traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use ui::artist::ArtistView;
+use crate::album::Album;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::spotify::Spotify;
+use crate::track::Track;
+use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use crate::ui::artist::ArtistView;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Artist {

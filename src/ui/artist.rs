@@ -4,15 +4,15 @@ use std::thread;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
-use artist::Artist;
-use command::Command;
-use commands::CommandResult;
-use library::Library;
-use queue::Queue;
-use track::Track;
-use traits::ViewExt;
-use ui::listview::ListView;
-use ui::tabview::TabView;
+use crate::artist::Artist;
+use crate::command::Command;
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::track::Track;
+use crate::traits::ViewExt;
+use crate::ui::listview::ListView;
+use crate::ui::tabview::TabView;
 
 pub struct ArtistView {
     artist: Artist,

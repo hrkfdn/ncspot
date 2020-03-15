@@ -5,9 +5,9 @@ use cursive::utils::markup::StyledString;
 use cursive::view::ViewWrapper;
 use cursive::views::{ScrollView, TextView};
 
-use command::Command;
-use config::config_path;
-use traits::ViewExt;
+use crate::command::Command;
+use crate::config::config_path;
+use crate::traits::ViewExt;
 
 pub struct HelpView {
     view: ScrollView<TextView>,

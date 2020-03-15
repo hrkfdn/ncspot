@@ -2,16 +2,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use command::{parse, Command, GotoMode, MoveMode, SeekDirection, ShiftMode, TargetMode};
+use crate::command::{parse, Command, GotoMode, MoveMode, SeekDirection, ShiftMode, TargetMode};
+use crate::library::Library;
+use crate::queue::{Queue, RepeatSetting};
+use crate::spotify::{Spotify, VOLUME_PERCENT};
+use crate::traits::ViewExt;
+use crate::ui::layout::Layout;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::ViewRef;
 use cursive::Cursive;
-use library::Library;
-use queue::{Queue, RepeatSetting};
-use spotify::{Spotify, VOLUME_PERCENT};
-use traits::ViewExt;
-use ui::layout::Layout;
 
 pub enum CommandResult {
     Consumed(Option<String>),

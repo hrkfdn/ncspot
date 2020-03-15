@@ -6,14 +6,14 @@ use cursive::Cursive;
 use std::cmp::min;
 use std::sync::Arc;
 
-use command::{Command, ShiftMode};
-use commands::CommandResult;
-use library::Library;
-use queue::Queue;
-use track::Track;
-use traits::ViewExt;
-use ui::listview::ListView;
-use ui::modal::Modal;
+use crate::command::{Command, ShiftMode};
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::queue::Queue;
+use crate::track::Track;
+use crate::traits::ViewExt;
+use crate::ui::listview::ListView;
+use crate::ui::modal::Modal;
 
 pub struct QueueView {
     list: ListView<Track>,

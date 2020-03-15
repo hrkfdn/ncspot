@@ -9,19 +9,19 @@ use cursive::{Cursive, Printer, Vec2};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, RwLock};
 
-use album::Album;
-use artist::Artist;
-use command::{Command, MoveMode};
-use commands::CommandResult;
-use events::EventManager;
-use library::Library;
-use playlist::Playlist;
-use queue::Queue;
-use spotify::{Spotify, URIType};
-use track::Track;
-use traits::{ListItem, ViewExt};
-use ui::listview::{ListView, Pagination};
-use ui::tabview::TabView;
+use crate::album::Album;
+use crate::artist::Artist;
+use crate::command::{Command, MoveMode};
+use crate::commands::CommandResult;
+use crate::events::EventManager;
+use crate::library::Library;
+use crate::playlist::Playlist;
+use crate::queue::Queue;
+use crate::spotify::{Spotify, URIType};
+use crate::track::Track;
+use crate::traits::{ListItem, ViewExt};
+use crate::ui::listview::{ListView, Pagination};
+use crate::ui::tabview::TabView;
 
 pub struct SearchView {
     results_tracks: Arc<RwLock<Vec<Track>>>,

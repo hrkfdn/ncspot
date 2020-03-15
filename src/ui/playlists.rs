@@ -4,14 +4,14 @@ use cursive::view::{Margins, ViewWrapper};
 use cursive::views::Dialog;
 use cursive::Cursive;
 
-use command::Command;
-use commands::CommandResult;
-use library::Library;
-use playlist::Playlist;
-use queue::Queue;
-use traits::ViewExt;
-use ui::listview::ListView;
-use ui::modal::Modal;
+use crate::command::Command;
+use crate::commands::CommandResult;
+use crate::library::Library;
+use crate::playlist::Playlist;
+use crate::queue::Queue;
+use crate::traits::ViewExt;
+use crate::ui::listview::ListView;
+use crate::ui::modal::Modal;
 
 pub struct PlaylistsView {
     list: ListView<Playlist>,

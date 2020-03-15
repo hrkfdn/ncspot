@@ -7,9 +7,9 @@ use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use command::{Command, MoveMode};
-use commands::CommandResult;
-use traits::{IntoBoxedViewExt, ViewExt};
+use crate::command::{Command, MoveMode};
+use crate::commands::CommandResult;
+use crate::traits::{IntoBoxedViewExt, ViewExt};
 
 pub struct Tab {
     title: String,
