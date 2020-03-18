@@ -269,6 +269,7 @@ impl Spotify {
 
         // acquire token for web api usage
         spotify.refresh_token();
+        spotify.set_volume(volume);
         spotify
     }
 
