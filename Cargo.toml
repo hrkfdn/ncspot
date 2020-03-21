@@ -11,7 +11,6 @@ readme = "README.md"
 edition = "2018"
 
 [badges]
-travis-ci = { repository = "hrkfdn/ncspot", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
