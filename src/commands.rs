@@ -7,6 +7,7 @@ use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
 use crate::traits::ViewExt;
+use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
@@ -139,6 +140,11 @@ impl CommandManager {
                 self.spotify.set_volume(volume);
                 Ok(None)
             }
+            Command::Help => {
+                let view = Box::new(HelpView::new(self.keybindings().clone()));
+                s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                Ok(None)
+            }
             Command::Search(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)
@@ -248,7 +254,7 @@ impl CommandManager {
         kb.insert("F1".into(), Command::Focus("queue".into()));
         kb.insert("F2".into(), Command::Focus("search".into()));
         kb.insert("F3".into(), Command::Focus("library".into()));
-        kb.insert("?".into(), Command::Focus("help".into()));
+        kb.insert("?".into(), Command::Help);
         kb.insert("Backspace".into(), Command::Back);
 
         kb.insert("o".into(), Command::Open(TargetMode::Selected));

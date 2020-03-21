@@ -42,4 +42,8 @@ impl ViewWrapper for HelpView {
     wrap_impl!(self.view: ScrollView<TextView>);
 }
 
-impl ViewExt for HelpView {}
+impl ViewExt for HelpView {
+    fn title(&self) -> String {
+        "Help".to_string()
+    }
+}

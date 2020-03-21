@@ -87,6 +87,7 @@ pub enum Command {
     Move(MoveMode, Option<i32>),
     Shift(ShiftMode, Option<i32>),
     Search(String),
+    Help,
 }
 
 impl fmt::Display for Command {
@@ -126,6 +127,7 @@ impl fmt::Display for Command {
             Command::Move(mode, amount) => format!("move {} {}", mode, amount.unwrap_or(1)),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
+            Command::Help => "help".to_string(),
         };
         write!(f, "{}", repr)
     }
