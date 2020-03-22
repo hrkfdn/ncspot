@@ -130,10 +130,9 @@ impl Queue {
             q.remove(index);
         }
 
-        // if the queue is empty or we are at the end of the queue, stop
-        // playback
+        // if the queue is empty stop playback
         let len = self.queue.read().unwrap().len();
-        if len == 0 || index == len {
+        if len == 0 {
             self.stop();
             return;
         }
@@ -144,7 +143,15 @@ impl Queue {
         let current = *self.current_track.read().unwrap();
         if let Some(current_track) = current {
             match current_track.cmp(&index) {
-                Ordering::Equal => self.play(index, false, false),
+                Ordering::Equal => {
+                    // stop playback if we have the deleted the last item and it
+                    // was playing
+                    if current_track == len {
+                        self.stop();
+                    } else {
+                        self.play(index, false, false);
+                    }
+                }
                 Ordering::Greater => {
                     let mut current = self.current_track.write().unwrap();
                     current.replace(current_track - 1);
