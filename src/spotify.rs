@@ -26,17 +26,26 @@ use rspotify::spotify::model::user::PrivateUser;
 
 use failure::Error;
 
-use futures;
-use futures::sync::mpsc;
-use futures::sync::oneshot;
-use futures::Async;
+use futures_01::future::Future as v01_Future;
+use futures_01::stream::Stream as v01_Stream;
+use futures_01::sync::oneshot::Canceled;
+
+use futures::channel::mpsc;
+use futures::channel::oneshot;
+use futures::compat::Future01CompatExt;
+use futures::compat::Stream01CompatExt;
+use futures::task::Context;
 use futures::Future;
 use futures::Stream;
+
 use tokio_core::reactor::Core;
 use tokio_timer;
 use url::Url;
 
+use core::task::Poll;
+
 use std::env;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
@@ -83,12 +92,12 @@ pub struct Spotify {
 
 struct Worker {
     events: EventManager,
-    commands: mpsc::UnboundedReceiver<WorkerCommand>,
+    commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
     session: Session,
     player: Player,
-    play_task: Box<dyn futures::Future<Item = (), Error = oneshot::Canceled>>,
-    refresh_task: Box<dyn futures::Stream<Item = (), Error = tokio_timer::Error>>,
-    token_task: Box<dyn futures::Future<Item = (), Error = MercuryError>>,
+    play_task: Pin<Box<dyn Future<Output = Result<(), Canceled>>>>,
+    refresh_task: Pin<Box<dyn Stream<Item = Result<(), tokio_timer::Error>>>>,
+    token_task: Pin<Box<dyn Future<Output = Result<(), MercuryError>>>>,
     active: bool,
     mixer: Box<dyn Mixer>,
 }
@@ -96,7 +105,7 @@ struct Worker {
 impl Worker {
     fn new(
         events: EventManager,
-        commands: mpsc::UnboundedReceiver<WorkerCommand>,
+        commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
         session: Session,
         player: Player,
         mixer: Box<dyn Mixer>,
@@ -106,9 +115,9 @@ impl Worker {
             commands,
             player,
             session,
-            play_task: Box::new(futures::empty()),
-            refresh_task: Box::new(futures::stream::empty()),
-            token_task: Box::new(futures::empty()),
+            play_task: Box::pin(futures::future::pending()),
+            refresh_task: Box::pin(futures::stream::empty()),
+            token_task: Box::pin(futures::future::pending()),
             active: false,
             mixer,
         }
@@ -116,32 +125,31 @@ impl Worker {
 }
 
 impl Worker {
-    fn create_refresh(&self) -> Box<dyn futures::Stream<Item = (), Error = tokio_timer::Error>> {
+    fn create_refresh(&self) -> Pin<Box<dyn Stream<Item = Result<(), tokio_timer::Error>>>> {
         let ev = self.events.clone();
         let future =
             tokio_timer::Interval::new_interval(Duration::from_millis(400)).map(move |_| {
                 ev.trigger();
             });
-        Box::new(future)
+        Box::pin(future.compat())
     }
 }
 
 impl futures::Future for Worker {
-    type Item = ();
-    type Error = ();
+    type Output = Result<(), ()>;
 
-    fn poll(&mut self) -> futures::Poll<(), ()> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> futures::task::Poll<Self::Output> {
         loop {
             let mut progress = false;
 
-            if let Async::Ready(Some(cmd)) = self.commands.poll().unwrap() {
+            if let Poll::Ready(Some(cmd)) = self.commands.as_mut().poll_next(cx) {
                 progress = true;
                 debug!("message received!");
                 match cmd {
                     WorkerCommand::Load(track) => {
                         if let Some(track_id) = &track.id {
                             let id = SpotifyId::from_base62(track_id).expect("could not parse id");
-                            self.play_task = Box::new(self.player.load(id, false, 0));
+                            self.play_task = Box::pin(self.player.load(id, false, 0).compat());
                             info!("player loading track: {:?}", track);
                         } else {
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
@@ -175,39 +183,39 @@ impl futures::Future for Worker {
                     }
                 }
             }
-            match self.play_task.poll() {
-                Ok(Async::Ready(())) => {
+            match self.play_task.as_mut().poll(cx) {
+                Poll::Ready(Ok(())) => {
                     debug!("end of track!");
                     progress = true;
                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                 }
-                Ok(Async::NotReady) => (),
-                Err(oneshot::Canceled) => {
+                Poll::Ready(Err(Canceled)) => {
                     debug!("player task is over!");
-                    self.play_task = Box::new(futures::empty());
+                    self.play_task = Box::pin(futures::future::pending());
                 }
+                Poll::Pending => (),
             }
-            if let Ok(Async::Ready(_)) = self.refresh_task.poll() {
+            if let Poll::Ready(Some(Ok(_))) = self.refresh_task.as_mut().poll_next(cx) {
                 self.refresh_task = if self.active {
                     progress = true;
                     self.create_refresh()
                 } else {
-                    Box::new(futures::stream::empty())
+                    Box::pin(futures::stream::empty())
                 };
             }
-            match self.token_task.poll() {
-                Ok(Async::Ready(_)) => {
+            match self.token_task.as_mut().poll(cx) {
+                Poll::Ready(Ok(_)) => {
                     info!("token updated!");
-                    self.token_task = Box::new(futures::empty())
+                    self.token_task = Box::pin(futures::future::pending())
                 }
-                Err(e) => {
+                Poll::Ready(Err(e)) => {
                     error!("could not generate token: {:?}", e);
                 }
                 _ => (),
             }
 
             if !progress {
-                return Ok(Async::NotReady);
+                return Poll::Pending;
             }
         }
     }
@@ -250,9 +258,18 @@ impl Spotify {
         let (tx, rx) = mpsc::unbounded();
         {
             thread::spawn(move || {
-                Self::worker(events, rx, player_config, credentials, user_tx, volume)
+                Self::worker(
+                    events,
+                    Box::pin(rx),
+                    player_config,
+                    credentials,
+                    user_tx,
+                    volume,
+                )
             });
         }
+
+        let user = futures::executor::block_on(user_rx);
 
         let spotify = Spotify {
             status: RwLock::new(PlayerEvent::Stopped),
@@ -261,7 +278,7 @@ impl Spotify {
             since: RwLock::new(None),
             token_issued: RwLock::new(None),
             channel: tx,
-            user: user_rx.wait().expect("error retrieving userid from worker"),
+            user: user.expect("error retrieving userid from worker"),
             volume: AtomicU16::new(volume),
             repeat,
             shuffle,
@@ -315,14 +332,14 @@ impl Spotify {
     fn get_token(
         session: &Session,
         sender: oneshot::Sender<Token>,
-    ) -> Box<dyn Future<Item = (), Error = MercuryError>> {
+    ) -> Pin<Box<dyn Future<Output = Result<(), MercuryError>>>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
         let url = format!(
             "hm://keymaster/token/authenticated?client_id={}&scope={}",
             client_id, scopes
         );
-        Box::new(
+        Box::pin(
             session
                 .mercury()
                 .get(url)
@@ -333,13 +350,14 @@ impl Spotify {
                     info!("new token received: {:?}", token);
                     token
                 })
-                .map(|token| sender.send(token).unwrap()),
+                .map(|token| sender.send(token).unwrap())
+                .compat(),
         )
     }
 
     fn worker(
         events: EventManager,
-        commands: mpsc::UnboundedReceiver<WorkerCommand>,
+        commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
         player_config: PlayerConfig,
         credentials: Credentials,
         user_tx: oneshot::Sender<String>,
@@ -367,7 +385,7 @@ impl Spotify {
 
         let worker = Worker::new(events, commands, session, player, mixer);
         debug!("worker thread ready.");
-        core.run(worker).unwrap();
+        core.run(futures::compat::Compat::new(worker)).unwrap();
         debug!("worker thread finished.");
     }
 
@@ -433,7 +451,7 @@ impl Spotify {
         self.channel
             .unbounded_send(WorkerCommand::RequestToken(token_tx))
             .unwrap();
-        let token = token_rx.wait().unwrap();
+        let token = futures::executor::block_on(token_rx).unwrap();
 
         // update token used by web api calls
         self.api.write().expect("can't writelock api").access_token = Some(token.access_token);

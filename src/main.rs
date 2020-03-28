@@ -13,7 +13,6 @@ extern crate librespot_core;
 extern crate librespot_playback;
 extern crate librespot_protocol;
 extern crate rspotify;
-extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_timer;
 extern crate unicode_width;
