@@ -7,7 +7,7 @@ use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::command::{Command, MoveMode};
+use crate::command::{Command, MoveAmount, MoveMode};
 use crate::commands::CommandResult;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
 
@@ -105,20 +105,21 @@ impl View for TabView {
 impl ViewExt for TabView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Move(mode, amount) = cmd {
-            let amount = match amount {
-                Some(amount) => *amount,
-                _ => 1,
-            };
-
-            let len = self.tabs.len();
+            let last_idx = self.tabs.len() - 1;
 
             match mode {
                 MoveMode::Left if self.selected > 0 => {
-                    self.move_focus(-(amount as i32));
+                    match amount {
+                        MoveAmount::Extreme => self.move_focus_to(0),
+                        MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
+                    }
                     return Ok(CommandResult::Consumed(None));
                 }
-                MoveMode::Right if self.selected < len - 1 => {
-                    self.move_focus(amount as i32);
+                MoveMode::Right if self.selected < last_idx => {
+                    match amount {
+                        MoveAmount::Extreme => self.move_focus_to(last_idx),
+                        MoveAmount::Integer(amount) => self.move_focus(*amount),
+                    }
                     return Ok(CommandResult::Consumed(None));
                 }
                 _ => {}

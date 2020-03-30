@@ -9,7 +9,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::command::{Command, GotoMode, MoveMode, TargetMode};
+use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::queue::Queue;
@@ -359,24 +359,25 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 return Ok(CommandResult::Consumed(None));
             }
             Command::Move(mode, amount) => {
-                let amount = match amount {
-                    Some(amount) => *amount,
-                    _ => 1,
-                };
-
-                let len = self.content.read().unwrap().len();
+                let last_idx = self.content.read().unwrap().len().saturating_sub(1);
 
                 match mode {
                     MoveMode::Up if self.selected > 0 => {
-                        self.move_focus(-(amount as i32));
+                        match amount {
+                            MoveAmount::Extreme => self.move_focus_to(0),
+                            MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
+                        }
                         return Ok(CommandResult::Consumed(None));
                     }
-                    MoveMode::Down if self.selected < len.saturating_sub(1) => {
-                        self.move_focus(amount as i32);
+                    MoveMode::Down if self.selected < last_idx => {
+                        match amount {
+                            MoveAmount::Extreme => self.move_focus_to(last_idx),
+                            MoveAmount::Integer(amount) => self.move_focus(*amount),
+                        }
                         return Ok(CommandResult::Consumed(None));
                     }
                     MoveMode::Down
-                        if self.selected == len.saturating_sub(1) && self.can_paginate() =>
+                        if self.selected == last_idx && self.can_paginate() =>
                     {
                         self.pagination.call(&self.content);
                     }

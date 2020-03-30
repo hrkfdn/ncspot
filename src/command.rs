@@ -30,6 +30,19 @@ pub enum MoveMode {
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
+pub enum MoveAmount {
+    Integer(i32),
+    Extreme,
+}
+
+impl Default for MoveAmount {
+    fn default() -> Self {
+        MoveAmount::Integer(1)
+    }
+}
+
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum ShiftMode {
     Up,
     Down,
@@ -84,7 +97,7 @@ pub enum Command {
     Back,
     Open(TargetMode),
     Goto(GotoMode),
-    Move(MoveMode, Option<i32>),
+    Move(MoveMode, MoveAmount),
     Shift(ShiftMode, Option<i32>),
     Search(String),
     Help,
@@ -124,7 +137,15 @@ impl fmt::Display for Command {
             Command::Back => "back".to_string(),
             Command::Open(mode) => format!("open {}", mode),
             Command::Goto(mode) => format!("goto {}", mode),
-            Command::Move(mode, amount) => format!("move {} {}", mode, amount.unwrap_or(1)),
+            Command::Move(mode, MoveAmount::Extreme) => {
+                format!("move {}", match mode {
+                    MoveMode::Up => "top",
+                    MoveMode::Down => "bottom",
+                    MoveMode::Left => "leftmost",
+                    MoveMode::Right => "rightmost",
+                })
+            },
+            Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
             Command::Help => "help".to_string(),
@@ -207,17 +228,33 @@ pub fn parse(input: &str) -> Option<Command> {
                 .map(|mode| Command::Shift(mode, amount))
         }
         "move" => {
-            let amount = args.get(1).and_then(|amount| amount.parse().ok());
+            let cmd: Option<Command> = {
+                args.get(0)
+                    .and_then(|extreme| match *extreme {
+                        "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
+                        "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
+                        "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
+                        "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
+                        _ => None
+                    })
+            };
 
-            args.get(0)
-                .and_then(|direction| match *direction {
-                    "up" => Some(MoveMode::Up),
-                    "down" => Some(MoveMode::Down),
-                    "left" => Some(MoveMode::Left),
-                    "right" => Some(MoveMode::Right),
-                    _ => None,
-                })
-                .map(|mode| Command::Move(mode, amount))
+            cmd.or({
+                let amount = args.get(1)
+                    .and_then(|amount| amount.parse().ok())
+                    .map(|amount| MoveAmount::Integer(amount))
+                    .unwrap_or_default();
+
+                args.get(0)
+                    .and_then(|direction| match *direction {
+                        "up" => Some(MoveMode::Up),
+                        "down" => Some(MoveMode::Down),
+                        "left" => Some(MoveMode::Left),
+                        "right" => Some(MoveMode::Right),
+                        _ => None,
+                    })
+                    .map(|mode| Command::Move(mode, amount))
+            })
         }
         "goto" => args
             .get(0)
