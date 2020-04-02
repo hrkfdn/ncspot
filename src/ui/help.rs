@@ -4,8 +4,10 @@ use cursive::theme::Effect;
 use cursive::utils::markup::StyledString;
 use cursive::view::ViewWrapper;
 use cursive::views::{ScrollView, TextView};
+use cursive::Cursive;
 
 use crate::command::Command;
+use crate::commands::CommandResult;
 use crate::config::config_path;
 use crate::traits::ViewExt;
 
@@ -45,5 +47,13 @@ impl ViewWrapper for HelpView {
 impl ViewExt for HelpView {
     fn title(&self) -> String {
         "Help".to_string()
+    }
+
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        if let Command::Help = cmd {
+            Ok(CommandResult::Consumed(None))
+        } else {
+            Ok(CommandResult::Ignored)
+        }
     }
 }
