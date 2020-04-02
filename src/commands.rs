@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::command::{parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode};
+use crate::command::{
+    parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+};
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
@@ -263,22 +265,64 @@ impl CommandManager {
         kb.insert("A".into(), Command::Goto(GotoMode::Artist));
 
         kb.insert("Up".into(), Command::Move(MoveMode::Up, Default::default()));
-        kb.insert("Down".into(), Command::Move(MoveMode::Down, Default::default()));
-        kb.insert("Left".into(), Command::Move(MoveMode::Left, Default::default()));
-        kb.insert("Right".into(), Command::Move(MoveMode::Right, Default::default()));
-        kb.insert("PageUp".into(), Command::Move(MoveMode::Up, MoveAmount::Integer(5)));
-        kb.insert("PageDown".into(), Command::Move(MoveMode::Down, MoveAmount::Integer(5)));
-        kb.insert("Home".into(), Command::Move(MoveMode::Up, MoveAmount::Extreme));
-        kb.insert("End".into(), Command::Move(MoveMode::Down, MoveAmount::Extreme));
+        kb.insert(
+            "Down".into(),
+            Command::Move(MoveMode::Down, Default::default()),
+        );
+        kb.insert(
+            "Left".into(),
+            Command::Move(MoveMode::Left, Default::default()),
+        );
+        kb.insert(
+            "Right".into(),
+            Command::Move(MoveMode::Right, Default::default()),
+        );
+        kb.insert(
+            "PageUp".into(),
+            Command::Move(MoveMode::Up, MoveAmount::Integer(5)),
+        );
+        kb.insert(
+            "PageDown".into(),
+            Command::Move(MoveMode::Down, MoveAmount::Integer(5)),
+        );
+        kb.insert(
+            "Home".into(),
+            Command::Move(MoveMode::Up, MoveAmount::Extreme),
+        );
+        kb.insert(
+            "End".into(),
+            Command::Move(MoveMode::Down, MoveAmount::Extreme),
+        );
         kb.insert("k".into(), Command::Move(MoveMode::Up, Default::default()));
-        kb.insert("j".into(), Command::Move(MoveMode::Down, Default::default()));
-        kb.insert("h".into(), Command::Move(MoveMode::Left, Default::default()));
-        kb.insert("l".into(), Command::Move(MoveMode::Right, Default::default()));
+        kb.insert(
+            "j".into(),
+            Command::Move(MoveMode::Down, Default::default()),
+        );
+        kb.insert(
+            "h".into(),
+            Command::Move(MoveMode::Left, Default::default()),
+        );
+        kb.insert(
+            "l".into(),
+            Command::Move(MoveMode::Right, Default::default()),
+        );
 
-        kb.insert("Ctrl+p".into(), Command::Move(MoveMode::Up, Default::default()));
-        kb.insert("Ctrl+n".into(), Command::Move(MoveMode::Down, Default::default()));
-        kb.insert("Ctrl+a".into(), Command::Move(MoveMode::Left, Default::default()));
-        kb.insert("Ctrl+e".into(), Command::Move(MoveMode::Right, Default::default()));
+        kb.insert(
+            "Ctrl+p".into(),
+            Command::Move(MoveMode::Up, Default::default()),
+        );
+        kb.insert(
+            "Ctrl+n".into(),
+            Command::Move(MoveMode::Down, Default::default()),
+        );
+        kb.insert(
+            "Ctrl+a".into(),
+            Command::Move(MoveMode::Left, Default::default()),
+        );
+        kb.insert(
+            "Ctrl+e".into(),
+            Command::Move(MoveMode::Right, Default::default()),
+        );
 
         kb.insert("Shift+Up".into(), Command::Shift(ShiftMode::Up, None));
         kb.insert("Shift+Down".into(), Command::Shift(ShiftMode::Down, None));

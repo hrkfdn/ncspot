@@ -137,14 +137,15 @@ impl fmt::Display for Command {
             Command::Back => "back".to_string(),
             Command::Open(mode) => format!("open {}", mode),
             Command::Goto(mode) => format!("goto {}", mode),
-            Command::Move(mode, MoveAmount::Extreme) => {
-                format!("move {}", match mode {
+            Command::Move(mode, MoveAmount::Extreme) => format!(
+                "move {}",
+                match mode {
                     MoveMode::Up => "top",
                     MoveMode::Down => "bottom",
                     MoveMode::Left => "leftmost",
                     MoveMode::Right => "rightmost",
-                })
-            },
+                }
+            ),
             Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
@@ -229,20 +230,20 @@ pub fn parse(input: &str) -> Option<Command> {
         }
         "move" => {
             let cmd: Option<Command> = {
-                args.get(0)
-                    .and_then(|extreme| match *extreme {
-                        "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
-                        "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
-                        "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
-                        "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
-                        _ => None
-                    })
+                args.get(0).and_then(|extreme| match *extreme {
+                    "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
+                    "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
+                    "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
+                    "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
+                    _ => None,
+                })
             };
 
             cmd.or({
-                let amount = args.get(1)
+                let amount = args
+                    .get(1)
                     .and_then(|amount| amount.parse().ok())
-                    .map(|amount| MoveAmount::Integer(amount))
+                    .map(MoveAmount::Integer)
                     .unwrap_or_default();
 
                 args.get(0)
