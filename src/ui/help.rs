@@ -49,7 +49,7 @@ impl ViewExt for HelpView {
         "Help".to_string()
     }
 
-    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+    fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Help = cmd {
             Ok(CommandResult::Consumed(None))
         } else {

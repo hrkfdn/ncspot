@@ -48,6 +48,7 @@ use cursive::traits::Identifiable;
 use cursive::Cursive;
 
 use librespot_core::authentication::Credentials;
+use librespot_core::cache::Cache;
 
 mod album;
 mod artist;
@@ -96,7 +97,7 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-fn get_credentials(reset: bool) -> Credentials {
+fn credentials_prompt(reset: bool) -> Credentials {
     let path = config::config_path("credentials.toml");
     if reset && fs::remove_file(&path).is_err() {
         error!("could not delete credential file");
@@ -169,10 +170,20 @@ fn main() {
         })
     };
 
-    let mut credentials = get_credentials(false);
+    let cache = Cache::new(config::cache_path("librespot"), true);
+    let mut credentials = {
+        let cached_credentials = cache.credentials();
+        match cached_credentials {
+            Some(c) => {
+                info!("Using cached credentials");
+                c
+            }
+            None => credentials_prompt(false),
+        }
+    };
 
     while !spotify::Spotify::test_credentials(credentials.clone()) {
-        credentials = get_credentials(true);
+        credentials = credentials_prompt(true);
     }
 
     let theme = theme::load(&cfg);
