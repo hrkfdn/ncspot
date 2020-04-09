@@ -29,6 +29,7 @@ pub struct ConfigTheme {
     pub secondary: Option<String>,
     pub title: Option<String>,
     pub playing: Option<String>,
+    pub playing_selected: Option<String>,
     pub playing_bg: Option<String>,
     pub highlight: Option<String>,
     pub highlight_bg: Option<String>,

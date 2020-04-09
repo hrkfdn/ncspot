@@ -175,7 +175,7 @@ impl<I: ListItem> View for ListView<I> {
 
                 let style = if self.selected == i {
                     let fg = if item.is_playing(self.queue.clone()) {
-                        *printer.theme.palette.custom("playing").unwrap()
+                        *printer.theme.palette.custom("playing_selected").unwrap()
                     } else {
                         PaletteColor::Tertiary.resolve(&printer.theme.palette)
                     };

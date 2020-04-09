@@ -27,6 +27,10 @@ pub fn load(cfg: &Config) -> Theme {
     palette[Tertiary] = load_color!(cfg, highlight, TerminalDefault);
     palette[Highlight] = load_color!(cfg, highlight_bg, Dark(Red));
     palette.set_color("playing", load_color!(cfg, playing, Dark(Blue)));
+    palette.set_color(
+        "playing_selected",
+        load_color!(cfg, playing_selected, Light(Blue)),
+    );
     palette.set_color("playing_bg", load_color!(cfg, playing_bg, TerminalDefault));
     palette.set_color("error", load_color!(cfg, error, TerminalDefault));
     palette.set_color("error_bg", load_color!(cfg, error_bg, Dark(Red)));
