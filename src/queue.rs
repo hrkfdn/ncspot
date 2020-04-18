@@ -83,10 +83,14 @@ impl Queue {
     }
 
     pub fn get_current(&self) -> Option<Track> {
-        match *self.current_track.read().unwrap() {
+        match self.get_current_index() {
             Some(index) => Some(self.queue.read().unwrap()[index].clone()),
             None => None,
         }
+    }
+
+    pub fn get_current_index(&self) -> Option<usize> {
+        *self.current_track.read().unwrap()
     }
 
     pub fn append(&self, track: &Track) {

@@ -26,6 +26,7 @@ pub enum MoveMode {
     Down,
     Left,
     Right,
+    Playing,
 }
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
@@ -144,8 +145,10 @@ impl fmt::Display for Command {
                     MoveMode::Down => "bottom",
                     MoveMode::Left => "leftmost",
                     MoveMode::Right => "rightmost",
+                    _ => "",
                 }
             ),
+            Command::Move(MoveMode::Playing, _) => "move playing".to_string(),
             Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
@@ -235,6 +238,7 @@ pub fn parse(input: &str) -> Option<Command> {
                     "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
                     "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
                     "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
+                    "playing" => Some(Command::Move(MoveMode::Playing, MoveAmount::default())),
                     _ => None,
                 })
             };

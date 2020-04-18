@@ -266,6 +266,10 @@ impl CommandManager {
 
         kb.insert("Up".into(), Command::Move(MoveMode::Up, Default::default()));
         kb.insert(
+            ".".into(),
+            Command::Move(MoveMode::Playing, Default::default()),
+        );
+        kb.insert(
             "Down".into(),
             Command::Move(MoveMode::Down, Default::default()),
         );

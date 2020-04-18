@@ -6,7 +6,7 @@ use cursive::Cursive;
 use std::cmp::min;
 use std::sync::Arc;
 
-use crate::command::{Command, ShiftMode};
+use crate::command::{Command, MoveMode, ShiftMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::queue::Queue;
@@ -131,6 +131,11 @@ impl ViewExt for QueueView {
                 let dialog = Self::save_dialog(self.queue.clone(), self.library.clone());
                 s.add_layer(dialog);
                 return Ok(CommandResult::Consumed(None));
+            }
+            Command::Move(MoveMode::Playing, _) => {
+                if let Some(playing) = self.queue.get_current_index() {
+                    self.list.move_focus_to(playing);
+                }
             }
             _ => {}
         }
