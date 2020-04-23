@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Update APT package lists
+        run: sudo apt update
       - name: Install dependencies
         run: sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev  libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build
