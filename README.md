@@ -37,11 +37,15 @@ Measured using `ps_mem` on Linux during playback:
 * A Spotify premium account
 * pkg-config
 
-On Debian based systems you need following packages for `libxcb` developement headers:
+On Debian based systems you need following packages for `libxcb` development headers:
 ```
 sudo apt install libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
 
+For Fedora, these dependencies are required:
+```
+dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-devel
+```
 
 ## Usage
 
