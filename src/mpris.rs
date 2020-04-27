@@ -9,8 +9,10 @@ use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
 use crate::queue::{Queue, RepeatSetting};
-use crate::spotify::{PlayerEvent, Spotify};
+use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
+use crate::album::Album;
+use crate::playlist::Playlist;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 struct MprisState(String, Option<Track>);
@@ -368,6 +370,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let method_previous = {
         let spotify = spotify.clone();
+        let queue = queue.clone();
         f.method("Previous", (), move |m| {
             if spotify.get_current_progress() < Duration::from_secs(5) {
                 queue.previous();
@@ -387,13 +390,81 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     };
 
     let method_rewind = {
+        let spotify = spotify.clone();
         f.method("Rewind", (), move |m| {
             spotify.seek_relative(-5000);
             Ok(vec![m.msg.method_return()])
         })
     };
 
-    // TODO: Seek, SetPosition, OpenUri (?)
+    let method_openuri = {
+        let spotify = spotify.clone();
+        let queue = queue.clone();
+        f.method("OpenUri", (), move |m| {
+            let uri_data: Option<&str> = m.msg.get1();
+            let uri = match uri_data {
+                Some(s) => s,
+                None => ""
+            };
+            let id = &uri[uri.rfind(":").unwrap_or(0)+1..uri.len()];
+            let uri_type = URIType::from_uri(uri);
+            match uri_type{
+                Some(URIType::Album) => {
+                    let album = spotify.album(&id);
+                    match album {
+                        Some(a) => {
+                            let tracks = &Album::from(&a).tracks;
+                            match tracks {
+                                Some(t) => {
+                                    queue.clear();
+                                    let index = queue.append_next(t.iter().collect());
+                                    queue.play(index, false, false)
+                                },
+                                None => {}
+                            }
+                        },
+                        None => {}
+                    }
+                },
+                Some(URIType::Track) => {
+                    let track = spotify.track(&id);
+                    match track {
+                        Some(t) => {
+                            queue.clear();
+                            queue.append(&Track::from(&t));
+                            queue.play(0, false, false)
+                        },
+                        None => {}
+                    }
+                },
+                Some(URIType::Playlist) => {
+                   let playlist = spotify.playlist(&id);
+                   match playlist {
+                       Some(p) => {
+                           let mut playlist = Playlist::from(&p);
+                           let spotify = spotify.clone();
+                           &playlist.load_tracks(spotify);
+                           let tracks = &playlist.tracks;
+                           match tracks{
+                               Some(t) => {
+                                   queue.clear();
+                                   let index = queue.append_next(t.iter().collect());
+                                   queue.play(index, false, false)
+                               },
+                               None => {}
+                           }
+                       },
+                       None => {}
+                   }
+                },
+                Some(URIType::Artist) => {},
+                None => {}
+            }
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
+    // TODO: Seek, SetPosition (?)
 
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
     let interface_player = f
@@ -422,7 +493,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .add_m(method_next)
         .add_m(method_previous)
         .add_m(method_forward)
-        .add_m(method_rewind);
+        .add_m(method_rewind)
+        .add_m(method_openuri);
 
     let tree = f.tree(()).add(
         f.object_path("/org/mpris/MediaPlayer2", ())
