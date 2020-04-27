@@ -819,7 +819,7 @@ impl URIType {
             Some(URIType::Artist)
         } else if s.starts_with("spotify:track:") {
             Some(URIType::Track)
-        } else if s.starts_with("spotify:user:") && s.contains(":playlist:") {
+        } else if s.starts_with("spotify:") && s.contains(":playlist:") {
             Some(URIType::Playlist)
         } else {
             None
