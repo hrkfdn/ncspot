@@ -122,6 +122,8 @@ values are:
 
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `theme`: Set a custom color palette (see below)
+* `volnorm`: Enable or disable volume normalization, off by default <true/false>
+* `volnorm_pregain`: Normalization pregain to apply (if enabled)
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
 

@@ -225,8 +225,8 @@ impl Spotify {
     pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
         let player_config = PlayerConfig {
             bitrate: Bitrate::Bitrate320,
-            normalisation: false,
-            normalisation_pregain: 0.0,
+            normalisation: cfg.volnorm.unwrap_or(false),
+            normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
         };
         let (user_tx, user_rx) = oneshot::channel();
         let volume = match &cfg.saved_state {

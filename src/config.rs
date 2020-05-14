@@ -13,6 +13,8 @@ pub struct Config {
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
     pub saved_state: Option<SavedState>,
+    pub volnorm: Option<bool>,
+    pub volnorm_pregain: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
