@@ -13,6 +13,7 @@ pub struct Config {
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
     pub saved_state: Option<SavedState>,
+    pub audio_cache: Option<bool>,
     pub volnorm: Option<bool>,
     pub volnorm_pregain: Option<f32>,
 }
