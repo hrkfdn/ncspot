@@ -223,11 +223,6 @@ impl futures::Future for Worker {
 
 impl Spotify {
     pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
-        let player_config = PlayerConfig {
-            bitrate: Bitrate::Bitrate320,
-            normalisation: false,
-            normalisation_pregain: 0.0,
-        };
         let (user_tx, user_rx) = oneshot::channel();
         let volume = match &cfg.saved_state {
             Some(state) => match state.volume {
@@ -257,15 +252,9 @@ impl Spotify {
 
         let (tx, rx) = mpsc::unbounded();
         {
+            let cfg = cfg.clone();
             thread::spawn(move || {
-                Self::worker(
-                    events,
-                    Box::pin(rx),
-                    player_config,
-                    credentials,
-                    user_tx,
-                    volume,
-                )
+                Self::worker(events, Box::pin(rx), cfg, credentials, user_tx, volume)
             });
         }
 
@@ -314,9 +303,12 @@ impl Spotify {
         th.join().is_ok()
     }
 
-    fn create_session(core: &mut Core, credentials: Credentials) -> Session {
+    fn create_session(core: &mut Core, cfg: &config::Config, credentials: Credentials) -> Session {
         let session_config = Self::session_config();
-        let cache = Cache::new(config::cache_path("librespot"), true);
+        let cache = Cache::new(
+            config::cache_path("librespot"),
+            cfg.audio_cache.unwrap_or(true),
+        );
         let handle = core.handle();
         debug!("opening spotify session");
         core.run(Session::connect(
@@ -358,14 +350,20 @@ impl Spotify {
     fn worker(
         events: EventManager,
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
-        player_config: PlayerConfig,
+        cfg: config::Config,
         credentials: Credentials,
         user_tx: oneshot::Sender<String>,
         volume: u16,
     ) {
+        let player_config = PlayerConfig {
+            bitrate: Bitrate::Bitrate320,
+            normalisation: cfg.volnorm.unwrap_or(false),
+            normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
+        };
+
         let mut core = Core::new().unwrap();
 
-        let session = Self::create_session(&mut core, credentials);
+        let session = Self::create_session(&mut core, &cfg, credentials);
         user_tx
             .send(session.username())
             .expect("could not pass username back to Spotify::new");
