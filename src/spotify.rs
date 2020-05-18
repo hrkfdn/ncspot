@@ -373,12 +373,12 @@ impl Spotify {
         let mixer = create_mixer(None);
         mixer.set_volume(volume);
 
-        let backend = audio_backend::find(None).unwrap();
+        let backend = audio_backend::find(cfg.backend.clone()).unwrap();
         let (player, _eventchannel) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
-            move || (backend)(None),
+            move || (backend)(cfg.backend_device),
         );
 
         let worker = Worker::new(events, commands, session, player, mixer);
