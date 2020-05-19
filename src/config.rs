@@ -14,6 +14,8 @@ pub struct Config {
     pub use_nerdfont: Option<bool>,
     pub saved_state: Option<SavedState>,
     pub audio_cache: Option<bool>,
+    pub backend: Option<String>,
+    pub backend_device: Option<String>,
     pub volnorm: Option<bool>,
     pub volnorm_pregain: Option<f32>,
 }

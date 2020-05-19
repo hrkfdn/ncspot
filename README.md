@@ -122,6 +122,8 @@ values are:
 
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `theme`: Set a custom color palette (see below)
+* `backend`: Audio backend to use, run `ncspot -h` for a list of devices
+* `backend_device`: Audio device string to configure the backend
 * `audio_cache`: Enable or disable caching of audio files, on by default
   <true/false>
 * `volnorm`: Enable or disable volume normalization, off by default <true/false>

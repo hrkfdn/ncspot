@@ -49,6 +49,7 @@ use cursive::Cursive;
 
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
+use librespot_playback::audio_backend;
 
 mod album;
 mod artist;
@@ -121,10 +122,15 @@ fn credentials_prompt(reset: bool) -> Credentials {
 }
 
 fn main() {
+    let backends = {
+        let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
+        format!("Audio backends: {}", backends.join(", "))
+    };
     let matches = App::new("ncspot")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
         .about("cross-platform ncurses Spotify client")
+        .after_help(&*backends)
         .arg(
             Arg::with_name("debug")
                 .short("d")
