@@ -47,7 +47,7 @@ strum_macros = "0.17.1"
 librespot-protocol = { git = "https://github.com/librespot-org/librespot", rev = "d77376a800041934803eac6790e3122f24c54b1e" }
 
 [dependencies.cursive]
-version = "0.14"
+version = "0.15"
 default-features = false
 
 [features]

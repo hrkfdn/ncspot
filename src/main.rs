@@ -45,7 +45,7 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
-use cursive::Cursive;
+use cursive::{Cursive, CursiveExt};
 
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
