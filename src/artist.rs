@@ -1,7 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rspotify::spotify::model::artist::{FullArtist, SimplifiedArtist};
+use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use crate::album::Album;
 use crate::library::Library;

@@ -2,8 +2,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use rspotify::spotify::model::album::FullAlbum;
-use rspotify::spotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
+use rspotify::model::album::FullAlbum;
+use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 
 use crate::album::Album;
 use crate::artist::Artist;

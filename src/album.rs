@@ -2,7 +2,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
+use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
 use crate::artist::Artist;
 use crate::library::Library;
