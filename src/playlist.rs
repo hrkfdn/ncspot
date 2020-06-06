@@ -1,7 +1,7 @@
 use std::iter::Iterator;
 use std::sync::Arc;
 
-use rspotify::spotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
+use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use crate::library::Library;
 use crate::queue::Queue;
@@ -31,7 +31,9 @@ impl Playlist {
         let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
         while let Some(ref tracks) = tracks_result.clone() {
             for listtrack in &tracks.items {
-                collected_tracks.push((&listtrack.track).into());
+                if let Some(track) = &listtrack.track {
+                    collected_tracks.push(track.into());
+                }
             }
             debug!("got {} tracks", tracks.items.len());
 
