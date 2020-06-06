@@ -18,9 +18,7 @@ use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
 use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
-use rspotify::model::search::{
-    SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
-};
+use rspotify::model::search::{SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks};
 use rspotify::model::track::{FullTrack, SavedTrack};
 use rspotify::model::user::PrivateUser;
 

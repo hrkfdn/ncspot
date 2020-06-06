@@ -8,11 +8,11 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
+use crate::album::Album;
+use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
-use crate::album::Album;
-use crate::playlist::Playlist;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 struct MprisState(String, Option<Track>);
@@ -398,66 +398,44 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     };
 
     let method_openuri = {
-        let spotify = spotify.clone();
-        let queue = queue.clone();
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
             let uri = match uri_data {
                 Some(s) => s,
-                None => ""
+                None => "",
             };
-            let id = &uri[uri.rfind(":").unwrap_or(0)+1..uri.len()];
+            let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
             let uri_type = URIType::from_uri(uri);
-            match uri_type{
+            match uri_type {
                 Some(URIType::Album) => {
-                    let album = spotify.album(&id);
-                    match album {
-                        Some(a) => {
-                            let tracks = &Album::from(&a).tracks;
-                            match tracks {
-                                Some(t) => {
-                                    queue.clear();
-                                    let index = queue.append_next(t.iter().collect());
-                                    queue.play(index, false, false)
-                                },
-                                None => {}
-                            }
-                        },
-                        None => {}
-                    }
-                },
-                Some(URIType::Track) => {
-                    let track = spotify.track(&id);
-                    match track {
-                        Some(t) => {
+                    if let Some(a) = spotify.album(&id) {
+                        if let Some(t) = &Album::from(&a).tracks {
                             queue.clear();
-                            queue.append(&Track::from(&t));
-                            queue.play(0, false, false)
-                        },
-                        None => {}
+                            let index = queue.append_next(t.iter().collect());
+                            queue.play(index, false, false)
+                        }
                     }
-                },
+                }
+                Some(URIType::Track) => {
+                    if let Some(t) = spotify.track(&id) {
+                        queue.clear();
+                        queue.append(&Track::from(&t));
+                        queue.play(0, false, false)
+                    }
+                }
                 Some(URIType::Playlist) => {
-                   let playlist = spotify.playlist(&id);
-                   match playlist {
-                       Some(p) => {
-                           let mut playlist = Playlist::from(&p);
-                           let spotify = spotify.clone();
-                           &playlist.load_tracks(spotify);
-                           let tracks = &playlist.tracks;
-                           match tracks{
-                               Some(t) => {
-                                   queue.clear();
-                                   let index = queue.append_next(t.iter().collect());
-                                   queue.play(index, false, false)
-                               },
-                               None => {}
-                           }
-                       },
-                       None => {}
-                   }
-                },
-                Some(URIType::Artist) => {},
+                    if let Some(p) = spotify.playlist(&id) {
+                        let mut playlist = Playlist::from(&p);
+                        let spotify = spotify.clone();
+                        playlist.load_tracks(spotify);
+                        if let Some(t) = &playlist.tracks {
+                            queue.clear();
+                            let index = queue.append_next(t.iter().collect());
+                            queue.play(index, false, false)
+                        }
+                    }
+                }
+                Some(URIType::Artist) => {}
                 None => {}
             }
             Ok(vec![m.msg.method_return()])
