@@ -18,9 +18,10 @@ use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
 use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
-use rspotify::model::search::{SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks};
+use rspotify::model::search::SearchResult;
 use rspotify::model::track::{FullTrack, SavedTrack};
 use rspotify::model::user::PrivateUser;
+use rspotify::senum::SearchType;
 
 use failure::Error;
 
@@ -580,20 +581,15 @@ impl Spotify {
         self.api_with_retry(|api| api.track(track_id))
     }
 
-    pub fn search_track(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
-        self.api_with_retry(|api| api.search_track(query, limit, offset, None))
-    }
-
-    pub fn search_album(&self, query: &str, limit: u32, offset: u32) -> Option<SearchAlbums> {
-        self.api_with_retry(|api| api.search_album(query, limit, offset, None))
-    }
-
-    pub fn search_artist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchArtists> {
-        self.api_with_retry(|api| api.search_artist(query, limit, offset, None))
-    }
-
-    pub fn search_playlist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchPlaylists> {
-        self.api_with_retry(|api| api.search_playlist(query, limit, offset, None))
+    pub fn search(
+        &self,
+        searchtype: SearchType,
+        query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Option<SearchResult> {
+        self.api_with_retry(|api| api.search(query, searchtype, limit, offset, None, None))
+            .take()
     }
 
     pub fn current_user_playlist(

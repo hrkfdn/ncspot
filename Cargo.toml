@@ -2,7 +2,7 @@
 name = "ncspot"
 description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
 exclude = ["screenshots/**"]
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
 repository = "https://github.com/hrkfdn/ncspot"
 keywords = ["spotify", "ncurses", "librespot"]
@@ -28,7 +28,7 @@ librespot-core = "0.1.1"
 librespot-playback = "0.1.1"
 librespot-protocol = "0.1.1"
 log = "0.4.0"
-rspotify = { git = "https://github.com/ramsayleung/rspotify", rev = "b857a6e685d6b3b43e4ab1802b618cdbb21f3f2c", features = ["blocking"] }
+rspotify = { git = "https://github.com/ramsayleung/rspotify", rev = "450061bdc17c6282b2c99542fa7078c4bd2cee2d", features = ["blocking"] }
 serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
