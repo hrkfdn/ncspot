@@ -61,6 +61,7 @@ mod events;
 mod library;
 mod playlist;
 mod queue;
+mod show;
 mod spotify;
 mod theme;
 mod track;
