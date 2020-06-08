@@ -58,11 +58,13 @@ use crate::config;
 use crate::events::{Event, EventManager};
 use crate::queue;
 use crate::track::Track;
+use rspotify::model::show::FullShow;
+use crate::queue::Playable;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
 enum WorkerCommand {
-    Load(Box<Track>),
+    Load(Playable),
     Play,
     Pause,
     Stop,
@@ -159,11 +161,11 @@ impl futures::Future for Worker {
                 progress = true;
                 debug!("message received!");
                 match cmd {
-                    WorkerCommand::Load(track) => {
-                        if let Some(track_id) = &track.id {
+                    WorkerCommand::Load(playable) => {
+                        if let Some(track_id) = &playable.id() {
                             let id = SpotifyId::from_base62(track_id).expect("could not parse id");
                             self.play_task = Box::pin(self.player.load(id, true, 0).compat());
-                            info!("player loading track: {:?}", track);
+                            info!("player loading track: {:?}", playable);
                         } else {
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                         }
@@ -588,12 +590,12 @@ impl Spotify {
         .is_some()
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         // extract only track IDs
         let mut tracks: Vec<String> = tracks
             .iter()
-            .filter(|track| track.id.is_some())
-            .map(|track| track.id.clone().unwrap())
+            .filter(|track| track.id().is_some())
+            .map(|track| track.id().clone().unwrap())
             .collect();
 
         // we can only send 100 tracks per request
@@ -770,9 +772,9 @@ impl Spotify {
         self.api_with_retry(|api| api.current_user())
     }
 
-    pub fn load(&self, track: &Track) {
+    pub fn load(&self, track: &Playable) {
         info!("loading track: {:?}", track);
-        self.send_worker(WorkerCommand::Load(Box::new(track.clone())));
+        self.send_worker(WorkerCommand::Load(track.clone()));
     }
 
     pub fn update_status(&self, new_status: PlayerEvent) {

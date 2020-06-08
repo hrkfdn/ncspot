@@ -16,6 +16,7 @@ use crate::events::EventManager;
 use crate::playlist::Playlist;
 use crate::spotify::Spotify;
 use crate::track::Track;
+use crate::queue::Playable;
 
 const CACHE_TRACKS: &str = "tracks.db";
 const CACHE_ALBUMS: &str = "albums.db";
@@ -140,15 +141,15 @@ impl Library {
         }
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
-        debug!("saving {} tracks to {}", tracks.len(), id);
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
+        debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.overwrite_playlist(id, &tracks);
 
         self.fetch_playlists();
         self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 
-    pub fn save_playlist(&self, name: &str, tracks: &[Track]) {
+    pub fn save_playlist(&self, name: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to new list {}", tracks.len(), name);
         match self.spotify.create_playlist(name, None, None) {
             Some(id) => self.overwrite_playlist(&id, &tracks),
@@ -512,13 +513,13 @@ impl Library {
         }
     }
 
-    pub fn is_saved_track(&self, track: &Track) -> bool {
+    pub fn is_saved_track(&self, track: &Playable) -> bool {
         if !*self.is_done.read().unwrap() {
             return false;
         }
 
         let tracks = self.tracks.read().unwrap();
-        tracks.iter().any(|t| t.id == track.id)
+        tracks.iter().any(|t| t.id == track.id())
     }
 
     pub fn save_tracks(&self, tracks: Vec<&Track>, api: bool) {

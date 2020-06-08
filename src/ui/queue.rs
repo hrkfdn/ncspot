@@ -9,14 +9,13 @@ use std::sync::Arc;
 use crate::command::{Command, MoveMode, ShiftMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::queue::Queue;
-use crate::track::Track;
+use crate::queue::{Queue, Playable};
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 use crate::ui::modal::Modal;
 
 pub struct QueueView {
-    list: ListView<Track>,
+    list: ListView<Playable>,
     library: Arc<Library>,
     queue: Arc<Queue>,
 }
@@ -85,7 +84,7 @@ impl QueueView {
 }
 
 impl ViewWrapper for QueueView {
-    wrap_impl!(self.list: ListView<Track>);
+    wrap_impl!(self.list: ListView<Playable>);
 }
 
 impl ViewExt for QueueView {

@@ -9,7 +9,7 @@ use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;
-use crate::queue::{Queue, RepeatSetting};
+use crate::queue::{Playable, Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
@@ -132,7 +132,7 @@ impl View for StatusBar {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
         });
 
-        if let Some(ref t) = self.queue.get_current() {
+        if let Some(Playable::Track(ref t)) = self.queue.get_current() {
             let elapsed = self.spotify.get_current_progress();
             let elapsed_ms = elapsed.as_millis() as u32;
 
@@ -142,7 +142,7 @@ impl View for StatusBar {
                 elapsed.as_secs() % 60
             );
 
-            let saved = if self.library.is_saved_track(t) {
+            let saved = if self.library.is_saved_track(&Playable::Track(t.clone())) {
                 if self.use_nerdfont {
                     "\u{f62b} "
                 } else {
@@ -208,7 +208,7 @@ impl View for StatusBar {
                 if event == MouseEvent::Press(MouseButton::Left)
                     || event == MouseEvent::Hold(MouseButton::Left)
                 {
-                    if let Some(ref t) = self.queue.get_current() {
+                    if let Some(Playable::Track(ref t)) = self.queue.get_current() {
                         let f: f32 = position.x as f32 / self.last_size.x as f32;
                         let new = t.duration as f32 * f;
                         self.spotify.seek(new as u32);

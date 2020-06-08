@@ -6,6 +6,88 @@ use strum_macros::Display;
 
 use crate::spotify::Spotify;
 use crate::track::Track;
+use crate::traits::{ListItem, ViewExt};
+use crate::artist::Artist;
+use crate::album::Album;
+use crate::library::Library;
+
+#[derive(Display, Clone, Debug)]
+pub enum Playable {
+    Track(Track)
+}
+
+
+impl Playable {
+    pub fn id(&self) -> Option<String> {
+        match self {
+            Playable::Track(track) => track.id.clone()
+        }
+    }
+
+    pub fn as_listitem(&self) -> Box<dyn ListItem> {
+        match self {
+            Playable::Track(track) => track.as_listitem()
+        }
+    }
+}
+
+impl ListItem for Playable {
+    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+        self.as_listitem().is_playing(queue)
+    }
+
+    fn display_left(&self) -> String {
+        self.as_listitem().display_left()
+    }
+
+    fn display_right(&self, library: Arc<Library>) -> String {
+        self.as_listitem().display_right(library)
+    }
+
+    fn play(&mut self, queue: Arc<Queue>) {
+        self.as_listitem().play(queue)
+    }
+
+    fn queue(&mut self, queue: Arc<Queue>) {
+        self.as_listitem().queue(queue)
+    }
+
+    fn toggle_saved(&mut self, library: Arc<Library>) {
+        self.as_listitem().toggle_saved(library)
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        self.as_listitem().save(library)
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        self.as_listitem().unsave(library)
+    }
+
+    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+        self.as_listitem().open(queue, library)
+    }
+
+    fn share_url(&self) -> Option<String> {
+        self.as_listitem().share_url()
+    }
+
+    fn album(&self, queue: Arc<Queue>) -> Option<Album> {
+        self.as_listitem().album(queue)
+    }
+
+    fn artist(&self) -> Option<Artist> {
+        self.as_listitem().artist()
+    }
+
+    fn track(&self) -> Option<Track> {
+        self.as_listitem().track()
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        self.as_listitem()
+    }
+}
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -15,7 +97,7 @@ pub enum RepeatSetting {
 }
 
 pub struct Queue {
-    pub queue: Arc<RwLock<Vec<Track>>>,
+    pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
@@ -82,7 +164,7 @@ impl Queue {
         }
     }
 
-    pub fn get_current(&self) -> Option<Track> {
+    pub fn get_current(&self) -> Option<Playable> {
         match self.get_current_index() {
             Some(index) => Some(self.queue.read().unwrap()[index].clone()),
             None => None,
@@ -93,7 +175,7 @@ impl Queue {
         *self.current_track.read().unwrap()
     }
 
-    pub fn append(&self, track: &Track) {
+    pub fn append(&self, track: Playable) {
         let mut random_order = self.random_order.write().unwrap();
         if let Some(order) = random_order.as_mut() {
             let index = order.len().saturating_sub(1);
@@ -101,10 +183,10 @@ impl Queue {
         }
 
         let mut q = self.queue.write().unwrap();
-        q.push(track.clone());
+        q.push(track);
     }
 
-    pub fn append_next(&self, tracks: Vec<&Track>) -> usize {
+    pub fn append_next(&self, tracks: Vec<Playable>) -> usize {
         let mut q = self.queue.write().unwrap();
 
         {

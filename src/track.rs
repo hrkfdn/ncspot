@@ -8,7 +8,7 @@ use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::library::Library;
-use crate::queue::Queue;
+use crate::queue::{Queue, Playable};
 use crate::traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -148,7 +148,7 @@ impl fmt::Debug for Track {
 impl ListItem for Track {
     fn is_playing(&self, queue: Arc<Queue>) -> bool {
         let current = queue.get_current();
-        current.map(|t| t.id == self.id).unwrap_or(false)
+        current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {
@@ -160,7 +160,7 @@ impl ListItem for Track {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_track(self) {
+        let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
             if library.use_nerdfont {
                 "\u{f62b} "
             } else {
@@ -173,12 +173,12 @@ impl ListItem for Track {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(vec![self]);
+        let index = queue.append_next(vec![Playable::Track(self.clone())]);
         queue.play(index, true, false);
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        queue.append(self);
+        queue.append(Playable::Track(self.clone()));
     }
 
     fn save(&mut self, library: Arc<Library>) {
@@ -190,7 +190,7 @@ impl ListItem for Track {
     }
 
     fn toggle_saved(&mut self, library: Arc<Library>) {
-        if library.is_saved_track(self) {
+        if library.is_saved_track(&Playable::Track(self.clone())) {
             library.unsave_tracks(vec![self], true);
         } else {
             library.save_tracks(vec![self], true);
