@@ -57,6 +57,7 @@ mod authentication;
 mod command;
 mod commands;
 mod config;
+mod episode;
 mod events;
 mod library;
 mod playlist;

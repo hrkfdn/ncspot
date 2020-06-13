@@ -1,6 +1,9 @@
+use crate::episode::Episode;
 use crate::library::Library;
 use crate::queue::Queue;
-use crate::traits::{ListItem, ViewExt};
+use crate::spotify::Spotify;
+use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
+use crate::ui::show::ShowView;
 use rspotify::model::show::SimplifiedShow;
 use std::fmt;
 use std::sync::Arc;
@@ -11,6 +14,18 @@ pub struct Show {
     pub name: String,
     pub publisher: String,
     pub description: String,
+    pub cover_url: Option<String>,
+}
+
+impl Show {
+    pub fn load_episodes(&self, spotify: Arc<Spotify>) -> Vec<Episode> {
+        spotify
+            .show_episodes(&self.id)
+            .map_or(vec![], |i| i.episodes.items)
+            .iter()
+            .map(|episode| episode.into())
+            .collect()
+    }
 }
 
 impl From<&SimplifiedShow> for Show {
@@ -20,6 +35,7 @@ impl From<&SimplifiedShow> for Show {
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
+            cover_url: show.images.get(0).map(|i| i.url.clone()),
         }
     }
 }
@@ -64,7 +80,7 @@ impl ListItem for Show {
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        unimplemented!()
+        Some(ShowView::new(queue, library, self).as_boxed_view_ext())
     }
 
     fn share_url(&self) -> Option<String> {

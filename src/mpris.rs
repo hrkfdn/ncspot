@@ -10,12 +10,12 @@ use dbus::{Path, SignalArgs};
 
 use crate::album::Album;
 use crate::playlist::Playlist;
-use crate::queue::{Queue, RepeatSetting};
+use crate::queue::{Queue, RepeatSetting, Playable};
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
-struct MprisState(String, Option<Track>);
+struct MprisState(String, Option<Playable>);
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     match spotify.get_current_status() {
@@ -26,7 +26,7 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     .to_string()
 }
 
-fn get_metadata(track: Option<Track>) -> Metadata {
+fn get_metadata(track: Option<Playable>) -> Metadata {
     let mut hm: Metadata = HashMap::new();
     let track = track.as_ref();
 
@@ -419,7 +419,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                 Some(URIType::Track) => {
                     if let Some(t) = spotify.track(&id) {
                         queue.clear();
-                        queue.append(&Track::from(&t));
+                        queue.append(Playable::Track(Track::from(&t)));
                         queue.play(0, false, false)
                     }
                 }
