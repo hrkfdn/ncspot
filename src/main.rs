@@ -297,6 +297,7 @@ fn main() {
                         queue.next(false);
                     }
                 }
+                Event::SessionDied => spotify.start_worker(None),
             }
         }
     }
