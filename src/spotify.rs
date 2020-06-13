@@ -143,10 +143,6 @@ impl futures::Future for Worker {
         loop {
             let mut progress = false;
 
-            if self.session.is_invalid() {
-                return Poll::Ready(Result::Err(()));
-            }
-
             if let Poll::Ready(Some(cmd)) = self.commands.as_mut().poll_next(cx) {
                 progress = true;
                 debug!("message received!");
@@ -195,7 +191,8 @@ impl futures::Future for Worker {
                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                 }
                 Poll::Ready(Err(Canceled)) => {
-                    debug!("player task is over!");
+                    error!("player task was cancelled!");
+                    self.events.send(Event::Player(PlayerEvent::Stopped));
                     self.play_task = Box::pin(futures::future::pending());
                 }
                 Poll::Pending => (),
@@ -217,6 +214,11 @@ impl futures::Future for Worker {
                     error!("could not generate token: {:?}", e);
                 }
                 _ => (),
+            }
+
+            if self.session.is_invalid() {
+                self.events.send(Event::Player(PlayerEvent::Stopped));
+                return Poll::Ready(Result::Err(()));
             }
 
             if !progress {
