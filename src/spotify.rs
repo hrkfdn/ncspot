@@ -25,11 +25,11 @@ use rspotify::senum::SearchType;
 
 use failure::Error;
 
-use futures_01::Async as v01_Async;
 use futures_01::future::Future as v01_Future;
 use futures_01::stream::Stream as v01_Stream;
 use futures_01::sync::mpsc::UnboundedReceiver;
 use futures_01::sync::oneshot::Canceled;
+use futures_01::Async as v01_Async;
 
 use futures::channel::mpsc;
 use futures::channel::oneshot;
@@ -149,7 +149,6 @@ impl futures::Future for Worker {
             let mut progress = false;
 
             if self.session.is_invalid() {
-                self.player.stop();
                 self.events.send(Event::Player(PlayerEvent::Stopped));
                 return Poll::Ready(Result::Err(()));
             }
@@ -227,6 +226,7 @@ impl futures::Future for Worker {
                     Box::pin(futures::stream::empty())
                 };
             }
+
             match self.token_task.as_mut().poll(cx) {
                 Poll::Ready(Ok(_)) => {
                     info!("token updated!");
@@ -490,13 +490,7 @@ impl Spotify {
         }
 
         let (token_tx, token_rx) = oneshot::channel();
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::RequestToken(token_tx))
-            .unwrap();
+        self.send_worker(WorkerCommand::RequestToken(token_tx));
         let token = futures::executor::block_on(token_rx).unwrap();
 
         // update token used by web api calls
@@ -747,13 +741,7 @@ impl Spotify {
 
     pub fn load(&self, track: &Track) {
         info!("loading track: {:?}", track);
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::Load(Box::new(track.clone())))
-            .unwrap();
+        self.send_worker(WorkerCommand::Load(Box::new(track.clone())));
     }
 
     pub fn update_status(&self, new_status: PlayerEvent) {
@@ -785,13 +773,7 @@ impl Spotify {
 
     pub fn play(&self) {
         info!("play()");
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::Play)
-            .unwrap();
+        self.send_worker(WorkerCommand::Play);
     }
 
     pub fn toggleplayback(&self) {
@@ -806,26 +788,24 @@ impl Spotify {
         }
     }
 
+    fn send_worker(&self, cmd: WorkerCommand) {
+        let channel = self.channel.read().expect("can't readlock worker channel");
+        match channel.as_ref() {
+            Some(channel) => channel
+                .unbounded_send(cmd)
+                .expect("can't send message to worker"),
+            None => error!("no channel to worker available"),
+        }
+    }
+
     pub fn pause(&self) {
         info!("pause()");
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::Pause)
-            .unwrap();
+        self.send_worker(WorkerCommand::Pause);
     }
 
     pub fn stop(&self) {
         info!("stop()");
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::Stop)
-            .unwrap();
+        self.send_worker(WorkerCommand::Stop);
     }
 
     pub fn seek(&self, position_ms: u32) {
@@ -836,13 +816,7 @@ impl Spotify {
             None
         });
 
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::Seek(position_ms))
-            .unwrap();
+        self.send_worker(WorkerCommand::Seek(position_ms));
     }
 
     pub fn seek_relative(&self, delta: i32) {
@@ -875,13 +849,7 @@ impl Spotify {
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
         self.volume.store(volume, Ordering::Relaxed);
-        self.channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-            .expect("channel to worker is missing")
-            .unbounded_send(WorkerCommand::SetVolume(Self::log_scale(volume)))
-            .unwrap();
+        self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
     }
 }
 
