@@ -10,7 +10,7 @@ use librespot_playback::config::PlayerConfig;
 use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;
 use librespot_playback::mixer::Mixer;
-use librespot_playback::player::Player;
+use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 
 use rspotify::blocking::client::ApiError;
 use rspotify::blocking::client::Spotify as SpotifyAPI;
@@ -25,8 +25,10 @@ use rspotify::senum::SearchType;
 
 use failure::Error;
 
+use futures_01::Async as v01_Async;
 use futures_01::future::Future as v01_Future;
 use futures_01::stream::Stream as v01_Stream;
+use futures_01::sync::mpsc::UnboundedReceiver;
 use futures_01::sync::oneshot::Canceled;
 
 use futures::channel::mpsc;
@@ -93,6 +95,7 @@ pub struct Spotify {
 
 struct Worker {
     events: EventManager,
+    player_events: UnboundedReceiver<LibrespotPlayerEvent>,
     commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
     session: Session,
     player: Player,
@@ -106,6 +109,7 @@ struct Worker {
 impl Worker {
     fn new(
         events: EventManager,
+        player_events: UnboundedReceiver<LibrespotPlayerEvent>,
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
         session: Session,
         player: Player,
@@ -113,6 +117,7 @@ impl Worker {
     ) -> Worker {
         Worker {
             events,
+            player_events,
             commands,
             player,
             session,
@@ -156,7 +161,7 @@ impl futures::Future for Worker {
                     WorkerCommand::Load(track) => {
                         if let Some(track_id) = &track.id {
                             let id = SpotifyId::from_base62(track_id).expect("could not parse id");
-                            self.play_task = Box::pin(self.player.load(id, false, 0).compat());
+                            self.play_task = Box::pin(self.player.load(id, true, 0).compat());
                             info!("player loading track: {:?}", track);
                         } else {
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
@@ -164,9 +169,6 @@ impl futures::Future for Worker {
                     }
                     WorkerCommand::Play => {
                         self.player.play();
-                        self.events.send(Event::Player(PlayerEvent::Playing));
-                        self.refresh_task = self.create_refresh();
-                        self.active = true;
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
@@ -190,6 +192,7 @@ impl futures::Future for Worker {
                     }
                 }
             }
+
             match self.play_task.as_mut().poll(cx) {
                 Poll::Ready(Ok(())) => {
                     debug!("end of track!");
@@ -203,6 +206,19 @@ impl futures::Future for Worker {
                 }
                 Poll::Pending => (),
             }
+
+            if let Ok(v01_Async::Ready(Some(event))) = self.player_events.poll() {
+                debug!("librespot player event: {:?}", event);
+                match event {
+                    LibrespotPlayerEvent::Started { .. } | LibrespotPlayerEvent::Changed { .. } => {
+                        self.events.send(Event::Player(PlayerEvent::Playing));
+                        self.refresh_task = self.create_refresh();
+                        self.active = true;
+                    }
+                    _ => {}
+                }
+            }
+
             if let Poll::Ready(Some(Ok(_))) = self.refresh_task.as_mut().poll_next(cx) {
                 self.refresh_task = if self.active {
                     progress = true;
@@ -320,7 +336,6 @@ impl Spotify {
             let handle = core.handle();
 
             core.run(Session::connect(config, credentials, None, handle))
-                .unwrap();
         });
         th.join().is_ok()
     }
@@ -394,14 +409,21 @@ impl Spotify {
         mixer.set_volume(volume);
 
         let backend = audio_backend::find(cfg.backend.clone()).unwrap();
-        let (player, _eventchannel) = Player::new(
+        let (player, player_events) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
             move || (backend)(cfg.backend_device),
         );
 
-        let worker = Worker::new(events.clone(), commands, session, player, mixer);
+        let worker = Worker::new(
+            events.clone(),
+            player_events,
+            commands,
+            session,
+            player,
+            mixer,
+        );
         debug!("worker thread ready.");
         if core.run(futures::compat::Compat::new(worker)).is_err() {
             error!("worker thread died, requesting restart");

@@ -214,7 +214,6 @@ impl Queue {
             self.spotify.load(&track);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
-            self.spotify.play();
             self.spotify.update_track();
         }
 
