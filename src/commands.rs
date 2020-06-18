@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::command::{
     parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
+use crate::config::Config;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
@@ -36,11 +37,16 @@ impl CommandManager {
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
         library: Arc<Library>,
-        bindings: Option<HashMap<String, String>>,
+        config: &Config,
     ) -> CommandManager {
-        let mut kb = Self::default_keybindings();
+        let mut kb = if config.default_keybindings.unwrap_or(true) {
+            Self::default_keybindings()
+        } else {
+            HashMap::new()
+        };
+        let custom_bindings: Option<HashMap<String, String>> = config.keybindings.clone();
 
-        for (key, command) in bindings.unwrap_or_default() {
+        for (key, command) in custom_bindings.unwrap_or_default() {
             if let Some(command) = parse(&command) {
                 info!("Custom keybinding: {} -> {:?}", key, command);
                 kb.insert(key, command);

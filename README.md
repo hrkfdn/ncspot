@@ -128,6 +128,8 @@ values are:
   <true/false>
 * `volnorm`: Enable or disable volume normalization, off by default <true/false>
 * `volnorm_pregain`: Normalization pregain to apply (if enabled)
+* `default_keybindings`: If disabled, the default keybindings are discarded, off
+  by default <true/false>
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
 
