@@ -98,10 +98,21 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-fn credentials_prompt(reset: bool) -> Credentials {
+fn credentials_prompt(reset: bool, error_message: Option<String>) -> Credentials {
     let path = config::config_path("credentials.toml");
     if reset && fs::remove_file(&path).is_err() {
         error!("could not delete credential file");
+    }
+
+    if let Some(message) = error_message {
+        let mut siv = cursive::default();
+        let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
+            "Connection error:\n{}",
+            message
+        )))
+        .button("Ok", |s| s.quit());
+        siv.add_layer(dialog);
+        siv.run();
     }
 
     let creds =
@@ -184,12 +195,20 @@ fn main() {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(false),
+            None => credentials_prompt(false, None),
         }
     };
 
-    while !spotify::Spotify::test_credentials(credentials.clone()) {
-        credentials = credentials_prompt(true);
+    while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
+        let reset = error
+            .get_ref()
+            .map_or(false, |err| err.to_string().contains("BadCredentials"));
+        debug!("credential reset: {:?}", reset);
+        let error_msg = match error.get_ref() {
+            Some(inner) => inner.to_string(),
+            None => error.to_string(),
+        };
+        credentials = credentials_prompt(reset, Some(error_msg));
     }
 
     let theme = theme::load(&cfg);

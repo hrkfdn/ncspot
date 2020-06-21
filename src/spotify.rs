@@ -44,12 +44,12 @@ use url::Url;
 
 use core::task::Poll;
 
-use std::env;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
+use std::{env, io};
 
 use crate::artist::Artist;
 use crate::config;
@@ -329,15 +329,23 @@ impl Spotify {
         session_config
     }
 
-    pub fn test_credentials(credentials: Credentials) -> bool {
-        let th = thread::spawn(move || {
+    pub fn test_credentials(credentials: Credentials) -> Result<Session, std::io::Error> {
+        let jh = thread::spawn(move || {
             let mut core = Core::new().unwrap();
             let config = Self::session_config();
             let handle = core.handle();
 
             core.run(Session::connect(config, credentials, None, handle))
         });
-        th.join().is_ok()
+        match jh.join() {
+            Ok(session) => session.or_else(Err),
+            Err(e) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                e.downcast_ref::<String>()
+                    .unwrap_or(&"N/A".to_string())
+                    .to_string(),
+            )),
+        }
     }
 
     fn create_session(core: &mut Core, cfg: &config::Config, credentials: Credentials) -> Session {
