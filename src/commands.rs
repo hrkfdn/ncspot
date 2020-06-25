@@ -83,6 +83,7 @@ impl CommandManager {
         cmd: &Command,
     ) -> Result<Option<String>, String> {
         match cmd {
+            Command::Noop => Ok(None),
             Command::Quit => {
                 s.quit();
                 Ok(None)
