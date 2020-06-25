@@ -323,6 +323,7 @@ pub fn parse(input: &str) -> Option<Command> {
         }),
         "volup" => Some(Command::VolumeUp),
         "voldown" => Some(Command::VolumeDown),
+        "help" => Some(Command::Help),
         _ => None,
     }
 }
