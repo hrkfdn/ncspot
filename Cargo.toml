@@ -28,7 +28,7 @@ librespot-core = "0.1.1"
 librespot-playback = "0.1.1"
 librespot-protocol = "0.1.1"
 log = "0.4.0"
-rspotify = { git = "https://github.com/ramsayleung/rspotify", rev = "b857a6e685d6b3b43e4ab1802b618cdbb21f3f2c", features = ["blocking"] }
+rspotify = "0.8"
 serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"

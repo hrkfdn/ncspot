@@ -12,15 +12,17 @@ use librespot_playback::config::Bitrate;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 
-use rspotify::blocking::client::ApiError;
-use rspotify::blocking::client::Spotify as SpotifyAPI;
-use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
-use rspotify::model::artist::FullArtist;
-use rspotify::model::page::{CursorBasedPage, Page};
-use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
-use rspotify::model::search::{SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks};
-use rspotify::model::track::{FullTrack, SavedTrack};
-use rspotify::model::user::PrivateUser;
+use rspotify::spotify::client::ApiError;
+use rspotify::spotify::client::Spotify as SpotifyAPI;
+use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
+use rspotify::spotify::model::artist::FullArtist;
+use rspotify::spotify::model::page::{CursorBasedPage, Page};
+use rspotify::spotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
+use rspotify::spotify::model::search::{
+    SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
+};
+use rspotify::spotify::model::track::{FullTrack, SavedTrack};
+use rspotify::spotify::model::user::PrivateUser;
 
 use failure::Error;
 
