@@ -43,9 +43,6 @@ url = "1.7"
 strum = "0.17.1"
 strum_macros = "0.17.1"
 
-[patch.crates-io]
-librespot-protocol = { git = "https://github.com/librespot-org/librespot", rev = "d77376a800041934803eac6790e3122f24c54b1e" }
-
 [dependencies.cursive]
 version = "0.15"
 default-features = false
