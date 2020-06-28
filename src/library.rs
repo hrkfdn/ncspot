@@ -512,6 +512,27 @@ impl Library {
         }
     }
 
+    pub fn playlist_remove_tracks(&self, playlist_id: &str, track_pos_pairs: &[(Track, usize)]) {
+        let mut has_modified = false;
+
+        if self.spotify.delete_tracks(playlist_id, track_pos_pairs) {
+            let mut playlists = self.playlists.write().expect("can't writelock playlists");
+            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == playlist_id) {
+                if let Some(tracks) = &mut playlist.tracks {
+                    for (_track, pos) in track_pos_pairs {
+                        tracks.remove(*pos);
+                        has_modified = true;
+                    }
+                }
+            }
+        }
+
+        if has_modified {
+            // TODO: Apparently this does not actually update the list of tracks in the ui...
+            self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
+        }
+    }
+
     pub fn is_saved_track(&self, track: &Track) -> bool {
         if !*self.is_done.read().unwrap() {
             return false;
