@@ -8,6 +8,7 @@ use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::playlist::Playlist;
 use crate::queue::Queue;
+use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
@@ -15,7 +16,7 @@ use crate::ui::listview::ListView;
 pub struct PlaylistView {
     playlist: Playlist,
     list: ListView<Track>,
-    library: Arc<Library>,
+    spotify: Arc<Spotify>,
 }
 
 impl PlaylistView {
@@ -29,9 +30,10 @@ impl PlaylistView {
             Vec::new()
         };
 
-        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue.clone(), library.clone());
+        let spotify = queue.get_spotify();
+        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library);
 
-        Self { playlist, list, library }
+        Self { playlist, list, spotify }
     }
 }
 
@@ -54,7 +56,10 @@ impl ViewExt for PlaylistView {
             };
             let track = tracks.get(pos);
             match track {
-                Some(t) => self.library.playlist_remove_tracks(&self.playlist.id, &[(t.clone(), pos)]),
+                Some(t) => {
+                    self.playlist.delete_tracks(&[(t.clone(), pos)], self.spotify.clone());
+                    self.list.remove(pos);
+                },
                 None => {}
             };
             return Ok(CommandResult::Consumed(None));

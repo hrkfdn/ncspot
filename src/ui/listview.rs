@@ -154,6 +154,11 @@ impl<I: ListItem> ListView<I> {
             false
         }
     }
+
+    pub fn remove(&self, index: usize) {
+        let mut c = self.content.write().unwrap();
+        c.remove(index);
+    }
 }
 
 impl<I: ListItem> View for ListView<I> {
