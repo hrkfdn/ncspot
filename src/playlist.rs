@@ -51,6 +51,16 @@ impl Playlist {
 
         self.tracks = Some(collected_tracks);
     }
+
+    pub fn delete_tracks(&mut self, track_pos_pairs: &[(Track, usize)], spotify: Arc<Spotify>) {
+        if spotify.delete_tracks(&self.id, track_pos_pairs) {
+            if let Some(tracks) = &mut self.tracks {
+                for (_track, pos) in track_pos_pairs {
+                    tracks.remove(*pos);
+                }
+            }
+        }
+    }
 }
 
 impl From<&SimplifiedPlaylist> for Playlist {

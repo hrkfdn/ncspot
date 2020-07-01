@@ -24,6 +24,8 @@ use rspotify::spotify::model::search::{
 use rspotify::spotify::model::track::{FullTrack, SavedTrack};
 use rspotify::spotify::model::user::PrivateUser;
 
+use serde_json::json;
+
 use failure::Error;
 
 use futures_01::future::Future as v01_Future;
@@ -561,6 +563,27 @@ impl Spotify {
                 playlist_id,
                 &tracks,
                 position,
+            )
+        })
+        .is_some()
+    }
+
+    pub fn delete_tracks(&self, playlist_id: &str, track_pos_pairs: &[(Track, usize)]) -> bool {
+        let mut tracks = Vec::new();
+        for (track, pos) in track_pos_pairs {
+            let track_occurrence = json!({
+                "uri": format!("spotify:track:{}", track.id.clone().unwrap()),
+                "positions": [pos]
+            });
+            let track_occurrence_object = track_occurrence.as_object();
+            tracks.push(track_occurrence_object.unwrap().clone());
+        }
+        self.api_with_retry(|api| {
+            api.user_playlist_remove_specific_occurrenes_of_tracks(
+                self.user.as_ref().unwrap(),
+                playlist_id,
+                tracks.clone(),
+                None,
             )
         })
         .is_some()
