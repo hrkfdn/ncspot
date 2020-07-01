@@ -33,7 +33,11 @@ impl PlaylistView {
         let spotify = queue.get_spotify();
         let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library);
 
-        Self { playlist, list, spotify }
+        Self {
+            playlist,
+            list,
+            spotify,
+        }
     }
 }
 
@@ -55,13 +59,11 @@ impl ViewExt for PlaylistView {
                 Vec::new()
             };
             let track = tracks.get(pos);
-            match track {
-                Some(t) => {
-                    self.playlist.delete_tracks(&[(t.clone(), pos)], self.spotify.clone());
-                    self.list.remove(pos);
-                },
-                None => {}
-            };
+            if let Some(t) = track {
+                self.playlist
+                    .delete_tracks(&[(t.clone(), pos)], self.spotify.clone());
+                self.list.remove(pos);
+            }
             return Ok(CommandResult::Consumed(None));
         }
 
