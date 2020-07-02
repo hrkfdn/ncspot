@@ -49,7 +49,7 @@ dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-
 
 ## Usage
 
-* Install the latest ncspot release using `cargo install ncspot`
+* Install the latest ncspot release using `cargo install ncspot --locked`. Due to an upstream issue in the librespot dependency described in [#179](https://github.com/hrkfdn/ncspot/issues/179) the `--locked` flag is needed. Until a new [librespot](https://crates.io/crates/librespot) release(>0.1.1) is out, this workarround is needed.
   * or build it yourself using `cargo build --release`
   * both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install)
 * For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
