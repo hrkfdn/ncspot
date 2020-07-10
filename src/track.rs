@@ -8,12 +8,13 @@ use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::library::Library;
-use crate::queue::{Queue, Playable};
+use crate::queue::{Playable, Queue};
 use crate::traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
     pub id: Option<String>,
+    pub uri: String,
     pub title: String,
     pub track_number: u32,
     pub disc_number: i32,
@@ -54,6 +55,7 @@ impl Track {
 
         Self {
             id: track.id.clone(),
+            uri: track.uri.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
@@ -103,6 +105,7 @@ impl From<&FullTrack> for Track {
 
         Self {
             id: track.id.clone(),
+            uri: track.uri.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,

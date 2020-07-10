@@ -5,7 +5,7 @@ use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use crate::album::Album;
 use crate::library::Library;
-use crate::queue::{Queue, Playable};
+use crate::queue::{Playable, Queue};
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
@@ -171,7 +171,10 @@ impl ListItem for Artist {
         self.load_albums(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
-            let tracks: Vec<Playable> = tracks.iter().map(|track| Playable::Track(track.clone())).collect();
+            let tracks: Vec<Playable> = tracks
+                .iter()
+                .map(|track| Playable::Track(track.clone()))
+                .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
         }

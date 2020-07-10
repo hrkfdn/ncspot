@@ -7,6 +7,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Episode {
     pub id: String,
+    pub uri: String,
     pub name: String,
     pub description: String,
     pub release_date: String,
@@ -16,6 +17,7 @@ impl From<&SimplifiedEpisode> for Episode {
     fn from(episode: &SimplifiedEpisode) -> Self {
         Self {
             id: episode.id.clone(),
+            uri: episode.uri.clone(),
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
@@ -38,7 +40,7 @@ impl ListItem for Episode {
 
     fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(vec![Playable::Episode(self.clone())]);
-        queue.play(index, true, false);    
+        queue.play(index, true, false);
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {

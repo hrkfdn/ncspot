@@ -10,7 +10,7 @@ use dbus::{Path, SignalArgs};
 
 use crate::album::Album;
 use crate::playlist::Playlist;
-use crate::queue::{Queue, RepeatSetting, Playable};
+use crate::queue::{Playable, Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 

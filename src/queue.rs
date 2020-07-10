@@ -4,32 +4,39 @@ use std::sync::{Arc, RwLock};
 use rand::prelude::*;
 use strum_macros::Display;
 
+use crate::album::Album;
+use crate::artist::Artist;
 use crate::episode::Episode;
+use crate::library::Library;
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
-use crate::artist::Artist;
-use crate::album::Album;
-use crate::library::Library;
 
 #[derive(Display, Clone, Debug)]
 pub enum Playable {
     Track(Track),
-    Episode(Episode)
+    Episode(Episode),
 }
 
 impl Playable {
     pub fn id(&self) -> Option<String> {
         match self {
             Playable::Track(track) => track.id.clone(),
-            Playable::Episode(episode) => Some(episode.id.clone())
+            Playable::Episode(episode) => Some(episode.id.clone()),
+        }
+    }
+
+    pub fn uri(&self) -> String {
+        match self {
+            Playable::Track(track) => track.uri.clone(),
+            Playable::Episode(episode) => episode.uri.clone(),
         }
     }
 
     pub fn as_listitem(&self) -> Box<dyn ListItem> {
         match self {
             Playable::Track(track) => track.as_listitem(),
-            Playable::Episode(episode) => episode.as_listitem()
+            Playable::Episode(episode) => episode.as_listitem(),
         }
     }
 }

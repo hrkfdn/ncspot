@@ -176,7 +176,10 @@ impl ListItem for Album {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
-            let tracks: Vec<Playable> = tracks.iter().map(|track| Playable::Track(track.clone())).collect();
+            let tracks: Vec<Playable> = tracks
+                .iter()
+                .map(|track| Playable::Track(track.clone()))
+                .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
         }

@@ -14,9 +14,9 @@ use crate::artist::Artist;
 use crate::config;
 use crate::events::EventManager;
 use crate::playlist::Playlist;
+use crate::queue::Playable;
 use crate::spotify::Spotify;
 use crate::track::Track;
-use crate::queue::Playable;
 
 const CACHE_TRACKS: &str = "tracks.db";
 const CACHE_ALBUMS: &str = "albums.db";

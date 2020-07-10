@@ -4,7 +4,7 @@ use std::sync::Arc;
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use crate::library::Library;
-use crate::queue::{Queue, Playable};
+use crate::queue::{Playable, Queue};
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
@@ -151,7 +151,10 @@ impl ListItem for Playlist {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = &self.tracks {
-            let tracks: Vec<Playable> = tracks.iter().map(|track| Playable::Track(track.clone())).collect();
+            let tracks: Vec<Playable> = tracks
+                .iter()
+                .map(|track| Playable::Track(track.clone()))
+                .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
         }

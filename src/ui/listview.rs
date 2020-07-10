@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::queue::{Queue, Playable};
+use crate::queue::{Playable, Queue};
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
@@ -146,7 +146,10 @@ impl<I: ListItem> ListView<I> {
         let content = self.content.read().unwrap();
         let any = &(*content) as &dyn std::any::Any;
         if let Some(tracks) = any.downcast_ref::<Vec<Track>>() {
-            let tracks: Vec<Playable> = tracks.iter().map(|track| Playable::Track(track.clone())).collect();
+            let tracks: Vec<Playable> = tracks
+                .iter()
+                .map(|track| Playable::Track(track.clone()))
+                .collect();
             let index = self.queue.append_next(tracks);
             self.queue.play(index + self.selected, true, false);
             true
@@ -351,7 +354,10 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     TargetMode::Selected => self.content.read().ok().and_then(|content| {
                         content.get(self.selected).and_then(ListItem::share_url)
                     }),
-                    TargetMode::Current => self.queue.get_current().and_then(|t| t.as_listitem().share_url()),
+                    TargetMode::Current => self
+                        .queue
+                        .get_current()
+                        .and_then(|t| t.as_listitem().share_url()),
                 };
 
                 if let Some(url) = url {

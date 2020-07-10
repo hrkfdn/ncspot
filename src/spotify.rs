@@ -55,12 +55,12 @@ use std::{env, io};
 
 use crate::artist::Artist;
 use crate::config;
+use crate::episode::Episode;
 use crate::events::{Event, EventManager};
 use crate::queue;
+use crate::queue::Playable;
 use crate::track::Track;
 use rspotify::model::show::FullShow;
-use crate::queue::Playable;
-use crate::episode::Episode;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -162,15 +162,16 @@ impl futures::Future for Worker {
                 progress = true;
                 debug!("message received!");
                 match cmd {
-                    WorkerCommand::Load(playable) => {
-                        if let Some(track_id) = &playable.id() {
-                            let id = SpotifyId::from_base62(track_id).expect("could not parse id");
+                    WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
+                        Ok(id) => {
                             self.play_task = Box::pin(self.player.load(id, true, 0).compat());
                             info!("player loading track: {:?}", playable);
-                        } else {
+                        }
+                        Err(e) => {
+                            error!("error parsing uri: {:?}", e);
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                         }
-                    }
+                    },
                     WorkerCommand::Play => {
                         self.player.play();
                     }
