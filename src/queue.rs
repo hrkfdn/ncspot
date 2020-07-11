@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use rand::prelude::*;
@@ -12,7 +13,7 @@ use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 
-#[derive(Display, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Playable {
     Track(Track),
     Episode(Episode),
@@ -33,10 +34,33 @@ impl Playable {
         }
     }
 
+    pub fn duration(&self) -> u32 {
+        match self {
+            Playable::Track(track) => track.duration,
+            Playable::Episode(episode) => episode.duration,
+        }
+    }
+
+    pub fn duration_str(&self) -> String {
+        let duration = self.duration();
+        let minutes = duration / 60_000;
+        let seconds = (duration / 1000) % 60;
+        format!("{:02}:{:02}", minutes, seconds)
+    }
+
     pub fn as_listitem(&self) -> Box<dyn ListItem> {
         match self {
             Playable::Track(track) => track.as_listitem(),
             Playable::Episode(episode) => episode.as_listitem(),
+        }
+    }
+}
+
+impl fmt::Display for Playable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Playable::Track(track) => track.fmt(f),
+            Playable::Episode(episode) => episode.fmt(f),
         }
     }
 }

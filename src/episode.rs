@@ -2,6 +2,7 @@ use crate::library::Library;
 use crate::queue::{Playable, Queue};
 use crate::traits::{ListItem, ViewExt};
 use rspotify::model::show::SimplifiedEpisode;
+use std::fmt;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -32,6 +33,12 @@ impl From<&SimplifiedEpisode> for Episode {
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
         }
+    }
+}
+
+impl fmt::Display for Episode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
