@@ -8,9 +8,18 @@ use std::sync::Arc;
 pub struct Episode {
     pub id: String,
     pub uri: String,
+    pub duration: u32,
     pub name: String,
     pub description: String,
     pub release_date: String,
+}
+
+impl Episode {
+    pub fn duration_str(&self) -> String {
+        let minutes = self.duration / 60_000;
+        let seconds = (self.duration / 1000) % 60;
+        format!("{:02}:{:02}", minutes, seconds)
+    }
 }
 
 impl From<&SimplifiedEpisode> for Episode {
@@ -18,6 +27,7 @@ impl From<&SimplifiedEpisode> for Episode {
         Self {
             id: episode.id.clone(),
             uri: episode.uri.clone(),
+            duration: episode.duration_ms,
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
@@ -35,7 +45,7 @@ impl ListItem for Episode {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        self.release_date.clone()
+        format!("{} [{}]", self.duration_str(), self.release_date)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
