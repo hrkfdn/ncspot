@@ -60,7 +60,7 @@ use crate::events::{Event, EventManager};
 use crate::queue;
 use crate::queue::Playable;
 use crate::track::Track;
-use rspotify::model::show::FullShow;
+use rspotify::model::show::{FullShow, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -716,8 +716,13 @@ impl Spotify {
         })
     }
 
-    pub fn show_episodes(&self, show_id: &str) -> Option<FullShow> {
-        self.api_with_retry(|api| api.get_a_show(show_id.to_string(), None))
+    pub fn show_episodes(
+        &self,
+        show_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Option<Page<SimplifiedEpisode>> {
+        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), limit, offset, None))
     }
 
     pub fn current_user_followed_artists(

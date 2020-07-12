@@ -15,16 +15,35 @@ pub struct Show {
     pub publisher: String,
     pub description: String,
     pub cover_url: Option<String>,
+    pub episodes: Option<Vec<Episode>>,
 }
 
 impl Show {
-    pub fn load_episodes(&self, spotify: Arc<Spotify>) -> Vec<Episode> {
-        spotify
-            .show_episodes(&self.id)
-            .map_or(vec![], |i| i.episodes.items)
-            .iter()
-            .map(|episode| episode.into())
-            .collect()
+    pub fn load_episodes(&mut self, spotify: Arc<Spotify>) {
+        let mut collected_episodes = Vec::new();
+
+        let mut episodes_result = spotify.show_episodes(&self.id, 50, 0);
+        while let Some(ref episodes) = episodes_result.clone() {
+            for item in &episodes.items {
+                collected_episodes.push(item.into())
+            }
+            debug!("got {} episodes", episodes.items.len());
+
+            // load next batch if necessary
+            episodes_result = match episodes.next {
+                Some(_) => {
+                    debug!("requesting episodes again..");
+                    spotify.show_episodes(
+                        &self.id,
+                        50,
+                        episodes.offset + episodes.items.len() as u32,
+                    )
+                }
+                None => None,
+            }
+        }
+
+        self.episodes = Some(collected_episodes);
     }
 }
 
@@ -36,6 +55,7 @@ impl From<&SimplifiedShow> for Show {
             publisher: show.publisher.clone(),
             description: show.description.clone(),
             cover_url: show.images.get(0).map(|i| i.url.clone()),
+            episodes: None,
         }
     }
 }
@@ -56,7 +76,10 @@ impl ListItem for Show {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        "".to_string()
+        self.episodes
+            .as_ref()
+            .map(|eps| format!("{} episodes", eps.len()))
+            .unwrap_or_default()
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

@@ -19,11 +19,13 @@ pub struct ShowView {
 
 impl ShowView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, show: &Show) -> Self {
-        let show = show.clone();
-        let episodes: Vec<Episode> = show.load_episodes(queue.get_spotify());
+        let mut show = show.clone();
+        show.load_episodes(queue.get_spotify());
+
+        let episodes = show.episodes.clone().unwrap_or_default();
 
         Self {
-            list: ListView::new(Arc::new(RwLock::new(episodes)), queue, library.clone()),
+            list: ListView::new(Arc::new(RwLock::new(episodes)), queue, library),
             show,
         }
     }
@@ -35,7 +37,7 @@ impl ViewWrapper for ShowView {
 
 impl ViewExt for ShowView {
     fn title(&self) -> String {
-        format!("{}", self.show.name)
+        self.show.name.clone()
     }
 
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {

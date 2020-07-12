@@ -180,7 +180,6 @@ impl View for StatusBar {
         //         ""
         //     };
         // }
-
     }
 
     fn layout(&mut self, size: Vec2) {
