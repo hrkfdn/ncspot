@@ -9,7 +9,8 @@ use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;
-use crate::queue::{Playable, Queue, RepeatSetting};
+use crate::playable::Playable;
+use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {

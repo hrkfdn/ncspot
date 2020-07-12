@@ -13,8 +13,8 @@ use crate::album::Album;
 use crate::artist::Artist;
 use crate::config;
 use crate::events::EventManager;
+use crate::playable::Playable;
 use crate::playlist::Playlist;
-use crate::queue::Playable;
 use crate::spotify::Spotify;
 use crate::track::Track;
 

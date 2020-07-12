@@ -55,12 +55,11 @@ use std::{env, io};
 
 use crate::artist::Artist;
 use crate::config;
-use crate::episode::Episode;
 use crate::events::{Event, EventManager};
+use crate::playable::Playable;
 use crate::queue;
-use crate::queue::Playable;
 use crate::track::Track;
-use rspotify::model::show::{FullShow, SimplifiedEpisode};
+use rspotify::model::show::SimplifiedEpisode;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 

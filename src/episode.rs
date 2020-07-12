@@ -1,5 +1,6 @@
 use crate::library::Library;
-use crate::queue::{Playable, Queue};
+use crate::playable::Playable;
+use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 use rspotify::model::show::SimplifiedEpisode;
 use std::fmt;

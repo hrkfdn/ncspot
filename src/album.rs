@@ -1,4 +1,3 @@
-use crate::queue::Playable;
 use std::fmt;
 use std::sync::Arc;
 
@@ -7,6 +6,7 @@ use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
 use crate::artist::Artist;
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::track::Track;

@@ -8,7 +8,8 @@ use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::library::Library;
-use crate::queue::{Playable, Queue};
+use crate::playable::Playable;
+use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]

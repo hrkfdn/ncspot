@@ -60,6 +60,7 @@ mod config;
 mod episode;
 mod events;
 mod library;
+mod playable;
 mod playlist;
 mod queue;
 mod show;
