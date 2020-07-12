@@ -1,5 +1,6 @@
 use crate::episode::Episode;
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
@@ -20,6 +21,10 @@ pub struct Show {
 
 impl Show {
     pub fn load_episodes(&mut self, spotify: Arc<Spotify>) {
+        if self.episodes.is_some() {
+            return;
+        }
+
         let mut collected_episodes = Vec::new();
 
         let mut episodes_result = spotify.show_episodes(&self.id, 50, 0);
@@ -83,11 +88,26 @@ impl ListItem for Show {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        unimplemented!()
+        self.load_episodes(queue.get_spotify());
+
+        let playables = self
+            .episodes
+            .as_ref()
+            .unwrap_or(&Vec::new())
+            .iter()
+            .map(|ep| Playable::Episode(ep.clone()))
+            .collect();
+
+        let index = queue.append_next(playables);
+        queue.play(index, true, true);
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        unimplemented!()
+        self.load_episodes(queue.get_spotify());
+
+        for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
+            queue.append(Playable::Episode(ep.clone()));
+        }
     }
 
     fn toggle_saved(&mut self, library: Arc<Library>) {
@@ -107,7 +127,7 @@ impl ListItem for Show {
     }
 
     fn share_url(&self) -> Option<String> {
-        unimplemented!()
+        Some(format!("https://open.spotify.com/show/{}", self.id))
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {

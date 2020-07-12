@@ -78,11 +78,11 @@ impl ListItem for Episode {
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        unimplemented!()
+        None
     }
 
     fn share_url(&self) -> Option<String> {
-        unimplemented!()
+        Some(format!("https://open.spotify.com/episode/{}", self.id))
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {
