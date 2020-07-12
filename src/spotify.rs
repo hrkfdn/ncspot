@@ -59,7 +59,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
-use rspotify::model::show::SimplifiedEpisode;
+use rspotify::model::show::{Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -715,13 +715,22 @@ impl Spotify {
         })
     }
 
-    pub fn show_episodes(
-        &self,
-        show_id: &str,
-        limit: u32,
-        offset: u32,
-    ) -> Option<Page<SimplifiedEpisode>> {
-        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), limit, offset, None))
+    pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
+        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, None))
+    }
+
+    pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
+        self.api_with_retry(|api| api.get_saved_show(50, offset))
+    }
+
+    pub fn save_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.save_shows(ids.clone()))
+            .is_some()
+    }
+
+    pub fn unsave_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), None))
+            .is_some()
     }
 
     pub fn current_user_followed_artists(

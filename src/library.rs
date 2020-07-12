@@ -15,6 +15,7 @@ use crate::config;
 use crate::events::EventManager;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
+use crate::show::Show;
 use crate::spotify::Spotify;
 use crate::track::Track;
 
@@ -29,6 +30,7 @@ pub struct Library {
     pub albums: Arc<RwLock<Vec<Album>>>,
     pub artists: Arc<RwLock<Vec<Artist>>>,
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
+    pub shows: Arc<RwLock<Vec<Show>>>,
     pub is_done: Arc<RwLock<bool>>,
     user_id: Option<String>,
     ev: EventManager,
@@ -45,6 +47,7 @@ impl Library {
             albums: Arc::new(RwLock::new(Vec::new())),
             artists: Arc::new(RwLock::new(Vec::new())),
             playlists: Arc::new(RwLock::new(Vec::new())),
+            shows: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
             user_id,
             ev: ev.clone(),
@@ -203,6 +206,13 @@ impl Library {
                 })
             };
 
+            let t_shows = {
+                let library = library.clone();
+                thread::spawn(move || {
+                    library.fetch_shows();
+                })
+            };
+
             t_tracks.join().unwrap();
             t_artists.join().unwrap();
 
@@ -211,12 +221,36 @@ impl Library {
 
             t_albums.join().unwrap();
             t_playlists.join().unwrap();
+            t_shows.join().unwrap();
 
             let mut is_done = library.is_done.write().unwrap();
             *is_done = true;
 
             library.ev.trigger();
         });
+    }
+
+    fn fetch_shows(&self) {
+        debug!("loading shows");
+
+        let mut saved_shows: Vec<Show> = Vec::new();
+        let mut shows_result = self.spotify.get_saved_shows(0);
+
+        while let Some(shows) = shows_result.as_ref() {
+            saved_shows.extend(shows.items.iter().map(|show| (&show.show).into()));
+
+            // load next batch if necessary
+            shows_result = match shows.next {
+                Some(_) => {
+                    debug!("requesting shows again..");
+                    self.spotify
+                        .get_saved_shows(shows.offset + shows.items.len() as u32)
+                }
+                None => None,
+            }
+        }
+
+        *self.shows.write().unwrap() = saved_shows;
     }
 
     fn fetch_playlists(&self) {
@@ -772,6 +806,43 @@ impl Library {
         }
 
         self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
+    }
+
+    pub fn is_saved_show(&self, show: &Show) -> bool {
+        if !*self.is_done.read().unwrap() {
+            return false;
+        }
+
+        let shows = self.shows.read().unwrap();
+        shows.iter().any(|s| s.id == show.id)
+    }
+
+    pub fn save_show(&self, show: &Show) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
+        if self.spotify.save_shows(vec![show.id.clone()]) {
+            {
+                let mut store = self.shows.write().unwrap();
+                if !store.iter().any(|s| s.id == show.id) {
+                    store.insert(0, show.clone());
+                }
+            }
+        }
+    }
+
+    pub fn unsave_show(&self, show: &Show) {
+        if !*self.is_done.read().unwrap() {
+            return;
+        }
+
+        if self.spotify.unsave_shows(vec![show.id.clone()]) {
+            {
+                let mut store = self.shows.write().unwrap();
+                *store = store.iter().filter(|s| s.id != show.id).cloned().collect();
+            }
+        }
     }
 
     pub fn trigger_redraw(&self) {

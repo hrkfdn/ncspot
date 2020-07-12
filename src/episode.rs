@@ -45,14 +45,17 @@ impl fmt::Display for Episode {
 
 impl ListItem for Episode {
     fn is_playing(&self, queue: Arc<Queue>) -> bool {
-        false
+        let current = queue.get_current();
+        current
+            .map(|t| t.id() == Some(self.id.clone()))
+            .unwrap_or(false)
     }
 
     fn display_left(&self) -> String {
         self.name.clone()
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, _library: Arc<Library>) -> String {
         format!("{} [{}]", self.duration_str(), self.release_date)
     }
 
@@ -65,19 +68,13 @@ impl ListItem for Episode {
         queue.append(Playable::Episode(self.clone()));
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        unimplemented!()
-    }
+    fn toggle_saved(&mut self, _library: Arc<Library>) {}
 
-    fn save(&mut self, library: Arc<Library>) {
-        unimplemented!()
-    }
+    fn save(&mut self, _library: Arc<Library>) {}
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        unimplemented!()
-    }
+    fn unsave(&mut self, _library: Arc<Library>) {}
 
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
         None
     }
 

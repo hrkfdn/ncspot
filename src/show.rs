@@ -27,7 +27,7 @@ impl Show {
 
         let mut collected_episodes = Vec::new();
 
-        let mut episodes_result = spotify.show_episodes(&self.id, 50, 0);
+        let mut episodes_result = spotify.show_episodes(&self.id, 0);
         while let Some(ref episodes) = episodes_result.clone() {
             for item in &episodes.items {
                 collected_episodes.push(item.into())
@@ -38,11 +38,7 @@ impl Show {
             episodes_result = match episodes.next {
                 Some(_) => {
                     debug!("requesting episodes again..");
-                    spotify.show_episodes(
-                        &self.id,
-                        50,
-                        episodes.offset + episodes.items.len() as u32,
-                    )
+                    spotify.show_episodes(&self.id, episodes.offset + episodes.items.len() as u32)
                 }
                 None => None,
             }
@@ -72,7 +68,7 @@ impl fmt::Display for Show {
 }
 
 impl ListItem for Show {
-    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, _queue: Arc<Queue>) -> bool {
         false
     }
 
@@ -81,10 +77,16 @@ impl ListItem for Show {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        self.episodes
-            .as_ref()
-            .map(|eps| format!("{} episodes", eps.len()))
-            .unwrap_or_default()
+        let saved = if library.is_saved_show(self) {
+            if library.use_nerdfont {
+                "\u{f62b} "
+            } else {
+                "✓ "
+            }
+        } else {
+            ""
+        };
+        saved.to_owned()
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -111,15 +113,19 @@ impl ListItem for Show {
     }
 
     fn toggle_saved(&mut self, library: Arc<Library>) {
-        unimplemented!()
+        if library.is_saved_show(self) {
+            self.unsave(library);
+        } else {
+            self.save(library);
+        }
     }
 
     fn save(&mut self, library: Arc<Library>) {
-        unimplemented!()
+        library.save_show(self);
     }
 
     fn unsave(&mut self, library: Arc<Library>) {
-        unimplemented!()
+        library.unsave_show(self);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
