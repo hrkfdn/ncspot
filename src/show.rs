@@ -12,6 +12,7 @@ use std::sync::Arc;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Show {
     pub id: String,
+    pub uri: String,
     pub name: String,
     pub publisher: String,
     pub description: String,
@@ -52,6 +53,7 @@ impl From<&SimplifiedShow> for Show {
     fn from(show: &SimplifiedShow) -> Self {
         Self {
             id: show.id.clone(),
+            uri: show.uri.clone(),
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),

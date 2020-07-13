@@ -14,6 +14,7 @@ pub struct Episode {
     pub name: String,
     pub description: String,
     pub release_date: String,
+    pub cover_url: Option<String>,
 }
 
 impl Episode {
@@ -33,6 +34,7 @@ impl From<&SimplifiedEpisode> for Episode {
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
+            cover_url: episode.images.get(0).map(|img| img.url.clone()),
         }
     }
 }

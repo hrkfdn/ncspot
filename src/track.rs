@@ -25,7 +25,7 @@ pub struct Track {
     pub album: String,
     pub album_id: Option<String>,
     pub album_artists: Vec<String>,
-    pub cover_url: String,
+    pub cover_url: Option<String>,
     pub url: String,
     pub added_at: Option<DateTime<Utc>>,
 }
@@ -49,11 +49,6 @@ impl Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
 
-        let cover_url = match album.images.get(0) {
-            Some(image) => image.url.clone(),
-            None => "".to_owned(),
-        };
-
         Self {
             id: track.id.clone(),
             uri: track.uri.clone(),
@@ -66,7 +61,7 @@ impl Track {
             album: album.name.clone(),
             album_id: Some(album.id.clone()),
             album_artists,
-            cover_url,
+            cover_url: album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
         }
@@ -99,11 +94,6 @@ impl From<&FullTrack> for Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
 
-        let cover_url = match track.album.images.get(0) {
-            Some(image) => image.url.clone(),
-            None => "".to_owned(),
-        };
-
         Self {
             id: track.id.clone(),
             uri: track.uri.clone(),
@@ -116,7 +106,7 @@ impl From<&FullTrack> for Track {
             album: track.album.name.clone(),
             album_id: track.album.id.clone(),
             album_artists,
-            cover_url,
+            cover_url: track.album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
         }
