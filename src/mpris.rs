@@ -118,7 +118,16 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
     );
     hm.insert(
         "xesam:url".to_string(),
-        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
+        Variant(Box::new(
+            playable
+                .map(|t| {
+                    format!(
+                        "https://open.spotify.com/track/{}",
+                        t.id().unwrap_or_else(|| "0".to_string())
+                    )
+                })
+                .unwrap_or_default(),
+        )),
     );
 
     hm
