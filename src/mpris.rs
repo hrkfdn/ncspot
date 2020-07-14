@@ -37,10 +37,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .map(|t| {
-                    format!(
-                        "spotify:track:{}",
-                        t.id().unwrap_or_else(|| "0".to_string())
-                    )
+                    t.uri()
                 })
                 .unwrap_or_default(),
         )),
@@ -121,10 +118,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .map(|t| {
-                    format!(
-                        "https://open.spotify.com/track/{}",
-                        t.id().unwrap_or_else(|| "0".to_string())
-                    )
+                    t.share_url().unwrap_or_else(|| "0".to_string())
                 })
                 .unwrap_or_default(),
         )),
