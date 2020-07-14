@@ -45,7 +45,7 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
-use cursive::Cursive;
+use cursive::{Cursive, CursiveExt};
 
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
@@ -57,10 +57,13 @@ mod authentication;
 mod command;
 mod commands;
 mod config;
+mod episode;
 mod events;
 mod library;
+mod playable;
 mod playlist;
 mod queue;
+mod show;
 mod spotify;
 mod theme;
 mod track;
@@ -98,10 +101,21 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-fn credentials_prompt(reset: bool) -> Credentials {
+fn credentials_prompt(reset: bool, error_message: Option<String>) -> Credentials {
     let path = config::config_path("credentials.toml");
     if reset && fs::remove_file(&path).is_err() {
         error!("could not delete credential file");
+    }
+
+    if let Some(message) = error_message {
+        let mut siv = cursive::default();
+        let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
+            "Connection error:\n{}",
+            message
+        )))
+        .button("Ok", |s| s.quit());
+        siv.add_layer(dialog);
+        siv.run();
     }
 
     let creds =
@@ -184,12 +198,20 @@ fn main() {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(false),
+            None => credentials_prompt(false, None),
         }
     };
 
-    while !spotify::Spotify::test_credentials(credentials.clone()) {
-        credentials = credentials_prompt(true);
+    while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
+        let reset = error
+            .get_ref()
+            .map_or(false, |err| err.to_string().contains("BadCredentials"));
+        debug!("credential reset: {:?}", reset);
+        let error_msg = match error.get_ref() {
+            Some(inner) => inner.to_string(),
+            None => error.to_string(),
+        };
+        credentials = credentials_prompt(reset, Some(error_msg));
     }
 
     let theme = theme::load(&cfg);
@@ -216,12 +238,8 @@ fn main() {
         cfg.use_nerdfont.unwrap_or(false),
     ));
 
-    let mut cmd_manager = CommandManager::new(
-        spotify.clone(),
-        queue.clone(),
-        library.clone(),
-        cfg.keybindings.clone(),
-    );
+    let mut cmd_manager =
+        CommandManager::new(spotify.clone(), queue.clone(), library.clone(), &cfg);
     cmd_manager.register_all();
 
     let cmd_manager = Arc::new(cmd_manager);
@@ -297,6 +315,7 @@ fn main() {
                         queue.next(false);
                     }
                 }
+                Event::SessionDied => spotify.start_worker(None),
             }
         }
     }

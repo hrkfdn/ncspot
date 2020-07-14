@@ -10,25 +10,28 @@ use librespot_playback::config::PlayerConfig;
 use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;
 use librespot_playback::mixer::Mixer;
-use librespot_playback::player::Player;
+use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 
-use rspotify::spotify::client::ApiError;
-use rspotify::spotify::client::Spotify as SpotifyAPI;
-use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
-use rspotify::spotify::model::artist::FullArtist;
-use rspotify::spotify::model::page::{CursorBasedPage, Page};
-use rspotify::spotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
-use rspotify::spotify::model::search::{
-    SearchAlbums, SearchArtists, SearchPlaylists, SearchTracks,
-};
-use rspotify::spotify::model::track::{FullTrack, SavedTrack};
-use rspotify::spotify::model::user::PrivateUser;
+use rspotify::blocking::client::ApiError;
+use rspotify::blocking::client::Spotify as SpotifyAPI;
+use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
+use rspotify::model::artist::FullArtist;
+use rspotify::model::page::{CursorBasedPage, Page};
+use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
+use rspotify::model::search::SearchResult;
+use rspotify::model::track::{FullTrack, SavedTrack};
+use rspotify::model::user::PrivateUser;
+use rspotify::senum::SearchType;
+
+use serde_json::json;
 
 use failure::Error;
 
 use futures_01::future::Future as v01_Future;
 use futures_01::stream::Stream as v01_Stream;
+use futures_01::sync::mpsc::UnboundedReceiver;
 use futures_01::sync::oneshot::Canceled;
+use futures_01::Async as v01_Async;
 
 use futures::channel::mpsc;
 use futures::channel::oneshot;
@@ -39,28 +42,29 @@ use futures::Future;
 use futures::Stream;
 
 use tokio_core::reactor::Core;
-use tokio_timer;
 use url::Url;
 
 use core::task::Poll;
 
-use std::env;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
+use std::{env, io};
 
 use crate::artist::Artist;
 use crate::config;
 use crate::events::{Event, EventManager};
+use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
+use rspotify::model::show::{Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
 enum WorkerCommand {
-    Load(Box<Track>),
+    Load(Playable),
     Play,
     Pause,
     Stop,
@@ -78,13 +82,16 @@ pub enum PlayerEvent {
 }
 
 pub struct Spotify {
+    events: EventManager,
+    credentials: Credentials,
+    cfg: config::Config,
     status: RwLock<PlayerEvent>,
     api: RwLock<SpotifyAPI>,
     elapsed: RwLock<Option<Duration>>,
     since: RwLock<Option<SystemTime>>,
     token_issued: RwLock<Option<SystemTime>>,
-    channel: mpsc::UnboundedSender<WorkerCommand>,
-    user: String,
+    channel: RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>,
+    user: Option<String>,
     pub volume: AtomicU16,
     pub repeat: queue::RepeatSetting,
     pub shuffle: bool,
@@ -92,6 +99,7 @@ pub struct Spotify {
 
 struct Worker {
     events: EventManager,
+    player_events: UnboundedReceiver<LibrespotPlayerEvent>,
     commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
     session: Session,
     player: Player,
@@ -105,6 +113,7 @@ struct Worker {
 impl Worker {
     fn new(
         events: EventManager,
+        player_events: UnboundedReceiver<LibrespotPlayerEvent>,
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
         session: Session,
         player: Player,
@@ -112,6 +121,7 @@ impl Worker {
     ) -> Worker {
         Worker {
             events,
+            player_events,
             commands,
             player,
             session,
@@ -142,24 +152,27 @@ impl futures::Future for Worker {
         loop {
             let mut progress = false;
 
+            if self.session.is_invalid() {
+                self.events.send(Event::Player(PlayerEvent::Stopped));
+                return Poll::Ready(Result::Err(()));
+            }
+
             if let Poll::Ready(Some(cmd)) = self.commands.as_mut().poll_next(cx) {
                 progress = true;
                 debug!("message received!");
                 match cmd {
-                    WorkerCommand::Load(track) => {
-                        if let Some(track_id) = &track.id {
-                            let id = SpotifyId::from_base62(track_id).expect("could not parse id");
-                            self.play_task = Box::pin(self.player.load(id, false, 0).compat());
-                            info!("player loading track: {:?}", track);
-                        } else {
+                    WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
+                        Ok(id) => {
+                            self.play_task = Box::pin(self.player.load(id, true, 0).compat());
+                            info!("player loading track: {:?}", playable);
+                        }
+                        Err(e) => {
+                            error!("error parsing uri: {:?}", e);
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                         }
-                    }
+                    },
                     WorkerCommand::Play => {
                         self.player.play();
-                        self.events.send(Event::Player(PlayerEvent::Playing));
-                        self.refresh_task = self.create_refresh();
-                        self.active = true;
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
@@ -183,6 +196,7 @@ impl futures::Future for Worker {
                     }
                 }
             }
+
             match self.play_task.as_mut().poll(cx) {
                 Poll::Ready(Ok(())) => {
                     debug!("end of track!");
@@ -190,11 +204,25 @@ impl futures::Future for Worker {
                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                 }
                 Poll::Ready(Err(Canceled)) => {
-                    debug!("player task is over!");
+                    error!("player task was cancelled!");
+                    self.events.send(Event::Player(PlayerEvent::Stopped));
                     self.play_task = Box::pin(futures::future::pending());
                 }
                 Poll::Pending => (),
             }
+
+            if let Ok(v01_Async::Ready(Some(event))) = self.player_events.poll() {
+                debug!("librespot player event: {:?}", event);
+                match event {
+                    LibrespotPlayerEvent::Started { .. } | LibrespotPlayerEvent::Changed { .. } => {
+                        self.events.send(Event::Player(PlayerEvent::Playing));
+                        self.refresh_task = self.create_refresh();
+                        self.active = true;
+                    }
+                    _ => {}
+                }
+            }
+
             if let Poll::Ready(Some(Ok(_))) = self.refresh_task.as_mut().poll_next(cx) {
                 self.refresh_task = if self.active {
                     progress = true;
@@ -203,6 +231,7 @@ impl futures::Future for Worker {
                     Box::pin(futures::stream::empty())
                 };
             }
+
             match self.token_task.as_mut().poll(cx) {
                 Poll::Ready(Ok(_)) => {
                     info!("token updated!");
@@ -223,7 +252,6 @@ impl futures::Future for Worker {
 
 impl Spotify {
     pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
-        let (user_tx, user_rx) = oneshot::channel();
         let volume = match &cfg.saved_state {
             Some(state) => match state.volume {
                 Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
@@ -250,33 +278,48 @@ impl Spotify {
             None => false,
         };
 
-        let (tx, rx) = mpsc::unbounded();
-        {
-            let cfg = cfg.clone();
-            thread::spawn(move || {
-                Self::worker(events, Box::pin(rx), cfg, credentials, user_tx, volume)
-            });
-        }
-
-        let user = futures::executor::block_on(user_rx);
-
-        let spotify = Spotify {
+        let mut spotify = Spotify {
+            events,
+            credentials,
+            cfg: cfg.clone(),
             status: RwLock::new(PlayerEvent::Stopped),
             api: RwLock::new(SpotifyAPI::default()),
             elapsed: RwLock::new(None),
             since: RwLock::new(None),
             token_issued: RwLock::new(None),
-            channel: tx,
-            user: user.expect("error retrieving userid from worker"),
+            channel: RwLock::new(None),
+            user: None,
             volume: AtomicU16::new(volume),
             repeat,
             shuffle,
         };
 
-        // acquire token for web api usage
-        spotify.refresh_token();
+        let (user_tx, user_rx) = oneshot::channel();
+        spotify.start_worker(Some(user_tx));
+        spotify.user = futures::executor::block_on(user_rx).ok();
         spotify.set_volume(volume);
+
         spotify
+    }
+
+    pub fn start_worker(&self, user_tx: Option<oneshot::Sender<String>>) {
+        let (tx, rx) = mpsc::unbounded();
+        *self
+            .channel
+            .write()
+            .expect("can't writelock worker channel") = Some(tx);
+        {
+            let cfg = self.cfg.clone();
+            let events = self.events.clone();
+            let volume = self.volume();
+            let credentials = self.credentials.clone();
+            thread::spawn(move || {
+                Self::worker(events, Box::pin(rx), cfg, credentials, user_tx, volume)
+            });
+        }
+
+        // acquire token for web api usage
+        self.refresh_token();
     }
 
     pub fn session_config() -> SessionConfig {
@@ -291,16 +334,23 @@ impl Spotify {
         session_config
     }
 
-    pub fn test_credentials(credentials: Credentials) -> bool {
-        let th = thread::spawn(move || {
+    pub fn test_credentials(credentials: Credentials) -> Result<Session, std::io::Error> {
+        let jh = thread::spawn(move || {
             let mut core = Core::new().unwrap();
             let config = Self::session_config();
             let handle = core.handle();
 
             core.run(Session::connect(config, credentials, None, handle))
-                .unwrap();
         });
-        th.join().is_ok()
+        match jh.join() {
+            Ok(session) => session.or_else(Err),
+            Err(e) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                e.downcast_ref::<String>()
+                    .unwrap_or(&"N/A".to_string())
+                    .to_string(),
+            )),
+        }
     }
 
     fn create_session(core: &mut Core, cfg: &config::Config, credentials: Credentials) -> Session {
@@ -352,7 +402,7 @@ impl Spotify {
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
         cfg: config::Config,
         credentials: Credentials,
-        user_tx: oneshot::Sender<String>,
+        user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
     ) {
         let player_config = PlayerConfig {
@@ -364,9 +414,7 @@ impl Spotify {
         let mut core = Core::new().unwrap();
 
         let session = Self::create_session(&mut core, &cfg, credentials);
-        user_tx
-            .send(session.username())
-            .expect("could not pass username back to Spotify::new");
+        user_tx.map(|tx| tx.send(session.username()));
 
         let create_mixer = librespot_playback::mixer::find(Some("softvol".to_owned()))
             .expect("could not create softvol mixer");
@@ -374,17 +422,26 @@ impl Spotify {
         mixer.set_volume(volume);
 
         let backend = audio_backend::find(cfg.backend.clone()).unwrap();
-        let (player, _eventchannel) = Player::new(
+        let (player, player_events) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
             move || (backend)(cfg.backend_device),
         );
 
-        let worker = Worker::new(events, commands, session, player, mixer);
+        let worker = Worker::new(
+            events.clone(),
+            player_events,
+            commands,
+            session,
+            player,
+            mixer,
+        );
         debug!("worker thread ready.");
-        core.run(futures::compat::Compat::new(worker)).unwrap();
-        debug!("worker thread finished.");
+        if core.run(futures::compat::Compat::new(worker)).is_err() {
+            error!("worker thread died, requesting restart");
+            events.send(Event::SessionDied)
+        }
     }
 
     pub fn get_current_status(&self) -> PlayerEvent {
@@ -446,9 +503,7 @@ impl Spotify {
         }
 
         let (token_tx, token_rx) = oneshot::channel();
-        self.channel
-            .unbounded_send(WorkerCommand::RequestToken(token_tx))
-            .unwrap();
+        self.send_worker(WorkerCommand::RequestToken(token_tx));
         let token = futures::executor::block_on(token_rx).unwrap();
 
         // update token used by web api calls
@@ -505,17 +560,43 @@ impl Spotify {
         position: Option<i32>,
     ) -> bool {
         self.api_with_retry(|api| {
-            api.user_playlist_add_tracks(&self.user, playlist_id, &tracks, position)
+            api.user_playlist_add_tracks(
+                self.user.as_ref().unwrap(),
+                playlist_id,
+                &tracks,
+                position,
+            )
         })
         .is_some()
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
+    pub fn delete_tracks(&self, playlist_id: &str, track_pos_pairs: &[(Track, usize)]) -> bool {
+        let mut tracks = Vec::new();
+        for (track, pos) in track_pos_pairs {
+            let track_occurrence = json!({
+                "uri": format!("spotify:track:{}", track.id.clone().unwrap()),
+                "positions": [pos]
+            });
+            let track_occurrence_object = track_occurrence.as_object();
+            tracks.push(track_occurrence_object.unwrap().clone());
+        }
+        self.api_with_retry(|api| {
+            api.user_playlist_remove_specific_occurrenes_of_tracks(
+                self.user.as_ref().unwrap(),
+                playlist_id,
+                tracks.clone(),
+                None,
+            )
+        })
+        .is_some()
+    }
+
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         // extract only track IDs
         let mut tracks: Vec<String> = tracks
             .iter()
-            .filter(|track| track.id.is_some())
-            .map(|track| track.id.clone().unwrap())
+            .filter(|track| track.id().is_some())
+            .map(|track| track.id().clone().unwrap())
             .collect();
 
         // we can only send 100 tracks per request
@@ -525,9 +606,9 @@ impl Spotify {
             None
         };
 
-        if let Some(()) =
-            self.api_with_retry(|api| api.user_playlist_replace_tracks(&self.user, id, &tracks))
-        {
+        if let Some(()) = self.api_with_retry(|api| {
+            api.user_playlist_replace_tracks(self.user.as_ref().unwrap(), id, &tracks)
+        }) {
             debug!("saved {} tracks to playlist {}", tracks.len(), id);
             while let Some(ref mut tracks) = remainder.clone() {
                 // grab the next set of 100 tracks
@@ -551,7 +632,7 @@ impl Spotify {
     }
 
     pub fn delete_playlist(&self, id: &str) -> bool {
-        self.api_with_retry(|api| api.user_playlist_unfollow(&self.user, id))
+        self.api_with_retry(|api| api.user_playlist_unfollow(self.user.as_ref().unwrap(), id))
             .is_some()
     }
 
@@ -562,7 +643,12 @@ impl Spotify {
         description: Option<String>,
     ) -> Option<String> {
         let result = self.api_with_retry(|api| {
-            api.user_playlist_create(&self.user, name, public, description.clone())
+            api.user_playlist_create(
+                self.user.as_ref().unwrap(),
+                name,
+                public,
+                description.clone(),
+            )
         });
         result.map(|r| r.id)
     }
@@ -583,20 +669,15 @@ impl Spotify {
         self.api_with_retry(|api| api.track(track_id))
     }
 
-    pub fn search_track(&self, query: &str, limit: u32, offset: u32) -> Option<SearchTracks> {
-        self.api_with_retry(|api| api.search_track(query, limit, offset, None))
-    }
-
-    pub fn search_album(&self, query: &str, limit: u32, offset: u32) -> Option<SearchAlbums> {
-        self.api_with_retry(|api| api.search_album(query, limit, offset, None))
-    }
-
-    pub fn search_artist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchArtists> {
-        self.api_with_retry(|api| api.search_artist(query, limit, offset, None))
-    }
-
-    pub fn search_playlist(&self, query: &str, limit: u32, offset: u32) -> Option<SearchPlaylists> {
-        self.api_with_retry(|api| api.search_playlist(query, limit, offset, None))
+    pub fn search(
+        &self,
+        searchtype: SearchType,
+        query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Option<SearchResult> {
+        self.api_with_retry(|api| api.search(query, searchtype, limit, offset, None, None))
+            .take()
     }
 
     pub fn current_user_playlist(
@@ -613,9 +694,9 @@ impl Spotify {
         limit: u32,
         offset: u32,
     ) -> Option<Page<PlaylistTrack>> {
-        let user = self.user.clone();
+        let user = self.user.as_ref().unwrap();
         self.api_with_retry(|api| {
-            api.user_playlist_tracks(&user, playlist_id, None, limit, offset, None)
+            api.user_playlist_tracks(user, playlist_id, None, limit, offset, None)
         })
     }
 
@@ -632,6 +713,24 @@ impl Spotify {
         self.api_with_retry(|api| {
             api.artist_albums(artist_id, None, None, Some(limit), Some(offset))
         })
+    }
+
+    pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
+        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, None))
+    }
+
+    pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
+        self.api_with_retry(|api| api.get_saved_show(50, offset))
+    }
+
+    pub fn save_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.save_shows(ids.clone()))
+            .is_some()
+    }
+
+    pub fn unsave_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), None))
+            .is_some()
     }
 
     pub fn current_user_followed_artists(
@@ -692,11 +791,9 @@ impl Spotify {
         self.api_with_retry(|api| api.current_user())
     }
 
-    pub fn load(&self, track: &Track) {
+    pub fn load(&self, track: &Playable) {
         info!("loading track: {:?}", track);
-        self.channel
-            .unbounded_send(WorkerCommand::Load(Box::new(track.clone())))
-            .unwrap();
+        self.send_worker(WorkerCommand::Load(track.clone()));
     }
 
     pub fn update_status(&self, new_status: PlayerEvent) {
@@ -728,7 +825,7 @@ impl Spotify {
 
     pub fn play(&self) {
         info!("play()");
-        self.channel.unbounded_send(WorkerCommand::Play).unwrap();
+        self.send_worker(WorkerCommand::Play);
     }
 
     pub fn toggleplayback(&self) {
@@ -743,14 +840,24 @@ impl Spotify {
         }
     }
 
+    fn send_worker(&self, cmd: WorkerCommand) {
+        let channel = self.channel.read().expect("can't readlock worker channel");
+        match channel.as_ref() {
+            Some(channel) => channel
+                .unbounded_send(cmd)
+                .expect("can't send message to worker"),
+            None => error!("no channel to worker available"),
+        }
+    }
+
     pub fn pause(&self) {
         info!("pause()");
-        self.channel.unbounded_send(WorkerCommand::Pause).unwrap();
+        self.send_worker(WorkerCommand::Pause);
     }
 
     pub fn stop(&self) {
         info!("stop()");
-        self.channel.unbounded_send(WorkerCommand::Stop).unwrap();
+        self.send_worker(WorkerCommand::Stop);
     }
 
     pub fn seek(&self, position_ms: u32) {
@@ -761,9 +868,7 @@ impl Spotify {
             None
         });
 
-        self.channel
-            .unbounded_send(WorkerCommand::Seek(position_ms))
-            .unwrap();
+        self.send_worker(WorkerCommand::Seek(position_ms));
     }
 
     pub fn seek_relative(&self, delta: i32) {
@@ -796,9 +901,7 @@ impl Spotify {
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
         self.volume.store(volume, Ordering::Relaxed);
-        self.channel
-            .unbounded_send(WorkerCommand::SetVolume(Self::log_scale(volume)))
-            .unwrap();
+        self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
     }
 }
 

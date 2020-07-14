@@ -9,6 +9,7 @@ use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 
@@ -132,51 +133,54 @@ impl View for StatusBar {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
         });
 
-        if let Some(ref t) = self.queue.get_current() {
-            let elapsed = self.spotify.get_current_progress();
-            let elapsed_ms = elapsed.as_millis() as u32;
+        let elapsed = self.spotify.get_current_progress();
+        let elapsed_ms = elapsed.as_millis() as u32;
 
-            let formatted_elapsed = format!(
-                "{:02}:{:02}",
-                elapsed.as_secs() / 60,
-                elapsed.as_secs() % 60
-            );
+        let formatted_elapsed = format!(
+            "{:02}:{:02}",
+            elapsed.as_secs() / 60,
+            elapsed.as_secs() % 60
+        );
 
-            let saved = if self.library.is_saved_track(t) {
-                if self.use_nerdfont {
-                    "\u{f62b} "
-                } else {
-                    "✓ "
-                }
-            } else {
-                ""
-            };
+        let playback_duration_status = match self.queue.get_current() {
+            Some(ref t) => format!("{} / {}", formatted_elapsed, t.duration_str()),
+            None => "".to_string(),
+        };
 
-            let right = updating.to_string()
-                + repeat
-                + shuffle
-                + saved
-                + &format!("{} / {}", formatted_elapsed, t.duration_str())
-                + &volume;
-            let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
+        let right = updating.to_string()
+            + repeat
+            + shuffle
+            // + saved
+            + &playback_duration_status
+            + &volume;
+        let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
 
-            printer.with_color(style, |printer| {
+        printer.with_color(style, |printer| {
+            if let Some(ref t) = self.queue.get_current() {
                 printer.print((4, 1), &t.to_string());
-                printer.print((offset, 1), &right);
-            });
+            }
+            printer.print((offset, 1), &right);
+        });
 
+        if let Some(t) = self.queue.get_current() {
             printer.with_color(style_bar, |printer| {
-                let duration_width = (((printer.size.x as u32) * elapsed_ms) / t.duration) as usize;
+                let duration_width =
+                    (((printer.size.x as u32) * elapsed_ms) / t.duration()) as usize;
                 printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
-        } else {
-            let right = updating.to_string() + repeat + shuffle + &volume;
-            let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
-
-            printer.with_color(style, |printer| {
-                printer.print((offset, 1), &right);
-            });
         }
+
+        // if let Some(Playable::Track(ref t)) = self.queue.get_current() {
+        //     let saved = if self.library.is_saved_track(&Playable::Track(t.clone())) {
+        //         if self.use_nerdfont {
+        //             "\u{f62b} "
+        //         } else {
+        //             "✓ "
+        //         }
+        //     } else {
+        //         ""
+        //     };
+        // }
     }
 
     fn layout(&mut self, size: Vec2) {
@@ -208,7 +212,7 @@ impl View for StatusBar {
                 if event == MouseEvent::Press(MouseButton::Left)
                     || event == MouseEvent::Hold(MouseButton::Left)
                 {
-                    if let Some(ref t) = self.queue.get_current() {
+                    if let Some(Playable::Track(ref t)) = self.queue.get_current() {
                         let f: f32 = position.x as f32 / self.last_size.x as f32;
                         let new = t.duration as f32 * f;
                         self.spotify.seek(new as u32);

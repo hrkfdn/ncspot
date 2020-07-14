@@ -102,11 +102,13 @@ pub enum Command {
     Shift(ShiftMode, Option<i32>),
     Search(String),
     Help,
+    Noop,
 }
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let repr = match self {
+            Command::Noop => "noop".to_string(),
             Command::Quit => "quit".to_string(),
             Command::TogglePlay => "playpause".to_string(),
             Command::Stop => "stop".to_string(),
@@ -323,6 +325,8 @@ pub fn parse(input: &str) -> Option<Command> {
         }),
         "volup" => Some(Command::VolumeUp),
         "voldown" => Some(Command::VolumeDown),
+        "help" => Some(Command::Help),
+        "noop" => Some(Command::Noop),
         _ => None,
     }
 }

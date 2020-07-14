@@ -3,7 +3,7 @@ use std::path::Path;
 use cursive::traits::Boxable;
 use cursive::view::Identifiable;
 use cursive::views::*;
-use cursive::{CbSink, Cursive};
+use cursive::{CbSink, Cursive, CursiveExt};
 
 use librespot_core::authentication::Credentials as RespotCredentials;
 use librespot_protocol::authentication::AuthenticationType;

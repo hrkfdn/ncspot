@@ -2,10 +2,11 @@ use std::fmt;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use rspotify::spotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
+use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
 use crate::artist::Artist;
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::track::Track;
@@ -136,8 +137,8 @@ impl ListItem for Album {
                 .read()
                 .unwrap()
                 .iter()
-                .filter(|t| t.id.is_some())
-                .map(|t| t.id.clone().unwrap())
+                .filter(|t| t.id().is_some())
+                .map(|t| t.id().clone().unwrap())
                 .collect();
             let ids: Vec<String> = tracks
                 .iter()
@@ -175,7 +176,10 @@ impl ListItem for Album {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
-            let tracks: Vec<&Track> = tracks.iter().collect();
+            let tracks: Vec<Playable> = tracks
+                .iter()
+                .map(|track| Playable::Track(track.clone()))
+                .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
         }
@@ -186,7 +190,7 @@ impl ListItem for Album {
 
         if let Some(tracks) = self.tracks.as_ref() {
             for t in tracks {
-                queue.append(&t);
+                queue.append(Playable::Track(t.clone()));
             }
         }
     }

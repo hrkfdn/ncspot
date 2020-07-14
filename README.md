@@ -37,9 +37,9 @@ Measured using `ps_mem` on Linux during playback:
 * A Spotify premium account
 * pkg-config
 
-On Debian based systems you need following packages for `libxcb` development headers:
+On Debian based systems you need following packages for development headers:
 ```
-sudo apt install libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+sudo apt install libncursesw5-dev libdbus-1-dev libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
 
 For Fedora, these dependencies are required:
@@ -49,7 +49,7 @@ dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-
 
 ## Usage
 
-* Install the latest ncspot release using `cargo install ncspot`
+* Install the latest ncspot release using `cargo install ncspot --locked`. Due to an upstream issue in the librespot dependency described in [#179](https://github.com/hrkfdn/ncspot/issues/179) the `--locked` flag is needed. Until a new [librespot](https://crates.io/crates/librespot) release(>0.1.1) is out, this workaround is needed.
   * or build it yourself using `cargo build --release`
   * both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install)
 * For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
@@ -128,6 +128,8 @@ values are:
   <true/false>
 * `volnorm`: Enable or disable volume normalization, off by default <true/false>
 * `volnorm_pregain`: Normalization pregain to apply (if enabled)
+* `default_keybindings`: If disabled, the default keybindings are discarded, off
+  by default <true/false>
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
 

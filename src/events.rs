@@ -5,6 +5,7 @@ use crate::spotify::PlayerEvent;
 
 pub enum Event {
     Player(PlayerEvent),
+    SessionDied,
 }
 
 pub type EventSender = Sender<Event>;

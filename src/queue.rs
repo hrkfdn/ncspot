@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 use rand::prelude::*;
 use strum_macros::Display;
 
+use crate::playable::Playable;
 use crate::spotify::Spotify;
-use crate::track::Track;
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -15,7 +15,7 @@ pub enum RepeatSetting {
 }
 
 pub struct Queue {
-    pub queue: Arc<RwLock<Vec<Track>>>,
+    pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
@@ -82,7 +82,7 @@ impl Queue {
         }
     }
 
-    pub fn get_current(&self) -> Option<Track> {
+    pub fn get_current(&self) -> Option<Playable> {
         match self.get_current_index() {
             Some(index) => Some(self.queue.read().unwrap()[index].clone()),
             None => None,
@@ -93,7 +93,7 @@ impl Queue {
         *self.current_track.read().unwrap()
     }
 
-    pub fn append(&self, track: &Track) {
+    pub fn append(&self, track: Playable) {
         let mut random_order = self.random_order.write().unwrap();
         if let Some(order) = random_order.as_mut() {
             let index = order.len().saturating_sub(1);
@@ -101,10 +101,10 @@ impl Queue {
         }
 
         let mut q = self.queue.write().unwrap();
-        q.push(track.clone());
+        q.push(track);
     }
 
-    pub fn append_next(&self, tracks: Vec<&Track>) -> usize {
+    pub fn append_next(&self, tracks: Vec<Playable>) -> usize {
         let mut q = self.queue.write().unwrap();
 
         {
@@ -214,7 +214,6 @@ impl Queue {
             self.spotify.load(&track);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
-            self.spotify.play();
             self.spotify.update_track();
         }
 

@@ -8,14 +8,16 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
+use crate::album::Album;
+use crate::playable::Playable;
+use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
-use crate::album::Album;
-use crate::playlist::Playlist;
+use crate::traits::ListItem;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
-struct MprisState(String, Option<Track>);
+struct MprisState(String, Option<Playable>);
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     match spotify.get_current_status() {
@@ -26,18 +28,18 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     .to_string()
 }
 
-fn get_metadata(track: Option<Track>) -> Metadata {
+fn get_metadata(playable: Option<Playable>) -> Metadata {
     let mut hm: Metadata = HashMap::new();
-    let track = track.as_ref();
+    let playable = playable.as_ref();
 
     hm.insert(
         "mpris:trackid".to_string(),
         Variant(Box::new(
-            track
+            playable
                 .map(|t| {
                     format!(
                         "spotify:track:{}",
-                        t.id.clone().unwrap_or_else(|| "0".to_string())
+                        t.id().unwrap_or_else(|| "0".to_string())
                     )
                 })
                 .unwrap_or_default(),
@@ -46,47 +48,77 @@ fn get_metadata(track: Option<Track>) -> Metadata {
     hm.insert(
         "mpris:length".to_string(),
         Variant(Box::new(i64::from(
-            track.map(|t| t.duration * 1_000).unwrap_or(0),
+            playable.map(|t| t.duration() * 1_000).unwrap_or(0),
         ))),
     );
     hm.insert(
         "mpris:artUrl".to_string(),
         Variant(Box::new(
-            track.map(|t| t.cover_url.clone()).unwrap_or_default(),
+            playable
+                .map(|t| t.cover_url().unwrap_or_default())
+                .unwrap_or_default(),
         )),
     );
 
     hm.insert(
         "xesam:album".to_string(),
-        Variant(Box::new(track.map(|t| t.album.clone()).unwrap_or_default())),
+        Variant(Box::new(
+            playable
+                .and_then(|p| p.track())
+                .map(|t| t.album.clone())
+                .unwrap_or_default(),
+        )),
     );
     hm.insert(
         "xesam:albumArtist".to_string(),
         Variant(Box::new(
-            track.map(|t| t.album_artists.clone()).unwrap_or_default(),
+            playable
+                .and_then(|p| p.track())
+                .map(|t| t.album_artists.clone())
+                .unwrap_or_default(),
         )),
     );
     hm.insert(
         "xesam:artist".to_string(),
         Variant(Box::new(
-            track.map(|t| t.artists.clone()).unwrap_or_default(),
+            playable
+                .and_then(|p| p.track())
+                .map(|t| t.artists.clone())
+                .unwrap_or_default(),
         )),
     );
     hm.insert(
         "xesam:discNumber".to_string(),
-        Variant(Box::new(track.map(|t| t.disc_number).unwrap_or(0))),
+        Variant(Box::new(
+            playable
+                .and_then(|p| p.track())
+                .map(|t| t.disc_number)
+                .unwrap_or(0),
+        )),
     );
     hm.insert(
         "xesam:title".to_string(),
-        Variant(Box::new(track.map(|t| t.title.clone()).unwrap_or_default())),
+        Variant(Box::new(
+            playable
+                .map(|t| match t {
+                    Playable::Track(t) => t.title.clone(),
+                    Playable::Episode(ep) => ep.name.clone(),
+                })
+                .unwrap_or_default(),
+        )),
     );
     hm.insert(
         "xesam:trackNumber".to_string(),
-        Variant(Box::new(track.map(|t| t.track_number).unwrap_or(0) as i32)),
+        Variant(Box::new(
+            playable
+                .and_then(|p| p.track())
+                .map(|t| t.track_number)
+                .unwrap_or(0) as i32,
+        )),
     );
     hm.insert(
         "xesam:url".to_string(),
-        Variant(Box::new(track.map(|t| t.url.clone()).unwrap_or_default())),
+        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
     );
 
     hm
@@ -398,66 +430,52 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     };
 
     let method_openuri = {
-        let spotify = spotify.clone();
-        let queue = queue.clone();
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
             let uri = match uri_data {
                 Some(s) => s,
-                None => ""
+                None => "",
             };
-            let id = &uri[uri.rfind(":").unwrap_or(0)+1..uri.len()];
+            let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
             let uri_type = URIType::from_uri(uri);
-            match uri_type{
+            match uri_type {
                 Some(URIType::Album) => {
-                    let album = spotify.album(&id);
-                    match album {
-                        Some(a) => {
-                            let tracks = &Album::from(&a).tracks;
-                            match tracks {
-                                Some(t) => {
-                                    queue.clear();
-                                    let index = queue.append_next(t.iter().collect());
-                                    queue.play(index, false, false)
-                                },
-                                None => {}
-                            }
-                        },
-                        None => {}
-                    }
-                },
-                Some(URIType::Track) => {
-                    let track = spotify.track(&id);
-                    match track {
-                        Some(t) => {
+                    if let Some(a) = spotify.album(&id) {
+                        if let Some(t) = &Album::from(&a).tracks {
                             queue.clear();
-                            queue.append(&Track::from(&t));
-                            queue.play(0, false, false)
-                        },
-                        None => {}
+                            let index = queue.append_next(
+                                t.iter()
+                                    .map(|track| Playable::Track(track.clone()))
+                                    .collect(),
+                            );
+                            queue.play(index, false, false)
+                        }
                     }
-                },
+                }
+                Some(URIType::Track) => {
+                    if let Some(t) = spotify.track(&id) {
+                        queue.clear();
+                        queue.append(Playable::Track(Track::from(&t)));
+                        queue.play(0, false, false)
+                    }
+                }
                 Some(URIType::Playlist) => {
-                   let playlist = spotify.playlist(&id);
-                   match playlist {
-                       Some(p) => {
-                           let mut playlist = Playlist::from(&p);
-                           let spotify = spotify.clone();
-                           &playlist.load_tracks(spotify);
-                           let tracks = &playlist.tracks;
-                           match tracks{
-                               Some(t) => {
-                                   queue.clear();
-                                   let index = queue.append_next(t.iter().collect());
-                                   queue.play(index, false, false)
-                               },
-                               None => {}
-                           }
-                       },
-                       None => {}
-                   }
-                },
-                Some(URIType::Artist) => {},
+                    if let Some(p) = spotify.playlist(&id) {
+                        let mut playlist = Playlist::from(&p);
+                        let spotify = spotify.clone();
+                        playlist.load_tracks(spotify);
+                        if let Some(t) = &playlist.tracks {
+                            queue.clear();
+                            let index = queue.append_next(
+                                t.iter()
+                                    .map(|track| Playable::Track(track.clone()))
+                                    .collect(),
+                            );
+                            queue.play(index, false, false)
+                        }
+                    }
+                }
+                Some(URIType::Artist) => {}
                 None => {}
             }
             Ok(vec![m.msg.method_return()])
