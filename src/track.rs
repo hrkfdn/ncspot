@@ -8,12 +8,14 @@ use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
     pub id: Option<String>,
+    pub uri: String,
     pub title: String,
     pub track_number: u32,
     pub disc_number: i32,
@@ -23,7 +25,7 @@ pub struct Track {
     pub album: String,
     pub album_id: Option<String>,
     pub album_artists: Vec<String>,
-    pub cover_url: String,
+    pub cover_url: Option<String>,
     pub url: String,
     pub added_at: Option<DateTime<Utc>>,
 }
@@ -47,13 +49,9 @@ impl Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
 
-        let cover_url = match album.images.get(0) {
-            Some(image) => image.url.clone(),
-            None => "".to_owned(),
-        };
-
         Self {
             id: track.id.clone(),
+            uri: track.uri.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
@@ -63,7 +61,7 @@ impl Track {
             album: album.name.clone(),
             album_id: Some(album.id.clone()),
             album_artists,
-            cover_url,
+            cover_url: album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
         }
@@ -96,13 +94,9 @@ impl From<&FullTrack> for Track {
             .map(|ref artist| artist.name.clone())
             .collect::<Vec<String>>();
 
-        let cover_url = match track.album.images.get(0) {
-            Some(image) => image.url.clone(),
-            None => "".to_owned(),
-        };
-
         Self {
             id: track.id.clone(),
+            uri: track.uri.clone(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
@@ -112,7 +106,7 @@ impl From<&FullTrack> for Track {
             album: track.album.name.clone(),
             album_id: track.album.id.clone(),
             album_artists,
-            cover_url,
+            cover_url: track.album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
         }
@@ -148,7 +142,7 @@ impl fmt::Debug for Track {
 impl ListItem for Track {
     fn is_playing(&self, queue: Arc<Queue>) -> bool {
         let current = queue.get_current();
-        current.map(|t| t.id == self.id).unwrap_or(false)
+        current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {
@@ -160,7 +154,7 @@ impl ListItem for Track {
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_track(self) {
+        let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
             if library.use_nerdfont {
                 "\u{f62b} "
             } else {
@@ -173,12 +167,12 @@ impl ListItem for Track {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(vec![self]);
+        let index = queue.append_next(vec![Playable::Track(self.clone())]);
         queue.play(index, true, false);
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        queue.append(self);
+        queue.append(Playable::Track(self.clone()));
     }
 
     fn save(&mut self, library: Arc<Library>) {
@@ -190,7 +184,7 @@ impl ListItem for Track {
     }
 
     fn toggle_saved(&mut self, library: Arc<Library>) {
-        if library.is_saved_track(self) {
+        if library.is_saved_track(&Playable::Track(self.clone())) {
             library.unsave_tracks(vec![self], true);
         } else {
             library.save_tracks(vec![self], true);

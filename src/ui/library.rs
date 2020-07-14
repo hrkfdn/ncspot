@@ -37,7 +37,12 @@ impl LibraryView {
             .tab(
                 "playlists",
                 "Playlists",
-                PlaylistsView::new(queue, library.clone()),
+                PlaylistsView::new(queue.clone(), library.clone()),
+            )
+            .tab(
+                "podcasts",
+                "Podcasts",
+                ListView::new(library.shows.clone(), queue, library.clone()),
             );
 
         Self { tabs }

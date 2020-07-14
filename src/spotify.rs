@@ -56,13 +56,15 @@ use std::{env, io};
 use crate::artist::Artist;
 use crate::config;
 use crate::events::{Event, EventManager};
+use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
+use rspotify::model::show::{Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
 enum WorkerCommand {
-    Load(Box<Track>),
+    Load(Playable),
     Play,
     Pause,
     Stop,
@@ -159,15 +161,16 @@ impl futures::Future for Worker {
                 progress = true;
                 debug!("message received!");
                 match cmd {
-                    WorkerCommand::Load(track) => {
-                        if let Some(track_id) = &track.id {
-                            let id = SpotifyId::from_base62(track_id).expect("could not parse id");
+                    WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
+                        Ok(id) => {
                             self.play_task = Box::pin(self.player.load(id, true, 0).compat());
-                            info!("player loading track: {:?}", track);
-                        } else {
+                            info!("player loading track: {:?}", playable);
+                        }
+                        Err(e) => {
+                            error!("error parsing uri: {:?}", e);
                             self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                         }
-                    }
+                    },
                     WorkerCommand::Play => {
                         self.player.play();
                     }
@@ -588,12 +591,12 @@ impl Spotify {
         .is_some()
     }
 
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Track]) {
+    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         // extract only track IDs
         let mut tracks: Vec<String> = tracks
             .iter()
-            .filter(|track| track.id.is_some())
-            .map(|track| track.id.clone().unwrap())
+            .filter(|track| track.id().is_some())
+            .map(|track| track.id().clone().unwrap())
             .collect();
 
         // we can only send 100 tracks per request
@@ -712,6 +715,24 @@ impl Spotify {
         })
     }
 
+    pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
+        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, None))
+    }
+
+    pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
+        self.api_with_retry(|api| api.get_saved_show(50, offset))
+    }
+
+    pub fn save_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.save_shows(ids.clone()))
+            .is_some()
+    }
+
+    pub fn unsave_shows(&self, ids: Vec<String>) -> bool {
+        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), None))
+            .is_some()
+    }
+
     pub fn current_user_followed_artists(
         &self,
         last: Option<String>,
@@ -770,9 +791,9 @@ impl Spotify {
         self.api_with_retry(|api| api.current_user())
     }
 
-    pub fn load(&self, track: &Track) {
+    pub fn load(&self, track: &Playable) {
         info!("loading track: {:?}", track);
-        self.send_worker(WorkerCommand::Load(Box::new(track.clone())));
+        self.send_worker(WorkerCommand::Load(track.clone()));
     }
 
     pub fn update_status(&self, new_status: PlayerEvent) {
