@@ -9,7 +9,6 @@ use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;
-use crate::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 
@@ -212,9 +211,9 @@ impl View for StatusBar {
                 if event == MouseEvent::Press(MouseButton::Left)
                     || event == MouseEvent::Hold(MouseButton::Left)
                 {
-                    if let Some(Playable::Track(ref t)) = self.queue.get_current() {
+                    if let Some(playable) = self.queue.get_current() {
                         let f: f32 = position.x as f32 / self.last_size.x as f32;
-                        let new = t.duration as f32 * f;
+                        let new = playable.duration() as f32 * f;
                         self.spotify.seek(new as u32);
                     }
                 }
