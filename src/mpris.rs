@@ -34,13 +34,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(
-            playable
-                .map(|t| {
-                    t.uri()
-                })
-                .unwrap_or_default(),
-        )),
+        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -117,9 +111,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         "xesam:url".to_string(),
         Variant(Box::new(
             playable
-                .map(|t| {
-                    t.share_url().unwrap_or_default()
-                })
+                .map(|t| t.share_url().unwrap_or_default())
                 .unwrap_or_default(),
         )),
     );
