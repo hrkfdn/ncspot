@@ -30,7 +30,6 @@ use failure::Error;
 use futures_01::future::Future as v01_Future;
 use futures_01::stream::Stream as v01_Stream;
 use futures_01::sync::mpsc::UnboundedReceiver;
-use futures_01::sync::oneshot::Canceled;
 use futures_01::Async as v01_Async;
 
 use futures::channel::mpsc;
@@ -103,7 +102,6 @@ struct Worker {
     commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
     session: Session,
     player: Player,
-    play_task: Pin<Box<dyn Future<Output = Result<(), Canceled>>>>,
     refresh_task: Pin<Box<dyn Stream<Item = Result<(), tokio_timer::Error>>>>,
     token_task: Pin<Box<dyn Future<Output = Result<(), MercuryError>>>>,
     active: bool,
@@ -125,7 +123,6 @@ impl Worker {
             commands,
             player,
             session,
-            play_task: Box::pin(futures::future::pending()),
             refresh_task: Box::pin(futures::stream::empty()),
             token_task: Box::pin(futures::future::pending()),
             active: false,
@@ -163,7 +160,7 @@ impl futures::Future for Worker {
                 match cmd {
                     WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
                         Ok(id) => {
-                            self.play_task = Box::pin(self.player.load(id, true, 0).compat());
+                            self.player.load(id, true, 0);
                             info!("player loading track: {:?}", playable);
                         }
                         Err(e) => {
@@ -176,13 +173,9 @@ impl futures::Future for Worker {
                     }
                     WorkerCommand::Pause => {
                         self.player.pause();
-                        self.events.send(Event::Player(PlayerEvent::Paused));
-                        self.active = false;
                     }
                     WorkerCommand::Stop => {
                         self.player.stop();
-                        self.events.send(Event::Player(PlayerEvent::Stopped));
-                        self.active = false;
                     }
                     WorkerCommand::Seek(pos) => {
                         self.player.seek(pos);
@@ -197,27 +190,28 @@ impl futures::Future for Worker {
                 }
             }
 
-            match self.play_task.as_mut().poll(cx) {
-                Poll::Ready(Ok(())) => {
-                    debug!("end of track!");
-                    progress = true;
-                    self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                }
-                Poll::Ready(Err(Canceled)) => {
-                    error!("player task was cancelled!");
-                    self.events.send(Event::Player(PlayerEvent::Stopped));
-                    self.play_task = Box::pin(futures::future::pending());
-                }
-                Poll::Pending => (),
-            }
-
             if let Ok(v01_Async::Ready(Some(event))) = self.player_events.poll() {
                 debug!("librespot player event: {:?}", event);
                 match event {
-                    LibrespotPlayerEvent::Started { .. } | LibrespotPlayerEvent::Changed { .. } => {
+                    LibrespotPlayerEvent::Started { .. } | LibrespotPlayerEvent::Loading { .. } => {
+                        progress = true;
+                    }
+                    LibrespotPlayerEvent::Playing { .. } => {
                         self.events.send(Event::Player(PlayerEvent::Playing));
                         self.refresh_task = self.create_refresh();
                         self.active = true;
+                    }
+                    LibrespotPlayerEvent::Paused { .. } => {
+                        self.events.send(Event::Player(PlayerEvent::Paused));
+                        self.active = false;
+                    }
+                    LibrespotPlayerEvent::Stopped { .. } => {
+                        self.events.send(Event::Player(PlayerEvent::Stopped));
+                        self.active = false;
+                    }
+                    LibrespotPlayerEvent::EndOfTrack { .. } => {
+                        self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+                        progress = true;
                     }
                     _ => {}
                 }
@@ -367,8 +361,7 @@ impl Spotify {
             Some(cache),
             handle,
         ))
-        .ok()
-        .unwrap()
+        .expect("could not open spotify session")
     }
 
     fn get_token(
@@ -406,6 +399,7 @@ impl Spotify {
         volume: u16,
     ) {
         let player_config = PlayerConfig {
+            gapless: false,
             bitrate: Bitrate::Bitrate320,
             normalisation: cfg.volnorm.unwrap_or(false),
             normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
