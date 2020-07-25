@@ -25,6 +25,7 @@ use crate::ui::listview::{ListView, Pagination};
 use crate::ui::tabview::TabView;
 use rspotify::model::search::SearchResult;
 use rspotify::senum::SearchType;
+use crate::episode::Episode;
 
 pub struct SearchView {
     results_tracks: Arc<RwLock<Vec<Track>>>,
@@ -37,6 +38,8 @@ pub struct SearchView {
     pagination_playlists: Pagination<Playlist>,
     results_shows: Arc<RwLock<Vec<Show>>>,
     pagination_shows: Pagination<Show>,
+    results_episodes: Arc<RwLock<Vec<Episode>>>,
+    pagination_episodes: Pagination<Episode>,
     edit: NamedView<EditView>,
     tabs: NamedView<TabView>,
     edit_focused: bool,
@@ -61,6 +64,7 @@ impl SearchView {
         let results_artists = Arc::new(RwLock::new(Vec::new()));
         let results_playlists = Arc::new(RwLock::new(Vec::new()));
         let results_shows = Arc::new(RwLock::new(Vec::new()));
+        let results_episodes = Arc::new(RwLock::new(Vec::new()));
 
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
@@ -82,15 +86,18 @@ impl SearchView {
         let list_playlists =
             ListView::new(results_playlists.clone(), queue.clone(), library.clone());
         let pagination_playlists = list_playlists.get_pagination().clone();
-        let list_shows = ListView::new(results_shows.clone(), queue, library);
+        let list_shows = ListView::new(results_shows.clone(), queue.clone(), library.clone());
         let pagination_shows = list_shows.get_pagination().clone();
+        let list_episodes = ListView::new(results_episodes.clone(), queue, library);
+        let pagination_episodes = list_episodes.get_pagination().clone();
 
         let tabs = TabView::new()
             .tab("tracks", "Tracks", list_tracks)
             .tab("albums", "Albums", list_albums)
             .tab("artists", "Artists", list_artists)
             .tab("playlists", "Playlists", list_playlists)
-            .tab("shows", "Podcasts", list_shows);
+            .tab("shows", "Podcasts", list_shows)
+            .tab("episodes", "Podcast Episodes", list_episodes);
 
         SearchView {
             results_tracks,
@@ -103,6 +110,8 @@ impl SearchView {
             pagination_playlists,
             results_shows,
             pagination_shows,
+            results_episodes,
+            pagination_episodes,
             edit: searchfield,
             tabs: tabs.with_name(LIST_ID),
             edit_focused: true,
@@ -274,6 +283,22 @@ impl SearchView {
         0
     }
 
+    fn get_show(
+        spotify: &Arc<Spotify>,
+        shows: &Arc<RwLock<Vec<Show>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
+        if let Some(result) = spotify.get_show(&query).as_ref() {
+            let pls = vec![result.into()];
+            let mut r = shows.write().unwrap();
+            *r = pls;
+            return 1;
+        }
+        0
+    }
+
     fn search_show(
         spotify: &Arc<Spotify>,
         shows: &Arc<RwLock<Vec<Show>>>,
@@ -291,6 +316,45 @@ impl SearchView {
                 r.append(&mut pls);
             } else {
                 *r = pls;
+            }
+            return results.total;
+        }
+        0
+    }
+
+    fn get_episode(
+        spotify: &Arc<Spotify>,
+        episodes: &Arc<RwLock<Vec<Episode>>>,
+        query: &str,
+        _offset: usize,
+        _append: bool,
+    ) -> u32 {
+        if let Some(result) = spotify.episode(&query).as_ref() {
+            let e = vec![result.into()];
+            let mut r = episodes.write().unwrap();
+            *r = e;
+            return 1
+        }
+        0
+    }
+
+    fn search_episode(
+        spotify: &Arc<Spotify>,
+        episodes: &Arc<RwLock<Vec<Episode>>>,
+        query: &str,
+        offset: usize,
+        append: bool,
+    ) -> u32 {
+        if let Some(SearchResult::Episodes(results)) =
+            spotify.search(SearchType::Episode, &query, 50, offset as u32)
+        {
+            let mut e = results.items.iter().map(|se| se.into()).collect();
+            let mut r = episodes.write().unwrap();
+
+            if append {
+                r.append(&mut e);
+            } else {
+                *r = e;
             }
             return results.total;
         }
@@ -366,6 +430,8 @@ impl SearchView {
             *results_playlists.write().unwrap() = Vec::new();
             let results_shows = self.results_shows.clone();
             *results_shows.write().unwrap() = Vec::new();
+            let results_episodes = self.results_episodes.clone();
+            *results_episodes.write().unwrap() = Vec::new();
 
             let mut tab_view = self.tabs.get_mut();
             match uritype {
@@ -405,6 +471,24 @@ impl SearchView {
                     );
                     tab_view.move_focus_to(3);
                 }
+                URIType::Show => {
+                    self.perform_search(
+                        Box::new(Self::get_show),
+                        &self.results_shows,
+                        &query,
+                        None,
+                    );
+                    tab_view.move_focus_to(4);
+                }
+                URIType::Episode => {
+                    self.perform_search(
+                        Box::new(Self::get_episode),
+                        &self.results_episodes,
+                        &query,
+                        None,
+                    );
+                    tab_view.move_focus_to(5);
+                }
             }
         } else {
             self.perform_search(
@@ -436,6 +520,12 @@ impl SearchView {
                 &self.results_shows,
                 &query,
                 Some(&self.pagination_shows),
+            );
+            self.perform_search(
+                Box::new(Self::search_episode),
+                &self.results_episodes,
+                &query,
+                Some(&self.pagination_episodes),
             );
         }
     }
