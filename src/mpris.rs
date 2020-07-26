@@ -11,12 +11,15 @@ use dbus::{Path, SignalArgs};
 use crate::album::Album;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
+use crate::show::Show;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 use crate::traits::ListItem;
+use crate::episode::Episode;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
+
 struct MprisState(String, Option<Playable>);
 
 fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
@@ -25,7 +28,7 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
         PlayerEvent::Paused => "Paused",
         _ => "Stopped",
     }
-    .to_string()
+        .to_string()
 }
 
 fn get_metadata(playable: Option<Playable>) -> Metadata {
@@ -127,7 +130,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         "org.mpris.MediaPlayer2.ncspot",
         dbus::NameFlag::ReplaceExisting as u32,
     )
-    .expect("Failed to register dbus player name");
+        .expect("Failed to register dbus player name");
 
     let f = Factory::new_fn::<()>();
 
@@ -220,7 +223,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         RepeatSetting::RepeatTrack => "Track",
                         RepeatSetting::RepeatPlaylist => "Playlist",
                     }
-                    .to_string(),
+                        .to_string(),
                 );
                 Ok(())
             })
@@ -470,6 +473,31 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         }
                     }
                 }
+                Some(URIType::Show) => {
+                    if let Some(s) = spotify.get_show(&id) {
+                        let mut show = Show::from(&s);
+                        let spotify = spotify.clone();
+                        show.load_episodes(spotify);
+                        if let Some(e) = &show.episodes {
+                            queue.clear();
+                            let mut ep = e.clone();
+                            ep.reverse();
+                            let index = queue.append_next(
+                                ep.iter()
+                                    .map(|episode| Playable::Episode(episode.clone()))
+                                    .collect(),
+                            );
+                            queue.play(index, false, false)
+                        }
+                    }
+                }
+                Some(URIType::Episode) => {
+                    if let Some(e) = spotify.episode(&id) {
+                        queue.clear();
+                        queue.append(Playable::Episode(Episode::from(&e)));
+                        queue.play(0, false, false)
+                    }
+                }
                 Some(URIType::Artist) => {}
                 None => {}
             }
@@ -545,7 +573,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             conn.send(
                 changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
             )
-            .unwrap();
+                .unwrap();
         }
     }
 }

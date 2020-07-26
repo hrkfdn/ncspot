@@ -2,7 +2,7 @@ use crate::library::Library;
 use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
-use rspotify::model::show::SimplifiedEpisode;
+use rspotify::model::show::{SimplifiedEpisode, FullEpisode};
 use std::fmt;
 use std::sync::Arc;
 
@@ -27,6 +27,20 @@ impl Episode {
 
 impl From<&SimplifiedEpisode> for Episode {
     fn from(episode: &SimplifiedEpisode) -> Self {
+        Self {
+            id: episode.id.clone(),
+            uri: episode.uri.clone(),
+            duration: episode.duration_ms,
+            name: episode.name.clone(),
+            description: episode.description.clone(),
+            release_date: episode.release_date.clone(),
+            cover_url: episode.images.get(0).map(|img| img.url.clone()),
+        }
+    }
+}
+
+impl From<&FullEpisode> for Episode {
+    fn from(episode: &FullEpisode) -> Self {
         Self {
             id: episode.id.clone(),
             uri: episode.uri.clone(),

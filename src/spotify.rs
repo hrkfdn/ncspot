@@ -58,7 +58,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
-use rspotify::model::show::{Show, SimplifiedEpisode};
+use rspotify::model::show::{Show, SimplifiedEpisode, FullShow, FullEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -663,6 +663,14 @@ impl Spotify {
         self.api_with_retry(|api| api.track(track_id))
     }
 
+    pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
+        self.api_with_retry(|api| api.get_a_show(show_id.to_string(), None))
+    }
+
+    pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
+        self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), None))
+    }
+
     pub fn search(
         &self,
         searchtype: SearchType,
@@ -904,6 +912,8 @@ pub enum URIType {
     Artist,
     Track,
     Playlist,
+    Show,
+    Episode
 }
 
 impl URIType {
@@ -916,6 +926,10 @@ impl URIType {
             Some(URIType::Track)
         } else if s.starts_with("spotify:") && s.contains(":playlist:") {
             Some(URIType::Playlist)
+        } else if s.starts_with("spotify:show:"){
+            Some(URIType::Show)
+        } else if s.starts_with("spotify:episode:"){
+            Some(URIType::Episode)
         } else {
             None
         }
