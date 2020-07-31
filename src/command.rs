@@ -319,10 +319,13 @@ pub fn parse(input: &str) -> Option<Command> {
         "focus" => args
             .get(0)
             .map(|target| Command::Focus((*target).to_string())),
-        "save" => args.get(0).map(|target| match *target {
-            "queue" => Command::SaveQueue,
-            _ => Command::Save,
-        }),
+        "save" => args
+            .get(0)
+            .map(|target| match *target {
+                "queue" => Command::SaveQueue,
+                _ => Command::Save,
+            })
+            .or(Some(Command::Save)),
         "volup" => Some(Command::VolumeUp),
         "voldown" => Some(Command::VolumeDown),
         "help" => Some(Command::Help),
