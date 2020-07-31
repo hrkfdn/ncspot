@@ -13,6 +13,7 @@ use crate::album::Album;
 use crate::artist::Artist;
 use crate::command::{Command, MoveMode};
 use crate::commands::CommandResult;
+use crate::episode::Episode;
 use crate::events::EventManager;
 use crate::library::Library;
 use crate::playlist::Playlist;
@@ -25,7 +26,6 @@ use crate::ui::listview::{ListView, Pagination};
 use crate::ui::tabview::TabView;
 use rspotify::model::search::SearchResult;
 use rspotify::senum::SearchType;
-use crate::episode::Episode;
 
 pub struct SearchView {
     results_tracks: Arc<RwLock<Vec<Track>>>,
@@ -333,7 +333,7 @@ impl SearchView {
             let e = vec![result.into()];
             let mut r = episodes.write().unwrap();
             *r = e;
-            return 1
+            return 1;
         }
         0
     }

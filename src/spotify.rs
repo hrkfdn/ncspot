@@ -58,7 +58,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
-use rspotify::model::show::{Show, SimplifiedEpisode, FullShow, FullEpisode};
+use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -913,7 +913,7 @@ pub enum URIType {
     Track,
     Playlist,
     Show,
-    Episode
+    Episode,
 }
 
 impl URIType {
@@ -926,9 +926,9 @@ impl URIType {
             Some(URIType::Track)
         } else if s.starts_with("spotify:") && s.contains(":playlist:") {
             Some(URIType::Playlist)
-        } else if s.starts_with("spotify:show:"){
+        } else if s.starts_with("spotify:show:") {
             Some(URIType::Show)
-        } else if s.starts_with("spotify:episode:"){
+        } else if s.starts_with("spotify:episode:") {
             Some(URIType::Episode)
         } else {
             None

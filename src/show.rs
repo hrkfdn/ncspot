@@ -5,7 +5,7 @@ use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::show::ShowView;
-use rspotify::model::show::{SimplifiedShow, FullShow};
+use rspotify::model::show::{FullShow, SimplifiedShow};
 use std::fmt;
 use std::sync::Arc;
 

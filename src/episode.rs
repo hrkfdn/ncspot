@@ -2,7 +2,7 @@ use crate::library::Library;
 use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
-use rspotify::model::show::{SimplifiedEpisode, FullEpisode};
+use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
 use std::fmt;
 use std::sync::Arc;
 
