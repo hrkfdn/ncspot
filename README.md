@@ -162,6 +162,8 @@ shuffle = true
 
 ### Theming
 
+[Theme generator](https://ncspot-theme-generator.vaa.red/) by [@vaarad](https://github.com/vaared).
+
 The color palette can be modified in the configuration. For instance, to have
 ncspot match Spotify's official client, you can add the following entries to the
 configuration file:
