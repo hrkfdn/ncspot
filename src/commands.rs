@@ -39,6 +39,16 @@ impl CommandManager {
         library: Arc<Library>,
         config: &Config,
     ) -> CommandManager {
+        CommandManager {
+            aliases: HashMap::new(),
+            bindings: Self::get_bindings(config),
+            spotify,
+            queue,
+            library,
+        }
+    }
+
+    pub fn get_bindings(config: &Config) -> HashMap<String, Command> {
         let mut kb = if config.default_keybindings.unwrap_or(true) {
             Self::default_keybindings()
         } else {
@@ -55,13 +65,7 @@ impl CommandManager {
             }
         }
 
-        CommandManager {
-            aliases: HashMap::new(),
-            bindings: kb,
-            spotify,
-            queue,
-            library,
-        }
+        kb
     }
 
     pub fn register_aliases<S: Into<String>>(&mut self, name: S, aliases: Vec<S>) {
@@ -152,6 +156,17 @@ impl CommandManager {
             Command::Help => {
                 let view = Box::new(HelpView::new(self.keybindings().clone()));
                 s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                Ok(None)
+            }
+            Command::ReloadConfig => {
+                let cfg = crate::config::load()?;
+
+                // update theme
+                let theme = crate::theme::load(&cfg);
+                s.set_theme(theme);
+
+                // update bindings
+                // self.bindings = Self::get_bindings(&cfg);
                 Ok(None)
             }
             Command::Search(_)

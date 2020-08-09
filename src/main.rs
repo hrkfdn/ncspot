@@ -177,18 +177,10 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let cfg: crate::config::Config = {
-        let path = config::config_path("config.toml");
-        crate::config::load_or_generate_default(
-            path,
-            |_| Ok(crate::config::Config::default()),
-            false,
-        )
-        .unwrap_or_else(|e| {
-            eprintln!("{}", e);
-            process::exit(1);
-        })
-    };
+    let cfg: crate::config::Config = config::load().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        process::exit(1);
+    });
 
     let cache = Cache::new(config::cache_path("librespot"), true);
     let mut credentials = {
