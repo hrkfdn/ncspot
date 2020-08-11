@@ -12,10 +12,12 @@ use crate::spotify::{Spotify, VOLUME_PERCENT};
 use crate::traits::ViewExt;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
+use crate::UserData;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::ViewRef;
 use cursive::Cursive;
+use std::cell::RefCell;
 
 pub enum CommandResult {
     Consumed(Option<String>),
@@ -26,7 +28,7 @@ pub enum CommandResult {
 
 pub struct CommandManager {
     aliases: HashMap<String, String>,
-    bindings: HashMap<String, Command>,
+    bindings: RefCell<HashMap<String, Command>>,
     spotify: Arc<Spotify>,
     queue: Arc<Queue>,
     library: Arc<Library>,
@@ -41,7 +43,7 @@ impl CommandManager {
     ) -> CommandManager {
         CommandManager {
             aliases: HashMap::new(),
-            bindings: Self::get_bindings(config),
+            bindings: RefCell::new(Self::get_bindings(config)),
             spotify,
             queue,
             library,
@@ -154,7 +156,7 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Help => {
-                let view = Box::new(HelpView::new(self.keybindings().clone()));
+                let view = Box::new(HelpView::new(self.bindings.borrow().clone()));
                 s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                 Ok(None)
             }
@@ -166,7 +168,9 @@ impl CommandManager {
                 s.set_theme(theme);
 
                 // update bindings
-                // self.bindings = Self::get_bindings(&cfg);
+                self.unregister_keybindings(s);
+                self.bindings.replace(Self::get_bindings(&cfg));
+                self.register_keybindings(s);
                 Ok(None)
             }
             Command::Search(_)
@@ -216,30 +220,38 @@ impl CommandManager {
     }
 
     pub fn register_keybinding<E: Into<cursive::event::Event>>(
-        this: Arc<Self>,
+        &self,
         cursive: &mut Cursive,
         event: E,
         command: Command,
     ) {
         cursive.add_global_callback(event, move |s| {
-            this.handle(s, command.clone());
+            if let Some(data) = s.user_data::<UserData>().cloned() {
+                data.cmd.handle(s, command.clone());
+            }
         });
     }
 
-    pub fn register_keybindings(this: Arc<Self>, cursive: &mut Cursive) {
-        let kb = this.keybindings();
+    pub fn unregister_keybindings(&self, cursive: &mut Cursive) {
+        let kb = self.bindings.borrow();
 
-        for (k, v) in kb {
+        for (k, _v) in kb.iter() {
             if let Some(binding) = Self::parse_keybinding(&k) {
-                Self::register_keybinding(this.clone(), cursive, binding, v.clone());
-            } else {
-                error!("Could not parse keybinding: \"{}\"", &k);
+                cursive.clear_global_callbacks(binding);
             }
         }
     }
 
-    pub fn keybindings(&self) -> &HashMap<String, Command> {
-        &self.bindings
+    pub fn register_keybindings(&self, cursive: &mut Cursive) {
+        let kb = self.bindings.borrow();
+
+        for (k, v) in kb.iter() {
+            if let Some(binding) = Self::parse_keybinding(&k) {
+                self.register_keybinding(cursive, binding, v.clone());
+            } else {
+                error!("Could not parse keybinding: \"{}\"", &k);
+            }
+        }
     }
 
     fn default_keybindings() -> HashMap<String, Command> {
