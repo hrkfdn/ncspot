@@ -133,6 +133,8 @@ Possible configuration values are:
 * `volnorm_pregain`: Normalization pregain to apply (if enabled)
 * `default_keybindings`: If disabled, the default keybindings are discarded, off
   by default <true/false>
+* `notify`: Enable or disable desktop notifications, off by default <true/false>
+
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
 
