@@ -245,10 +245,10 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let property_position = {
         let spotify = spotify.clone();
-        let progress = spotify.get_current_progress();
         f.property::<i64, _>("Position", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
+                let progress = spotify.get_current_progress();
                 iter.append(progress.as_micros() as i64);
                 Ok(())
             })
