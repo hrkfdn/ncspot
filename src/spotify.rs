@@ -83,7 +83,7 @@ pub enum PlayerEvent {
 pub struct Spotify {
     events: EventManager,
     credentials: Credentials,
-    cfg: config::Config,
+    pub cfg: config::Config,
     status: RwLock<PlayerEvent>,
     api: RwLock<SpotifyAPI>,
     elapsed: RwLock<Option<Duration>>,
