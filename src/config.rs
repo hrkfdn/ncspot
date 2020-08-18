@@ -19,6 +19,7 @@ pub struct Config {
     pub backend_device: Option<String>,
     pub volnorm: Option<bool>,
     pub volnorm_pregain: Option<f32>,
+    pub notify: Option<bool>
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

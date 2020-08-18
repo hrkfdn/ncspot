@@ -224,7 +224,10 @@ fn main() {
         &cfg,
     ));
 
-    let queue = Arc::new(queue::Queue::new(spotify.clone()));
+    let queue = Arc::new(queue::Queue::new(
+        spotify.clone(),
+        cfg.notify.unwrap_or(false),
+    ));
 
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(spotify.clone(), queue.clone()));
