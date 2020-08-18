@@ -20,19 +20,17 @@ pub struct Queue {
     random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
-    notify: bool,
     spotify: Arc<Spotify>,
 }
 
 impl Queue {
-    pub fn new(spotify: Arc<Spotify>, notify: bool) -> Queue {
+    pub fn new(spotify: Arc<Spotify>) -> Queue {
         let q = Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
             spotify,
             current_track: RwLock::new(None),
             repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
-            notify,
         };
         q.set_repeat(q.spotify.repeat);
         q.set_shuffle(q.spotify.shuffle);
@@ -218,7 +216,7 @@ impl Queue {
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
-            if self.notify {
+            if self.spotify.cfg.notify.unwrap_or(false) {
                 Notification::new()
                     .summary(&track.to_string())
                     .show()
