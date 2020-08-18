@@ -4,9 +4,10 @@ use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use dbus::arg::{RefArg, Variant};
-use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
+use dbus::ffidisp::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
+use dbus::message::SignalArgs;
 use dbus::tree::{Access, Factory};
-use dbus::{Path, SignalArgs};
+use dbus::Path;
 
 use crate::album::Album;
 use crate::episode::Episode;
@@ -124,11 +125,12 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
 fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<MprisState>) {
     let conn = Rc::new(
-        dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to connect to dbus"),
+        dbus::ffidisp::Connection::get_private(dbus::ffidisp::BusType::Session)
+            .expect("Failed to connect to dbus"),
     );
     conn.register_name(
         "org.mpris.MediaPlayer2.ncspot",
-        dbus::NameFlag::ReplaceExisting as u32,
+        dbus::ffidisp::NameFlag::ReplaceExisting as u32,
     )
     .expect("Failed to register dbus player name");
 
