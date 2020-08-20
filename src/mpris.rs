@@ -311,7 +311,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .property::<bool, _>("CanSeek", ())
         .access(Access::Read)
         .on_get(|iter, _| {
-            iter.append(false); // TODO
+            iter.append(true);
             Ok(())
         });
 
@@ -434,6 +434,46 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
+    let method_seek = {
+        let queue = queue.clone();
+        let spotify = spotify.clone();
+        f.method("Seek", (), move |m| {
+            if let Some(current_track) = queue.get_current() {
+                let offset = m.msg.get1::<i64>().unwrap_or(0); // micros
+                let progress = spotify.get_current_progress();
+                let new_position = (progress.as_secs() * 1000) as i32
+                    + progress.subsec_millis() as i32
+                    + (offset / 1000) as i32;
+                let new_position = new_position.max(0) as u32;
+                let duration = current_track.duration();
+
+                if new_position < duration {
+                    spotify.seek(new_position);
+                } else {
+                    queue.next(true);
+                }
+            }
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
+    let method_set_position = {
+        let queue = queue.clone();
+        let spotify = spotify.clone();
+        f.method("SetPosition", (), move |m| {
+            if let Some(current_track) = queue.get_current() {
+                let (_, position) = m.msg.get2::<Path, i64>(); // micros
+                let position = (position.unwrap_or(0) / 1000) as u32;
+                let duration = current_track.duration();
+
+                if position < duration {
+                    spotify.seek(position);
+                }
+            }
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
     let method_openuri = {
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
@@ -512,8 +552,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
-    // TODO: Seek, SetPosition (?)
-
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
     let interface_player = f
         .interface("org.mpris.MediaPlayer2.Player", ())
@@ -542,6 +580,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .add_m(method_previous)
         .add_m(method_forward)
         .add_m(method_rewind)
+        .add_m(method_seek)
+        .add_m(method_set_position)
         .add_m(method_openuri);
 
     let tree = f.tree(()).add(
