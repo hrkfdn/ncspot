@@ -38,7 +38,12 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
+        Variant(Box::new(Path::from(format!(
+            "/org/ncspot/{}",
+            playable
+                .map(|t| t.uri().replace(':', "/"))
+                .unwrap_or("0".to_string())
+        )))),
     );
     hm.insert(
         "mpris:length".to_string(),
