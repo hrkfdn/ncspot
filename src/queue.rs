@@ -132,6 +132,10 @@ impl Queue {
     pub fn remove(&self, index: usize) {
         {
             let mut q = self.queue.write().unwrap();
+            if q.len() == 0 {
+                info!("queue is empty");
+                return;
+            }
             q.remove(index);
         }
 
