@@ -1,17 +1,20 @@
 use std::sync::Arc;
 
 use cursive::view::{Margins, ViewWrapper};
-use cursive::views::{Dialog, ScrollView, SelectView};
+use cursive::views::{Dialog, NamedView, ScrollView, SelectView};
 use cursive::Cursive;
 
+use crate::command::{Command, MoveAmount, MoveMode};
+use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::track::Track;
-use crate::traits::ListItem;
+use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 #[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
+use cursive::traits::{Finder, Nameable};
 
 pub struct ContextMenu {
     dialog: Modal<Dialog>,
@@ -44,7 +47,7 @@ impl ContextMenu {
         Modal::new(dialog)
     }
 
-    pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> Self {
+    pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new().autojump();
         if let Some(a) = item.artist() {
             content.add_item("Show artist", ContextMenuAction::ShowItem(Box::new(a)));
@@ -92,9 +95,52 @@ impl ContextMenu {
             .title(item.display_left())
             .dismiss_button("Cancel")
             .padding(Margins::lrtb(1, 1, 1, 0))
-            .content(content);
+            .content(content.with_name("contextmenu_select"));
         Self {
-            dialog: Modal::new(dialog),
+            dialog: Modal::new_ext(dialog),
+        }
+        .with_name("contextmenu")
+    }
+}
+
+impl ViewExt for ContextMenu {
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Back => {
+                s.pop_layer();
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Move(mode, amount) => self
+                .dialog
+                .call_on_name(
+                    "contextmenu_select",
+                    |select: &mut SelectView<ContextMenuAction>| {
+                        let items = select.len();
+                        match mode {
+                            MoveMode::Up => {
+                                match amount {
+                                    MoveAmount::Extreme => select.set_selection(0),
+                                    MoveAmount::Integer(amount) => {
+                                        select.select_up(*amount as usize)
+                                    }
+                                };
+                                Ok(CommandResult::Consumed(None))
+                            }
+                            MoveMode::Down => {
+                                match amount {
+                                    MoveAmount::Extreme => select.set_selection(items),
+                                    MoveAmount::Integer(amount) => {
+                                        select.select_down(*amount as usize)
+                                    }
+                                };
+                                Ok(CommandResult::Consumed(None))
+                            }
+                            _ => Ok(CommandResult::Consumed(None)),
+                        }
+                    },
+                )
+                .unwrap_or(Ok(CommandResult::Consumed(None))),
+            _ => Ok(CommandResult::Consumed(None)),
         }
     }
 }

@@ -77,6 +77,7 @@ use crate::commands::CommandManager;
 use crate::events::{Event, EventManager};
 use crate::library::Library;
 use crate::spotify::PlayerEvent;
+use crate::ui::contextmenu::ContextMenu;
 
 fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -267,9 +268,11 @@ fn main() {
     layout.set_view("library");
 
     cursive.add_global_callback(':', move |s| {
-        s.call_on_name("main", |v: &mut ui::layout::Layout| {
-            v.enable_cmdline();
-        });
+        if s.find_name::<ContextMenu>("contextmenu").is_none() {
+            s.call_on_name("main", |v: &mut ui::layout::Layout| {
+                v.enable_cmdline();
+            });
+        }
     });
 
     layout.cmdline.set_on_edit(move |s, cmd, _| {
