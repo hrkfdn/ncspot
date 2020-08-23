@@ -10,12 +10,12 @@ use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
 use crate::traits::ViewExt;
+use crate::ui::contextmenu::ContextMenu;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::UserData;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
-use cursive::views::ViewRef;
 use cursive::Cursive;
 use std::cell::RefCell;
 
@@ -188,8 +188,13 @@ impl CommandManager {
     }
 
     fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
-        let local = {
-            let mut main: ViewRef<Layout> = s.find_name("main").unwrap();
+        let local = if let Some(mut contextmenu) = s.find_name::<ContextMenu>("contextmenu") {
+            contextmenu.on_command(s, cmd)?
+        } else {
+            debug!("no contextmenu");
+            let mut main = s
+                .find_name::<Layout>("main")
+                .expect("could not find layout");
             main.on_command(s, cmd)?
         };
 
