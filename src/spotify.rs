@@ -337,7 +337,7 @@ impl Spotify {
             core.run(Session::connect(config, credentials, None, handle))
         });
         match jh.join() {
-            Ok(session) => session.or_else(Err),
+            Ok(session) => session,
             Err(e) => Err(io::Error::new(
                 io::ErrorKind::Other,
                 e.downcast_ref::<String>()
@@ -590,7 +590,7 @@ impl Spotify {
         let mut tracks: Vec<String> = tracks
             .iter()
             .filter(|track| track.id().is_some())
-            .map(|track| track.id().clone().unwrap())
+            .map(|track| track.id().unwrap())
             .collect();
 
         // we can only send 100 tracks per request
