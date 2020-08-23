@@ -191,7 +191,6 @@ impl CommandManager {
         let local = if let Some(mut contextmenu) = s.find_name::<ContextMenu>("contextmenu") {
             contextmenu.on_command(s, cmd)?
         } else {
-            debug!("no contextmenu");
             let mut main = s
                 .find_name::<Layout>("main")
                 .expect("could not find layout");

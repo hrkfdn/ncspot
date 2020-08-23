@@ -138,7 +138,7 @@ impl ListItem for Album {
                 .unwrap()
                 .iter()
                 .filter(|t| t.id().is_some())
-                .map(|t| t.id().clone().unwrap())
+                .map(|t| t.id().unwrap())
                 .collect();
             let ids: Vec<String> = tracks
                 .iter()

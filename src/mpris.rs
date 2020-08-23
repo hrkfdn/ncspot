@@ -42,7 +42,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
             "/org/ncspot/{}",
             playable
                 .map(|t| t.uri().replace(':', "/"))
-                .unwrap_or("0".to_string())
+                .unwrap_or_else(|| "0".to_string())
         )))),
     );
     hm.insert(
@@ -65,7 +65,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.album.clone())
+                .map(|t| t.album)
                 .unwrap_or_default(),
         )),
     );
@@ -74,7 +74,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.album_artists.clone())
+                .map(|t| t.album_artists)
                 .unwrap_or_default(),
         )),
     );
@@ -83,7 +83,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.artists.clone())
+                .map(|t| t.artists)
                 .unwrap_or_default(),
         )),
     );
