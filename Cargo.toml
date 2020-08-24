@@ -43,6 +43,7 @@ clipboard = { version = "0.5", optional = true }
 url = "1.7"
 strum = "0.17.1"
 strum_macros = "0.17.1"
+libc = "0.2"
 
 [dependencies.cursive]
 version = "0.15"
