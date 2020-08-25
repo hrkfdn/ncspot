@@ -1,9 +1,13 @@
 use std::cmp::Ordering;
 use std::sync::{Arc, RwLock};
 
-use notify_rust::Notification;
+use gdk_pixbuf::Pixbuf;
+use libnotify::Notification;
 use rand::prelude::*;
+use std::fs::File;
+use std::io::copy;
 use strum_macros::Display;
+use tempdir::TempDir;
 
 use crate::playable::Playable;
 use crate::spotify::Spotify;
@@ -21,16 +25,23 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
     spotify: Arc<Spotify>,
+    notification: Notification,
 }
+
+unsafe impl Send for Queue {}
+unsafe impl Sync for Queue {}
 
 impl Queue {
     pub fn new(spotify: Arc<Spotify>) -> Queue {
+        libnotify::init("Spotify").unwrap();
+
         let q = Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
             spotify,
             current_track: RwLock::new(None),
             repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
+            notification: Notification::new("Playback Notification", None, None),
         };
         q.set_repeat(q.spotify.repeat);
         q.set_shuffle(q.spotify.shuffle);
@@ -221,10 +232,44 @@ impl Queue {
             current.replace(index);
             self.spotify.update_track();
             if self.spotify.cfg.notify.unwrap_or(false) {
-                Notification::new()
-                    .summary(&track.to_string())
-                    .show()
+                self.notification
+                    .update(&track.title()[..], &track.artist()[..], None)
                     .unwrap();
+
+                let tmp_dir = TempDir::new("spotify_pic")
+                    .map_err(|_| "Unable to create temp dir".to_string())
+                    .unwrap();
+                let mut response = reqwest::get(&track.cover_url_str())
+                    .map_err(|_| "Unable to get image".to_string())
+                    .unwrap();
+                let file: String;
+                let mut dest = {
+                    let fname = response
+                        .url()
+                        .path_segments()
+                        .and_then(|segments| segments.last())
+                        .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                        .unwrap_or("tmp.png");
+
+                    let fname = tmp_dir.path().join(fname).with_extension("png");
+                    file = fname.display().to_string();
+                    File::create(fname)
+                        .map_err(|_| "Couldn't create file".to_string())
+                        .unwrap()
+                };
+
+                copy(&mut response, &mut dest)
+                    .map_err(|_| "Unable to copy data".to_string())
+                    .unwrap();
+                let pixbuf = Pixbuf::new_from_file(&file)
+                    .map_err(|_| "Error creating pixbuf".to_string())
+                    .unwrap();
+
+                self.notification.set_image_from_pixbuf(&pixbuf);
+                let _ = self
+                    .notification
+                    .show()
+                    .map_err(|_| "Something went wrong".to_string());
             }
         }
 
