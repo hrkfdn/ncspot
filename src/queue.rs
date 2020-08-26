@@ -270,7 +270,12 @@ impl Queue {
         if let Some(index) = self.previous_index() {
             self.play(index, false, false);
         } else {
-            self.spotify.stop();
+            let current = *self.current_track.read().unwrap();
+            if let Some(index) = current {
+                self.play(index, false, false);
+            } else {
+                self.spotify.stop();
+            }
         }
     }
 
