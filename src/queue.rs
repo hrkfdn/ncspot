@@ -299,6 +299,9 @@ impl Queue {
             }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
+            if repeat == RepeatSetting::RepeatTrack && manual {
+                self.set_repeat(RepeatSetting::RepeatPlaylist);
+            }
         } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
             let random_order = self.random_order.read().unwrap();
             self.play(
@@ -312,10 +315,25 @@ impl Queue {
     }
 
     pub fn previous(&self) {
+        let q = self.queue.read().unwrap();
+        let current = *self.current_track.read().unwrap();
+        let repeat = *self.repeat.read().unwrap();
+
         if let Some(index) = self.previous_index() {
             self.play(index, false, false);
-        } else {
-            self.spotify.stop();
+        } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
+            if self.get_shuffle() {
+                let random_order = self.random_order.read().unwrap();
+                self.play(
+                    random_order.as_ref().map(|o| o[q.len() - 1]).unwrap_or(0),
+                    false,
+                    false,
+                );
+            } else {
+                self.play(q.len() - 1, false, false);
+            }
+        } else if let Some(index) = current {
+            self.play(index, false, false);
         }
     }
 
