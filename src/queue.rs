@@ -254,6 +254,9 @@ impl Queue {
             }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
+            if repeat == RepeatSetting::RepeatTrack && manual {
+                self.set_repeat(RepeatSetting::RepeatPlaylist);
+            }
         } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
             let random_order = self.random_order.read().unwrap();
             self.play(
