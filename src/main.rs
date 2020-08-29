@@ -46,6 +46,7 @@ use std::sync::Arc;
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
 use cursive::{Cursive, CursiveExt};
+use std::ffi::CString;
 
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
@@ -142,6 +143,9 @@ struct UserDataInner {
 }
 
 fn main() {
+    let buf = CString::new("").unwrap();
+    unsafe { libc::setlocale(libc::LC_ALL, buf.as_ptr()) };
+
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
