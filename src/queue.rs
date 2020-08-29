@@ -155,10 +155,14 @@ impl Queue {
         if let Some(current_track) = current {
             match current_track.cmp(&index) {
                 Ordering::Equal => {
-                    // stop playback if we have the deleted the last item and it
-                    // was playing
+                    // if we have deleted the last item and it was playing
+                    // stop playback, unless repeat playlist is on, play next
                     if current_track == len {
-                        self.stop();
+                        if self.get_repeat() == RepeatSetting::RepeatPlaylist {
+                            self.next(false);
+                        } else {
+                            self.stop();
+                        }
                     } else {
                         self.play(index, false, false);
                     }
