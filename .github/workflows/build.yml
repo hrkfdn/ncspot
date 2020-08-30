@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install dependencies
-        run: brew install portaudio pkg-config
+        run: brew install portaudio pkg-config libnotify
       - name: Build
         run: cargo build --verbose --no-default-features --features portaudio_backend,cursive/pancurses-backend
 
@@ -23,6 +23,6 @@ jobs:
       - name: Update APT package lists
         run: sudo apt update
       - name: Install dependencies
-        run: sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev  libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev  libxcb-shape0-dev libxcb-xfixes0-dev libnotify-dev
       - name: Build
         run: cargo build --verbose
