@@ -58,3 +58,9 @@ portaudio_backend = ["librespot-playback/portaudio-backend"]
 termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus"]
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "cursive/pancurses-backend"]
+
+[profile.release]
+opt-level = 'z'
+lto = true
+panic = "abort"
+codegen-units = 1
