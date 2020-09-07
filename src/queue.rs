@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 use std::sync::{Arc, RwLock};
 
+#[cfg(feature = "notify")]
 use notify_rust::Notification;
+
 use rand::prelude::*;
 use strum_macros::Display;
 
@@ -221,10 +223,10 @@ impl Queue {
             current.replace(index);
             self.spotify.update_track();
             if self.spotify.cfg.notify.unwrap_or(false) {
-                Notification::new()
-                    .summary(&track.to_string())
-                    .show()
-                    .unwrap();
+                #[cfg(feature = "notify")]
+                if let Err(e) = Notification::new().summary(&track.to_string()).show() {
+                    error!("error showing notification: {:?}", e);
+                }
             }
         }
 
