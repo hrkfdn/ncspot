@@ -221,10 +221,9 @@ impl Queue {
             current.replace(index);
             self.spotify.update_track();
             if self.spotify.cfg.notify.unwrap_or(false) {
-                Notification::new()
-                    .summary(&track.to_string())
-                    .show()
-                    .unwrap();
+                if let Err(e) = Notification::new().summary(&track.to_string()).show() {
+                    error!("error showing notification: {:?}", e);
+                }
             }
         }
 
