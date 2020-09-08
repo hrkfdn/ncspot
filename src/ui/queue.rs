@@ -95,6 +95,9 @@ impl ViewExt for QueueView {
                 self.queue.play(self.list.get_selected_index(), true, false);
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::PlayNext => {
+                return Ok(CommandResult::Ignored);
+            }
             Command::Queue => {
                 return Ok(CommandResult::Ignored);
             }

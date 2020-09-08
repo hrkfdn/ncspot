@@ -124,6 +124,14 @@ impl ListItem for Show {
         queue.play(index, true, true);
     }
 
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_episodes(queue.get_spotify());
+
+        for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
+            queue.insert_after_current(Playable::Episode(ep.clone()));
+        }
+    }
+
     fn queue(&mut self, queue: Arc<Queue>) {
         self.load_episodes(queue.get_spotify());
 

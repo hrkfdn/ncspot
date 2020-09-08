@@ -96,6 +96,28 @@ impl Queue {
         *self.current_track.read().unwrap()
     }
 
+    pub fn insert_after_current(&self, track: Playable) {
+            if let Some(index) = self.get_current_index() {
+                let mut random_order = self.random_order.write().unwrap();
+                if let Some(order) = random_order.as_mut() {
+                    let next_i = order.iter().position(|&i| i == index).unwrap();
+                    // shift everything after the insertion in order
+                    let size = order.len();
+                    for i in 0..size {
+                        if order[i] > index {
+                            order[i] += 1;
+                        }
+                    }
+                    // finally, add the next track index
+                    order.insert(next_i + 1, index + 1);
+                }
+                let mut q = self.queue.write().unwrap();
+                q.insert(index + 1, track);
+            } else {
+                self.append(track);
+            }
+    }
+
     pub fn append(&self, track: Playable) {
         let mut random_order = self.random_order.write().unwrap();
         if let Some(order) = random_order.as_mut() {

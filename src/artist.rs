@@ -185,6 +185,16 @@ impl ListItem for Artist {
         }
     }
 
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_albums(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks() {
+            for t in tracks {
+                queue.insert_after_current(Playable::Track(t.clone()));
+            }
+        }
+    }
+
     fn queue(&mut self, queue: Arc<Queue>) {
         self.load_albums(queue.get_spotify());
 

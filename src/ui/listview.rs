@@ -338,6 +338,15 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::PlayNext => {
+                info!("played next");
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    item.play_next(self.queue.clone());
+                }
+
+                return Ok(CommandResult::Consumed(None));
+            }
             Command::Queue => {
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {

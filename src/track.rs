@@ -175,6 +175,10 @@ impl ListItem for Track {
         queue.play(index, true, false);
     }
 
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        queue.insert_after_current(Playable::Track(self.clone()));
+    }
+
     fn queue(&mut self, queue: Arc<Queue>) {
         queue.append(Playable::Track(self.clone()));
     }
