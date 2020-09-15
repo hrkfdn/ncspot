@@ -94,6 +94,7 @@ pub struct ListView<I: ListItem> {
     queue: Arc<Queue>,
     library: Arc<Library>,
     pagination: Pagination<I>,
+    last_search: String,
 }
 
 impl<I: ListItem> ListView<I> {
@@ -107,6 +108,7 @@ impl<I: ListItem> ListView<I> {
             queue,
             library,
             pagination: Pagination::default(),
+            last_search: String::from(""),
         }
     }
 
@@ -130,6 +132,25 @@ impl<I: ListItem> ListView<I> {
 
     pub fn get_selected_index(&self) -> usize {
         self.selected
+    }
+
+    pub fn get_index_of(&self, query: &String) -> Option<usize> {
+        let content = self.content.read().unwrap();
+        if query == "" {
+            return None;
+        }
+        match content[self.selected + 1..].iter().position(|i| i
+            .display_left()
+            .to_lowercase()
+            .contains(&query[..].to_lowercase())) {
+            Some(index) => Some(index + self.selected + 1),
+            None => {
+                content.iter().position(|i| i
+                .display_left()
+                .to_lowercase()
+                .contains(&query[..].to_lowercase()))
+            }
+        }
     }
 
     pub fn move_focus_to(&mut self, target: usize) {
@@ -394,6 +415,20 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 }
 
                 return Ok(CommandResult::Consumed(None));
+            }
+            Command::Jump(query) => {
+                let query = match query.as_str() {
+                    "" => &self.last_search,
+                    _ => query,
+                };
+                match self.get_index_of(query) {
+                    Some(index) => {
+                        self.last_search = String::from(query);
+                        self.move_focus_to(index);
+                        return Ok(CommandResult::Consumed(None));
+                    },
+                    None => return Ok(CommandResult::Ignored),
+                }
             }
             Command::Move(mode, amount) => {
                 let last_idx = self.content.read().unwrap().len().saturating_sub(1);

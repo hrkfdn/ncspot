@@ -67,6 +67,13 @@ impl Layout {
         }
     }
 
+    pub fn enable_jump(&mut self) {
+        if !self.cmdline_focus {
+            self.cmdline.set_content("/");
+            self.cmdline_focus = true;
+        }
+    }
+
     pub fn add_view<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: S) {
         let s = id.into();
         let screen = Screen {

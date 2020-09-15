@@ -75,6 +75,7 @@ mod ui;
 mod mpris;
 
 use crate::commands::CommandManager;
+use crate::command::Command;
 use crate::events::{Event, EventManager};
 use crate::library::Library;
 use crate::spotify::PlayerEvent;
@@ -279,6 +280,14 @@ fn main() {
         }
     });
 
+    cursive.add_global_callback('/', move |s| {
+        if s.find_name::<ContextMenu>("contextmenu").is_none() {
+            s.call_on_name("main", |v: &mut ui::layout::Layout| {
+                v.enable_jump();
+            });
+        }
+    });
+
     layout.cmdline.set_on_edit(move |s, cmd, _| {
         s.call_on_name("main", |v: &mut ui::layout::Layout| {
             if cmd.is_empty() {
@@ -294,11 +303,19 @@ fn main() {
                 let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
-            let c = &cmd[1..];
-            let parsed = command::parse(c);
-            if let Some(parsed) = parsed {
+            if cmd.starts_with("/") {
+                let query = &cmd[1..];
+                let command = Command::Jump(query.to_string());
                 if let Some(data) = s.user_data::<UserData>().cloned() {
-                    data.cmd.handle(s, parsed)
+                    data.cmd.handle(s, command);
+                }
+            } else {
+                let c = &cmd[1..];
+                let parsed = command::parse(c);
+                if let Some(parsed) = parsed {
+                    if let Some(data) = s.user_data::<UserData>().cloned() {
+                        data.cmd.handle(s, parsed)
+                    }
                 }
             }
             ev.trigger();

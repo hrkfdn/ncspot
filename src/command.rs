@@ -102,6 +102,7 @@ pub enum Command {
     Move(MoveMode, MoveAmount),
     Shift(ShiftMode, Option<i32>),
     Search(String),
+    Jump(String),
     Help,
     ReloadConfig,
     Noop,
@@ -157,6 +158,7 @@ impl fmt::Display for Command {
             Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
+            Command::Jump(term) => format!("jump {}", term),
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
         };
@@ -224,6 +226,7 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => None,
             })
             .map(Command::Open),
+        "jump" => Some(Command::Jump(args.join(" "))),
         "search" => args
             .get(0)
             .map(|query| Command::Search((*query).to_string())),
