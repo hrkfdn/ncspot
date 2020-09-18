@@ -169,7 +169,7 @@ impl ListItem for Playlist {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
-            for track in tracks.iter() {
+            for track in tracks.iter().rev() {
                 queue.insert_after_current(Playable::Track(track.clone()));
             }
         }

@@ -127,8 +127,10 @@ impl ListItem for Show {
     fn play_next(&mut self, queue: Arc<Queue>) {
         self.load_episodes(queue.get_spotify());
 
-        for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
-            queue.insert_after_current(Playable::Episode(ep.clone()));
+        if let Some(episodes) = self.episodes.as_ref() {
+            for ep in episodes.iter().rev() {
+                queue.insert_after_current(Playable::Episode(ep.clone()));
+            }
         }
     }
 

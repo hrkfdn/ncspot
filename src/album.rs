@@ -193,7 +193,7 @@ impl ListItem for Album {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
-            for t in tracks {
+            for t in tracks.iter().rev() {
                 queue.insert_after_current(Playable::Track(t.clone()));
             }
         }
