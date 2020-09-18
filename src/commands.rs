@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode, JumpMode,
 };
 use crate::config::Config;
 use crate::library::Library;
@@ -273,7 +273,8 @@ impl CommandManager {
         kb.insert("Space".into(), Command::Queue);
         kb.insert(".".into(), Command::PlayNext);
         kb.insert("Enter".into(), Command::Play);
-        kb.insert("n".into(), Command::Jump(String::from("")));
+        kb.insert("n".into(), Command::Jump(JumpMode::Next));
+        kb.insert("Shift+n".into(), Command::Jump(JumpMode::Previous));
         kb.insert("s".into(), Command::Save);
         kb.insert("Ctrl+s".into(), Command::SaveQueue);
         kb.insert("d".into(), Command::Delete);

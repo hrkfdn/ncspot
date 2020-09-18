@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
@@ -9,7 +9,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode};
+use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode, JumpMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::playable::Playable;
@@ -89,12 +89,13 @@ pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
     last_content_len: usize,
     selected: usize,
+    search_indexes: Vec<usize>,
+    search_selected_index: usize,
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
     library: Arc<Library>,
     pagination: Pagination<I>,
-    last_search: String,
 }
 
 impl<I: ListItem> ListView<I> {
@@ -103,12 +104,13 @@ impl<I: ListItem> ListView<I> {
             content,
             last_content_len: 0,
             selected: 0,
+            search_indexes: Vec::new(),
+            search_selected_index: 0,
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
             library,
             pagination: Pagination::default(),
-            last_search: String::from(""),
         }
     }
 
@@ -134,23 +136,14 @@ impl<I: ListItem> ListView<I> {
         self.selected
     }
 
-    pub fn get_index_of(&self, query: &String) -> Option<usize> {
+    pub fn get_indexes_of(&self, query: &String) -> Vec<usize> {
         let content = self.content.read().unwrap();
-        if query == "" {
-            return None;
-        }
-        match content[self.selected + 1..].iter().position(|i| i
-            .display_left()
-            .to_lowercase()
-            .contains(&query[..].to_lowercase())) {
-            Some(index) => Some(index + self.selected + 1),
-            None => {
-                content.iter().position(|i| i
-                .display_left()
-                .to_lowercase()
-                .contains(&query[..].to_lowercase()))
-            }
-        }
+        content
+            .iter()
+            .enumerate()
+            .filter(|(_, i)| i.display_left().to_lowercase().contains(&query[..].to_lowercase()))
+            .map(|(i, _)| i)
+            .collect()
     }
 
     pub fn move_focus_to(&mut self, target: usize) {
@@ -416,18 +409,47 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 return Ok(CommandResult::Consumed(None));
             }
-            Command::Jump(query) => {
-                let query = match query.as_str() {
-                    "" => &self.last_search,
-                    _ => query,
-                };
-                match self.get_index_of(query) {
-                    Some(index) => {
-                        self.last_search = String::from(query);
-                        self.move_focus_to(index);
+            Command::Jump(mode) => {
+                match mode {
+                    JumpMode::Query(query) => {
+                        self.search_indexes = self.get_indexes_of(query);
+                        self.search_selected_index = 0;
+                        match self.search_indexes.get(0) {
+                            Some(&index) => {
+                                self.move_focus_to(index);
+                                return Ok(CommandResult::Consumed(None));
+                            },
+                            None => return Ok(CommandResult::Ignored),
+                        }
+                    },
+                    JumpMode::Next => {
+                        let len = self.search_indexes.len();
+                        if len == 0 {
+                            return Ok(CommandResult::Ignored);
+                        }
+                        let index = self.search_selected_index;
+                        let next_index = match index.cmp(&(len - 1)) {
+                           Ordering::Equal => 0,
+                           _ => index + 1,
+                        };
+                        self.move_focus_to(self.search_indexes[next_index]);
+                        self.search_selected_index = next_index;
                         return Ok(CommandResult::Consumed(None));
                     },
-                    None => return Ok(CommandResult::Ignored),
+                    JumpMode::Previous => {
+                        let len = self.search_indexes.len();
+                        if len == 0 {
+                            return Ok(CommandResult::Ignored);
+                        }
+                        let index = self.search_selected_index;
+                        let prev_index = match index.cmp(&0) {
+                            Ordering::Equal => len - 1,
+                            _ => index - 1,
+                        };
+                        self.move_focus_to(self.search_indexes[prev_index]);
+                        self.search_selected_index = prev_index;
+                        return Ok(CommandResult::Consumed(None));
+                    },
                 }
             }
             Command::Move(mode, amount) => {

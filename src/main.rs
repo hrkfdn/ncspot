@@ -75,7 +75,7 @@ mod ui;
 mod mpris;
 
 use crate::commands::CommandManager;
-use crate::command::Command;
+use crate::command::{Command, JumpMode};
 use crate::events::{Event, EventManager};
 use crate::library::Library;
 use crate::spotify::PlayerEvent;
@@ -305,7 +305,7 @@ fn main() {
             }
             if cmd.starts_with("/") {
                 let query = &cmd[1..];
-                let command = Command::Jump(query.to_string());
+                let command = Command::Jump(JumpMode::Query(query.to_string()));
                 if let Some(data) = s.user_data::<UserData>().cloned() {
                     data.cmd.handle(s, command);
                 }

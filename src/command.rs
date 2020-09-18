@@ -44,6 +44,14 @@ impl Default for MoveAmount {
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
+pub enum JumpMode {
+    Previous,
+    Next,
+    Query(String),
+}
+
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum ShiftMode {
     Up,
     Down,
@@ -102,7 +110,7 @@ pub enum Command {
     Move(MoveMode, MoveAmount),
     Shift(ShiftMode, Option<i32>),
     Search(String),
-    Jump(String),
+    Jump(JumpMode),
     Help,
     ReloadConfig,
     Noop,
@@ -226,7 +234,7 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => None,
             })
             .map(Command::Open),
-        "jump" => Some(Command::Jump(args.join(" "))),
+        "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
         "search" => args
             .get(0)
             .map(|query| Command::Search((*query).to_string())),
