@@ -76,6 +76,10 @@ impl ListItem for Playable {
         self.as_listitem().display_left()
     }
 
+    fn display_center(&self) -> String {
+        self.as_listitem().display_center()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         self.as_listitem().display_right(library)
     }

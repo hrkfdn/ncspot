@@ -15,6 +15,7 @@ use crate::track::Track;
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
     fn display_left(&self) -> String;
+    fn display_center(&self) -> String;
     fn display_right(&self, library: Arc<Library>) -> String;
     fn play(&mut self, queue: Arc<Queue>);
     fn queue(&mut self, queue: Arc<Queue>);

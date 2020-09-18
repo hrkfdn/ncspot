@@ -92,6 +92,10 @@ impl ListItem for Show {
         format!("{}", self)
     }
 
+    fn display_center(&self) -> String {
+        "".to_string()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_show(self) {
             if library.use_nerdfont {
