@@ -288,6 +288,14 @@ fn main() {
         }
     });
 
+    cursive.add_global_callback(cursive::event::Key::Esc , move |s| {
+        if s.find_name::<ContextMenu>("contextmenu").is_none() {
+            s.call_on_name("main", |v: &mut ui::layout::Layout| {
+                v.clear_cmdline();
+            });
+        }
+    });
+
     layout.cmdline.set_on_edit(move |s, cmd, _| {
         s.call_on_name("main", |v: &mut ui::layout::Layout| {
             if cmd.is_empty() {
