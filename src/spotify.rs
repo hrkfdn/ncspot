@@ -51,6 +51,7 @@ use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
+use std::str::FromStr;
 
 use crate::artist::Artist;
 use crate::config;
@@ -398,9 +399,15 @@ impl Spotify {
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
     ) {
+        let bitrate_str = cfg.bitrate.unwrap_or(320).to_string();
+        let bitrate = Bitrate::from_str(&bitrate_str);
+        if bitrate.is_err(){
+            error!("invalid bitrate, will use 320 instead")
+        }
+
         let player_config = PlayerConfig {
             gapless: false,
-            bitrate: Bitrate::Bitrate320,
+            bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.volnorm.unwrap_or(false),
             normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
         };
