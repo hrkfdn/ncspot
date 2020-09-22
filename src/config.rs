@@ -20,6 +20,7 @@ pub struct Config {
     pub volnorm: Option<bool>,
     pub volnorm_pregain: Option<f32>,
     pub notify: Option<bool>,
+    pub bitrate: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
