@@ -74,7 +74,7 @@ impl View for TabView {
             };
 
             let mut width = tabwidth;
-            if i == self.tabs.len() {
+            if i == self.tabs.len() - 1 {
                 width += printer.size.x % self.tabs.len();
             }
 
