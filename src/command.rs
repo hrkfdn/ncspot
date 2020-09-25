@@ -104,6 +104,7 @@ pub enum Command {
     Help,
     ReloadConfig,
     Noop,
+    NewPlaylist(String),
 }
 
 impl fmt::Display for Command {
@@ -157,6 +158,7 @@ impl fmt::Display for Command {
             Command::Search(term) => format!("search {}", term),
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
+            Command::NewPlaylist(name) => format!("new playlist {}", name),
         };
         write!(f, "{}", repr)
     }
@@ -332,6 +334,9 @@ pub fn parse(input: &str) -> Option<Command> {
         "voldown" => Some(Command::VolumeDown),
         "help" => Some(Command::Help),
         "reload" => Some(Command::ReloadConfig),
+        "newplaylist" => args
+            .get(0)
+            .map(|name| Command::NewPlaylist((*name).to_string())),
         "noop" => Some(Command::Noop),
         _ => None,
     }

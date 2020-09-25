@@ -110,6 +110,7 @@ are supported:
 * `previous`/`next`: Play previous/next track
 * `clear`: Clear playlist
 * `share [current | selected]`: Copies a sharable URL of either the selected item or the currernt song to the system clipboard
+* `newplaylist <name>`: Create new playlist with name `<name>`
 
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening
