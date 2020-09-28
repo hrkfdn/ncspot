@@ -159,6 +159,10 @@ impl ListItem for Album {
         format!("{}", self)
     }
 
+    fn display_center(&self) -> String {
+        "".to_string()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_album(self) {
             if library.use_nerdfont {

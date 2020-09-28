@@ -202,7 +202,10 @@ impl<I: ListItem> View for ListView<I> {
                 };
 
                 let left = item.display_left();
+                let center = item.display_center();
                 let right = item.display_right(self.library.clone());
+
+                let center_offset = printer.size.x / 2;
 
                 // draw left string
                 printer.with_color(style, |printer| {
@@ -210,9 +213,22 @@ impl<I: ListItem> View for ListView<I> {
                     printer.print((0, 0), &left);
                 });
 
-                // draw ".." to indicate a cut off string
-                let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                // left string cut off indicator
+                let max_length = center_offset.saturating_sub(1);
                 if max_length < left.width() {
+                    let offset = max_length.saturating_sub(1);
+                    printer.with_color(style, |printer| {
+                        printer.print((offset, 0), "..");
+                    });
+                }
+
+                printer.with_color(style, |printer| {
+                    printer.print((center_offset, 0), &center);
+                });
+
+                // center string cut off indicator
+                let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                if max_length < center_offset + center.width() {
                     let offset = max_length.saturating_sub(1);
                     printer.with_color(style, |printer| {
                         printer.print((offset, 0), "..");

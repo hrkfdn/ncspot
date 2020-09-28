@@ -153,6 +153,10 @@ impl ListItem for Track {
         format!("{}", self)
     }
 
+    fn display_center(&self) -> String {
+        format!("{}", self.album)
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
             if library.use_nerdfont {
