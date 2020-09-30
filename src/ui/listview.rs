@@ -9,11 +9,16 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
+use crate::album::Album;
+use crate::artist::Artist;
 use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
+use crate::episode::Episode;
 use crate::library::Library;
 use crate::playable::Playable;
+use crate::playlist::Playlist;
 use crate::queue::Queue;
+use crate::show::Show;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
@@ -21,6 +26,7 @@ use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 #[cfg(feature = "share_clipboard")]
 use clipboard::{ClipboardContext, ClipboardProvider};
+use regex::Regex;
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 pub struct Pagination<I: ListItem> {
@@ -440,6 +446,63 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         }
                     }
                 }
+            }
+            Command::Insert(url) => {
+                let url = match url.as_ref().map(String::as_str) {
+                    Some("") | None =>
+                    {
+                        #[cfg(feature = "share_clipboard")]
+                        ClipboardProvider::new()
+                            .and_then(|mut ctx: ClipboardContext| ctx.get_contents())
+                            .ok()
+                            .unwrap()
+                    }
+                    Some(url) => url.to_owned(),
+                };
+
+                let spotify = self.queue.get_spotify();
+
+                let re =
+                    Regex::new("https://open\\.spotify\\.com/(user/[^/]+/)*([a-z]+)/.+").unwrap();
+                let captures = re.captures(&url).unwrap();
+
+                let target: Option<Box<dyn ListItem>> = match &captures[2] {
+                    "track" => spotify
+                        .track(&url)
+                        .and_then(|track| Some(Track::from(&track).as_listitem())),
+                    "album" => spotify
+                        .album(&url)
+                        .and_then(|album| Some(Album::from(&album).as_listitem())),
+                    "playlist" => spotify
+                        .playlist(&url)
+                        .and_then(|playlist| Some(Playlist::from(&playlist).as_listitem())),
+                    "artist" => spotify
+                        .artist(&url)
+                        .and_then(|artist| Some(Artist::from(&artist).as_listitem())),
+                    "episode" => spotify
+                        .episode(&url)
+                        .and_then(|episode| Some(Episode::from(&episode).as_listitem())),
+                    "show" => spotify
+                        .get_show(&url)
+                        .and_then(|show| Some(Show::from(&show).as_listitem())),
+                    _ => None,
+                };
+
+                let queue = self.queue.clone();
+                let library = self.library.clone();
+                // if item has a dedicated view, show it; otherwise open the context menu
+                if let Some(target) = target {
+                    let view = target.open(queue.clone(), library.clone());
+                    return match view {
+                        Some(view) => Ok(CommandResult::View(view)),
+                        None => {
+                            let contextmenu = ContextMenu::new(target.as_ref(), queue, library);
+                            Ok(CommandResult::Modal(Box::new(contextmenu)))
+                        }
+                    };
+                }
+
+                return Ok(CommandResult::Consumed(None));
             }
             _ => {}
         };

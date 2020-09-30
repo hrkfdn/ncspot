@@ -37,6 +37,8 @@ extern crate url;
 extern crate strum;
 extern crate strum_macros;
 
+extern crate regex;
+
 use std::fs;
 use std::path::PathBuf;
 use std::process;
