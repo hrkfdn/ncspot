@@ -449,15 +449,15 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Insert(url) => {
                 let url = match url.as_ref().map(String::as_str) {
-                    Some("") | None =>
-                    {
-                        #[cfg(feature = "share_clipboard")]
-                        ClipboardProvider::new()
-                            .and_then(|mut ctx: ClipboardContext| ctx.get_contents())
-                            .ok()
-                            .unwrap()
-                    }
+                    #[cfg(feature = "share_clipboard")]
+                    Some("") | None => ClipboardProvider::new()
+                        .and_then(|mut ctx: ClipboardContext| ctx.get_contents())
+                        .ok()
+                        .unwrap(),
                     Some(url) => url.to_owned(),
+                    // do nothing if clipboard feature is disabled and there is no url provided
+                    #[allow(unreachable_patterns)]
+                    _ => return Ok(CommandResult::Consumed(None)),
                 };
 
                 let spotify = self.queue.get_spotify();
