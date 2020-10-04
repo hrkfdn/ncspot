@@ -74,8 +74,8 @@ mod ui;
 #[cfg(feature = "mpris")]
 mod mpris;
 
-use crate::commands::CommandManager;
 use crate::command::{Command, JumpMode};
+use crate::commands::CommandManager;
 use crate::events::{Event, EventManager};
 use crate::library::Library;
 use crate::spotify::PlayerEvent;
@@ -288,7 +288,7 @@ fn main() {
         }
     });
 
-    cursive.add_global_callback(cursive::event::Key::Esc , move |s| {
+    cursive.add_global_callback(cursive::event::Key::Esc, move |s| {
         if s.find_name::<ContextMenu>("contextmenu").is_none() {
             s.call_on_name("main", |v: &mut ui::layout::Layout| {
                 v.clear_cmdline();

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode, JumpMode,
+    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
 use crate::config::Config;
 use crate::library::Library;
