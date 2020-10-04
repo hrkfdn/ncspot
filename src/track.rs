@@ -154,7 +154,7 @@ impl ListItem for Track {
     }
 
     fn display_center(&self) -> String {
-        format!("{}", self.album)
+        self.album.to_string()
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
