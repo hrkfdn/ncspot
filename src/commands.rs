@@ -177,6 +177,7 @@ impl CommandManager {
             | Command::Move(_, _)
             | Command::Shift(_, _)
             | Command::Play
+            | Command::PlayNext
             | Command::Queue
             | Command::Save
             | Command::Delete
@@ -269,6 +270,7 @@ impl CommandManager {
         kb.insert(">".into(), Command::Next);
         kb.insert("c".into(), Command::Clear);
         kb.insert("Space".into(), Command::Queue);
+        kb.insert("n".into(), Command::PlayNext);
         kb.insert("Enter".into(), Command::Play);
         kb.insert("s".into(), Command::Save);
         kb.insert("Ctrl+s".into(), Command::SaveQueue);

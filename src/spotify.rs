@@ -46,12 +46,12 @@ use url::Url;
 use core::task::Poll;
 
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::RwLock;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
-use std::str::FromStr;
 
 use crate::artist::Artist;
 use crate::config;
@@ -401,7 +401,7 @@ impl Spotify {
     ) {
         let bitrate_str = cfg.bitrate.unwrap_or(320).to_string();
         let bitrate = Bitrate::from_str(&bitrate_str);
-        if bitrate.is_err(){
+        if bitrate.is_err() {
             error!("invalid bitrate, will use 320 instead")
         }
 

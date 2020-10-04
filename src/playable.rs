@@ -88,6 +88,10 @@ impl ListItem for Playable {
         self.as_listitem().play(queue)
     }
 
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.as_listitem().play_next(queue)
+    }
+
     fn queue(&mut self, queue: Arc<Queue>) {
         self.as_listitem().queue(queue)
     }

@@ -80,7 +80,8 @@ depending on your desktop environment settings. Have a look at the
   * `F3`: Library
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
-* `.` will move to the currently playing track in the queue.
+* `n` will play the selected item after the currently playing track
+* `.` will move to the currently playing track in the queue
 * `s` will save, `d` will remove the currently selected track to/from your
   library
 * `o` will open a detail view or context menu for the selected item
