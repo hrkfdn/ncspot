@@ -92,6 +92,10 @@ impl ListItem for Show {
         format!("{}", self)
     }
 
+    fn display_center(&self) -> String {
+        "".to_string()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_show(self) {
             if library.use_nerdfont {
@@ -118,6 +122,16 @@ impl ListItem for Show {
 
         let index = queue.append_next(playables);
         queue.play(index, true, true);
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_episodes(queue.get_spotify());
+
+        if let Some(episodes) = self.episodes.as_ref() {
+            for ep in episodes.iter().rev() {
+                queue.insert_after_current(Playable::Episode(ep.clone()));
+            }
+        }
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {

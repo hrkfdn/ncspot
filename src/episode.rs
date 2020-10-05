@@ -71,6 +71,10 @@ impl ListItem for Episode {
         self.name.clone()
     }
 
+    fn display_center(&self) -> String {
+        "".to_string()
+    }
+
     fn display_right(&self, _library: Arc<Library>) -> String {
         format!("{} [{}]", self.duration_str(), self.release_date)
     }
@@ -78,6 +82,10 @@ impl ListItem for Episode {
     fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(vec![Playable::Episode(self.clone())]);
         queue.play(index, true, false);
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        queue.insert_after_current(Playable::Episode(self.clone()));
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {

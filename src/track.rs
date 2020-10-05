@@ -153,6 +153,10 @@ impl ListItem for Track {
         format!("{}", self)
     }
 
+    fn display_center(&self) -> String {
+        self.album.to_string()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
             if library.use_nerdfont {
@@ -169,6 +173,10 @@ impl ListItem for Track {
     fn play(&mut self, queue: Arc<Queue>) {
         let index = queue.append_next(vec![Playable::Track(self.clone())]);
         queue.play(index, true, false);
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        queue.insert_after_current(Playable::Track(self.clone()));
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {

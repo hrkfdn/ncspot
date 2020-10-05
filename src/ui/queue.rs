@@ -95,11 +95,20 @@ impl ViewExt for QueueView {
                 self.queue.play(self.list.get_selected_index(), true, false);
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::PlayNext => {
+                return Ok(CommandResult::Ignored);
+            }
             Command::Queue => {
                 return Ok(CommandResult::Ignored);
             }
             Command::Delete => {
-                self.queue.remove(self.list.get_selected_index());
+                let selected = self.list.get_selected_index();
+                let len = self.queue.len();
+
+                self.queue.remove(selected);
+                if selected == len.saturating_sub(1) {
+                    self.list.move_focus(-1);
+                }
                 return Ok(CommandResult::Consumed(None));
             }
             Command::Shift(mode, amount) => {

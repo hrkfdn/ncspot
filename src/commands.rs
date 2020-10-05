@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
 use crate::config::Config;
 use crate::library::Library;
@@ -174,9 +174,11 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Search(_)
+            | Command::Jump(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)
             | Command::Play
+            | Command::PlayNext
             | Command::Queue
             | Command::Save
             | Command::Delete
@@ -270,11 +272,13 @@ impl CommandManager {
         kb.insert(">".into(), Command::Next);
         kb.insert("c".into(), Command::Clear);
         kb.insert("Space".into(), Command::Queue);
+        kb.insert(".".into(), Command::PlayNext);
         kb.insert("Enter".into(), Command::Play);
+        kb.insert("n".into(), Command::Jump(JumpMode::Next));
+        kb.insert("Shift+n".into(), Command::Jump(JumpMode::Previous));
         kb.insert("s".into(), Command::Save);
         kb.insert("Ctrl+s".into(), Command::SaveQueue);
         kb.insert("d".into(), Command::Delete);
-        kb.insert("/".into(), Command::Focus("search".into()));
         kb.insert("f".into(), Command::Seek(SeekDirection::Relative(1000)));
         kb.insert("b".into(), Command::Seek(SeekDirection::Relative(-1000)));
         kb.insert(
@@ -305,7 +309,7 @@ impl CommandManager {
 
         kb.insert("Up".into(), Command::Move(MoveMode::Up, Default::default()));
         kb.insert(
-            ".".into(),
+            "p".into(),
             Command::Move(MoveMode::Playing, Default::default()),
         );
         kb.insert(

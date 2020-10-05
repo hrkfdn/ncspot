@@ -128,6 +128,10 @@ impl ListItem for Playlist {
         self.name.clone()
     }
 
+    fn display_center(&self) -> String {
+        "".to_string()
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_playlist(self) {
             if library.use_nerdfont {
@@ -158,6 +162,16 @@ impl ListItem for Playlist {
                 .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
+        }
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_tracks(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks.as_ref() {
+            for track in tracks.iter().rev() {
+                queue.insert_after_current(Playable::Track(track.clone()));
+            }
         }
     }
 

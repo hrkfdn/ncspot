@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
@@ -11,7 +11,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::album::Album;
 use crate::artist::Artist;
-use crate::command::{Command, GotoMode, MoveAmount, MoveMode, TargetMode};
+use crate::command::{Command, GotoMode, JumpMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
 use crate::episode::Episode;
 use crate::library::Library;
@@ -95,6 +95,8 @@ pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
     last_content_len: usize,
     selected: usize,
+    search_indexes: Vec<usize>,
+    search_selected_index: usize,
     last_size: Vec2,
     scrollbar: ScrollBase,
     queue: Arc<Queue>,
@@ -108,6 +110,8 @@ impl<I: ListItem> ListView<I> {
             content,
             last_content_len: 0,
             selected: 0,
+            search_indexes: Vec::new(),
+            search_selected_index: 0,
             last_size: Vec2::new(0, 0),
             scrollbar: ScrollBase::new(),
             queue,
@@ -136,6 +140,20 @@ impl<I: ListItem> ListView<I> {
 
     pub fn get_selected_index(&self) -> usize {
         self.selected
+    }
+
+    pub fn get_indexes_of(&self, query: &String) -> Vec<usize> {
+        let content = self.content.read().unwrap();
+        content
+            .iter()
+            .enumerate()
+            .filter(|(_, i)| {
+                i.display_left()
+                    .to_lowercase()
+                    .contains(&query[..].to_lowercase())
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
 
     pub fn move_focus_to(&mut self, target: usize) {
@@ -208,7 +226,10 @@ impl<I: ListItem> View for ListView<I> {
                 };
 
                 let left = item.display_left();
+                let center = item.display_center();
                 let right = item.display_right(self.library.clone());
+
+                let center_offset = printer.size.x / 2;
 
                 // draw left string
                 printer.with_color(style, |printer| {
@@ -216,9 +237,22 @@ impl<I: ListItem> View for ListView<I> {
                     printer.print((0, 0), &left);
                 });
 
-                // draw ".." to indicate a cut off string
-                let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                // left string cut off indicator
+                let max_length = center_offset.saturating_sub(1);
                 if max_length < left.width() {
+                    let offset = max_length.saturating_sub(1);
+                    printer.with_color(style, |printer| {
+                        printer.print((offset, 0), "..");
+                    });
+                }
+
+                printer.with_color(style, |printer| {
+                    printer.print((center_offset, 0), &center);
+                });
+
+                // center string cut off indicator
+                let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                if max_length < center_offset + center.width() {
                     let offset = max_length.saturating_sub(1);
                     printer.with_color(style, |printer| {
                         printer.print((offset, 0), "..");
@@ -328,6 +362,15 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::PlayNext => {
+                info!("played next");
+                let mut content = self.content.write().unwrap();
+                if let Some(item) = content.get_mut(self.selected) {
+                    item.play_next(self.queue.clone());
+                }
+
+                return Ok(CommandResult::Consumed(None));
+            }
             Command::Queue => {
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {
@@ -376,6 +419,47 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::Jump(mode) => match mode {
+                JumpMode::Query(query) => {
+                    self.search_indexes = self.get_indexes_of(query);
+                    self.search_selected_index = 0;
+                    match self.search_indexes.get(0) {
+                        Some(&index) => {
+                            self.move_focus_to(index);
+                            return Ok(CommandResult::Consumed(None));
+                        }
+                        None => return Ok(CommandResult::Ignored),
+                    }
+                }
+                JumpMode::Next => {
+                    let len = self.search_indexes.len();
+                    if len == 0 {
+                        return Ok(CommandResult::Ignored);
+                    }
+                    let index = self.search_selected_index;
+                    let next_index = match index.cmp(&(len - 1)) {
+                        Ordering::Equal => 0,
+                        _ => index + 1,
+                    };
+                    self.move_focus_to(self.search_indexes[next_index]);
+                    self.search_selected_index = next_index;
+                    return Ok(CommandResult::Consumed(None));
+                }
+                JumpMode::Previous => {
+                    let len = self.search_indexes.len();
+                    if len == 0 {
+                        return Ok(CommandResult::Ignored);
+                    }
+                    let index = self.search_selected_index;
+                    let prev_index = match index.cmp(&0) {
+                        Ordering::Equal => len - 1,
+                        _ => index - 1,
+                    };
+                    self.move_focus_to(self.search_indexes[prev_index]);
+                    self.search_selected_index = prev_index;
+                    return Ok(CommandResult::Consumed(None));
+                }
+            },
             Command::Move(mode, amount) => {
                 let last_idx = self.content.read().unwrap().len().saturating_sub(1);
 
