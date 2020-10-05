@@ -80,8 +80,8 @@ depending on your desktop environment settings. Have a look at the
   * `F3`: Library
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
-* `n` will play the selected item after the currently playing track
-* `.` will move to the currently playing track in the queue
+* `.` will play the selected item after the currently playing track
+* `p` will move to the currently playing track in the queue
 * `s` will save, `d` will remove the currently selected track to/from your
   library
 * `o` will open a detail view or context menu for the selected item
@@ -102,6 +102,9 @@ depending on your desktop environment settings. Have a look at the
 * `x` copies a sharable URL of the song to the system clipboard
 * `Shift-x` copies a sharable URL of the currently selected item to the system clipboard
 
+Use `/` to open a Vim-like search bar, you can use `n` and `N` to go for the next/previous
+search occurrence, respectivly.
+
 You can also open a Vim style commandprompt using `:`, the following commands
 are supported:
 
@@ -115,6 +118,8 @@ are supported:
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening
 the search view.
+
+To close the commandprompt at any time, press `esc`. 
 
 ## Configuration
 
