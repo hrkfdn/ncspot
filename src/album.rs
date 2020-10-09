@@ -33,15 +33,32 @@ impl Album {
         }
 
         if let Some(ref album_id) = self.id {
-            if let Some(fa) = spotify.full_album(&album_id) {
-                self.tracks = Some(
-                    fa.tracks
-                        .items
-                        .iter()
-                        .map(|st| Track::from_simplified_track(&st, &fa))
-                        .collect(),
-                );
+            let mut collected_tracks = Vec::new();
+            if let Some(full_album) = spotify.full_album(album_id) {
+                let mut tracks_result = Some(full_album.tracks.clone());
+                while let Some(ref tracks) = tracks_result {
+                    for t in &tracks.items {
+                        collected_tracks.push(Track::from_simplified_track(t, &full_album));
+                    }
+
+                    debug!("got {} tracks", tracks.items.len());
+
+                    // load next batch if necessary
+                    tracks_result = match tracks.next {
+                        Some(_) => {
+                            debug!("requesting tracks again..");
+                            spotify.album_tracks(
+                                album_id,
+                                50,
+                                tracks.offset + tracks.items.len() as u32,
+                            )
+                        }
+                        None => None,
+                    }
+                }
             }
+
+            self.tracks = Some(collected_tracks)
         }
     }
 }

@@ -19,7 +19,7 @@ use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
 use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
 use rspotify::model::search::SearchResult;
-use rspotify::model::track::{FullTrack, SavedTrack};
+use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
 use rspotify::senum::SearchType;
 
@@ -711,6 +711,15 @@ impl Spotify {
 
     pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
         self.api_with_retry(|api| api.album(album_id))
+    }
+
+    pub fn album_tracks(
+        &self,
+        album_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Option<Page<SimplifiedTrack>> {
+        self.api_with_retry(|api| api.album_track(album_id, limit, offset))
     }
 
     pub fn artist_albums(
