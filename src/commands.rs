@@ -184,6 +184,7 @@ impl CommandManager {
             | Command::Delete
             | Command::Back
             | Command::Open(_)
+            | Command::Insert(_)
             | Command::Goto(_) => Ok(None),
             _ => Err("Unknown Command".into()),
         }
@@ -372,6 +373,7 @@ impl CommandManager {
 
         kb.insert("Shift+Up".into(), Command::Shift(ShiftMode::Up, None));
         kb.insert("Shift+Down".into(), Command::Shift(ShiftMode::Down, None));
+        kb.insert("Ctrl+v".into(), Command::Insert(None));
 
         kb
     }

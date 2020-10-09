@@ -114,6 +114,7 @@ pub enum Command {
     Help,
     ReloadConfig,
     Noop,
+    Insert(Option<String>),
 }
 
 impl fmt::Display for Command {
@@ -169,6 +170,7 @@ impl fmt::Display for Command {
             Command::Jump(term) => format!("jump {}", term),
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
+            Command::Insert(_) => "insert".to_string(),
         };
         write!(f, "{}", repr)
     }
@@ -346,6 +348,14 @@ pub fn parse(input: &str) -> Option<Command> {
         "voldown" => Some(Command::VolumeDown),
         "help" => Some(Command::Help),
         "reload" => Some(Command::ReloadConfig),
+        "insert" => {
+            if args.is_empty() {
+                Some(Command::Insert(None))
+            } else {
+                args.get(0)
+                    .map(|url| Command::Insert(Some((*url).to_string())))
+            }
+        }
         "noop" => Some(Command::Noop),
         _ => None,
     }
