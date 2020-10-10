@@ -87,6 +87,7 @@ depending on your desktop environment settings. Have a look at the
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
 * `A` will open the artist view for the selected item
+* `Ctrl-v` will open the context menu for a Spotify link in your clipboard
 * `Backspace` closes the current view
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
@@ -118,7 +119,7 @@ The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening
 the search view.
 
-To close the commandprompt at any time, press `esc`. 
+To close the commandprompt at any time, press `esc`.
 
 ## Configuration
 
