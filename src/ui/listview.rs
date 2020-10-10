@@ -142,7 +142,7 @@ impl<I: ListItem> ListView<I> {
         self.selected
     }
 
-    pub fn get_indexes_of(&self, query: &String) -> Vec<usize> {
+    pub fn get_indexes_of(&self, query: &str) -> Vec<usize> {
         let content = self.content.read().unwrap();
         content
             .iter()
@@ -554,22 +554,22 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     let target: Option<Box<dyn ListItem>> = match &captures[2] {
                         "track" => spotify
                             .track(&url)
-                            .and_then(|track| Some(Track::from(&track).as_listitem())),
+                            .map(|track| Track::from(&track).as_listitem()),
                         "album" => spotify
                             .album(&url)
-                            .and_then(|album| Some(Album::from(&album).as_listitem())),
+                            .map(|album| Album::from(&album).as_listitem()),
                         "playlist" => spotify
                             .playlist(&url)
-                            .and_then(|playlist| Some(Playlist::from(&playlist).as_listitem())),
+                            .map(|playlist| Playlist::from(&playlist).as_listitem()),
                         "artist" => spotify
                             .artist(&url)
-                            .and_then(|artist| Some(Artist::from(&artist).as_listitem())),
+                            .map(|artist| Artist::from(&artist).as_listitem()),
                         "episode" => spotify
                             .episode(&url)
-                            .and_then(|episode| Some(Episode::from(&episode).as_listitem())),
+                            .map(|episode| Episode::from(&episode).as_listitem()),
                         "show" => spotify
                             .get_show(&url)
-                            .and_then(|show| Some(Show::from(&show).as_listitem())),
+                            .map(|show| Show::from(&show).as_listitem()),
                         _ => None,
                     };
 

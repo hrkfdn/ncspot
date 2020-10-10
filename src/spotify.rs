@@ -266,10 +266,7 @@ impl Spotify {
             _ => queue::RepeatSetting::None,
         };
         let shuffle = match &cfg.saved_state {
-            Some(state) => match &state.shuffle {
-                Some(true) => true,
-                _ => false,
-            },
+            Some(state) => matches!(&state.shuffle, Some(true)),
             None => false,
         };
 
@@ -454,11 +451,11 @@ impl Spotify {
     }
 
     pub fn get_current_progress(&self) -> Duration {
-        self.get_elapsed().unwrap_or(Duration::from_secs(0))
+        self.get_elapsed().unwrap_or_else(|| Duration::from_secs(0))
             + self
                 .get_since()
                 .map(|t| t.elapsed().unwrap())
-                .unwrap_or(Duration::from_secs(0))
+                .unwrap_or_else(|| Duration::from_secs(0))
     }
 
     fn set_elapsed(&self, new_elapsed: Option<Duration>) {
