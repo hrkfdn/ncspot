@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use directories::ProjectDirs;
+use platform_dirs::AppDirs;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
@@ -60,18 +60,21 @@ pub fn load() -> Result<Config, String> {
     load_or_generate_default(path, |_| Ok(Config::default()), false)
 }
 
-fn proj_dirs() -> ProjectDirs {
+fn proj_dirs() -> AppDirs {
     match *BASE_PATH.read().expect("can't readlock BASE_PATH") {
-        Some(ref basepath) => ProjectDirs::from_path(basepath.clone()).expect("invalid basepath"),
-        None => {
-            ProjectDirs::from("org", "affekt", "ncspot").expect("can't determine project paths")
-        }
+        Some(ref basepath) => AppDirs {
+            cache_dir: basepath.join(".cache"),
+            config_dir: basepath.join(".config"),
+            data_dir: basepath.join(".local/share"),
+            state_dir: basepath.join(".local/state"),
+        },
+        None => AppDirs::new(Some("ncspot"), true).expect("can't determine project paths"),
     }
 }
 
 pub fn config_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
-    let cfg_dir = proj_dirs.config_dir();
+    let cfg_dir = &proj_dirs.config_dir;
     trace!("{:?}", cfg_dir);
     if cfg_dir.exists() && !cfg_dir.is_dir() {
         fs::remove_file(cfg_dir).expect("unable to remove old config file");
@@ -86,7 +89,7 @@ pub fn config_path(file: &str) -> PathBuf {
 
 pub fn cache_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
-    let cache_dir = proj_dirs.cache_dir();
+    let cache_dir = &proj_dirs.cache_dir;
     if !cache_dir.exists() {
         fs::create_dir_all(cache_dir).expect("can't create cache folder");
     }
