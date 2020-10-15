@@ -95,6 +95,7 @@ pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
     last_content_len: usize,
     selected: usize,
+    search_query: String,
     search_indexes: Vec<usize>,
     search_selected_index: usize,
     last_size: Vec2,
@@ -110,6 +111,7 @@ impl<I: ListItem> ListView<I> {
             content,
             last_content_len: 0,
             selected: 0,
+            search_query: String::new(),
             search_indexes: Vec::new(),
             search_selected_index: 0,
             last_size: Vec2::new(0, 0),
@@ -236,6 +238,25 @@ impl<I: ListItem> View for ListView<I> {
                     printer.print_hline((0, 0), printer.size.x, " ");
                     printer.print((0, 0), &left);
                 });
+
+                // if line contains search query match, draw on top with
+                // highlight color
+                if self.search_indexes.contains(&i) {
+                    let fg = *printer.theme.palette.custom("search_match").unwrap();
+                    let matched_style = ColorStyle::new(fg, style.back);
+
+                    let matches: Vec<(usize, usize)> = left
+                        .to_lowercase()
+                        .match_indices(&self.search_query)
+                        .map(|i| (i.0, i.0 + i.1.len()))
+                        .collect();
+
+                    for m in matches {
+                        printer.with_color(matched_style, |printer| {
+                            printer.print((m.0, 0), &left[m.0..m.1]);
+                        });
+                    }
+                }
 
                 // left string cut off indicator
                 let max_length = center_offset.saturating_sub(1);
@@ -421,6 +442,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Jump(mode) => match mode {
                 JumpMode::Query(query) => {
+                    self.search_query = query.to_lowercase();
                     self.search_indexes = self.get_indexes_of(query);
                     self.search_selected_index = 0;
                     match self.search_indexes.get(0) {

@@ -49,6 +49,7 @@ pub fn load(cfg: &Config) -> Theme {
     );
     palette.set_color("cmdline", load_color!(cfg, cmdline, TerminalDefault));
     palette.set_color("cmdline_bg", load_color!(cfg, cmdline_bg, TerminalDefault));
+    palette.set_color("search_match", load_color!(cfg, search_match, Light(Red)));
 
     Theme {
         shadow: false,

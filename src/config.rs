@@ -49,6 +49,7 @@ pub struct ConfigTheme {
     pub statusbar_bg: Option<String>,
     pub cmdline: Option<String>,
     pub cmdline_bg: Option<String>,
+    pub search_match: Option<String>,
 }
 
 lazy_static! {

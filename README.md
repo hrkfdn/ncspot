@@ -198,6 +198,7 @@ statusbar_progress = "green"
 statusbar_bg = "green"
 cmdline = "light white"
 cmdline_bg = "black"
+search_match = "light red"
 ```
 
 More examples can be found in pull request
