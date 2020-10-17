@@ -141,6 +141,7 @@ Possible configuration values are:
   by default <true/false>
 * `notify`: Enable or disable desktop notifications, off by default <true/false>
 * `bitrate`: The audio bitrate to use for streaming, can be 96, 160, or 320 (default is 320)
+* `album_column`: Show album column for tracks, on by default <true/false>
 
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:

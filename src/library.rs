@@ -12,6 +12,7 @@ use serde::Serialize;
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::config;
+use crate::config::Config;
 use crate::events::EventManager;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
@@ -63,6 +64,10 @@ impl Library {
         self.playlists
             .read()
             .expect("could not readlock listview content")
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.spotify.cfg
     }
 
     fn load_cache<T: DeserializeOwned>(&self, cache_path: PathBuf, store: Arc<RwLock<Vec<T>>>) {

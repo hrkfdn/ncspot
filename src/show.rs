@@ -92,7 +92,7 @@ impl ListItem for Show {
         format!("{}", self)
     }
 
-    fn display_center(&self) -> String {
+    fn display_center(&self, _library: Arc<Library>) -> String {
         "".to_string()
     }
 

@@ -21,6 +21,7 @@ pub struct Config {
     pub volnorm_pregain: Option<f32>,
     pub notify: Option<bool>,
     pub bitrate: Option<u32>,
+    pub album_column: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

@@ -153,8 +153,12 @@ impl ListItem for Track {
         format!("{}", self)
     }
 
-    fn display_center(&self) -> String {
-        self.album.to_string()
+    fn display_center(&self, library: Arc<Library>) -> String {
+        if library.config().album_column.unwrap_or(true) {
+            self.album.to_string()
+        } else {
+            "".to_string()
+        }
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {

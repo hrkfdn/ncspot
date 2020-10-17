@@ -229,7 +229,7 @@ impl<I: ListItem> View for ListView<I> {
                 };
 
                 let left = item.display_left();
-                let center = item.display_center();
+                let center = item.display_center(self.library.clone());
                 let right = item.display_right(self.library.clone());
                 let draw_center = !center.is_empty();
 
