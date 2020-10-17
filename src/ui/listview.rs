@@ -29,6 +29,7 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use regex::Regex;
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
+
 pub struct Pagination<I: ListItem> {
     max_content: Arc<RwLock<Option<usize>>>,
     callback: Arc<RwLock<Option<Paginator<I>>>>,
@@ -230,8 +231,7 @@ impl<I: ListItem> View for ListView<I> {
                 let left = item.display_left();
                 let center = item.display_center();
                 let right = item.display_right(self.library.clone());
-
-                let center_offset = printer.size.x / 2;
+                let draw_center = !center.is_empty();
 
                 // draw left string
                 printer.with_color(style, |printer| {
@@ -259,25 +259,35 @@ impl<I: ListItem> View for ListView<I> {
                 }
 
                 // left string cut off indicator
-                let max_length = center_offset.saturating_sub(1);
-                if max_length < left.width() {
-                    let offset = max_length.saturating_sub(1);
+                let center_offset = printer.size.x / 2;
+                let left_max_length = if draw_center {
+                    center_offset.saturating_sub(1)
+                } else {
+                    printer.size.x.saturating_sub(right.width() + 1)
+                };
+
+                if left_max_length < left.width() {
+                    let offset = left_max_length.saturating_sub(1);
                     printer.with_color(style, |printer| {
+                        printer.print_hline((offset, 0), printer.size.x, " ");
                         printer.print((offset, 0), "..");
                     });
                 }
 
-                printer.with_color(style, |printer| {
-                    printer.print((center_offset, 0), &center);
-                });
-
-                // center string cut off indicator
-                let max_length = printer.size.x.saturating_sub(right.width() + 1);
-                if max_length < center_offset + center.width() {
-                    let offset = max_length.saturating_sub(1);
+                // draw center string
+                if draw_center {
                     printer.with_color(style, |printer| {
-                        printer.print((offset, 0), "..");
+                        printer.print((center_offset, 0), &center);
                     });
+
+                    // center string cut off indicator
+                    let max_length = printer.size.x.saturating_sub(right.width() + 1);
+                    if max_length < center_offset + center.width() {
+                        let offset = max_length.saturating_sub(1);
+                        printer.with_color(style, |printer| {
+                            printer.print((offset, 0), "..");
+                        });
+                    }
                 }
 
                 // draw right string
