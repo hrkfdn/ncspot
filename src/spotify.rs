@@ -23,7 +23,7 @@ use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
 use rspotify::senum::SearchType;
 
-use serde_json::json;
+use serde_json::{json, Map};
 
 use failure::Error;
 
@@ -59,6 +59,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
+use rspotify::model::recommend::Recommendations;
 use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
@@ -684,6 +685,24 @@ impl Spotify {
 
     pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
         self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), None))
+    }
+
+    pub fn recommentations(
+        &self,
+        seed_artists: Option<Vec<String>>,
+        seed_genres: Option<Vec<String>>,
+        seed_tracks: Option<Vec<String>>,
+    ) -> Option<Recommendations> {
+        self.api_with_retry(|api| {
+            api.recommendations(
+                seed_artists.clone(),
+                seed_genres.clone(),
+                seed_tracks.clone(),
+                100,
+                None,
+                &Map::new(),
+            )
+        })
     }
 
     pub fn search(

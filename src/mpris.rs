@@ -65,7 +65,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.album)
+                .map(|t| t.album.unwrap_or_default())
                 .unwrap_or_default(),
         )),
     );

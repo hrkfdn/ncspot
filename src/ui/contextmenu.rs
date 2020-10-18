@@ -24,6 +24,7 @@ enum ContextMenuAction {
     ShowItem(Box<dyn ListItem>),
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
+    ShowRecommentations(Box<dyn ListItem>),
 }
 
 impl ContextMenu {
@@ -62,8 +63,12 @@ impl ContextMenu {
         if let Some(t) = item.track() {
             content.add_item(
                 "Add to playlist",
-                ContextMenuAction::AddToPlaylist(Box::new(t)),
-            )
+                ContextMenuAction::AddToPlaylist(Box::new(t.clone())),
+            );
+            content.add_item(
+                "Similar tracks",
+                ContextMenuAction::ShowRecommentations(Box::new(t)),
+            );
         }
 
         // open detail view of artist/album
@@ -87,6 +92,11 @@ impl ContextMenu {
                 ContextMenuAction::AddToPlaylist(track) => {
                     let dialog = Self::add_track_dialog(library, *track.clone());
                     s.add_layer(dialog);
+                }
+                ContextMenuAction::ShowRecommentations(item) => {
+                    if let Some(view) = item.open_recommentations(queue, library) {
+                        s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                    }
                 }
             }
         });
