@@ -36,11 +36,11 @@ pub struct Library {
     user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
-    pub use_nerdfont: bool,
+    pub cfg: Arc<Config>,
 }
 
 impl Library {
-    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, use_nerdfont: bool) -> Self {
+    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, cfg: Arc<Config>) -> Self {
         let user_id = spotify.current_user().map(|u| u.id);
 
         let library = Self {
@@ -53,7 +53,7 @@ impl Library {
             user_id,
             ev: ev.clone(),
             spotify,
-            use_nerdfont,
+            cfg,
         };
 
         library.update_library();
@@ -64,10 +64,6 @@ impl Library {
         self.playlists
             .read()
             .expect("could not readlock listview content")
-    }
-
-    pub fn config(&self) -> &Config {
-        &self.spotify.cfg
     }
 
     fn load_cache<T: DeserializeOwned>(&self, cache_path: PathBuf, store: Arc<RwLock<Vec<T>>>) {

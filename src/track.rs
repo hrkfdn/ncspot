@@ -154,7 +154,7 @@ impl ListItem for Track {
     }
 
     fn display_center(&self, library: Arc<Library>) -> String {
-        if library.config().album_column.unwrap_or(true) {
+        if library.cfg.values().album_column.unwrap_or(true) {
             self.album.to_string()
         } else {
             "".to_string()
@@ -163,7 +163,7 @@ impl ListItem for Track {
 
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
-            if library.use_nerdfont {
+            if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
             } else {
                 "✓ "

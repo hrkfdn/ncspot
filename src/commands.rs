@@ -32,6 +32,7 @@ pub struct CommandManager {
     spotify: Arc<Spotify>,
     queue: Arc<Queue>,
     library: Arc<Library>,
+    config: Arc<Config>,
 }
 
 impl CommandManager {
@@ -39,18 +40,21 @@ impl CommandManager {
         spotify: Arc<Spotify>,
         queue: Arc<Queue>,
         library: Arc<Library>,
-        config: &Config,
+        config: Arc<Config>,
     ) -> CommandManager {
+        let bindings = RefCell::new(Self::get_bindings(config.clone()));
         CommandManager {
             aliases: HashMap::new(),
-            bindings: RefCell::new(Self::get_bindings(config)),
+            bindings,
             spotify,
             queue,
             library,
+            config,
         }
     }
 
-    pub fn get_bindings(config: &Config) -> HashMap<String, Command> {
+    pub fn get_bindings(config: Arc<Config>) -> HashMap<String, Command> {
+        let config = config.values();
         let mut kb = if config.default_keybindings.unwrap_or(true) {
             Self::default_keybindings()
         } else {
@@ -161,15 +165,16 @@ impl CommandManager {
                 Ok(None)
             }
             Command::ReloadConfig => {
-                let cfg = crate::config::load()?;
+                self.config.reload();
 
                 // update theme
-                let theme = crate::theme::load(&cfg);
+                let theme = self.config.build_theme();
                 s.set_theme(theme);
 
                 // update bindings
                 self.unregister_keybindings(s);
-                self.bindings.replace(Self::get_bindings(&cfg));
+                self.bindings
+                    .replace(Self::get_bindings(self.config.clone()));
                 self.register_keybindings(s);
                 Ok(None)
             }

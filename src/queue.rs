@@ -7,6 +7,7 @@ use notify_rust::Notification;
 use rand::prelude::*;
 use strum_macros::Display;
 
+use crate::config::Config;
 use crate::playable::Playable;
 use crate::spotify::Spotify;
 
@@ -23,16 +24,18 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     repeat: RwLock<RepeatSetting>,
     spotify: Arc<Spotify>,
+    cfg: Arc<Config>,
 }
 
 impl Queue {
-    pub fn new(spotify: Arc<Spotify>) -> Queue {
+    pub fn new(spotify: Arc<Spotify>, cfg: Arc<Config>) -> Queue {
         let q = Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
             spotify,
             current_track: RwLock::new(None),
             repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
+            cfg,
         };
         q.set_repeat(q.spotify.repeat);
         q.set_shuffle(q.spotify.shuffle);
@@ -248,7 +251,7 @@ impl Queue {
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
-            if self.spotify.cfg.notify.unwrap_or(false) {
+            if self.cfg.values().notify.unwrap_or(false) {
                 #[cfg(feature = "notify")]
                 if let Err(e) = Notification::new().summary(&track.to_string()).show() {
                     error!("error showing notification: {:?}", e);

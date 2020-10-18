@@ -1,14 +1,15 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard};
+use std::{fs, process};
 
+use cursive::theme::Theme;
 use platform_dirs::AppDirs;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
-pub struct Config {
+pub struct ConfigValues {
     pub default_keybindings: Option<bool>,
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
@@ -57,9 +58,40 @@ lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
 }
 
-pub fn load() -> Result<Config, String> {
+pub struct Config {
+    values: RwLock<ConfigValues>,
+}
+
+impl Config {
+    pub fn new() -> Self {
+        let values = load().unwrap_or_else(|e| {
+            eprintln!("could not load config: {}", e);
+            process::exit(1);
+        });
+
+        Self {
+            values: RwLock::new(values),
+        }
+    }
+
+    pub fn values(&self) -> RwLockReadGuard<ConfigValues> {
+        self.values.read().expect("can't readlock config values")
+    }
+
+    pub fn build_theme(&self) -> Theme {
+        let theme = &self.values().theme;
+        crate::theme::load(theme)
+    }
+
+    pub fn reload(&self) {
+        let cfg = load().expect("could not reload config");
+        *self.values.write().expect("can't writelock config values") = cfg
+    }
+}
+
+fn load() -> Result<ConfigValues, String> {
     let path = config_path("config.toml");
-    load_or_generate_default(path, |_| Ok(Config::default()), false)
+    load_or_generate_default(path, |_| Ok(ConfigValues::default()), false)
 }
 
 fn proj_dirs() -> AppDirs {

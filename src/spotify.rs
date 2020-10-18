@@ -48,7 +48,7 @@ use core::task::Poll;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
@@ -84,7 +84,7 @@ pub enum PlayerEvent {
 pub struct Spotify {
     events: EventManager,
     credentials: Credentials,
-    pub cfg: config::Config,
+    cfg: Arc<config::Config>,
     status: RwLock<PlayerEvent>,
     api: RwLock<SpotifyAPI>,
     elapsed: RwLock<Option<Duration>>,
@@ -246,15 +246,19 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
-        let volume = match &cfg.saved_state {
+    pub fn new(
+        events: EventManager,
+        credentials: Credentials,
+        cfg: Arc<config::Config>,
+    ) -> Spotify {
+        let volume = match &cfg.values().saved_state {
             Some(state) => match state.volume {
                 Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
                 None => 0xFFFF as u16,
             },
             None => 0xFFFF as u16,
         };
-        let repeat = match &cfg.saved_state {
+        let repeat = match &cfg.values().saved_state {
             Some(state) => match &state.repeat {
                 Some(s) => match s.as_str() {
                     "track" => queue::RepeatSetting::RepeatTrack,
@@ -265,7 +269,7 @@ impl Spotify {
             },
             _ => queue::RepeatSetting::None,
         };
-        let shuffle = match &cfg.saved_state {
+        let shuffle = match &cfg.values().saved_state {
             Some(state) => matches!(&state.shuffle, Some(true)),
             None => false,
         };
@@ -273,7 +277,7 @@ impl Spotify {
         let mut spotify = Spotify {
             events,
             credentials,
-            cfg: cfg.clone(),
+            cfg,
             status: RwLock::new(PlayerEvent::Stopped),
             api: RwLock::new(SpotifyAPI::default()),
             elapsed: RwLock::new(None),
@@ -306,7 +310,14 @@ impl Spotify {
             let volume = self.volume();
             let credentials = self.credentials.clone();
             thread::spawn(move || {
-                Self::worker(events, Box::pin(rx), cfg, credentials, user_tx, volume)
+                Self::worker(
+                    events,
+                    Box::pin(rx),
+                    cfg.clone(),
+                    credentials,
+                    user_tx,
+                    volume,
+                )
             });
         }
 
@@ -349,7 +360,7 @@ impl Spotify {
         let session_config = Self::session_config();
         let cache = Cache::new(
             config::cache_path("librespot"),
-            cfg.audio_cache.unwrap_or(true),
+            cfg.values().audio_cache.unwrap_or(true),
         );
         let handle = core.handle();
         debug!("opening spotify session");
@@ -391,12 +402,12 @@ impl Spotify {
     fn worker(
         events: EventManager,
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
-        cfg: config::Config,
+        cfg: Arc<config::Config>,
         credentials: Credentials,
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
     ) {
-        let bitrate_str = cfg.bitrate.unwrap_or(320).to_string();
+        let bitrate_str = cfg.values().bitrate.unwrap_or(320).to_string();
         let bitrate = Bitrate::from_str(&bitrate_str);
         if bitrate.is_err() {
             error!("invalid bitrate, will use 320 instead")
@@ -405,8 +416,8 @@ impl Spotify {
         let player_config = PlayerConfig {
             gapless: false,
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
-            normalisation: cfg.volnorm.unwrap_or(false),
-            normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
+            normalisation: cfg.values().volnorm.unwrap_or(false),
+            normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
         };
 
         let mut core = Core::new().unwrap();
@@ -419,12 +430,12 @@ impl Spotify {
         let mixer = create_mixer(None);
         mixer.set_volume(volume);
 
-        let backend = audio_backend::find(cfg.backend.clone()).unwrap();
+        let backend = audio_backend::find(cfg.values().backend.clone()).unwrap();
         let (player, player_events) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
-            move || (backend)(cfg.backend_device),
+            move || (backend)(cfg.values().backend_device.clone()),
         );
 
         let worker = Worker::new(
