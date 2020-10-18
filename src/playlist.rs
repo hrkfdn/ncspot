@@ -128,10 +128,6 @@ impl ListItem for Playlist {
         self.name.clone()
     }
 
-    fn display_center(&self, _library: Arc<Library>) -> String {
-        "".to_string()
-    }
-
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_playlist(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {

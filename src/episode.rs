@@ -71,10 +71,6 @@ impl ListItem for Episode {
         self.name.clone()
     }
 
-    fn display_center(&self, _library: Arc<Library>) -> String {
-        "".to_string()
-    }
-
     fn display_right(&self, _library: Arc<Library>) -> String {
         format!("{} [{}]", self.duration_str(), self.release_date)
     }
