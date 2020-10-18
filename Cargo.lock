@@ -1927,7 +1927,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.17.1",
- "strum_macros 0.17.1",
+ "strum_macros 0.19.4",
  "tokio-core",
  "tokio-timer",
  "toml",
@@ -3171,9 +3171,9 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.17.1"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e6e163a520367c465f59e0a61a23cfae3b10b6546d78b6f672a382be79f7110"
+checksum = "e61bb0be289045cb80bfce000512e32d09f8337e54c186725da381377ad1f8d5"
 dependencies = [
  "heck",
  "proc-macro2 1.0.24",
