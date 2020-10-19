@@ -40,7 +40,7 @@ dbus = { version = "0.8.4", optional = true }
 rand = "0.7"
 webbrowser = "0.5"
 clipboard = { version = "0.5", optional = true }
-url = "1.7"
+url = "2.1"
 strum = "0.19.5"
 strum_macros = "0.19.4"
 libc = "0.2"
