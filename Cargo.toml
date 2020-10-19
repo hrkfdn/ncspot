@@ -20,7 +20,7 @@ reqwest = "0.9"
 crossbeam-channel = "0.5"
 platform-dirs = "0.3.0"
 failure = "0.1"
-fern = "0.5"
+fern = "0.6"
 futures = { version = "0.3", features = ["compat"] }
 futures_01 = { version = "0.1", package = "futures" }
 lazy_static = "1.3.0"
