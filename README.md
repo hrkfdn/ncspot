@@ -95,7 +95,8 @@ depending on your desktop environment settings. Have a look at the
 * `<` and `>` play the previous or next track
 * `f` and `b` to seek forward or backward
 * `Shift-f` and `Shift-b` to seek forward or backward in steps of 10s
-* `-` and `+` decrease or increase the volume
+* `-` and `+` decrease or increase the volume by 1
+* `[` and `]` decrease of increase the volume by 5
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot

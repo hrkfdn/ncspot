@@ -148,13 +148,13 @@ impl CommandManager {
                 }
                 Ok(None)
             }
-            Command::VolumeUp => {
-                let volume = self.spotify.volume().saturating_add(VOLUME_PERCENT);
+            Command::VolumeUp(amount) => {
+                let volume = self.spotify.volume().saturating_add(VOLUME_PERCENT * amount);
                 self.spotify.set_volume(volume);
                 Ok(None)
             }
-            Command::VolumeDown => {
-                let volume = self.spotify.volume().saturating_sub(VOLUME_PERCENT);
+            Command::VolumeDown(amount) => {
+                let volume = self.spotify.volume().saturating_sub(VOLUME_PERCENT * amount);
                 debug!("vol {}", volume);
                 self.spotify.set_volume(volume);
                 Ok(None)
@@ -294,8 +294,11 @@ impl CommandManager {
             "Shift+b".into(),
             Command::Seek(SeekDirection::Relative(-10000)),
         );
-        kb.insert("+".into(), Command::VolumeUp);
-        kb.insert("-".into(), Command::VolumeDown);
+        kb.insert("+".into(), Command::VolumeUp(1));
+        kb.insert("]".into(), Command::VolumeUp(5));
+        kb.insert("-".into(), Command::VolumeDown(1));
+        kb.insert("[".into(), Command::VolumeDown(5));
+
         kb.insert("r".into(), Command::Repeat(None));
         kb.insert("z".into(), Command::Shuffle(None));
         kb.insert("x".into(), Command::Share(TargetMode::Current));

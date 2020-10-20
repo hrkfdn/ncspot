@@ -9,3 +9,5 @@
 *.log
 
 tags
+
+/.vscode/
