@@ -344,8 +344,8 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => Command::Save,
             })
             .or(Some(Command::Save)),
-        "volup" => Some(Command::VolumeUp(1)),
-        "voldown" => Some(Command::VolumeDown(1)),
+        "volup" => Some(Command::VolumeUp(args[0].to_string().parse::<u16>().unwrap())),
+        "voldown" => Some(Command::VolumeDown(args[0].to_string().parse::<u16>().unwrap())),
         "help" => Some(Command::Help),
         "reload" => Some(Command::ReloadConfig),
         "insert" => {
