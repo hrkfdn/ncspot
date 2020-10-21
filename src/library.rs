@@ -523,6 +523,31 @@ impl Library {
         }
     }
 
+    // Return true if the given playlist contains the given track
+    pub fn playlist_has_track(&self, playlist_id: &str, track_id: &str) -> bool {
+        let playlist = match self.spotify.playlist(playlist_id) {
+            Some(p) => Playlist::from(&p),
+            None => return false,
+        };
+
+        playlist
+            .get_all_tracks(Arc::clone(&self.spotify))
+            .iter()
+            .any(|track| {
+                track
+                    .id
+                    .as_ref()
+                    .and_then(|id| {
+                        if id.to_string() == track_id.to_string() {
+                            Some(())
+                        } else {
+                            None
+                        }
+                    })
+                    .is_some()
+            })
+    }
+
     pub fn playlist_append_tracks(&self, playlist_id: &str, new_tracks: &[Track]) {
         let track_ids: Vec<String> = new_tracks
             .to_vec()

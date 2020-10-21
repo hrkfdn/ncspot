@@ -27,6 +27,10 @@ impl Playlist {
             return;
         }
 
+        self.tracks = Some(self.get_all_tracks(spotify));
+    }
+
+    pub fn get_all_tracks(&self, spotify: Arc<Spotify>) -> Vec<Track> {
         let mut collected_tracks = Vec::new();
 
         let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
@@ -52,7 +56,7 @@ impl Playlist {
             }
         }
 
-        self.tracks = Some(collected_tracks);
+        collected_tracks
     }
 
     pub fn delete_tracks(&mut self, track_pos_pairs: &[(Track, usize)], spotify: Arc<Spotify>) {
