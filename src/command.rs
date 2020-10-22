@@ -99,8 +99,8 @@ pub enum Command {
     Delete,
     Focus(String),
     Seek(SeekDirection),
-    VolumeUp,
-    VolumeDown,
+    VolumeUp(u16),
+    VolumeDown(u16),
     Repeat(Option<RepeatSetting>),
     Shuffle(Option<bool>),
     Share(TargetMode),
@@ -136,8 +136,8 @@ impl fmt::Display for Command {
             Command::Delete => "delete".to_string(),
             Command::Focus(tab) => format!("focus {}", tab),
             Command::Seek(direction) => format!("seek {}", direction),
-            Command::VolumeUp => "volup".to_string(),
-            Command::VolumeDown => "voldown".to_string(),
+            Command::VolumeUp(amount) => format!("volup {}", amount),
+            Command::VolumeDown(amount) => format!("voldown {}", amount),
             Command::Repeat(mode) => {
                 let param = match mode {
                     Some(mode) => format!("{}", mode),
@@ -344,8 +344,12 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => Command::Save,
             })
             .or(Some(Command::Save)),
-        "volup" => Some(Command::VolumeUp),
-        "voldown" => Some(Command::VolumeDown),
+        "volup" => Some(Command::VolumeUp(
+            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+        )),
+        "voldown" => Some(Command::VolumeDown(
+            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+        )),
         "help" => Some(Command::Help),
         "reload" => Some(Command::ReloadConfig),
         "insert" => {
