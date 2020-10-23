@@ -17,8 +17,6 @@ extern crate tokio_timer;
 extern crate unicode_width;
 extern crate webbrowser;
 
-#[cfg(feature = "mpris")]
-extern crate dbus;
 
 #[macro_use]
 extern crate serde;

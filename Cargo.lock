@@ -816,6 +816,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dbus-tree"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
+dependencies = [
+ "dbus 0.9.0",
+]
+
+[[package]]
 name = "derive_builder"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1952,6 +1961,7 @@ dependencies = [
  "crossbeam-channel 0.5.0",
  "cursive",
  "dbus 0.9.0",
+ "dbus-tree",
  "failure",
  "fern",
  "futures 0.1.30",
