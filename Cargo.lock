@@ -806,6 +806,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "dbus"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22c08adfeb70c940c14d8af988fa854dcb5529e6141f2397e4e0fa4c9375d094"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+]
+
+[[package]]
+name = "dbus-tree"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
+dependencies = [
+ "dbus 0.9.0",
+]
+
+[[package]]
 name = "derive_builder"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1940,7 +1959,8 @@ dependencies = [
  "clipboard",
  "crossbeam-channel 0.5.0",
  "cursive",
- "dbus",
+ "dbus 0.9.0",
+ "dbus-tree",
  "failure",
  "fern",
  "futures 0.1.30",
@@ -2019,7 +2039,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "144acee6a0543dc74893e4b8a33936b5b0a94cc2d4ab024afd0c6daff7afc3c0"
 dependencies = [
- "dbus",
+ "dbus 0.8.4",
  "mac-notification-sys",
  "winrt-notification",
 ]
