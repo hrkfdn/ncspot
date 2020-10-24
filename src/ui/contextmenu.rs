@@ -36,7 +36,28 @@ impl ContextMenu {
         }
 
         list_select.set_on_submit(move |s, selected| {
-            library.playlist_append_tracks(selected, &[track.clone()]);
+            let track = track.clone();
+
+            if library.playlist_has_track(selected, &track.id.as_ref().unwrap_or(&"".to_string())) {
+                let mut already_added_dialog = Self::track_already_added();
+
+                let lib = Arc::clone(&library);
+                let selected = selected.to_string();
+                already_added_dialog.add_button("Add anyway", move |c| {
+                    lib.playlist_append_tracks(&selected.clone(), &[track.clone()]);
+                    c.pop_layer();
+
+                    // Close add_track_dialog too
+                    c.pop_layer();
+                });
+
+                let modal = Modal::new(already_added_dialog);
+                s.add_layer(modal);
+
+                return;
+            }
+
+            library.playlist_append_tracks(selected, &[track]);
             s.pop_layer();
         });
 
@@ -46,6 +67,13 @@ impl ContextMenu {
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(list_select));
         Modal::new(dialog)
+    }
+
+    fn track_already_added() -> Dialog {
+        Dialog::text("This track is already in your playlist")
+            .title("Track already exists")
+            .padding(Margins::lrtb(1, 1, 1, 0))
+            .dismiss_button("Cancel")
     }
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {

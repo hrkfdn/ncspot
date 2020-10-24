@@ -523,6 +523,18 @@ impl Library {
         }
     }
 
+    // Return true if the given playlist contains the given track
+    pub fn playlist_has_track(&self, playlist_id: &str, track_id: &str) -> bool {
+        let playlists = self.playlists.read().expect("can't readlock playlists");
+        if let Some(playlist) = playlists.iter().find(|p| p.id == playlist_id) {
+            playlist.tracks.as_ref().map_or(false, |tracks| {
+                tracks.iter().any(|t| t.id == Some(track_id.to_string()))
+            })
+        } else {
+            false
+        }
+    }
+
     pub fn playlist_append_tracks(&self, playlist_id: &str, new_tracks: &[Track]) {
         let track_ids: Vec<String> = new_tracks
             .to_vec()
