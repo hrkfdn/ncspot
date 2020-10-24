@@ -523,41 +523,14 @@ impl Library {
         }
     }
 
-    // Return true if the given playlist contains the given track
-    pub fn playlist_has_track(&self, playlist_id: &str, track_id: &str) -> bool {
-        let playlists = self.playlists.read().expect("can't readlock playlists");
-        if let Some(playlist) = playlists.iter().find(|p| p.id == playlist_id) {
-            playlist.tracks.as_ref().map_or(false, |tracks| {
-                tracks.iter().any(|t| t.id == Some(track_id.to_string()))
-            })
-        } else {
-            false
-        }
-    }
-
-    pub fn playlist_append_tracks(&self, playlist_id: &str, new_tracks: &[Track]) {
-        let track_ids: Vec<String> = new_tracks
-            .to_vec()
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.id.clone().unwrap())
-            .collect();
-
-        let mut has_modified = false;
-
-        if self.spotify.append_tracks(playlist_id, &track_ids, None) {
+    pub fn playlist_update(&self, updated: &Playlist) {
+        {
             let mut playlists = self.playlists.write().expect("can't writelock playlists");
-            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == playlist_id) {
-                if let Some(tracks) = &mut playlist.tracks {
-                    tracks.append(&mut new_tracks.to_vec());
-                    has_modified = true;
-                }
+            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == updated.id) {
+                *playlist = updated.clone();
             }
         }
-
-        if has_modified {
-            self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
-        }
+        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 
     pub fn is_saved_track(&self, track: &Playable) -> bool {

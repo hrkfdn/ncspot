@@ -30,7 +30,7 @@ impl Playlist {
         self.tracks = Some(self.get_all_tracks(spotify));
     }
 
-    pub fn get_all_tracks(&self, spotify: Arc<Spotify>) -> Vec<Track> {
+    fn get_all_tracks(&self, spotify: Arc<Spotify>) -> Vec<Track> {
         let mut collected_tracks = Vec::new();
 
         let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
@@ -59,13 +59,54 @@ impl Playlist {
         collected_tracks
     }
 
-    pub fn delete_tracks(&mut self, track_pos_pairs: &[(Track, usize)], spotify: Arc<Spotify>) {
+    pub fn has_track(&self, track_id: &str) -> bool {
+        self.tracks.as_ref().map_or(false, |tracks| {
+            tracks
+                .iter()
+                .any(|track| track.id == Some(track_id.to_string()))
+        })
+    }
+
+    pub fn delete_tracks(
+        &mut self,
+        track_pos_pairs: &[(Track, usize)],
+        spotify: Arc<Spotify>,
+        library: Arc<Library>,
+    ) {
         if spotify.delete_tracks(&self.id, track_pos_pairs) {
             if let Some(tracks) = &mut self.tracks {
                 for (_track, pos) in track_pos_pairs {
                     tracks.remove(*pos);
                 }
+                library.playlist_update(&self);
             }
+        }
+    }
+
+    pub fn append_tracks(
+        &mut self,
+        new_tracks: &[Track],
+        spotify: Arc<Spotify>,
+        library: Arc<Library>,
+    ) {
+        let track_ids: Vec<String> = new_tracks
+            .to_vec()
+            .iter()
+            .filter(|t| t.id.is_some())
+            .map(|t| t.id.clone().unwrap())
+            .collect();
+
+        let mut has_modified = false;
+
+        if spotify.append_tracks(&self.id, &track_ids, None) {
+            if let Some(tracks) = &mut self.tracks {
+                tracks.append(&mut new_tracks.to_vec());
+                has_modified = true;
+            }
+        }
+
+        if has_modified {
+            library.playlist_update(self);
         }
     }
 }
