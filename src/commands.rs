@@ -184,6 +184,13 @@ impl CommandManager {
                 self.register_keybindings(s);
                 Ok(None)
             }
+            Command::NewPlaylist(name) => {
+                match self.spotify.create_playlist(name, None, None) {
+                    Some(_) => self.library.update_library(),
+                    None => error!("could not create playlist {}", name),
+                }
+                Ok(None)
+            }
             Command::Search(_)
             | Command::Jump(_)
             | Command::Move(_, _)
