@@ -115,6 +115,7 @@ pub enum Command {
     ReloadConfig,
     Noop,
     Insert(Option<String>),
+    NewPlaylist(String),
 }
 
 impl fmt::Display for Command {
@@ -171,6 +172,7 @@ impl fmt::Display for Command {
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
             Command::Insert(_) => "insert".to_string(),
+            Command::NewPlaylist(name) => format!("new playlist {}", name),
         };
         write!(f, "{}", repr)
     }
@@ -360,6 +362,9 @@ pub fn parse(input: &str) -> Option<Command> {
                     .map(|url| Command::Insert(Some((*url).to_string())))
             }
         }
+        "newplaylist" => args
+            .get(0)
+            .map(|name| Command::NewPlaylist((*name).to_string())),
         "noop" => Some(Command::Noop),
         _ => None,
     }
