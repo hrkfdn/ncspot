@@ -362,9 +362,13 @@ pub fn parse(input: &str) -> Option<Command> {
                     .map(|url| Command::Insert(Some((*url).to_string())))
             }
         }
-        "newplaylist" => args
-            .get(0)
-            .map(|name| Command::NewPlaylist((*name).to_string())),
+        "newplaylist" => {
+            if !args.is_empty() {
+                Some(Command::NewPlaylist(args.join(" ")))
+            } else {
+                None
+            }
+        }
         "noop" => Some(Command::Noop),
         _ => None,
     }
