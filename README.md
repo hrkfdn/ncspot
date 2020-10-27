@@ -160,7 +160,10 @@ Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. 
 ```
 [keybindings]
 "Shift+i" = "seek +10000"
+"Shit+o" = "volup 30"
 ```
+
+Note that you can freely modify the value of the command only if the command receives a value, like `seek` or `volup`. 
 
 See the help screen by pressing `?` for a list of possible commands.
 
