@@ -84,6 +84,15 @@ depending on your desktop environment settings. Have a look at the
 * `s` will save, `d` will remove the currently selected track to/from your
   library
 * `o` will open a detail view or context menu for the selected item
+  * if the _selected item_ is **not** a track:
+    * opens a detail view
+  * if the _selected item_ **is** a track:
+    * opens a context menu for the _selected item_ presenting 4 options:
+      * "Show Artist"
+      * "Show Album"
+      * "Share"
+      * "Add to playlist"
+      * "Similar tracks"
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
 * `A` will open the artist view for the selected item
