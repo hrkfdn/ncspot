@@ -92,6 +92,7 @@ depending on your desktop environment settings. Have a look at the
       * "Show Album"
       * "Share"
       * "Add to playlist"
+      * "Similar tracks"
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
 * `A` will open the artist view for the selected item
