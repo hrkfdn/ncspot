@@ -27,6 +27,12 @@ Measured using `ps_mem` on Linux during playback:
 
 ## Requirements
 
+### On macOS
+
+ncspot is available via Homebrew: `brew install ncspot`.
+
+### On Linux
+
 * Rust
 * Python 3 (needed for building `rust-xcb` dependency)
 * `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
