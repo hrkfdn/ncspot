@@ -117,8 +117,11 @@ the search view.
 
 ## Configuration
 
-Configuration is saved to `~/.config/ncspot/config.toml`. Possible configuration
-values are:
+Configuration is saved to `~/.config/ncspot/config.toml`. To reload the
+configuration during runtime use the `reload` statement in the command prompt
+`:reload`.
+
+Possible configuration values are:
 
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `theme`: Set a custom color palette (see below)
@@ -161,6 +164,8 @@ shuffle = true
 - `shuffle` must be `"true"` or `"false"`
 
 ### Theming
+
+[Theme generator](https://ncspot-theme-generator.vaa.red/) by [@vaarad](https://github.com/vaared).
 
 The color palette can be modified in the configuration. For instance, to have
 ncspot match Spotify's official client, you can add the following entries to the

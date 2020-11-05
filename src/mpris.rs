@@ -9,14 +9,14 @@ use dbus::tree::{Access, Factory};
 use dbus::{Path, SignalArgs};
 
 use crate::album::Album;
+use crate::episode::Episode;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
-use crate::show::Show;
 use crate::queue::{Queue, RepeatSetting};
+use crate::show::Show;
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 use crate::traits::ListItem;
-use crate::episode::Episode;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 
@@ -28,7 +28,7 @@ fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
         PlayerEvent::Paused => "Paused",
         _ => "Stopped",
     }
-        .to_string()
+    .to_string()
 }
 
 fn get_metadata(playable: Option<Playable>) -> Metadata {
@@ -130,7 +130,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         "org.mpris.MediaPlayer2.ncspot",
         dbus::NameFlag::ReplaceExisting as u32,
     )
-        .expect("Failed to register dbus player name");
+    .expect("Failed to register dbus player name");
 
     let f = Factory::new_fn::<()>();
 
@@ -223,7 +223,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         RepeatSetting::RepeatTrack => "Track",
                         RepeatSetting::RepeatPlaylist => "Playlist",
                     }
-                        .to_string(),
+                    .to_string(),
                 );
                 Ok(())
             })
@@ -573,7 +573,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             conn.send(
                 changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
             )
-                .unwrap();
+            .unwrap();
         }
     }
 }

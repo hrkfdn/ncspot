@@ -102,6 +102,7 @@ pub enum Command {
     Shift(ShiftMode, Option<i32>),
     Search(String),
     Help,
+    ReloadConfig,
     Noop,
 }
 
@@ -155,6 +156,7 @@ impl fmt::Display for Command {
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
             Command::Help => "help".to_string(),
+            Command::ReloadConfig => "reload".to_string(),
         };
         write!(f, "{}", repr)
     }
@@ -319,13 +321,17 @@ pub fn parse(input: &str) -> Option<Command> {
         "focus" => args
             .get(0)
             .map(|target| Command::Focus((*target).to_string())),
-        "save" => args.get(0).map(|target| match *target {
-            "queue" => Command::SaveQueue,
-            _ => Command::Save,
-        }),
+        "save" => args
+            .get(0)
+            .map(|target| match *target {
+                "queue" => Command::SaveQueue,
+                _ => Command::Save,
+            })
+            .or(Some(Command::Save)),
         "volup" => Some(Command::VolumeUp),
         "voldown" => Some(Command::VolumeDown),
         "help" => Some(Command::Help),
+        "reload" => Some(Command::ReloadConfig),
         "noop" => Some(Command::Noop),
         _ => None,
     }

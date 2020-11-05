@@ -53,6 +53,11 @@ lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
 }
 
+pub fn load() -> Result<Config, String> {
+    let path = config_path("config.toml");
+    load_or_generate_default(path, |_| Ok(Config::default()), false)
+}
+
 fn proj_dirs() -> ProjectDirs {
     match *BASE_PATH.read().expect("can't readlock BASE_PATH") {
         Some(ref basepath) => ProjectDirs::from_path(basepath.clone()).expect("invalid basepath"),

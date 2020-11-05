@@ -135,6 +135,11 @@ fn credentials_prompt(reset: bool, error_message: Option<String>) -> Credentials
     creds
 }
 
+type UserData = Arc<UserDataInner>;
+struct UserDataInner {
+    pub cmd: CommandManager,
+}
+
 fn main() {
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
@@ -177,18 +182,10 @@ fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let cfg: crate::config::Config = {
-        let path = config::config_path("config.toml");
-        crate::config::load_or_generate_default(
-            path,
-            |_| Ok(crate::config::Config::default()),
-            false,
-        )
-        .unwrap_or_else(|e| {
-            eprintln!("{}", e);
-            process::exit(1);
-        })
-    };
+    let cfg: crate::config::Config = config::load().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        process::exit(1);
+    });
 
     let cache = Cache::new(config::cache_path("librespot"), true);
     let mut credentials = {
@@ -240,10 +237,12 @@ fn main() {
 
     let mut cmd_manager =
         CommandManager::new(spotify.clone(), queue.clone(), library.clone(), &cfg);
-    cmd_manager.register_all();
 
-    let cmd_manager = Arc::new(cmd_manager);
-    CommandManager::register_keybindings(cmd_manager.clone(), &mut cursive);
+    cmd_manager.register_all();
+    cmd_manager.register_keybindings(&mut cursive);
+
+    let user_data: UserData = Arc::new(UserDataInner { cmd: cmd_manager });
+    cursive.set_user_data(user_data);
 
     let search = ui::search::SearchView::new(
         event_manager.clone(),
@@ -291,7 +290,9 @@ fn main() {
             let c = &cmd[1..];
             let parsed = command::parse(c);
             if let Some(parsed) = parsed {
-                cmd_manager.handle(s, parsed);
+                if let Some(data) = s.user_data::<UserData>().cloned() {
+                    data.cmd.handle(s, parsed)
+                }
             }
             ev.trigger();
         });
