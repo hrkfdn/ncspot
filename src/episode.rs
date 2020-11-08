@@ -80,6 +80,10 @@ impl ListItem for Episode {
         queue.play(index, true, false);
     }
 
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        queue.insert_after_current(Playable::Episode(self.clone()));
+    }
+
     fn queue(&mut self, queue: Arc<Queue>) {
         queue.append(Playable::Episode(self.clone()));
     }

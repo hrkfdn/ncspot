@@ -1,12 +1,16 @@
+extern crate dbus;
+extern crate dbus_tree;
+
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use dbus::arg::{RefArg, Variant};
-use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
-use dbus::tree::{Access, Factory};
-use dbus::{Path, SignalArgs};
+use dbus::ffidisp::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
+use dbus::message::SignalArgs;
+use dbus::strings::Path;
+use dbus_tree::{Access, Factory};
 
 use crate::album::Album;
 use crate::episode::Episode;
@@ -37,7 +41,12 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
+        Variant(Box::new(Path::from(format!(
+            "/org/ncspot/{}",
+            playable
+                .map(|t| t.uri().replace(':', "/"))
+                .unwrap_or_else(|| "0".to_string())
+        )))),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -59,7 +68,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.album.clone())
+                .map(|t| t.album.unwrap_or_default())
                 .unwrap_or_default(),
         )),
     );
@@ -68,7 +77,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.album_artists.clone())
+                .map(|t| t.album_artists)
                 .unwrap_or_default(),
         )),
     );
@@ -77,7 +86,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(|t| t.artists.clone())
+                .map(|t| t.artists)
                 .unwrap_or_default(),
         )),
     );
@@ -124,11 +133,12 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
 fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<MprisState>) {
     let conn = Rc::new(
-        dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to connect to dbus"),
+        dbus::ffidisp::Connection::get_private(dbus::ffidisp::BusType::Session)
+            .expect("Failed to connect to dbus"),
     );
     conn.register_name(
         "org.mpris.MediaPlayer2.ncspot",
-        dbus::NameFlag::ReplaceExisting as u32,
+        dbus::ffidisp::NameFlag::ReplaceExisting as u32,
     )
     .expect("Failed to register dbus player name");
 
@@ -243,10 +253,10 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let property_position = {
         let spotify = spotify.clone();
-        let progress = spotify.get_current_progress();
         f.property::<i64, _>("Position", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
+                let progress = spotify.get_current_progress();
                 iter.append(progress.as_micros() as i64);
                 Ok(())
             })
@@ -304,7 +314,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .property::<bool, _>("CanSeek", ())
         .access(Access::Read)
         .on_get(|iter, _| {
-            iter.append(false); // TODO
+            iter.append(true);
             Ok(())
         });
 
@@ -427,6 +437,46 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
+    let method_seek = {
+        let queue = queue.clone();
+        let spotify = spotify.clone();
+        f.method("Seek", (), move |m| {
+            if let Some(current_track) = queue.get_current() {
+                let offset = m.msg.get1::<i64>().unwrap_or(0); // micros
+                let progress = spotify.get_current_progress();
+                let new_position = (progress.as_secs() * 1000) as i32
+                    + progress.subsec_millis() as i32
+                    + (offset / 1000) as i32;
+                let new_position = new_position.max(0) as u32;
+                let duration = current_track.duration();
+
+                if new_position < duration {
+                    spotify.seek(new_position);
+                } else {
+                    queue.next(true);
+                }
+            }
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
+    let method_set_position = {
+        let queue = queue.clone();
+        let spotify = spotify.clone();
+        f.method("SetPosition", (), move |m| {
+            if let Some(current_track) = queue.get_current() {
+                let (_, position) = m.msg.get2::<Path, i64>(); // micros
+                let position = (position.unwrap_or(0) / 1000) as u32;
+                let duration = current_track.duration();
+
+                if position < duration {
+                    spotify.seek(position);
+                }
+            }
+            Ok(vec![m.msg.method_return()])
+        })
+    };
+
     let method_openuri = {
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
@@ -505,8 +555,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         })
     };
 
-    // TODO: Seek, SetPosition (?)
-
     // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
     let interface_player = f
         .interface("org.mpris.MediaPlayer2.Player", ())
@@ -535,6 +583,8 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         .add_m(method_previous)
         .add_m(method_forward)
         .add_m(method_rewind)
+        .add_m(method_seek)
+        .add_m(method_set_position)
         .add_m(method_openuri);
 
     let tree = f.tree(()).add(

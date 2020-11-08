@@ -44,6 +44,14 @@ impl Default for MoveAmount {
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
+pub enum JumpMode {
+    Previous,
+    Next,
+    Query(String),
+}
+
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum ShiftMode {
     Up,
     Down,
@@ -83,6 +91,7 @@ pub enum Command {
     Next,
     Clear,
     Queue,
+    PlayNext,
     Play,
     UpdateLibrary,
     Save,
@@ -90,8 +99,8 @@ pub enum Command {
     Delete,
     Focus(String),
     Seek(SeekDirection),
-    VolumeUp,
-    VolumeDown,
+    VolumeUp(u16),
+    VolumeDown(u16),
     Repeat(Option<RepeatSetting>),
     Shuffle(Option<bool>),
     Share(TargetMode),
@@ -101,9 +110,12 @@ pub enum Command {
     Move(MoveMode, MoveAmount),
     Shift(ShiftMode, Option<i32>),
     Search(String),
+    Jump(JumpMode),
     Help,
     ReloadConfig,
     Noop,
+    Insert(Option<String>),
+    NewPlaylist(String),
 }
 
 impl fmt::Display for Command {
@@ -117,6 +129,7 @@ impl fmt::Display for Command {
             Command::Next => "next".to_string(),
             Command::Clear => "clear".to_string(),
             Command::Queue => "queue".to_string(),
+            Command::PlayNext => "play next".to_string(),
             Command::Play => "play".to_string(),
             Command::UpdateLibrary => "update".to_string(),
             Command::Save => "save".to_string(),
@@ -124,8 +137,8 @@ impl fmt::Display for Command {
             Command::Delete => "delete".to_string(),
             Command::Focus(tab) => format!("focus {}", tab),
             Command::Seek(direction) => format!("seek {}", direction),
-            Command::VolumeUp => "volup".to_string(),
-            Command::VolumeDown => "voldown".to_string(),
+            Command::VolumeUp(amount) => format!("volup {}", amount),
+            Command::VolumeDown(amount) => format!("voldown {}", amount),
             Command::Repeat(mode) => {
                 let param = match mode {
                     Some(mode) => format!("{}", mode),
@@ -155,8 +168,11 @@ impl fmt::Display for Command {
             Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
+            Command::Jump(term) => format!("jump {}", term),
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
+            Command::Insert(_) => "insert".to_string(),
+            Command::NewPlaylist(name) => format!("new playlist {}", name),
         };
         write!(f, "{}", repr)
     }
@@ -208,6 +224,7 @@ pub fn parse(input: &str) -> Option<Command> {
         "previous" => Some(Command::Previous),
         "next" => Some(Command::Next),
         "clear" => Some(Command::Clear),
+        "playnext" => Some(Command::PlayNext),
         "queue" => Some(Command::Queue),
         "play" => Some(Command::Play),
         "update" => Some(Command::UpdateLibrary),
@@ -221,6 +238,7 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => None,
             })
             .map(Command::Open),
+        "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
         "search" => args
             .get(0)
             .map(|query| Command::Search((*query).to_string())),
@@ -328,10 +346,29 @@ pub fn parse(input: &str) -> Option<Command> {
                 _ => Command::Save,
             })
             .or(Some(Command::Save)),
-        "volup" => Some(Command::VolumeUp),
-        "voldown" => Some(Command::VolumeDown),
+        "volup" => Some(Command::VolumeUp(
+            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+        )),
+        "voldown" => Some(Command::VolumeDown(
+            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+        )),
         "help" => Some(Command::Help),
         "reload" => Some(Command::ReloadConfig),
+        "insert" => {
+            if args.is_empty() {
+                Some(Command::Insert(None))
+            } else {
+                args.get(0)
+                    .map(|url| Command::Insert(Some((*url).to_string())))
+            }
+        }
+        "newplaylist" => {
+            if !args.is_empty() {
+                Some(Command::NewPlaylist(args.join(" ")))
+            } else {
+                None
+            }
+        }
         "noop" => Some(Command::Noop),
         _ => None,
     }

@@ -12,6 +12,7 @@ use serde::Serialize;
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::config;
+use crate::config::Config;
 use crate::events::EventManager;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
@@ -35,11 +36,11 @@ pub struct Library {
     user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
-    pub use_nerdfont: bool,
+    pub cfg: Arc<Config>,
 }
 
 impl Library {
-    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, use_nerdfont: bool) -> Self {
+    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, cfg: Arc<Config>) -> Self {
         let user_id = spotify.current_user().map(|u| u.id);
 
         let library = Self {
@@ -52,7 +53,7 @@ impl Library {
             user_id,
             ev: ev.clone(),
             spotify,
-            use_nerdfont,
+            cfg,
         };
 
         library.update_library();
@@ -522,29 +523,14 @@ impl Library {
         }
     }
 
-    pub fn playlist_append_tracks(&self, playlist_id: &str, new_tracks: &[Track]) {
-        let track_ids: Vec<String> = new_tracks
-            .to_vec()
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.id.clone().unwrap())
-            .collect();
-
-        let mut has_modified = false;
-
-        if self.spotify.append_tracks(playlist_id, &track_ids, None) {
+    pub fn playlist_update(&self, updated: &Playlist) {
+        {
             let mut playlists = self.playlists.write().expect("can't writelock playlists");
-            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == playlist_id) {
-                if let Some(tracks) = &mut playlist.tracks {
-                    tracks.append(&mut new_tracks.to_vec());
-                    has_modified = true;
-                }
+            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == updated.id) {
+                *playlist = updated.clone();
             }
         }
-
-        if has_modified {
-            self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
-        }
+        self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
     }
 
     pub fn is_saved_track(&self, track: &Playable) -> bool {

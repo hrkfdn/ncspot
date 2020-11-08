@@ -127,7 +127,7 @@ impl ListItem for Artist {
                 .unwrap()
                 .iter()
                 .filter(|t| t.id().is_some())
-                .map(|t| t.id().clone().unwrap())
+                .map(|t| t.id().unwrap())
                 .collect();
             let ids: Vec<String> = tracks
                 .iter()
@@ -150,7 +150,7 @@ impl ListItem for Artist {
 
     fn display_right(&self, library: Arc<Library>) -> String {
         let followed = if library.is_followed_artist(self) {
-            if library.use_nerdfont {
+            if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
             } else {
                 "✓ "
@@ -178,6 +178,16 @@ impl ListItem for Artist {
                 .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
+        }
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_albums(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks.as_ref() {
+            for t in tracks.iter().rev() {
+                queue.insert_after_current(Playable::Track(t.clone()));
+            }
         }
     }
 

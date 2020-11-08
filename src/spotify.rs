@@ -19,11 +19,11 @@ use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
 use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
 use rspotify::model::search::SearchResult;
-use rspotify::model::track::{FullTrack, SavedTrack};
+use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
 use rspotify::senum::SearchType;
 
-use serde_json::json;
+use serde_json::{json, Map};
 
 use failure::Error;
 
@@ -46,8 +46,9 @@ use url::Url;
 use core::task::Poll;
 
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use std::{env, io};
@@ -58,6 +59,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
+use rspotify::model::recommend::Recommendations;
 use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
@@ -83,7 +85,7 @@ pub enum PlayerEvent {
 pub struct Spotify {
     events: EventManager,
     credentials: Credentials,
-    cfg: config::Config,
+    cfg: Arc<config::Config>,
     status: RwLock<PlayerEvent>,
     api: RwLock<SpotifyAPI>,
     elapsed: RwLock<Option<Duration>>,
@@ -245,15 +247,19 @@ impl futures::Future for Worker {
 }
 
 impl Spotify {
-    pub fn new(events: EventManager, credentials: Credentials, cfg: &config::Config) -> Spotify {
-        let volume = match &cfg.saved_state {
+    pub fn new(
+        events: EventManager,
+        credentials: Credentials,
+        cfg: Arc<config::Config>,
+    ) -> Spotify {
+        let volume = match &cfg.values().saved_state {
             Some(state) => match state.volume {
                 Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
                 None => 0xFFFF as u16,
             },
             None => 0xFFFF as u16,
         };
-        let repeat = match &cfg.saved_state {
+        let repeat = match &cfg.values().saved_state {
             Some(state) => match &state.repeat {
                 Some(s) => match s.as_str() {
                     "track" => queue::RepeatSetting::RepeatTrack,
@@ -264,18 +270,15 @@ impl Spotify {
             },
             _ => queue::RepeatSetting::None,
         };
-        let shuffle = match &cfg.saved_state {
-            Some(state) => match &state.shuffle {
-                Some(true) => true,
-                _ => false,
-            },
+        let shuffle = match &cfg.values().saved_state {
+            Some(state) => matches!(&state.shuffle, Some(true)),
             None => false,
         };
 
         let mut spotify = Spotify {
             events,
             credentials,
-            cfg: cfg.clone(),
+            cfg,
             status: RwLock::new(PlayerEvent::Stopped),
             api: RwLock::new(SpotifyAPI::default()),
             elapsed: RwLock::new(None),
@@ -308,7 +311,14 @@ impl Spotify {
             let volume = self.volume();
             let credentials = self.credentials.clone();
             thread::spawn(move || {
-                Self::worker(events, Box::pin(rx), cfg, credentials, user_tx, volume)
+                Self::worker(
+                    events,
+                    Box::pin(rx),
+                    cfg.clone(),
+                    credentials,
+                    user_tx,
+                    volume,
+                )
             });
         }
 
@@ -337,7 +347,7 @@ impl Spotify {
             core.run(Session::connect(config, credentials, None, handle))
         });
         match jh.join() {
-            Ok(session) => session.or_else(Err),
+            Ok(session) => session,
             Err(e) => Err(io::Error::new(
                 io::ErrorKind::Other,
                 e.downcast_ref::<String>()
@@ -351,7 +361,7 @@ impl Spotify {
         let session_config = Self::session_config();
         let cache = Cache::new(
             config::cache_path("librespot"),
-            cfg.audio_cache.unwrap_or(true),
+            cfg.values().audio_cache.unwrap_or(true),
         );
         let handle = core.handle();
         debug!("opening spotify session");
@@ -393,16 +403,22 @@ impl Spotify {
     fn worker(
         events: EventManager,
         commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
-        cfg: config::Config,
+        cfg: Arc<config::Config>,
         credentials: Credentials,
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
     ) {
+        let bitrate_str = cfg.values().bitrate.unwrap_or(320).to_string();
+        let bitrate = Bitrate::from_str(&bitrate_str);
+        if bitrate.is_err() {
+            error!("invalid bitrate, will use 320 instead")
+        }
+
         let player_config = PlayerConfig {
             gapless: false,
-            bitrate: Bitrate::Bitrate320,
-            normalisation: cfg.volnorm.unwrap_or(false),
-            normalisation_pregain: cfg.volnorm_pregain.unwrap_or(0.0),
+            bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
+            normalisation: cfg.values().volnorm.unwrap_or(false),
+            normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
         };
 
         let mut core = Core::new().unwrap();
@@ -415,12 +431,12 @@ impl Spotify {
         let mixer = create_mixer(None);
         mixer.set_volume(volume);
 
-        let backend = audio_backend::find(cfg.backend.clone()).unwrap();
+        let backend = audio_backend::find(cfg.values().backend.clone()).unwrap();
         let (player, player_events) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
-            move || (backend)(cfg.backend_device),
+            move || (backend)(cfg.values().backend_device.clone()),
         );
 
         let worker = Worker::new(
@@ -447,11 +463,11 @@ impl Spotify {
     }
 
     pub fn get_current_progress(&self) -> Duration {
-        self.get_elapsed().unwrap_or(Duration::from_secs(0))
+        self.get_elapsed().unwrap_or_else(|| Duration::from_secs(0))
             + self
                 .get_since()
                 .map(|t| t.elapsed().unwrap())
-                .unwrap_or(Duration::from_secs(0))
+                .unwrap_or_else(|| Duration::from_secs(0))
     }
 
     fn set_elapsed(&self, new_elapsed: Option<Duration>) {
@@ -590,7 +606,7 @@ impl Spotify {
         let mut tracks: Vec<String> = tracks
             .iter()
             .filter(|track| track.id().is_some())
-            .map(|track| track.id().clone().unwrap())
+            .map(|track| track.id().unwrap())
             .collect();
 
         // we can only send 100 tracks per request
@@ -671,6 +687,24 @@ impl Spotify {
         self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), None))
     }
 
+    pub fn recommentations(
+        &self,
+        seed_artists: Option<Vec<String>>,
+        seed_genres: Option<Vec<String>>,
+        seed_tracks: Option<Vec<String>>,
+    ) -> Option<Recommendations> {
+        self.api_with_retry(|api| {
+            api.recommendations(
+                seed_artists.clone(),
+                seed_genres.clone(),
+                seed_tracks.clone(),
+                100,
+                None,
+                &Map::new(),
+            )
+        })
+    }
+
     pub fn search(
         &self,
         searchtype: SearchType,
@@ -704,6 +738,15 @@ impl Spotify {
 
     pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
         self.api_with_retry(|api| api.album(album_id))
+    }
+
+    pub fn album_tracks(
+        &self,
+        album_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Option<Page<SimplifiedTrack>> {
+        self.api_with_retry(|api| api.album_track(album_id, limit, offset))
     }
 
     pub fn artist_albums(

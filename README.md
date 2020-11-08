@@ -3,7 +3,6 @@
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Build](https://github.com/hrkfdn/ncspot/workflows/Build/badge.svg)](https://github.com/hrkfdn/ncspot/actions?query=workflow%3ABuild)
-[![Snap Status](https://build.snapcraft.io/badge/popey/ncspot-snap.svg)](https://build.snapcraft.io/user/popey/ncspot-snap)
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
 
@@ -27,6 +26,12 @@ Measured using `ps_mem` on Linux during playback:
 | Spotify | 407.3 MiB | 592.7 MiB | 1000.0 MiB |
 
 ## Requirements
+
+### On macOS
+
+ncspot is available via Homebrew: `brew install ncspot`.
+
+### On Linux
 
 * Rust
 * Python 3 (needed for building `rust-xcb` dependency)
@@ -80,13 +85,24 @@ depending on your desktop environment settings. Have a look at the
   * `F3`: Library
     * `d` deletes the currently selected playlist
 * Tracks and playlists can be played using `Return` and queued using `Space`
-* `.` will move to the currently playing track in the queue.
+* `.` will play the selected item after the currently playing track
+* `p` will move to the currently playing track in the queue
 * `s` will save, `d` will remove the currently selected track to/from your
   library
 * `o` will open a detail view or context menu for the selected item
+  * if the _selected item_ is **not** a track:
+    * opens a detail view
+  * if the _selected item_ **is** a track:
+    * opens a context menu for the _selected item_ presenting 4 options:
+      * "Show Artist"
+      * "Show Album"
+      * "Share"
+      * "Add to playlist"
+      * "Similar tracks"
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
 * `A` will open the artist view for the selected item
+* `Ctrl-v` will open the context menu for a Spotify link in your clipboard
 * `Backspace` closes the current view
 * `Shift-p` toggles playback of a track
 * `Shift-s` stops a track
@@ -94,12 +110,16 @@ depending on your desktop environment settings. Have a look at the
 * `<` and `>` play the previous or next track
 * `f` and `b` to seek forward or backward
 * `Shift-f` and `Shift-b` to seek forward or backward in steps of 10s
-* `-` and `+` decrease or increase the volume
+* `-` and `+` decrease or increase the volume by 1
+* `[` and `]` decrease of increase the volume by 5
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot
 * `x` copies a sharable URL of the song to the system clipboard
 * `Shift-x` copies a sharable URL of the currently selected item to the system clipboard
+
+Use `/` to open a Vim-like search bar, you can use `n` and `N` to go for the next/previous
+search occurrence, respectivly.
 
 You can also open a Vim style commandprompt using `:`, the following commands
 are supported:
@@ -110,10 +130,13 @@ are supported:
 * `previous`/`next`: Play previous/next track
 * `clear`: Clear playlist
 * `share [current | selected]`: Copies a sharable URL of either the selected item or the currernt song to the system clipboard
+* `newplaylist <name>`: Create new playlist with name `<name>`
 
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening
 the search view.
+
+To close the commandprompt at any time, press `esc`.
 
 ## Configuration
 
@@ -133,6 +156,10 @@ Possible configuration values are:
 * `volnorm_pregain`: Normalization pregain to apply (if enabled)
 * `default_keybindings`: If disabled, the default keybindings are discarded, off
   by default <true/false>
+* `notify`: Enable or disable desktop notifications, off by default <true/false>
+* `bitrate`: The audio bitrate to use for streaming, can be 96, 160, or 320 (default is 320)
+* `album_column`: Show album column for tracks, on by default <true/false>
+
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
 
@@ -189,6 +216,7 @@ statusbar_progress = "green"
 statusbar_bg = "green"
 cmdline = "light white"
 cmdline_bg = "black"
+search_match = "light red"
 ```
 
 More examples can be found in pull request

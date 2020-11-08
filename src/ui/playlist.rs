@@ -17,6 +17,7 @@ pub struct PlaylistView {
     playlist: Playlist,
     list: ListView<Track>,
     spotify: Arc<Spotify>,
+    library: Arc<Library>,
 }
 
 impl PlaylistView {
@@ -31,12 +32,13 @@ impl PlaylistView {
         };
 
         let spotify = queue.get_spotify();
-        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library);
+        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library.clone());
 
         Self {
             playlist,
             list,
             spotify,
+            library,
         }
     }
 }
@@ -60,8 +62,11 @@ impl ViewExt for PlaylistView {
             };
             let track = tracks.get(pos);
             if let Some(t) = track {
-                self.playlist
-                    .delete_tracks(&[(t.clone(), pos)], self.spotify.clone());
+                self.playlist.delete_tracks(
+                    &[(t.clone(), pos)],
+                    self.spotify.clone(),
+                    self.library.clone(),
+                );
                 self.list.remove(pos);
             }
             return Ok(CommandResult::Consumed(None));

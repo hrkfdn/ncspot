@@ -76,12 +76,20 @@ impl ListItem for Playable {
         self.as_listitem().display_left()
     }
 
+    fn display_center(&self, library: Arc<Library>) -> String {
+        self.as_listitem().display_center(library)
+    }
+
     fn display_right(&self, library: Arc<Library>) -> String {
         self.as_listitem().display_right(library)
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
         self.as_listitem().play(queue)
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.as_listitem().play_next(queue)
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {

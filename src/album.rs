@@ -33,15 +33,32 @@ impl Album {
         }
 
         if let Some(ref album_id) = self.id {
-            if let Some(fa) = spotify.full_album(&album_id) {
-                self.tracks = Some(
-                    fa.tracks
-                        .items
-                        .iter()
-                        .map(|st| Track::from_simplified_track(&st, &fa))
-                        .collect(),
-                );
+            let mut collected_tracks = Vec::new();
+            if let Some(full_album) = spotify.full_album(album_id) {
+                let mut tracks_result = Some(full_album.tracks.clone());
+                while let Some(ref tracks) = tracks_result {
+                    for t in &tracks.items {
+                        collected_tracks.push(Track::from_simplified_track(t, &full_album));
+                    }
+
+                    debug!("got {} tracks", tracks.items.len());
+
+                    // load next batch if necessary
+                    tracks_result = match tracks.next {
+                        Some(_) => {
+                            debug!("requesting tracks again..");
+                            spotify.album_tracks(
+                                album_id,
+                                50,
+                                tracks.offset + tracks.items.len() as u32,
+                            )
+                        }
+                        None => None,
+                    }
+                }
             }
+
+            self.tracks = Some(collected_tracks)
         }
     }
 }
@@ -138,7 +155,7 @@ impl ListItem for Album {
                 .unwrap()
                 .iter()
                 .filter(|t| t.id().is_some())
-                .map(|t| t.id().clone().unwrap())
+                .map(|t| t.id().unwrap())
                 .collect();
             let ids: Vec<String> = tracks
                 .iter()
@@ -161,7 +178,7 @@ impl ListItem for Album {
 
     fn display_right(&self, library: Arc<Library>) -> String {
         let saved = if library.is_saved_album(self) {
-            if library.use_nerdfont {
+            if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
             } else {
                 "✓ "
@@ -182,6 +199,16 @@ impl ListItem for Album {
                 .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
+        }
+    }
+
+    fn play_next(&mut self, queue: Arc<Queue>) {
+        self.load_tracks(queue.get_spotify());
+
+        if let Some(tracks) = self.tracks.as_ref() {
+            for t in tracks.iter().rev() {
+                queue.insert_after_current(Playable::Track(t.clone()));
+            }
         }
     }
 
