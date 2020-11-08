@@ -21,6 +21,7 @@ use crate::show::Show;
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 use crate::traits::ListItem;
+use regex::Regex;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 
@@ -41,12 +42,9 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(Path::from(format!(
-            "/org/ncspot/{}",
-            playable
-                .map(|t| t.uri().replace(':', "/"))
-                .unwrap_or_else(|| "0".to_string())
-        )))),
+        Variant(Box::new(
+            playable.map(|t| t.uri()).unwrap_or_default(),
+        )),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -480,8 +478,21 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let method_openuri = {
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
+            let mut sp_uri = String::from("spotify:");
             let uri = match uri_data {
-                Some(s) => s,
+                Some(s) => {
+                    let spotify_uri = if s.contains("open.spotify.com") {
+                        let regex = Regex::new(r"https?://open\.spotify\.com(/user)?/(album|track|playlist|show|episode)/(.+)(\?si=\S+)?").unwrap();
+                        let captures = regex.captures(s).unwrap();
+                        let uri_type = &captures[2];
+                        let id = &captures[3];
+                        sp_uri.push_str(format!("{}:{}", uri_type, id).as_str());
+                        sp_uri.as_str()
+                    }else {
+                        s
+                    };
+                    spotify_uri
+                }
                 None => "",
             };
             let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
