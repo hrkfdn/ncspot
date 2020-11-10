@@ -555,7 +555,13 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         queue.play(0, false, false)
                     }
                 }
-                Some(URIType::Artist) => {}
+                Some(URIType::Artist) => {
+                    if let Some(a) = spotify.artist_top_tracks(&id) {
+                        queue.clear();
+                        queue.append_next(a.iter().map(|track| Playable::Track(track.clone())).collect());
+                        queue.play(0, false, false)
+                    }
+                }
                 None => {}
             }
             Ok(vec![m.msg.method_return()])

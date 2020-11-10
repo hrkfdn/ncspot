@@ -822,8 +822,8 @@ impl Spotify {
         self.api_with_retry(|api| api.user_playlist_follow_playlist(&owner_id, &id, true))
     }
 
-    pub fn artist_top_tracks(&self, id: String) -> Option<Vec<Track>> {
-        self.api_with_retry(|api| api.artist_top_tracks(&id, None))
+    pub fn artist_top_tracks(&self, id: &str) -> Option<Vec<Track>> {
+        self.api_with_retry(|api| api.artist_top_tracks(id, None))
             .map(|ft| ft.tracks.iter().map(|t| t.into()).collect())
     }
 
