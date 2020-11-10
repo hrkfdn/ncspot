@@ -42,9 +42,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(
-            playable.map(|t| t.uri()).unwrap_or_default(),
-        )),
+        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -478,7 +476,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let method_openuri = {
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
-            let mut sp_uri = String::from("spotify:");
             let uri = match uri_data {
                 Some(s) => {
                     let spotify_uri = if s.contains("open.spotify.com") {
@@ -486,17 +483,16 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         let captures = regex.captures(s).unwrap();
                         let uri_type = &captures[2];
                         let id = &captures[3];
-                        sp_uri.push_str(format!("{}:{}", uri_type, id).as_str());
-                        sp_uri.as_str()
+                        format!("spotify:{}:{}", uri_type, id)
                     }else {
-                        s
+                        s.to_string()
                     };
                     spotify_uri
                 }
-                None => "",
+                None => "".to_string(),
             };
             let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
-            let uri_type = URIType::from_uri(uri);
+            let uri_type = URIType::from_uri(&uri);
             match uri_type {
                 Some(URIType::Album) => {
                     if let Some(a) = spotify.album(&id) {
