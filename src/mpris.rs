@@ -21,6 +21,7 @@ use crate::show::Show;
 use crate::spotify::{PlayerEvent, Spotify, URIType};
 use crate::track::Track;
 use crate::traits::ListItem;
+use regex::Regex;
 
 type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 
@@ -41,12 +42,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(Path::from(format!(
-            "/org/ncspot/{}",
-            playable
-                .map(|t| t.uri().replace(':', "/"))
-                .unwrap_or_else(|| "0".to_string())
-        )))),
+        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -481,11 +477,22 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
             let uri = match uri_data {
-                Some(s) => s,
-                None => "",
+                Some(s) => {
+                    let spotify_uri = if s.contains("open.spotify.com") {
+                        let regex = Regex::new(r"https?://open\.spotify\.com(/user)?/(album|track|playlist|show|episode)/(.+)(\?si=\S+)?").unwrap();
+                        let captures = regex.captures(s).unwrap();
+                        let uri_type = &captures[2];
+                        let id = &captures[3];
+                        format!("spotify:{}:{}", uri_type, id)
+                    }else {
+                        s.to_string()
+                    };
+                    spotify_uri
+                }
+                None => "".to_string(),
             };
             let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
-            let uri_type = URIType::from_uri(uri);
+            let uri_type = URIType::from_uri(&uri);
             match uri_type {
                 Some(URIType::Album) => {
                     if let Some(a) = spotify.album(&id) {
@@ -548,7 +555,13 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         queue.play(0, false, false)
                     }
                 }
-                Some(URIType::Artist) => {}
+                Some(URIType::Artist) => {
+                    if let Some(a) = spotify.artist_top_tracks(&id) {
+                        queue.clear();
+                        queue.append_next(a.iter().map(|track| Playable::Track(track.clone())).collect());
+                        queue.play(0, false, false)
+                    }
+                }
                 None => {}
             }
             Ok(vec![m.msg.method_return()])
