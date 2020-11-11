@@ -476,7 +476,6 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
     let method_openuri = {
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
-            let mut sp_uri = String::from("spotify:");
             let uri = match uri_data {
                 Some(s) => {
                     let spotify_uri = if s.contains("open.spotify.com") {
