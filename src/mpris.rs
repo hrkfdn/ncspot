@@ -42,9 +42,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
     hm.insert(
         "mpris:trackid".to_string(),
-        Variant(Box::new(
-            playable.map(|t| t.uri()).unwrap_or_default(),
-        )),
+        Variant(Box::new(playable.map(|t| t.uri()).unwrap_or_default())),
     );
     hm.insert(
         "mpris:length".to_string(),
@@ -486,17 +484,16 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         let captures = regex.captures(s).unwrap();
                         let uri_type = &captures[2];
                         let id = &captures[3];
-                        sp_uri.push_str(format!("{}:{}", uri_type, id).as_str());
-                        sp_uri.as_str()
+                        format!("spotify:{}:{}", uri_type, id)
                     }else {
-                        s
+                        s.to_string()
                     };
                     spotify_uri
                 }
-                None => "",
+                None => "".to_string(),
             };
             let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
-            let uri_type = URIType::from_uri(uri);
+            let uri_type = URIType::from_uri(&uri);
             match uri_type {
                 Some(URIType::Album) => {
                     if let Some(a) = spotify.album(&id) {
@@ -559,7 +556,13 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                         queue.play(0, false, false)
                     }
                 }
-                Some(URIType::Artist) => {}
+                Some(URIType::Artist) => {
+                    if let Some(a) = spotify.artist_top_tracks(&id) {
+                        queue.clear();
+                        queue.append_next(a.iter().map(|track| Playable::Track(track.clone())).collect());
+                        queue.play(0, false, false)
+                    }
+                }
                 None => {}
             }
             Ok(vec![m.msg.method_return()])
