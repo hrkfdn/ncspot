@@ -340,10 +340,24 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
 
     let property_shuffle = {
         let queue = queue.clone();
+        let current_state = queue.get_shuffle();
         f.property::<bool, _>("Shuffle", ())
-            .access(Access::Read)
+            .access(Access::ReadWrite)
             .on_get(move |iter, _| {
-                iter.append(queue.get_shuffle());
+                iter.append(current_state);
+                Ok(())
+            })
+            .on_set(move |iter, _| {
+                let new_state: Option<bool> = iter.get();
+                let shuffle_state = match new_state {
+                    Some(s) => {
+                        s
+                    },
+                    _ => {
+                        !current_state
+                    }
+                };
+                queue.set_shuffle(shuffle_state);
                 Ok(())
             })
     };
