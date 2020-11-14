@@ -14,6 +14,7 @@ use dbus_tree::{Access, Factory};
 
 use crate::album::Album;
 use crate::episode::Episode;
+use crate::events::EventManager;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
@@ -127,7 +128,12 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
     hm
 }
 
-fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<MprisState>) {
+fn run_dbus_server(
+    ev: EventManager,
+    spotify: Arc<Spotify>,
+    queue: Arc<Queue>,
+    rx: mpsc::Receiver<MprisState>,
+) {
     let conn = Rc::new(
         dbus::ffidisp::Connection::get_private(dbus::ffidisp::BusType::Session)
             .expect("Failed to connect to dbus"),
@@ -339,11 +345,20 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
         });
 
     let property_shuffle = {
-        let queue = queue.clone();
+        let queue_get = queue.clone();
+        let queue_set = queue.clone();
         f.property::<bool, _>("Shuffle", ())
-            .access(Access::Read)
+            .access(Access::ReadWrite)
             .on_get(move |iter, _| {
-                iter.append(queue.get_shuffle());
+                let current_state = queue_get.get_shuffle();
+                iter.append(current_state);
+                Ok(())
+            })
+            .on_set(move |iter, _| {
+                if let Some(shuffle_state) = iter.get() {
+                    queue_set.set_shuffle(shuffle_state);
+                }
+                ev.trigger();
                 Ok(())
             })
     };
@@ -649,14 +664,14 @@ pub struct MprisManager {
 }
 
 impl MprisManager {
-    pub fn new(spotify: Arc<Spotify>, queue: Arc<Queue>) -> Self {
+    pub fn new(ev: EventManager, spotify: Arc<Spotify>, queue: Arc<Queue>) -> Self {
         let (tx, rx) = mpsc::channel::<MprisState>();
 
         {
             let spotify = spotify.clone();
             let queue = queue.clone();
             std::thread::spawn(move || {
-                run_dbus_server(spotify.clone(), queue.clone(), rx);
+                run_dbus_server(ev, spotify.clone(), queue.clone(), rx);
             });
         }
 
