@@ -348,9 +348,9 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
                 Ok(())
             })
             .on_set(move |iter, _| {
-                let new_state: Option<bool> = iter.get();
-                let shuffle_state = new_state.unwrap_or(queue.get_spotify().shuffle);
-                queue.set_shuffle(shuffle_state);
+                if let Some(shuffle_state) = iter.get() {
+                    queue.set_shuffle(shuffle_state);
+                }
                 Ok(())
             })
     };
