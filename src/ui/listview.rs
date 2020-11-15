@@ -579,28 +579,28 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let spotify = self.queue.get_spotify();
 
                 let re =
-                    Regex::new("https://open\\.spotify\\.com/(user/[^/]+/)?([a-z]+)/.+").unwrap();
+                    Regex::new(r"https?://open\.spotify\.com/(user/[^/]+/)?(\S+)/(\S+)(\?si=\S+)?").unwrap();
                 let captures = re.captures(&url);
 
                 if let Some(captures) = captures {
                     let target: Option<Box<dyn ListItem>> = match &captures[2] {
                         "track" => spotify
-                            .track(&url)
+                            .track(&captures[3])
                             .map(|track| Track::from(&track).as_listitem()),
                         "album" => spotify
-                            .album(&url)
+                            .album(&captures[3])
                             .map(|album| Album::from(&album).as_listitem()),
                         "playlist" => spotify
-                            .playlist(&url)
+                            .playlist(&captures[3])
                             .map(|playlist| Playlist::from(&playlist).as_listitem()),
                         "artist" => spotify
-                            .artist(&url)
+                            .artist(&captures[3])
                             .map(|artist| Artist::from(&artist).as_listitem()),
                         "episode" => spotify
-                            .episode(&url)
+                            .episode(&captures[3])
                             .map(|episode| Episode::from(&episode).as_listitem()),
                         "show" => spotify
-                            .get_show(&url)
+                            .get_show(&captures[3])
                             .map(|show| Show::from(&show).as_listitem()),
                         _ => None,
                     };
