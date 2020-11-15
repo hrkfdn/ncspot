@@ -486,7 +486,7 @@ fn run_dbus_server(spotify: Arc<Spotify>, queue: Arc<Queue>, rx: mpsc::Receiver<
             let uri = match uri_data {
                 Some(s) => {
                     let spotify_uri = if s.contains("open.spotify.com") {
-                        let regex = Regex::new(r"https?://open\.spotify\.com(/user)?/(album|track|playlist|show|episode)/(.+)(\?si=\S+)?").unwrap();
+                        let regex = Regex::new(r"https?://open\.spotify\.com(/user/\S+)?/(album|track|playlist|show|episode)/(.+)(\?si=\S+)?").unwrap();
                         let captures = regex.captures(s).unwrap();
                         let uri_type = &captures[2];
                         let id = &captures[3];
