@@ -4,7 +4,7 @@ use librespot_core::config::SessionConfig;
 use librespot_core::keymaster::Token;
 use librespot_core::mercury::MercuryError;
 use librespot_core::session::Session;
-use librespot_core::spotify_id::SpotifyId;
+use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
 use librespot_playback::config::PlayerConfig;
 
 use librespot_playback::audio_backend;
@@ -162,8 +162,13 @@ impl futures::Future for Worker {
                 match cmd {
                     WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
                         Ok(id) => {
-                            self.player.load(id, true, 0);
-                            info!("player loading track: {:?}", playable);
+                            info!("player loading track: {:?}", id);
+                            if id.audio_type == SpotifyAudioType::NonPlayable {
+                                warn!("track is not playable");
+                                self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+                            } else {
+                                self.player.load(id, true, 0);
+                            }
                         }
                         Err(e) => {
                             error!("error parsing uri: {:?}", e);
