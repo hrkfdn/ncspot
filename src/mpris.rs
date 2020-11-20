@@ -19,7 +19,7 @@ use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
 use crate::show::Show;
-use crate::spotify::{PlayerEvent, Spotify, URIType};
+use crate::spotify::{PlayerEvent, Spotify, URIType, VOLUME_PERCENT};
 use crate::track::Track;
 use crate::traits::ListItem;
 use regex::Regex;
@@ -268,14 +268,28 @@ fn run_dbus_server(
                 Ok(())
             })
     };
-
-    let property_volume = f
-        .property::<f64, _>("Volume", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(1.0);
-            Ok(())
-        });
+        
+    let property_volume = {
+        let spotify1 = spotify.clone();
+        let spotify2 = spotify.clone();
+        let event = ev.clone();
+        f.property::<f64, _>("Volume", ())
+            .access(Access::ReadWrite)
+            .on_get(move |i, _| {
+                i.append(spotify1.volume() as f64 / 65535_f64);
+                Ok(())
+            })
+            .on_set(move |i, _| {
+                let cur = spotify2.volume() as f64 / 65535_f64;
+                let req = i.get::<f64>().unwrap_or(cur);
+                if req >= 0.0 && req <= 1.0 {
+                    let vol = (VOLUME_PERCENT as f64) * req * 100.0;
+                    spotify2.set_volume(vol as u16);
+                }
+                event.trigger();
+                Ok(())
+            })
+    };
 
     let property_rate = f
         .property::<f64, _>("Rate", ())
@@ -352,6 +366,7 @@ fn run_dbus_server(
     let property_shuffle = {
         let queue_get = queue.clone();
         let queue_set = queue.clone();
+        let event = ev.clone();
         f.property::<bool, _>("Shuffle", ())
             .access(Access::ReadWrite)
             .on_get(move |iter, _| {
@@ -363,7 +378,7 @@ fn run_dbus_server(
                 if let Some(shuffle_state) = iter.get() {
                     queue_set.set_shuffle(shuffle_state);
                 }
-                ev.trigger();
+                event.trigger();
                 Ok(())
             })
     };
