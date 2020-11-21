@@ -579,7 +579,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let spotify = self.queue.get_spotify();
 
                 let re =
-                    Regex::new(r"https?://open\.spotify\.com/(user/[^/]+/)?(\S+)/(\S+)(\?si=\S+)?").unwrap();
+                    Regex::new(r"https?://open\.spotify\.com/(user/[^/]+/)?(\S+)/(\S+)(\?si=\S+)?")
+                        .unwrap();
                 let captures = re.captures(&url);
 
                 if let Some(captures) = captures {

@@ -47,7 +47,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
             "/org/ncspot/{}",
             playable
                 .map(|t| t.uri().replace(':', "/"))
-                .unwrap_or("0".to_string())
+                .unwrap_or_else(|| String::from("0"))
         )))),
     );
     hm.insert(
@@ -268,7 +268,7 @@ fn run_dbus_server(
                 Ok(())
             })
     };
-        
+
     let property_volume = {
         let spotify1 = spotify.clone();
         let spotify2 = spotify.clone();
@@ -366,7 +366,6 @@ fn run_dbus_server(
     let property_shuffle = {
         let queue_get = queue.clone();
         let queue_set = queue.clone();
-        let event = ev.clone();
         f.property::<bool, _>("Shuffle", ())
             .access(Access::ReadWrite)
             .on_get(move |iter, _| {
@@ -378,7 +377,7 @@ fn run_dbus_server(
                 if let Some(shuffle_state) = iter.get() {
                     queue_set.set_shuffle(shuffle_state);
                 }
-                event.trigger();
+                ev.trigger();
                 Ok(())
             })
     };

@@ -309,7 +309,7 @@ fn main() {
                 let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
-            if cmd.starts_with('/') {
+            if cmd.strip_prefix('/').is_some() {
                 let query = &cmd[1..];
                 let command = Command::Jump(JumpMode::Query(query.to_string()));
                 if let Some(data) = s.user_data::<UserData>().cloned() {
