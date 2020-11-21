@@ -370,6 +370,7 @@ impl Spotify {
         );
         let handle = core.handle();
         debug!("opening spotify session");
+        println!("Connecting to Spotify..");
         core.run(Session::connect(
             session_config,
             credentials,
