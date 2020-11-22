@@ -191,7 +191,7 @@ impl fmt::Display for Command {
             Command::ReloadConfig => "reload".to_string(),
             Command::Insert(_) => "insert".to_string(),
             Command::NewPlaylist(name) => format!("new playlist {}", name),
-            Command::Sort(key, direction) => format!("sort playlist by {} {}", key, direction),
+            Command::Sort(key, direction) => format!("sort {} {}", key, direction),
         };
         write!(f, "{}", repr)
     }
