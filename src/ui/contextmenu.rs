@@ -38,10 +38,10 @@ impl ContextMenu {
         track: Track,
     ) -> Modal<Dialog> {
         let mut list_select: SelectView<Playlist> = SelectView::new().autojump();
-        let current_user_id = spotify.current_user().unwrap().id;
+        let current_user_id = library.user_id.as_ref().unwrap();
 
         for list in library.items().iter() {
-            if current_user_id == list.owner_id || list.collaborative {
+            if current_user_id == &list.owner_id || list.collaborative {
                 list_select.add_item(list.name.clone(), list.clone());
             }
         }
