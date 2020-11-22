@@ -44,6 +44,23 @@ impl Default for MoveAmount {
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
+pub enum SortKey {
+    Title,
+    Duration,
+    Artist,
+    Album,
+    Added,
+}
+
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
+pub enum SortDirection {
+    Ascending,
+    Descending,
+}
+
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
 pub enum JumpMode {
     Previous,
     Next,
@@ -116,6 +133,7 @@ pub enum Command {
     Noop,
     Insert(Option<String>),
     NewPlaylist(String),
+    Sort(SortKey, SortDirection),
 }
 
 impl fmt::Display for Command {
@@ -173,6 +191,7 @@ impl fmt::Display for Command {
             Command::ReloadConfig => "reload".to_string(),
             Command::Insert(_) => "insert".to_string(),
             Command::NewPlaylist(name) => format!("new playlist {}", name),
+            Command::Sort(key, direction) => format!("sort {} {}", key, direction),
         };
         write!(f, "{}", repr)
     }
@@ -365,6 +384,39 @@ pub fn parse(input: &str) -> Option<Command> {
         "newplaylist" => {
             if !args.is_empty() {
                 Some(Command::NewPlaylist(args.join(" ")))
+            } else {
+                None
+            }
+        }
+        "sort" => {
+            if !args.is_empty() {
+                let sort_key = args.get(0).and_then(|key| match *key {
+                    "title" => Some(SortKey::Title),
+                    "duration" => Some(SortKey::Duration),
+                    "album" => Some(SortKey::Album),
+                    "added" => Some(SortKey::Added),
+                    "artist" => Some(SortKey::Artist),
+                    _ => None,
+                });
+
+                if sort_key.is_none() {
+                    return None;
+                }
+
+                let sort_direction = args
+                    .get(1)
+                    .and_then(|direction| match *direction {
+                        "a" => Some(SortDirection::Ascending),
+                        "asc" => Some(SortDirection::Ascending),
+                        "ascending" => Some(SortDirection::Ascending),
+                        "d" => Some(SortDirection::Descending),
+                        "desc" => Some(SortDirection::Descending),
+                        "descending" => Some(SortDirection::Descending),
+                        _ => Some(SortDirection::Ascending),
+                    })
+                    .unwrap_or(SortDirection::Ascending);
+
+                Some(Command::Sort(sort_key.unwrap(), sort_direction))
             } else {
                 None
             }

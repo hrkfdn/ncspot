@@ -131,6 +131,18 @@ are supported:
 * `clear`: Clear playlist
 * `share [current | selected]`: Copies a sharable URL of either the selected item or the currernt song to the system clipboard
 * `newplaylist <name>`: Create new playlist with name `<name>`
+* `sort <sort_key> <sort_direction>`: Sort a playlist by `<sort_key>` in direction `<sort_direction>`
+
+  Supported `<sort_key>` are:
+    * title
+    * album
+    * artist
+    * duration
+    * added
+
+  Supported `<sort_direction>` are:
+    * a | asc | ascending
+    * d | desc | descending
 
 The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
 `search` can be supplied with a search term that will be entered after opening

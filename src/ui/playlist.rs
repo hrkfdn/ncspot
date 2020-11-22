@@ -72,6 +72,11 @@ impl ViewExt for PlaylistView {
             return Ok(CommandResult::Consumed(None));
         }
 
+        if let Command::Sort(key, direction) = cmd {
+            self.list.sort(key, direction);
+            return Ok(CommandResult::Consumed(None))
+        }
+
         self.list.on_command(s, cmd)
     }
 }

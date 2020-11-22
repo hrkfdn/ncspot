@@ -11,7 +11,9 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::album::Album;
 use crate::artist::Artist;
-use crate::command::{Command, GotoMode, JumpMode, MoveAmount, MoveMode, TargetMode};
+use crate::command::{
+    Command, GotoMode, JumpMode, MoveAmount, MoveMode, SortDirection, SortKey, TargetMode,
+};
 use crate::commands::CommandResult;
 use crate::episode::Episode;
 use crate::library::Library;
@@ -189,6 +191,58 @@ impl<I: ListItem> ListView<I> {
     pub fn remove(&self, index: usize) {
         let mut c = self.content.write().unwrap();
         c.remove(index);
+    }
+
+    pub fn sort(&self, key: &SortKey, direction: &SortDirection) {
+        fn compare_artists(a: Vec<String>, b: Vec<String>) -> Ordering {
+            let sanitize_artists_name = |x: Vec<String>| -> Vec<String> {
+                x.iter()
+                    .map(|x| {
+                        x.to_lowercase()
+                            .split(' ')
+                            .skip_while(|x| x == &"the")
+                            .collect()
+                    })
+                    .collect()
+            };
+
+            let a = sanitize_artists_name(a);
+            let b = sanitize_artists_name(b);
+
+            a.cmp(&b)
+        }
+
+        let mut c = self.content.write().unwrap();
+
+        c.sort_by(|a, b| match (a.track(), b.track()) {
+            (Some(a), Some(b)) => match (key, direction) {
+                (SortKey::Title, SortDirection::Ascending) => {
+                    a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                }
+                (SortKey::Title, SortDirection::Descending) => {
+                    b.title.to_lowercase().cmp(&a.title.to_lowercase())
+                }
+                (SortKey::Duration, SortDirection::Ascending) => a.duration.cmp(&b.duration),
+                (SortKey::Duration, SortDirection::Descending) => b.duration.cmp(&a.duration),
+                (SortKey::Album, SortDirection::Ascending) => a
+                    .album
+                    .map(|x| x.to_lowercase())
+                    .cmp(&b.album.map(|x| x.to_lowercase())),
+                (SortKey::Album, SortDirection::Descending) => b
+                    .album
+                    .map(|x| x.to_lowercase())
+                    .cmp(&a.album.map(|x| x.to_lowercase())),
+                (SortKey::Added, SortDirection::Ascending) => a.added_at.cmp(&b.added_at),
+                (SortKey::Added, SortDirection::Descending) => b.added_at.cmp(&a.added_at),
+                (SortKey::Artist, SortDirection::Ascending) => {
+                    compare_artists(a.artists, b.artists)
+                }
+                (SortKey::Artist, SortDirection::Descending) => {
+                    compare_artists(b.artists, a.artists)
+                }
+            },
+            _ => std::cmp::Ordering::Equal,
+        })
     }
 }
 
