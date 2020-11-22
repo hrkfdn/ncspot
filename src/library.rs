@@ -33,7 +33,7 @@ pub struct Library {
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
     pub shows: Arc<RwLock<Vec<Show>>>,
     pub is_done: Arc<RwLock<bool>>,
-    user_id: Option<String>,
+    pub user_id: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
     pub cfg: Arc<Config>,
