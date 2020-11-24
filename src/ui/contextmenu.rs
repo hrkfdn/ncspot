@@ -9,6 +9,7 @@ use crate::library::Library;
 use crate::queue::Queue;
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
+use crate::playable::Playable;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 use crate::{
@@ -29,6 +30,7 @@ enum ContextMenuAction {
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
     ShowRecommentations(Box<dyn ListItem>),
+    ToggleTrackSavedStatus(Box<Track>),
 }
 
 impl ContextMenu {
@@ -110,8 +112,15 @@ impl ContextMenu {
             );
             content.add_item(
                 "Similar tracks",
-                ContextMenuAction::ShowRecommentations(Box::new(t)),
+                ContextMenuAction::ShowRecommentations(Box::new(t.clone())),
             );
+            content.add_item(
+                match library.is_saved_track(&Playable::Track(t.clone())) {
+                    true => "Unsave track",
+                    false => "Save track",
+                },
+                ContextMenuAction::ToggleTrackSavedStatus(Box::new(t.clone())),
+            )
         }
 
         // open detail view of artist/album
@@ -141,6 +150,10 @@ impl ContextMenu {
                     if let Some(view) = item.open_recommentations(queue, library) {
                         s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                     }
+                }
+                ContextMenuAction::ToggleTrackSavedStatus(track) => {
+                    let mut track: Track = *track.clone();
+                    track.toggle_saved(library);
                 }
             }
         });
