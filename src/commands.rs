@@ -2,9 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::command::{
-    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
-};
 use crate::config::Config;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
@@ -14,6 +11,13 @@ use crate::ui::contextmenu::ContextMenu;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::UserData;
+use crate::{
+    command::{
+        parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode,
+        TargetMode,
+    },
+    ui::contextmenu::AddToPlaylistMenu,
+};
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::Cursive;
@@ -211,6 +215,8 @@ impl CommandManager {
     fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
         let local = if let Some(mut contextmenu) = s.find_name::<ContextMenu>("contextmenu") {
             contextmenu.on_command(s, cmd)?
+        } else if let Some(mut add_track_menu) = s.find_name::<AddToPlaylistMenu>("addtrackmenu") {
+            add_track_menu.on_command(s, cmd)?
         } else {
             let mut main = s
                 .find_name::<Layout>("main")
