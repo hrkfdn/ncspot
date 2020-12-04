@@ -61,7 +61,7 @@ dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-
 
 ## Audio backends
 
-By default ncspot is built using the Rodio backend.  To make it use the
+By default ncspot is built using the PulseAudio backend.  To make it use the
 PortAudio backend (e.g. for *BSD or macOS), you need to recompile ncspot with
 the `portaudio_backend` feature:
 
