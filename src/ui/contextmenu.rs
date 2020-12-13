@@ -43,7 +43,7 @@ impl ContextMenu {
         spotify: Arc<Spotify>,
         track: Track,
     ) -> NamedView<AddToPlaylistMenu> {
-        let mut list_select: SelectView<Playlist> = SelectView::new().autojump();
+        let mut list_select: SelectView<Playlist> = SelectView::new();
         let current_user_id = library.user_id.as_ref().unwrap();
 
         for list in library.items().iter() {
@@ -102,7 +102,7 @@ impl ContextMenu {
     }
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
-        let mut content: SelectView<ContextMenuAction> = SelectView::new().autojump();
+        let mut content: SelectView<ContextMenuAction> = SelectView::new();
         if let Some(a) = item.artist() {
             content.add_item("Show artist", ContextMenuAction::ShowItem(Box::new(a)));
         }
