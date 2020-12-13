@@ -397,26 +397,22 @@ pub fn parse(input: &str) -> Option<Command> {
                     "added" => Some(SortKey::Added),
                     "artist" => Some(SortKey::Artist),
                     _ => None,
-                });
-
-                if sort_key.is_none() {
-                    return None;
-                }
+                })?;
 
                 let sort_direction = args
                     .get(1)
-                    .and_then(|direction| match *direction {
-                        "a" => Some(SortDirection::Ascending),
-                        "asc" => Some(SortDirection::Ascending),
-                        "ascending" => Some(SortDirection::Ascending),
-                        "d" => Some(SortDirection::Descending),
-                        "desc" => Some(SortDirection::Descending),
-                        "descending" => Some(SortDirection::Descending),
-                        _ => Some(SortDirection::Ascending),
+                    .map(|direction| match *direction {
+                        "a" => SortDirection::Ascending,
+                        "asc" => SortDirection::Ascending,
+                        "ascending" => SortDirection::Ascending,
+                        "d" => SortDirection::Descending,
+                        "desc" => SortDirection::Descending,
+                        "descending" => SortDirection::Descending,
+                        _ => SortDirection::Ascending,
                     })
                     .unwrap_or(SortDirection::Ascending);
 
-                Some(Command::Sort(sort_key.unwrap(), sort_direction))
+                Some(Command::Sort(sort_key, sort_direction))
             } else {
                 None
             }

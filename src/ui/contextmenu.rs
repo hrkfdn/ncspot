@@ -127,7 +127,7 @@ impl ContextMenu {
                     true => "Unsave track",
                     false => "Save track",
                 },
-                ContextMenuAction::ToggleTrackSavedStatus(Box::new(t.clone())),
+                ContextMenuAction::ToggleTrackSavedStatus(Box::new(t)),
             )
         }
 
