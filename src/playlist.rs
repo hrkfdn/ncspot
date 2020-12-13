@@ -19,7 +19,7 @@ pub struct Playlist {
     pub snapshot_id: String,
     pub num_tracks: usize,
     pub tracks: Option<Vec<Track>>,
-    pub collaborative: bool
+    pub collaborative: bool,
 }
 
 impl Playlist {
@@ -143,7 +143,7 @@ impl From<&FullPlaylist> for Playlist {
             snapshot_id: list.snapshot_id.clone(),
             num_tracks: list.tracks.total as usize,
             tracks: None,
-            collaborative: list.collaborative
+            collaborative: list.collaborative,
         }
     }
 }
