@@ -53,6 +53,7 @@ default-features = false
 
 [features]
 share_clipboard = ["clipboard"]
+share_selection = ["clipboard"] # Use the primary selection for sharing - linux only
 alsa_backend = ["librespot-playback/alsa-backend"]
 pulseaudio_backend = ["librespot-playback/pulseaudio-backend"]
 rodio_backend = ["librespot-playback/rodio-backend"]
