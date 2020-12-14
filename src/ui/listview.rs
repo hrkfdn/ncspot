@@ -20,14 +20,14 @@ use crate::library::Library;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::Queue;
+#[cfg(feature = "share_clipboard")]
+use crate::sharing::{read_share, write_share};
 use crate::show::Show;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
-#[cfg(feature = "share_clipboard")]
-use clipboard::{ClipboardContext, ClipboardProvider};
 use regex::Regex;
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
@@ -497,9 +497,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 if let Some(url) = url {
                     #[cfg(feature = "share_clipboard")]
-                    ClipboardProvider::new()
-                        .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url))
-                        .ok();
+                    write_share(url);
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -620,10 +618,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             Command::Insert(url) => {
                 let url = match url.as_ref().map(String::as_str) {
                     #[cfg(feature = "share_clipboard")]
-                    Some("") | None => ClipboardProvider::new()
-                        .and_then(|mut ctx: ClipboardContext| ctx.get_contents())
-                        .ok()
-                        .unwrap(),
+                    Some("") | None => read_share().unwrap(),
                     Some(url) => url.to_owned(),
                     // do nothing if clipboard feature is disabled and there is no url provided
                     #[allow(unreachable_patterns)]

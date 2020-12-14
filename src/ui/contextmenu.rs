@@ -8,6 +8,8 @@ use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::playable::Playable;
 use crate::queue::Queue;
+#[cfg(feature = "share_clipboard")]
+use crate::sharing::write_share;
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
@@ -17,8 +19,6 @@ use crate::{
     playlist::Playlist,
     spotify::Spotify,
 };
-#[cfg(feature = "share_clipboard")]
-use clipboard::{ClipboardContext, ClipboardProvider};
 use cursive::traits::{Finder, Nameable};
 
 pub struct ContextMenu {
@@ -145,9 +145,7 @@ impl ContextMenu {
                 }
                 ContextMenuAction::ShareUrl(url) => {
                     #[cfg(feature = "share_clipboard")]
-                    ClipboardProvider::new()
-                        .and_then(|mut ctx: ClipboardContext| ctx.set_contents(url.to_string()))
-                        .ok();
+                    write_share(url.to_string());
                 }
                 ContextMenuAction::AddToPlaylist(track) => {
                     let dialog =

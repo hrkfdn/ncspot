@@ -62,6 +62,7 @@ mod library;
 mod playable;
 mod playlist;
 mod queue;
+mod sharing;
 mod show;
 mod spotify;
 mod theme;
