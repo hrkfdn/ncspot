@@ -1,10 +1,10 @@
 #![cfg(feature = "share_clipboard")]
 
+#[cfg(feature = "share_selection")]
+use clipboard::x11_clipboard::{Primary, X11ClipboardContext};
 #[cfg(not(feature = "share_selection"))]
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
-#[cfg(feature = "share_selection")]
-use clipboard::x11_clipboard::{X11ClipboardContext, Primary};
 
 #[cfg(not(feature = "share_selection"))]
 pub fn read_share() -> Option<String> {

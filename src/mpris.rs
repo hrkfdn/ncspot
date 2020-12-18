@@ -46,6 +46,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
         Variant(Box::new(Path::from(format!(
             "/org/ncspot/{}",
             playable
+                .filter(|t| t.id().is_some())
                 .map(|t| t.uri().replace(':', "/"))
                 .unwrap_or_else(|| String::from("0"))
         )))),
