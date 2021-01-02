@@ -263,6 +263,11 @@ impl ListItem for Track {
                 queue.clone(),
                 library.clone(),
             )
+            .set_title(format!(
+                "Similar to \"{} - {}\"",
+                self.artists.join(", "),
+                self.title
+            ))
             .as_boxed_view_ext()
         })
     }

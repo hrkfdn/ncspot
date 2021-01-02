@@ -106,6 +106,7 @@ pub struct ListView<I: ListItem> {
     queue: Arc<Queue>,
     library: Arc<Library>,
     pagination: Pagination<I>,
+    title: String,
 }
 
 impl<I: ListItem> ListView<I> {
@@ -122,7 +123,13 @@ impl<I: ListItem> ListView<I> {
             queue,
             library,
             pagination: Pagination::default(),
+            title: "".to_string(),
         }
+    }
+
+    pub fn set_title(mut self, title: String) -> Self {
+        self.title = title;
+        self
     }
 
     pub fn get_pagination(&self) -> &Pagination<I> {
@@ -433,6 +440,10 @@ impl<I: ListItem> View for ListView<I> {
 }
 
 impl<I: ListItem + Clone> ViewExt for ListView<I> {
+    fn title(&self) -> String {
+        self.title.clone()
+    }
+
     fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
