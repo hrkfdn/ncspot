@@ -283,7 +283,7 @@ fn run_dbus_server(
             .on_set(move |i, _| {
                 let cur = spotify2.volume() as f64 / 65535_f64;
                 let req = i.get::<f64>().unwrap_or(cur);
-                if req >= 0.0 && req <= 1.0 {
+                if (0.0..=1.0).contains(&req) {
                     let vol = (VOLUME_PERCENT as f64) * req * 100.0;
                     spotify2.set_volume(vol as u16);
                 }

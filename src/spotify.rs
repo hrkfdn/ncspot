@@ -260,9 +260,9 @@ impl Spotify {
         let volume = match &cfg.values().saved_state {
             Some(state) => match state.volume {
                 Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
-                None => 0xFFFF as u16,
+                None => 0xFFFF_u16,
             },
-            None => 0xFFFF as u16,
+            None => 0xFFFF_u16,
         };
         let repeat = match &cfg.values().saved_state {
             Some(state) => match &state.repeat {

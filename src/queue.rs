@@ -105,10 +105,9 @@ impl Queue {
             if let Some(order) = random_order.as_mut() {
                 let next_i = order.iter().position(|&i| i == index).unwrap();
                 // shift everything after the insertion in order
-                let size = order.len();
-                for i in 0..size {
-                    if order[i] > index {
-                        order[i] += 1;
+                for item in order.iter_mut() {
+                    if *item > index {
+                        *item += 1;
                     }
                 }
                 // finally, add the next track index
