@@ -195,8 +195,7 @@ impl CommandManager {
                 }
                 Ok(None)
             }
-            Command::Search(_)
-            | Command::Jump(_)
+            Command::Jump(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)
             | Command::Play

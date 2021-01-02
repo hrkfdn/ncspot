@@ -258,9 +258,7 @@ pub fn parse(input: &str) -> Option<Command> {
             })
             .map(Command::Open),
         "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
-        "search" => args
-            .get(0)
-            .map(|query| Command::Search((*query).to_string())),
+        "search" => Some(Command::Search(args.join(" "))),
         "shift" => {
             let amount = args.get(1).and_then(|amount| amount.parse().ok());
 

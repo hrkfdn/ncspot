@@ -144,9 +144,9 @@ are supported:
     * a | asc | ascending
     * d | desc | descending
 
-The screens can be opened with `queue`, `search`, `playlists` and `log`, whereas
-`search` can be supplied with a search term that will be entered after opening
-the search view.
+The screens can be opened with `focus <queue|search|library>`.
+The `search` command can be supplied with a search term that will be
+entered after opening the search view.
 
 To close the commandprompt at any time, press `esc`.
 

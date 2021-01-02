@@ -293,6 +293,12 @@ impl View for Layout {
 impl ViewExt for Layout {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
+            Command::Search(_) => {
+                self.set_view("search");
+                self.get_current_screen_mut()
+                    .map(|search| search.view.on_command(s, cmd));
+                Ok(CommandResult::Consumed(None))
+            }
             Command::Focus(view) => {
                 if self.views.keys().any(|k| k == view) {
                     self.set_view(view.clone());
