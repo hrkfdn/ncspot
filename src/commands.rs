@@ -10,6 +10,7 @@ use crate::traits::ViewExt;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
+use crate::ui::modal::Modal;
 use crate::UserData;
 use crate::{
     command::{
@@ -20,6 +21,7 @@ use crate::{
 };
 use cursive::event::{Event, Key};
 use cursive::traits::View;
+use cursive::views::Dialog;
 use cursive::Cursive;
 use std::cell::RefCell;
 
@@ -119,7 +121,14 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Clear => {
-                self.queue.clear();
+                let queue = self.queue.clone();
+                let confirmation = Dialog::text("Clear queue?")
+                    .button("Yes", move |s| {
+                        s.pop_layer();
+                        queue.clear()
+                    })
+                    .dismiss_button("No");
+                s.add_layer(Modal::new(confirmation));
                 Ok(None)
             }
             Command::UpdateLibrary => {
