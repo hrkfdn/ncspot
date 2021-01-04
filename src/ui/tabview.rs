@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 
 use cursive::align::HAlign;
+use cursive::event::{Event, EventResult};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
@@ -98,6 +99,14 @@ impl View for TabView {
     fn layout(&mut self, size: Vec2) {
         if let Some(tab) = self.tabs.get_mut(self.selected) {
             tab.view.layout(Vec2::new(size.x, size.y - 1));
+        }
+    }
+
+    fn on_event(&mut self, event: Event) -> EventResult {
+        if let Some(tab) = self.tabs.get_mut(self.selected) {
+            tab.view.on_event(event)
+        } else {
+            EventResult::Ignored
         }
     }
 }
