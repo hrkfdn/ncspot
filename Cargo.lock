@@ -801,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "dbus"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22c08adfeb70c940c14d8af988fa854dcb5529e6141f2397e4e0fa4c9375d094"
+checksum = "3b1334c0161ddfccd239ac81b188d62015b049c986c5cd0b7f9447cf2c54f4a3"
 dependencies = [
  "libc",
  "libdbus-sys",
@@ -815,7 +815,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
 dependencies = [
- "dbus 0.9.0",
+ "dbus 0.9.1",
 ]
 
 [[package]]
@@ -1964,7 +1964,7 @@ dependencies = [
  "clipboard",
  "crossbeam-channel 0.5.0",
  "cursive",
- "dbus 0.9.0",
+ "dbus 0.9.1",
  "dbus-tree",
  "failure",
  "fern",
