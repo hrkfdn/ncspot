@@ -23,6 +23,7 @@ pub struct ConfigValues {
     pub notify: Option<bool>,
     pub bitrate: Option<u32>,
     pub album_column: Option<bool>,
+    pub gapless: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
