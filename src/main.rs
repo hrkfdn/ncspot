@@ -237,8 +237,13 @@ fn main() {
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
 
-    let mut cmd_manager =
-        CommandManager::new(spotify.clone(), queue.clone(), library.clone(), cfg.clone());
+    let mut cmd_manager = CommandManager::new(
+        spotify.clone(),
+        queue.clone(),
+        library.clone(),
+        cfg.clone(),
+        event_manager.clone(),
+    );
 
     cmd_manager.register_all();
     cmd_manager.register_keybindings(&mut cursive);
@@ -246,12 +251,7 @@ fn main() {
     let user_data: UserData = Arc::new(UserDataInner { cmd: cmd_manager });
     cursive.set_user_data(user_data);
 
-    let search = ui::search::SearchView::new(
-        event_manager.clone(),
-        spotify.clone(),
-        queue.clone(),
-        library.clone(),
-    );
+    let search = ui::search::SearchView::new(event_manager.clone(), queue.clone(), library.clone());
 
     let libraryview = ui::library::LibraryView::new(queue.clone(), library.clone());
 

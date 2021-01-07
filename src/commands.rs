@@ -3,14 +3,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::config::Config;
+use crate::events::EventManager;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
-use crate::traits::ViewExt;
+use crate::traits::{ViewExt, IntoBoxedViewExt};
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
+use crate::ui::search_results::SearchResultsView;
 use crate::UserData;
 use crate::{
     command::{
@@ -39,6 +41,7 @@ pub struct CommandManager {
     queue: Arc<Queue>,
     library: Arc<Library>,
     config: Arc<Config>,
+    events: EventManager,
 }
 
 impl CommandManager {
@@ -47,6 +50,7 @@ impl CommandManager {
         queue: Arc<Queue>,
         library: Arc<Library>,
         config: Arc<Config>,
+        events: EventManager,
     ) -> CommandManager {
         let bindings = RefCell::new(Self::get_bindings(config.clone()));
         CommandManager {
@@ -56,6 +60,7 @@ impl CommandManager {
             queue,
             library,
             config,
+            events,
         }
     }
 
@@ -202,6 +207,16 @@ impl CommandManager {
                     Some(_) => self.library.update_library(),
                     None => error!("could not create playlist {}", name),
                 }
+                Ok(None)
+            }
+            Command::Search(term) => {
+                let view = SearchResultsView::new(
+                    term.clone(),
+                    self.events.clone(),
+                    self.queue.clone(),
+                    self.library.clone(),
+                );
+                s.call_on_name("main", |v: &mut Layout| v.push_view(view.as_boxed_view_ext()));
                 Ok(None)
             }
             Command::Jump(_)
