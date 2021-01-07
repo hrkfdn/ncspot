@@ -12,7 +12,7 @@ use librespot_playback::config::Bitrate;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 
-use rspotify::blocking::client::ApiError;
+use rspotify::{blocking::client::ApiError, senum::Country};
 use rspotify::blocking::client::Spotify as SpotifyAPI;
 use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 use rspotify::model::artist::FullArtist;
@@ -93,6 +93,7 @@ pub struct Spotify {
     token_issued: RwLock<Option<SystemTime>>,
     channel: RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>,
     user: Option<String>,
+    country: Option<Country>,
     pub volume: AtomicU16,
     pub repeat: queue::RepeatSetting,
     pub shuffle: bool,
@@ -291,6 +292,7 @@ impl Spotify {
             token_issued: RwLock::new(None),
             channel: RwLock::new(None),
             user: None,
+            country: None,
             volume: AtomicU16::new(volume),
             repeat,
             shuffle,
@@ -300,6 +302,11 @@ impl Spotify {
         spotify.start_worker(Some(user_tx));
         spotify.user = futures::executor::block_on(user_rx).ok();
         spotify.set_volume(volume);
+
+        spotify.country = spotify
+            .current_user()
+            .and_then(|u| u.country)
+            .and_then(|c| Country::from_str(&c.as_str()).ok());
 
         spotify
     }
@@ -678,7 +685,7 @@ impl Spotify {
     }
 
     pub fn playlist(&self, playlist_id: &str) -> Option<FullPlaylist> {
-        self.api_with_retry(|api| api.playlist(playlist_id, None, None))
+        self.api_with_retry(|api| api.playlist(playlist_id, None, self.country))
     }
 
     pub fn track(&self, track_id: &str) -> Option<FullTrack> {
@@ -686,11 +693,11 @@ impl Spotify {
     }
 
     pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
-        self.api_with_retry(|api| api.get_a_show(show_id.to_string(), None))
+        self.api_with_retry(|api| api.get_a_show(show_id.to_string(), self.country))
     }
 
     pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
-        self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), None))
+        self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), self.country))
     }
 
     pub fn recommentations(
@@ -705,7 +712,7 @@ impl Spotify {
                 seed_genres.clone(),
                 seed_tracks.clone(),
                 100,
-                None,
+                self.country,
                 &Map::new(),
             )
         })
@@ -718,7 +725,7 @@ impl Spotify {
         limit: u32,
         offset: u32,
     ) -> Option<SearchResult> {
-        self.api_with_retry(|api| api.search(query, searchtype, limit, offset, None, None))
+        self.api_with_retry(|api| api.search(query, searchtype, limit, offset, self.country, None))
             .take()
     }
 
@@ -738,7 +745,7 @@ impl Spotify {
     ) -> Option<Page<PlaylistTrack>> {
         let user = self.user.as_ref().unwrap();
         self.api_with_retry(|api| {
-            api.user_playlist_tracks(user, playlist_id, None, limit, offset, None)
+            api.user_playlist_tracks(user, playlist_id, None, limit, offset, self.country)
         })
     }
 
@@ -762,12 +769,12 @@ impl Spotify {
         offset: u32,
     ) -> Option<Page<SimplifiedAlbum>> {
         self.api_with_retry(|api| {
-            api.artist_albums(artist_id, None, None, Some(limit), Some(offset))
+            api.artist_albums(artist_id, None, self.country, Some(limit), Some(offset))
         })
     }
 
     pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
-        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, None))
+        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, self.country))
     }
 
     pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
@@ -780,7 +787,7 @@ impl Spotify {
     }
 
     pub fn unsave_shows(&self, ids: Vec<String>) -> bool {
-        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), None))
+        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), self.country))
             .is_some()
     }
 
@@ -829,7 +836,7 @@ impl Spotify {
     }
 
     pub fn artist_top_tracks(&self, id: &str) -> Option<Vec<Track>> {
-        self.api_with_retry(|api| api.artist_top_tracks(id, None))
+        self.api_with_retry(|api| api.artist_top_tracks(id, self.country))
             .map(|ft| ft.tracks.iter().map(|t| t.into()).collect())
     }
 
