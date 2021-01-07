@@ -306,7 +306,7 @@ impl Spotify {
         spotify.country = spotify
             .current_user()
             .and_then(|u| u.country)
-            .and_then(|c| Country::from_str(&c.as_str()).ok());
+            .and_then(|c| c.parse().ok());
 
         spotify
     }
