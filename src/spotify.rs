@@ -421,7 +421,7 @@ impl Spotify {
         }
 
         let player_config = PlayerConfig {
-            gapless: false,
+            gapless: cfg.values().gapless.unwrap_or(false),
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.values().volnorm.unwrap_or(false),
             normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
