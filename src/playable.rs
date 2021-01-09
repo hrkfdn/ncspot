@@ -120,8 +120,8 @@ impl ListItem for Playable {
         self.as_listitem().album(queue)
     }
 
-    fn artist(&self) -> Option<Artist> {
-        self.as_listitem().artist()
+    fn artists(&self) -> Option<Vec<Artist>> {
+        self.as_listitem().artists()
     }
 
     fn track(&self) -> Option<Track> {

@@ -287,11 +287,14 @@ impl ListItem for Track {
         }
     }
 
-    fn artist(&self) -> Option<Artist> {
-        Some(Artist::new(
-            self.artist_ids[0].clone(),
-            self.artists[0].clone(),
-        ))
+    fn artists(&self) -> Option<Vec<Artist>> {
+        Some(
+            self.artist_ids
+                .iter()
+                .zip(self.artists.iter())
+                .map(|(id, name)| Artist::new(id.clone(), name.clone()))
+                .collect(),
+        )
     }
 
     fn track(&self) -> Option<Track> {

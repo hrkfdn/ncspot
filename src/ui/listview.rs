@@ -617,10 +617,22 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                             }
                         }
                         GotoMode::Artist => {
-                            if let Some(artist) = item.artist() {
-                                let view =
-                                    ArtistView::new(queue, library, &artist).as_boxed_view_ext();
-                                return Ok(CommandResult::View(view));
+                            if let Some(artists) = item.artists() {
+                                return match artists.len() {
+                                    0 => Ok(CommandResult::Consumed(None)),
+                                    1 => {
+                                        let view = ArtistView::new(queue, library, &artists[0]).as_boxed_view_ext();
+                                        Ok(CommandResult::View(view))
+                                    }
+                                    _ => {
+                                        let dialog = ContextMenu::select_artist_dialog(
+                                            library, queue, artists,
+                                        );
+                                        _s.add_layer(dialog);
+
+                                        Ok(CommandResult::Consumed(None))
+                                    }
+                                };
                             }
                         }
                     }
