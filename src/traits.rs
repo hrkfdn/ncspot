@@ -39,7 +39,7 @@ pub trait ListItem: Sync + Send + 'static {
         None
     }
 
-    fn artist(&self) -> Option<Artist> {
+    fn artists(&self) -> Option<Vec<Artist>> {
         None
     }
 
