@@ -264,12 +264,12 @@ fn main() {
     );
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
-        .view("search", search.with_name("search"), "Search")
-        .view("library", libraryview.with_name("library"), "Library")
-        .view("queue", queueview, "Queue");
+        .screen("search", search.with_name("search"), "Search")
+        .screen("library", libraryview.with_name("library"), "Library")
+        .screen("queue", queueview, "Queue");
 
-    // initial view is library
-    layout.set_view("library");
+    // initial screen is library
+    layout.set_screen("library");
 
     cursive.add_global_callback(':', move |s| {
         if s.find_name::<ContextMenu>("contextmenu").is_none() {

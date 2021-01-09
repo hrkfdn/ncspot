@@ -23,7 +23,7 @@ struct Screen {
 }
 
 pub struct Layout {
-    views: HashMap<String, Screen>,
+    screens: HashMap<String, Screen>,
     stack: Vec<Screen>,
     statusbar: Box<dyn View>,
     focus: Option<String>,
@@ -45,7 +45,7 @@ impl Layout {
         );
 
         Layout {
-            views: HashMap::new(),
+            screens: HashMap::new(),
             stack: Vec::new(),
             statusbar: status.as_boxed_view(),
             focus: None,
@@ -74,22 +74,27 @@ impl Layout {
         }
     }
 
-    pub fn add_view<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: S) {
+    pub fn add_screen<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T, title: S) {
         let s = id.into();
         let screen = Screen {
             title: title.into(),
             view: view.as_boxed_view_ext(),
         };
-        self.views.insert(s.clone(), screen);
+        self.screens.insert(s.clone(), screen);
         self.focus = Some(s);
     }
 
-    pub fn view<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T, title: S) -> Self {
-        (&mut self).add_view(id, view, title);
+    pub fn screen<S: Into<String>, T: IntoBoxedViewExt>(
+        mut self,
+        id: S,
+        view: T,
+        title: S,
+    ) -> Self {
+        (&mut self).add_screen(id, view, title);
         self
     }
 
-    pub fn set_view<S: Into<String>>(&mut self, id: S) {
+    pub fn set_screen<S: Into<String>>(&mut self, id: S) {
         let s = id.into();
         self.focus = Some(s);
         self.cmdline_focus = false;
@@ -138,7 +143,7 @@ impl Layout {
         }
 
         if let Some(id) = self.focus.as_ref() {
-            self.views.get(id)
+            self.screens.get(id)
         } else {
             None
         }
@@ -150,7 +155,7 @@ impl Layout {
         }
 
         if let Some(id) = self.focus.as_ref() {
-            self.views.get_mut(id)
+            self.screens.get_mut(id)
         } else {
             None
         }
@@ -293,9 +298,9 @@ impl ViewExt for Layout {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Focus(view) => {
-                if self.views.keys().any(|k| k == view) {
-                    self.set_view(view.clone());
-                    let screen = self.views.get_mut(view).unwrap();
+                if self.screens.keys().any(|k| k == view) {
+                    self.set_screen(view.clone());
+                    let screen = self.screens.get_mut(view).unwrap();
                     screen.view.on_command(s, cmd)?;
                 }
 
