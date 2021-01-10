@@ -61,6 +61,10 @@ pub trait ViewExt: View {
 }
 
 impl<V: ViewExt> ViewExt for NamedView<V> {
+    fn title(&self) -> String {
+        self.with_view(|v| v.title()).unwrap_or_default()
+    }
+
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         self.with_view_mut(move |v| v.on_command(s, cmd)).unwrap()
     }

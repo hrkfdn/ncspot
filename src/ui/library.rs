@@ -54,6 +54,10 @@ impl ViewWrapper for LibraryView {
 }
 
 impl ViewExt for LibraryView {
+    fn title(&self) -> String {
+        "Library".to_string()
+    }
+
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         self.tabs.on_command(s, cmd)
     }

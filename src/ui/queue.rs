@@ -89,6 +89,10 @@ impl ViewWrapper for QueueView {
 }
 
 impl ViewExt for QueueView {
+    fn title(&self) -> String {
+        "Queue".to_string()
+    }
+
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {

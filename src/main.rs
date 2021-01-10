@@ -264,9 +264,9 @@ fn main() {
     );
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
-        .screen("search", search.with_name("search"), "Search")
-        .screen("library", libraryview.with_name("library"), "Library")
-        .screen("queue", queueview, "Queue");
+        .screen("search", search.with_name("search"))
+        .screen("library", libraryview.with_name("library"))
+        .screen("queue", queueview);
 
     // initial screen is library
     layout.set_screen("library");

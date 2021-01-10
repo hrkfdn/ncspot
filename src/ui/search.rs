@@ -107,6 +107,10 @@ impl View for SearchView {
 }
 
 impl ViewExt for SearchView {
+    fn title(&self) -> String {
+        "Search".to_string()
+    }
+
     fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Focus(_) = cmd {
             self.edit_focused = true;
