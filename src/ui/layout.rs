@@ -122,6 +122,12 @@ impl Layout {
         self.get_focussed_stack_mut().map(|stack| stack.pop());
     }
 
+    fn get_current_screen(&self) -> Option<&Box<dyn ViewExt>> {
+        self.focus
+            .as_ref()
+            .and_then(|focus| self.screens.get(focus))
+    }
+
     fn get_focussed_stack_mut(&mut self) -> Option<&mut Vec<Box<dyn ViewExt>>> {
         let focus = self.focus.clone();
         if let Some(focus) = &focus {
@@ -147,8 +153,7 @@ impl Layout {
     }
 
     fn get_current_view_mut(&mut self) -> Option<&mut Box<dyn ViewExt>> {
-        let focus = self.focus.clone();
-        if let Some(focus) = &focus {
+        if let Some(focus) = &self.focus {
             let last_view = self
                 .stack
                 .get_mut(focus)
@@ -175,19 +180,27 @@ impl View for Layout {
             cmdline_height += 1;
         }
 
+        let screen_title = self
+            .get_current_screen()
+            .map(|screen| screen.title())
+            .unwrap_or_default();
+
         if let Some(view) = self.get_top_view() {
-            // screen title
+            // back button + title
+            if !self
+                .get_focussed_stack()
+                .map(|s| s.is_empty())
+                .unwrap_or(false)
+            {
+                printer.with_color(ColorStyle::title_secondary(), |printer| {
+                    printer.print((1, 0), &format!("< {}", screen_title));
+                });
+            }
+
+            // view title
             printer.with_color(ColorStyle::title_primary(), |printer| {
                 let offset = HAlign::Center.get_offset(view.title().width(), printer.size.x);
                 printer.print((offset, 0), &view.title());
-
-                if !self
-                    .get_focussed_stack()
-                    .map(|s| s.is_empty())
-                    .unwrap_or(false)
-                {
-                    printer.print((1, 0), "<");
-                }
             });
 
             // screen content
