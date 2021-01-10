@@ -53,9 +53,9 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
     );
     hm.insert(
         "mpris:length".to_string(),
-        Variant(Box::new(i64::from(
-            playable.map(|t| t.duration() * 1_000).unwrap_or(0),
-        ))),
+        Variant(Box::new(
+            playable.map(|t| t.duration() as i64 * 1_000).unwrap_or(0),
+        )),
     );
     hm.insert(
         "mpris:artUrl".to_string(),
