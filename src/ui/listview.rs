@@ -621,7 +621,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                 return match artists.len() {
                                     0 => Ok(CommandResult::Consumed(None)),
                                     1 => {
-                                        let view = ArtistView::new(queue, library, &artists[0]).as_boxed_view_ext();
+                                        let view = ArtistView::new(queue, library, &artists[0])
+                                            .as_boxed_view_ext();
                                         Ok(CommandResult::View(view))
                                     }
                                     _ => {

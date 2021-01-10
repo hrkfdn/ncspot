@@ -35,7 +35,7 @@ pub struct SelectArtistMenu {
 
 enum ContextMenuAction {
     ShowItem(Box<dyn ListItem>),
-    SelectArtist(Box<Vec<Artist>>),
+    SelectArtist(Vec<Artist>),
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
     ShowRecommentations(Box<dyn ListItem>),
@@ -142,14 +142,11 @@ impl ContextMenu {
             let action = match a.len() {
                 0 => None,
                 1 => Some(ContextMenuAction::ShowItem(Box::new(a[0].clone()))),
-                _ => Some(ContextMenuAction::SelectArtist(Box::new(a))),
+                _ => Some(ContextMenuAction::SelectArtist(a)),
             };
 
             if let Some(a) = action {
-                content.add_item(
-                    "Show artist",
-                    a
-                )
+                content.add_item("Show artist", a)
             }
         }
         if let Some(a) = item.album(queue.clone()) {
@@ -208,7 +205,7 @@ impl ContextMenu {
                     track.toggle_saved(library);
                 }
                 ContextMenuAction::SelectArtist(artists) => {
-                    let dialog = Self::select_artist_dialog(library, queue, *artists.clone());
+                    let dialog = Self::select_artist_dialog(library, queue, artists.clone());
                     s.add_layer(dialog);
                 }
             }

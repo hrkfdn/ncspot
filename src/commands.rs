@@ -7,7 +7,7 @@ use crate::events::EventManager;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
-use crate::traits::{ViewExt, IntoBoxedViewExt};
+use crate::traits::{IntoBoxedViewExt, ViewExt};
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
@@ -216,7 +216,9 @@ impl CommandManager {
                     self.queue.clone(),
                     self.library.clone(),
                 );
-                s.call_on_name("main", |v: &mut Layout| v.push_view(view.as_boxed_view_ext()));
+                s.call_on_name("main", |v: &mut Layout| {
+                    v.push_view(view.as_boxed_view_ext())
+                });
                 Ok(None)
             }
             Command::Jump(_)

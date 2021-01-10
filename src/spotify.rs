@@ -12,7 +12,6 @@ use librespot_playback::config::Bitrate;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 
-use rspotify::{blocking::client::ApiError, senum::Country};
 use rspotify::blocking::client::Spotify as SpotifyAPI;
 use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 use rspotify::model::artist::FullArtist;
@@ -22,6 +21,7 @@ use rspotify::model::search::SearchResult;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
 use rspotify::senum::SearchType;
+use rspotify::{blocking::client::ApiError, senum::Country};
 
 use serde_json::{json, Map};
 
@@ -774,7 +774,9 @@ impl Spotify {
     }
 
     pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
-        self.api_with_retry(|api| api.get_shows_episodes(show_id.to_string(), 50, offset, self.country))
+        self.api_with_retry(|api| {
+            api.get_shows_episodes(show_id.to_string(), 50, offset, self.country)
+        })
     }
 
     pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
