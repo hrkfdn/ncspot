@@ -940,8 +940,7 @@ dependencies = [
 [[package]]
 name = "enumset_derive"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74bef436ac71820c5cf768d7af9ba33121246b09a00e09a55d94ef8095a875ac"
+source = "git+https://github.com/ocboogie/enumset?branch=span-fix#4c01c583c27a725948fededbfb3461c572a669a4"
 dependencies = [
  "darling 0.10.2",
  "proc-macro2 1.0.24",

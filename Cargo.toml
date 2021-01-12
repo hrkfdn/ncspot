@@ -62,3 +62,7 @@ termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus", "dbus-tree"]
 notify = ["notify-rust"]
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "cursive/pancurses-backend"]
+
+[patch.crates-io.enumset_derive]
+git = "https://github.com/ocboogie/enumset"
+branch = "span-fix"
