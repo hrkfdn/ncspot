@@ -1976,6 +1976,7 @@ dependencies = [
  "serde_json",
  "strum 0.20.0",
  "strum_macros 0.20.1",
+ "syn 1.0.57",
  "tokio-core",
  "tokio-timer",
  "toml",
