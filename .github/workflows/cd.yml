@@ -1,0 +1,47 @@
+name: Build + Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publishing ${{ matrix.build_target }}-${{ matrix.artifact_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build_target: [linux, macos]
+        include:
+          - build_target: linux
+            os: ubuntu-latest
+            artifact_prefix: linux
+            target: x86_64-unknown-linux-gnu
+            features: ''
+          - build_target: macos
+            os: macos-latest
+            artifact_prefix: macos
+            target: x86_64-apple-darwin
+            features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
+    steps:
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install portaudio pkg-config
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update && apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/checkout@v2
+      - name: Running cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --locked --release --target ${{ matrix.target }} "${{ matrix.feature }}"
