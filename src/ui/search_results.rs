@@ -380,22 +380,6 @@ impl SearchResultsView {
 
         // is the query a Spotify URI?
         if let Some(uritype) = URIType::from_uri(&query) {
-            // Clear the results if we are going to process a Spotify URI. We need
-            // to do this since we are only calling the search function for the
-            // given URI type which leaves the previous search results intact.
-            let results_tracks = self.results_tracks.clone();
-            *results_tracks.write().unwrap() = Vec::new();
-            let results_albums = self.results_albums.clone();
-            *results_albums.write().unwrap() = Vec::new();
-            let results_artists = self.results_artists.clone();
-            *results_artists.write().unwrap() = Vec::new();
-            let results_playlists = self.results_playlists.clone();
-            *results_playlists.write().unwrap() = Vec::new();
-            let results_shows = self.results_shows.clone();
-            *results_shows.write().unwrap() = Vec::new();
-            let results_episodes = self.results_episodes.clone();
-            *results_episodes.write().unwrap() = Vec::new();
-
             match uritype {
                 URIType::Track => {
                     self.perform_search(
