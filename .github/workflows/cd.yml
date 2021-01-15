@@ -1,0 +1,71 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publishing ${{ matrix.build_target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build_target: [linux, macos]
+        include:
+          - build_target: linux
+            os: ubuntu-latest
+            artifact_prefix: linux
+            target: x86_64-unknown-linux-gnu
+            features: ''
+          - build_target: macos
+            os: macos-latest
+            artifact_prefix: macos
+            target: x86_64-apple-darwin
+            features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
+    steps:
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+          profile: minimal
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install portaudio pkg-config
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - uses: actions/checkout@v2
+        name: Checkout src
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Running cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --locked --release --target ${{ matrix.target }} ${{ matrix.features }}
+      - name: Extract git tag
+        shell: bash
+        run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
+        id: extract_tag
+      - name: Packaging assets
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip ncspot
+          tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz ncspot
+          shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+      - name: Releasing assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/${{ matrix.target }}/release/ncspot-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
