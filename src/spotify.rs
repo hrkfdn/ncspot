@@ -41,7 +41,7 @@ use futures::Future;
 use futures::Stream;
 
 use tokio_core::reactor::Core;
-use url::Url;
+use url::{Host, Url};
 
 use core::task::Poll;
 
@@ -993,3 +993,53 @@ impl URIType {
         }
     }
 }
+
+pub struct SpotifyURL {
+    pub id: String,
+    pub uri_type: URIType,
+}
+
+impl SpotifyURL {
+    fn new(id: &str, uri_type: URIType) -> SpotifyURL {
+        SpotifyURL {
+            id: id.to_string(),
+            uri_type,
+        }
+    }
+
+    pub fn from_url(s: &str) -> Option<SpotifyURL> {
+        let url = Url::parse(s).ok()?;
+        if url.host() != Some(Host::Domain("open.spotify.com")) {
+            return None;
+        }
+
+        let mut path_segments = url.path_segments()?;
+
+        let entity = path_segments.next()?;
+
+        let uri_type = match entity.to_lowercase().as_str() {
+            "album" => Some(URIType::Album),
+            "artist" => Some(URIType::Artist),
+            "episode" => Some(URIType::Episode),
+            "playlist" => Some(URIType::Playlist),
+            "show" => Some(URIType::Show),
+            "track" => Some(URIType::Track),
+            "user" => {
+                let _user_id = path_segments.next()?;
+                let entity = path_segments.next()?;
+
+                if entity != "playlist" {
+                    return None;
+                }
+
+                Some(URIType::Playlist)
+            }
+            _ => None,
+        }?;
+
+        let id = path_segments.next()?;
+
+        Some(SpotifyURL::new(id, uri_type))
+    }
+}
+
