@@ -318,6 +318,15 @@ impl ViewExt for Layout {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Focus(view) => {
+                // Clear search results and return to search bar
+                // If trying to focus search screen while already on it
+                let search_view_name = "search";
+                if view == search_view_name && self.focus == Some(search_view_name.into()) {
+                    if let Some(stack) = self.stack.get_mut(search_view_name) {
+                        stack.clear();
+                    }
+                }
+
                 if self.screens.keys().any(|k| k == view) {
                     self.set_screen(view.clone());
                     let screen = self.screens.get_mut(view).unwrap();
