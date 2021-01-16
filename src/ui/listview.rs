@@ -269,10 +269,11 @@ impl<I: ListItem> View for ListView<I> {
                 });
             } else {
                 let item = &content[i];
-                let currently_playing = self.queue.get_current_index() == Some(i);
+                let currently_playing = item.is_playing(self.queue.clone())
+                    && self.queue.get_current_index() == Some(i);
 
                 let style = if self.selected == i {
-                    let fg = if item.is_playing(self.queue.clone()) && currently_playing {
+                    let fg = if currently_playing {
                         *printer.theme.palette.custom("playing_selected").unwrap()
                     } else {
                         PaletteColor::Tertiary.resolve(&printer.theme.palette)
@@ -281,7 +282,7 @@ impl<I: ListItem> View for ListView<I> {
                         ColorType::Color(fg),
                         ColorType::Palette(PaletteColor::Highlight),
                     )
-                } else if item.is_playing(self.queue.clone()) && currently_playing {
+                } else if currently_playing {
                     ColorStyle::new(
                         ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
                         ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
