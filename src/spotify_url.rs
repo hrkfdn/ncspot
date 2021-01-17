@@ -70,7 +70,7 @@ mod tests {
         let mut test_cases = HashMap::new();
         test_cases.insert(
             "https://open.spotify.com/playlist/1XFxe8bkTryTODn0lk4CNa?si=FfSpZ6KPQdieClZbwHakOQ",
-            SpotifyURL::new("1XFxe8bkTryTODn0lk4CNa", URIType::Playlist)
+            SpotifyURL::new("1XFxe8bkTryTODn0lk4CNa", URIType::Playlist),
         );
         test_cases.insert(
             "https://open.spotify.com/track/6fRJg3R90w0juYoCJXxj2d",
@@ -90,7 +90,7 @@ mod tests {
         );
         test_cases.insert(
             "https://open.spotify.com/artist/6LEeAFiJF8OuPx747e1wxR",
-            SpotifyURL::new("6LEeAFiJF8OuPx747e1wxR", URIType::Artist)
+            SpotifyURL::new("6LEeAFiJF8OuPx747e1wxR", URIType::Artist),
         );
 
         for case in test_cases {

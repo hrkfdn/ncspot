@@ -41,7 +41,7 @@ use futures::Future;
 use futures::Stream;
 
 use tokio_core::reactor::Core;
-use url::{Url};
+use url::Url;
 
 use core::task::Poll;
 
