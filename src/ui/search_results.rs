@@ -9,6 +9,7 @@ use crate::playlist::Playlist;
 use crate::queue::Queue;
 use crate::show::Show;
 use crate::spotify::{Spotify, URIType};
+use crate::spotify_url::SpotifyURL;
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::listview::{ListView, Pagination};
@@ -380,22 +381,6 @@ impl SearchResultsView {
 
         // is the query a Spotify URI?
         if let Some(uritype) = URIType::from_uri(&query) {
-            // Clear the results if we are going to process a Spotify URI. We need
-            // to do this since we are only calling the search function for the
-            // given URI type which leaves the previous search results intact.
-            let results_tracks = self.results_tracks.clone();
-            *results_tracks.write().unwrap() = Vec::new();
-            let results_albums = self.results_albums.clone();
-            *results_albums.write().unwrap() = Vec::new();
-            let results_artists = self.results_artists.clone();
-            *results_artists.write().unwrap() = Vec::new();
-            let results_playlists = self.results_playlists.clone();
-            *results_playlists.write().unwrap() = Vec::new();
-            let results_shows = self.results_shows.clone();
-            *results_shows.write().unwrap() = Vec::new();
-            let results_episodes = self.results_episodes.clone();
-            *results_episodes.write().unwrap() = Vec::new();
-
             match uritype {
                 URIType::Track => {
                     self.perform_search(
@@ -447,6 +432,65 @@ impl SearchResultsView {
                         Box::new(Self::get_episode),
                         &self.results_episodes,
                         &query,
+                        None,
+                    );
+                    self.tabs.move_focus_to(5);
+                }
+            }
+        // Is the query a spotify URL?
+        // https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC
+        } else if let Some(url) = SpotifyURL::from_url(&query) {
+            match url.uri_type {
+                URIType::Track => {
+                    self.perform_search(
+                        Box::new(Self::get_track),
+                        &self.results_tracks,
+                        &url.id,
+                        None,
+                    );
+                    self.tabs.move_focus_to(0);
+                }
+                URIType::Album => {
+                    self.perform_search(
+                        Box::new(Self::get_album),
+                        &self.results_albums,
+                        &url.id,
+                        None,
+                    );
+                    self.tabs.move_focus_to(1);
+                }
+                URIType::Artist => {
+                    self.perform_search(
+                        Box::new(Self::get_artist),
+                        &self.results_artists,
+                        &url.id,
+                        None,
+                    );
+                    self.tabs.move_focus_to(2);
+                }
+                URIType::Playlist => {
+                    self.perform_search(
+                        Box::new(Self::get_playlist),
+                        &self.results_playlists,
+                        &url.id,
+                        None,
+                    );
+                    self.tabs.move_focus_to(3);
+                }
+                URIType::Show => {
+                    self.perform_search(
+                        Box::new(Self::get_show),
+                        &self.results_shows,
+                        &url.id,
+                        None,
+                    );
+                    self.tabs.move_focus_to(4);
+                }
+                URIType::Episode => {
+                    self.perform_search(
+                        Box::new(Self::get_episode),
+                        &self.results_episodes,
+                        &url.id,
                         None,
                     );
                     self.tabs.move_focus_to(5);

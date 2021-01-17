@@ -59,6 +59,7 @@ use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue;
 use crate::track::Track;
+
 use rspotify::model::recommend::Recommendations;
 use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
 
@@ -965,6 +966,7 @@ impl Spotify {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum URIType {
     Album,
     Artist,
