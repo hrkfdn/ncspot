@@ -8,7 +8,7 @@ use crate::library::Library;
 use crate::playlist::Playlist;
 use crate::queue::Queue;
 use crate::show::Show;
-use crate::spotify::SpotifyURL;
+use crate::spotify_url::SpotifyURL;
 use crate::spotify::{Spotify, URIType};
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};

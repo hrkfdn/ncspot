@@ -9,7 +9,6 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::album::Album;
 use crate::artist::Artist;
 use crate::command::{
     Command, GotoMode, JumpMode, MoveAmount, MoveMode, SortDirection, SortKey, TargetMode,
@@ -28,7 +27,7 @@ use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
-use regex::Regex;
+use crate::{album::Album, spotify::URIType, spotify_url::SpotifyURL};
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 
@@ -651,32 +650,28 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 let spotify = self.queue.get_spotify();
 
-                let re =
-                    Regex::new(r"https?://open\.spotify\.com/(user/[^/]+/)?(\S+)/(\S+)(\?si=\S+)?")
-                        .unwrap();
-                let captures = re.captures(&url);
+                let url = SpotifyURL::from_url(&url);
 
-                if let Some(captures) = captures {
-                    let target: Option<Box<dyn ListItem>> = match &captures[2] {
-                        "track" => spotify
-                            .track(&captures[3])
+                if let Some(url) = url {
+                    let target: Option<Box<dyn ListItem>> = match url.uri_type {
+                        URIType::Track => spotify
+                            .track(&url.id)
                             .map(|track| Track::from(&track).as_listitem()),
-                        "album" => spotify
-                            .album(&captures[3])
+                        URIType::Album => spotify
+                            .album(&url.id)
                             .map(|album| Album::from(&album).as_listitem()),
-                        "playlist" => spotify
-                            .playlist(&captures[3])
+                        URIType::Playlist => spotify
+                            .playlist(&url.id)
                             .map(|playlist| Playlist::from(&playlist).as_listitem()),
-                        "artist" => spotify
-                            .artist(&captures[3])
+                        URIType::Artist => spotify
+                            .artist(&url.id)
                             .map(|artist| Artist::from(&artist).as_listitem()),
-                        "episode" => spotify
-                            .episode(&captures[3])
+                        URIType::Episode => spotify
+                            .episode(&url.id)
                             .map(|episode| Episode::from(&episode).as_listitem()),
-                        "show" => spotify
-                            .get_show(&captures[3])
+                        URIType::Show => spotify
+                            .get_show(&url.id)
                             .map(|show| Show::from(&show).as_listitem()),
-                        _ => None,
                     };
 
                     let queue = self.queue.clone();
