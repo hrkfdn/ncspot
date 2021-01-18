@@ -890,11 +890,7 @@ impl Spotify {
     }
 
     pub fn toggleplayback(&self) {
-        let status = self
-            .status
-            .read()
-            .expect("could not acquire read lock on player state");
-        match *status {
+        match self.get_current_status() {
             PlayerEvent::Playing => self.pause(),
             PlayerEvent::Paused => self.play(),
             _ => (),

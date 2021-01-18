@@ -7,9 +7,9 @@ use notify_rust::Notification;
 use rand::prelude::*;
 use strum_macros::Display;
 
-use crate::config::Config;
 use crate::playable::Playable;
 use crate::spotify::Spotify;
+use crate::{config::Config, spotify::PlayerEvent};
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -264,7 +264,15 @@ impl Queue {
     }
 
     pub fn toggleplayback(&self) {
-        self.spotify.toggleplayback();
+        match self.spotify.get_current_status() {
+            PlayerEvent::Playing | PlayerEvent::Paused => {
+                self.spotify.toggleplayback();
+            }
+            PlayerEvent::FinishedTrack | PlayerEvent::Stopped => match self.next_index() {
+                Some(_) => self.next(false),
+                None => self.play(0, false, false),
+            },
+        }
     }
 
     pub fn stop(&self) {

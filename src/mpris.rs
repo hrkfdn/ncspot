@@ -400,9 +400,9 @@ fn run_dbus_server(
         });
 
     let method_playpause = {
-        let spotify = spotify.clone();
+        let queue = queue.clone();
         f.method("PlayPause", (), move |m| {
-            spotify.toggleplayback();
+            queue.toggleplayback();
             Ok(vec![m.msg.method_return()])
         })
     };
