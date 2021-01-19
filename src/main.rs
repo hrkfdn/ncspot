@@ -43,7 +43,6 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
-use cursive::{Cursive, CursiveExt};
 use std::ffi::CString;
 
 use librespot_core::authentication::Credentials;
@@ -215,7 +214,7 @@ fn main() {
         credentials = credentials_prompt(reset, Some(error_msg));
     }
 
-    let mut cursive = Cursive::default();
+    let mut cursive = cursive::default().into_runner();
     let theme = cfg.build_theme();
     cursive.set_theme(theme.clone());
 

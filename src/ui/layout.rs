@@ -42,7 +42,7 @@ impl Layout {
         Layout {
             screens: HashMap::new(),
             stack: HashMap::new(),
-            statusbar: status.as_boxed_view(),
+            statusbar: status.into_boxed_view(),
             focus: None,
             cmdline: EditView::new().filler(" ").style(style),
             cmdline_focus: false,
