@@ -202,7 +202,9 @@ impl futures::Future for Worker {
             if let Ok(v01_Async::Ready(Some(event))) = self.player_events.poll() {
                 debug!("librespot player event: {:?}", event);
                 match event {
-                    LibrespotPlayerEvent::Started { .. } | LibrespotPlayerEvent::Loading { .. } => {
+                    LibrespotPlayerEvent::Started { .. }
+                    | LibrespotPlayerEvent::Loading { .. }
+                    | LibrespotPlayerEvent::Changed { .. } => {
                         progress = true;
                     }
                     LibrespotPlayerEvent::Playing { .. } => {
