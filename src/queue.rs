@@ -272,7 +272,7 @@ impl Queue {
                 Some(_) => self.next(false),
                 None => self.play(0, false, false),
             },
-            _ => ()
+            _ => (),
         }
     }
 
