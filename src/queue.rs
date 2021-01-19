@@ -268,10 +268,11 @@ impl Queue {
             PlayerEvent::Playing | PlayerEvent::Paused => {
                 self.spotify.toggleplayback();
             }
-            PlayerEvent::FinishedTrack | PlayerEvent::Stopped => match self.next_index() {
+            PlayerEvent::Stopped => match self.next_index() {
                 Some(_) => self.next(false),
                 None => self.play(0, false, false),
             },
+            _ => ()
         }
     }
 
