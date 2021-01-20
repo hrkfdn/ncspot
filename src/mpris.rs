@@ -28,13 +28,13 @@ type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 
 struct MprisState(String, Option<Playable>);
 
-fn get_playbackstatus(spotify: Arc<Spotify>) -> Option<String> {
+fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
     match spotify.get_current_status() {
-        PlayerEvent::Playing => Some("Playing".into()),
-        PlayerEvent::Paused => Some("Paused".into()),
-        PlayerEvent::Stopped => Some("Stopped".into()),
-        _ => None,
+        PlayerEvent::Playing | PlayerEvent::FinishedTrack => "Playing",
+        PlayerEvent::Paused => "Paused",
+        _ => "Stopped",
     }
+    .to_string()
 }
 
 fn get_metadata(playable: Option<Playable>) -> Metadata {
@@ -224,9 +224,8 @@ fn run_dbus_server(
         f.property::<String, _>("PlaybackStatus", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                if let Some(status) = get_playbackstatus(spotify.clone()) {
-                    iter.append(status);
-                }
+                let status = get_playbackstatus(spotify.clone());
+                iter.append(status);
                 Ok(())
             })
     };
@@ -700,9 +699,8 @@ impl MprisManager {
     }
 
     pub fn update(&self) {
-        if let Some(status) = get_playbackstatus(self.spotify.clone()) {
-            let track = self.queue.get_current();
-            self.tx.send(MprisState(status, track)).unwrap();
-        }
+        let status = get_playbackstatus(self.spotify.clone());
+        let track = self.queue.get_current();
+        self.tx.send(MprisState(status, track)).unwrap();
     }
 }
