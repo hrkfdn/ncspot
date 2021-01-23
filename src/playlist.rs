@@ -75,15 +75,20 @@ impl Playlist {
         track_pos_pairs: &[(Track, usize)],
         spotify: Arc<Spotify>,
         library: Arc<Library>,
-    ) {
-        if spotify.delete_tracks(&self.id, track_pos_pairs) {
-            if let Some(tracks) = &mut self.tracks {
-                for (_track, pos) in track_pos_pairs {
-                    tracks.remove(*pos);
-                }
-                library.playlist_update(&self);
-            }
+    ) -> bool {
+        let deleted = spotify.delete_tracks(&self.id, track_pos_pairs);
+        if !deleted {
+            return false;
         }
+
+        if let Some(tracks) = &mut self.tracks {
+            for (_track, pos) in track_pos_pairs {
+                tracks.remove(*pos);
+            }
+            library.playlist_update(&self);
+        }
+
+        return true;
     }
 
     pub fn append_tracks(
