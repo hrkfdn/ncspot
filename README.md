@@ -52,6 +52,23 @@ For Fedora, these dependencies are required:
 dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-devel
 ```
 
+#### Building a Debian Package
+
+You can use `cargo-deb` create in order to build a Debian package from source. Install it by:
+
+```
+cargo install cargo-deb
+```
+
+Then you can build a Dabian package with:
+
+```
+cargo deb
+```
+
+You can find it under `target/debian`.
+
+
 ## Usage
 
 * Install the latest ncspot release using `cargo install ncspot`

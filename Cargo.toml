@@ -63,3 +63,17 @@ termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus", "dbus-tree"]
 notify = ["notify-rust"]
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "cursive/pancurses-backend"]
+
+[package.metadata.deb]
+depends = "$auto, pulseaudio"
+section = "sound"
+priority = "optional"
+extended-description = """\
+ncurses Spotify client written in Rust using librespot. \
+It is heavily inspired by ncurses MPD clients, such as ncmpc."""
+license-file = ["LICENSE"]
+assets = [
+    ["target/release/ncspot", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/ncspot/README.md", "644"],
+]
+
