@@ -62,12 +62,13 @@ impl ViewExt for PlaylistView {
             };
             let track = tracks.get(pos);
             if let Some(t) = track {
-                self.playlist.delete_tracks(
+                if self.playlist.delete_tracks(
                     &[(t.clone(), pos)],
                     self.spotify.clone(),
                     self.library.clone(),
-                );
-                self.list.remove(pos);
+                ) {
+                    self.list.remove(pos);
+                }
             }
             return Ok(CommandResult::Consumed(None));
         }
