@@ -46,7 +46,7 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 libc = "0.2"
 regex = "1"
-syn = "=1.0.57"
+syn = "=1.0.60"
 
 [dependencies.cursive]
 version = "0.16.3"
