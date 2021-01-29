@@ -257,6 +257,9 @@ fn main() {
 
     let queueview = ui::queue::QueueView::new(queue.clone(), library.clone());
 
+    #[cfg(feature = "cover")]
+    let coverview = ui::cover::CoverView::new(queue.clone(), library.clone(), &cfg);
+
     let status = ui::statusbar::StatusBar::new(
         queue.clone(),
         library,
@@ -267,6 +270,9 @@ fn main() {
         .screen("search", search.with_name("search"))
         .screen("library", libraryview.with_name("library"))
         .screen("queue", queueview);
+
+    #[cfg(feature = "cover")]
+    layout.add_screen("cover", coverview.with_name("cover"));
 
     // initial screen is library
     layout.set_screen("library");
