@@ -28,6 +28,7 @@ pub struct ConfigValues {
     pub gapless: Option<bool>,
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
+    pub cover_max_scale: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

@@ -55,6 +55,8 @@ pub trait ViewExt: View {
         "".into()
     }
 
+    fn on_leave(&self) {}
+
     fn on_command(&mut self, _s: &mut Cursive, _cmd: &Command) -> Result<CommandResult, String> {
         Ok(CommandResult::Ignored)
     }
@@ -63,6 +65,10 @@ pub trait ViewExt: View {
 impl<V: ViewExt> ViewExt for NamedView<V> {
     fn title(&self) -> String {
         self.with_view(|v| v.title()).unwrap_or_default()
+    }
+
+    fn on_leave(&self) {
+        self.with_view(|v| v.on_leave());
     }
 
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {

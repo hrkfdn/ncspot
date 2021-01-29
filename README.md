@@ -101,6 +101,7 @@ depending on your desktop environment settings. Have a look at the
   * `F2`: Search
   * `F3`: Library
     * `d` deletes the currently selected playlist
+  * `F8`: Album art (if compiled with the `cover` feature)
 * Tracks and playlists can be played using `Return` and queued using `Space`
 * `.` will play the selected item after the currently playing track
 * `p` will move to the currently playing track in the queue
@@ -236,3 +237,13 @@ search_match = "light red"
 
 More examples can be found in pull request
 https://github.com/hrkfdn/ncspot/pull/40.
+
+### Cover Drawing
+
+When compiled with the `cover` feature, `ncspot` can draw the album art of the current track in a dedicated view (`:focus cover` or `F8` by default) using [Überzug](https://github.com/seebye/ueberzug). For more information on installation and terminal compatibility, consult that repository.
+
+To allow scaling the album art up beyond its resolution (640x640 for Spotify covers), use the config key `cover_max_scale`. This is especially useful for HiDPI displays:
+
+```
+cover_max_scale = 2
+```

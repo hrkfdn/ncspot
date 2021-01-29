@@ -1474,6 +1474,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ioctl-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "607b0d5e3c8affe6744655ccd713c5d3763c09407e191cea94705f541fd45151"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "iovec"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1921,6 +1930,7 @@ dependencies = [
  "fern",
  "futures 0.1.30",
  "futures 0.3.13",
+ "ioctl-rs",
  "lazy_static",
  "libc",
  "librespot-core",

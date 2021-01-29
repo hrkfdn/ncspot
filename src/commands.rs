@@ -363,6 +363,8 @@ impl CommandManager {
         kb.insert("F1".into(), Command::Focus("queue".into()));
         kb.insert("F2".into(), Command::Focus("search".into()));
         kb.insert("F3".into(), Command::Focus("library".into()));
+        #[cfg(feature = "cover")]
+        kb.insert("F8".into(), Command::Focus("cover".into()));
         kb.insert("?".into(), Command::Help);
         kb.insert("Backspace".into(), Command::Back);
 

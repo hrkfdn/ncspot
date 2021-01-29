@@ -46,6 +46,7 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 libc = "0.2"
 regex = "1"
+ioctl-rs = { version = "0.2", optional = true }
 
 [dependencies.cursive]
 version = "0.16.3"
@@ -61,6 +62,7 @@ portaudio_backend = ["librespot-playback/portaudio-backend"]
 termion_backend = ["cursive/termion-backend"]
 mpris = ["dbus", "dbus-tree"]
 notify = ["notify-rust"]
+cover = ["ioctl-rs"]
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "cursive/pancurses-backend"]
 
 [package.metadata.deb]

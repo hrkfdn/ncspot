@@ -70,6 +70,10 @@ impl Layout {
     }
 
     pub fn add_screen<S: Into<String>, T: IntoBoxedViewExt>(&mut self, id: S, view: T) {
+        if let Some(view) = self.get_top_view() {
+            view.on_leave();
+        }
+
         let s = id.into();
         self.screens.insert(s.clone(), view.as_boxed_view_ext());
         self.stack.insert(s.clone(), Vec::new());
@@ -82,6 +86,10 @@ impl Layout {
     }
 
     pub fn set_screen<S: Into<String>>(&mut self, id: S) {
+        if let Some(view) = self.get_top_view() {
+            view.on_leave();
+        }
+
         let s = id.into();
         self.focus = Some(s);
         self.cmdline_focus = false;
@@ -113,12 +121,20 @@ impl Layout {
     }
 
     pub fn push_view(&mut self, view: Box<dyn ViewExt>) {
+        if let Some(view) = self.get_top_view() {
+            view.on_leave();
+        }
+
         if let Some(stack) = self.get_focussed_stack_mut() {
             stack.push(view)
         }
     }
 
     pub fn pop_view(&mut self) {
+        if let Some(view) = self.get_top_view() {
+            view.on_leave();
+        }
+
         self.get_focussed_stack_mut().map(|stack| stack.pop());
     }
 
