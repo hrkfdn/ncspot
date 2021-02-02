@@ -210,14 +210,21 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Search(term) => {
-                let view = SearchResultsView::new(
-                    term.clone(),
-                    self.events.clone(),
-                    self.queue.clone(),
-                    self.library.clone(),
-                );
+                let view = if !term.is_empty() {
+                    Some(SearchResultsView::new(
+                        term.clone(),
+                        self.events.clone(),
+                        self.queue.clone(),
+                        self.library.clone(),
+                    ))
+                } else {
+                    None
+                };
                 s.call_on_name("main", |v: &mut Layout| {
-                    v.push_view(view.as_boxed_view_ext())
+                    v.set_screen("search");
+                    if let Some(results) = view {
+                        v.push_view(results.as_boxed_view_ext())
+                    }
                 });
                 Ok(None)
             }
