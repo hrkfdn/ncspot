@@ -1919,7 +1919,7 @@ dependencies = [
  "tokio-timer",
  "toml",
  "unicode-width",
- "url 1.7.2",
+ "url 2.2.0",
  "webbrowser",
 ]
 
