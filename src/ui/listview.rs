@@ -315,7 +315,7 @@ impl<I: ListItem> View for ListView<I> {
 
                     for m in matches {
                         printer.with_color(matched_style, |printer| {
-                            printer.print((m.0, 0), &left[m.0..m.1]);
+                            printer.print((left[0..m.0].width(), 0), &left[m.0..m.1]);
                         });
                     }
                 }
