@@ -121,7 +121,7 @@ depending on your desktop environment settings. Have a look at the
 * `A` will open the artist view for the selected item
 * `Ctrl-v` will open the context menu for a Spotify link in your clipboard
 * `Backspace` closes the current view
-* `Shift-p` toggles playback of a track
+* `Shift-p` toggles playback of a track (play/pause)
 * `Shift-s` stops a track
 * `Shift-u` updates the library cache (tracks, artists, albums, playlists)
 * `<` and `>` play the previous or next track
