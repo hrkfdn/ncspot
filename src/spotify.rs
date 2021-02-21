@@ -47,7 +47,6 @@ use core::task::Poll;
 
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -57,7 +56,6 @@ use crate::artist::Artist;
 use crate::config;
 use crate::events::{Event, EventManager};
 use crate::playable::Playable;
-use crate::queue;
 use crate::track::Track;
 
 use rspotify::model::recommend::Recommendations;
@@ -95,9 +93,6 @@ pub struct Spotify {
     channel: RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>,
     user: Option<String>,
     country: Option<Country>,
-    pub volume: AtomicU16,
-    pub repeat: queue::RepeatSetting,
-    pub shuffle: bool,
 }
 
 struct Worker {
@@ -261,33 +256,10 @@ impl Spotify {
         credentials: Credentials,
         cfg: Arc<config::Config>,
     ) -> Spotify {
-        let volume = match &cfg.values().saved_state {
-            Some(state) => match state.volume {
-                Some(vol) => ((std::cmp::min(vol, 100) as f32) / 100.0 * 65535_f32).ceil() as u16,
-                None => 0xFFFF_u16,
-            },
-            None => 0xFFFF_u16,
-        };
-        let repeat = match &cfg.values().saved_state {
-            Some(state) => match &state.repeat {
-                Some(s) => match s.as_str() {
-                    "track" => queue::RepeatSetting::RepeatTrack,
-                    "playlist" => queue::RepeatSetting::RepeatPlaylist,
-                    _ => queue::RepeatSetting::None,
-                },
-                _ => queue::RepeatSetting::None,
-            },
-            _ => queue::RepeatSetting::None,
-        };
-        let shuffle = match &cfg.values().saved_state {
-            Some(state) => matches!(&state.shuffle, Some(true)),
-            None => false,
-        };
-
         let mut spotify = Spotify {
             events,
             credentials,
-            cfg,
+            cfg: cfg.clone(),
             status: RwLock::new(PlayerEvent::Stopped),
             api: RwLock::new(SpotifyAPI::default()),
             elapsed: RwLock::new(None),
@@ -296,14 +268,12 @@ impl Spotify {
             channel: RwLock::new(None),
             user: None,
             country: None,
-            volume: AtomicU16::new(volume),
-            repeat,
-            shuffle,
         };
 
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx));
         spotify.user = futures::executor::block_on(user_rx).ok();
+        let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
         spotify.country = spotify
@@ -937,7 +907,7 @@ impl Spotify {
     }
 
     pub fn volume(&self) -> u16 {
-        self.volume.load(Ordering::Relaxed) as u16
+        self.cfg.state().volume
     }
 
     fn log_scale(volume: u16) -> u16 {
@@ -959,7 +929,7 @@ impl Spotify {
 
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
-        self.volume.store(volume, Ordering::Relaxed);
+        self.cfg.with_state_mut(|mut s| s.volume = volume);
         self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
     }
 }

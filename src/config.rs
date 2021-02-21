@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{RwLock, RwLockReadGuard};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{fs, process};
 
 use cursive::theme::Theme;
 use platform_dirs::AppDirs;
+
+use crate::queue;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
@@ -14,7 +16,6 @@ pub struct ConfigValues {
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
-    pub saved_state: Option<SavedState>,
     pub audio_cache: Option<bool>,
     pub backend: Option<String>,
     pub backend_device: Option<String>,
@@ -24,13 +25,6 @@ pub struct ConfigValues {
     pub bitrate: Option<u32>,
     pub album_column: Option<bool>,
     pub gapless: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct SavedState {
-    pub volume: Option<u8>,
-    pub shuffle: Option<bool>,
-    pub repeat: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -55,12 +49,30 @@ pub struct ConfigTheme {
     pub search_match: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UserState {
+    pub volume: u16,
+    pub shuffle: bool,
+    pub repeat: queue::RepeatSetting,
+}
+
+impl Default for UserState {
+    fn default() -> Self {
+        UserState {
+            volume: u16::max_value(),
+            shuffle: false,
+            repeat: queue::RepeatSetting::None,
+        }
+    }
+}
+
 lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
 }
 
 pub struct Config {
     values: RwLock<ConfigValues>,
+    state: RwLock<UserState>,
 }
 
 impl Config {
@@ -70,13 +82,37 @@ impl Config {
             process::exit(1);
         });
 
+        let userstate = {
+            let path = config_path("userstate.toml");
+            load_or_generate_default(path, |_| Ok(UserState::default()), false)
+                .expect("could not load user state")
+        };
+
         Self {
             values: RwLock::new(values),
+            state: RwLock::new(userstate),
         }
     }
 
     pub fn values(&self) -> RwLockReadGuard<ConfigValues> {
         self.values.read().expect("can't readlock config values")
+    }
+
+    pub fn state(&self) -> RwLockReadGuard<UserState> {
+        self.state.read().expect("can't readlock user state")
+    }
+
+    pub fn with_state_mut<F>(&self, cb: F)
+    where
+        F: Fn(RwLockWriteGuard<UserState>),
+    {
+        let state_guard = self.state.write().expect("can't writelock user state");
+        cb(state_guard);
+
+        let path = config_path("userstate.toml");
+        if let Err(e) = write_content_helper(path, self.state().clone()) {
+            error!("Could not save user state: {}", e);
+        }
     }
 
     pub fn build_theme(&self) -> Theme {
