@@ -22,24 +22,19 @@ pub struct Queue {
     pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
-    repeat: RwLock<RepeatSetting>,
     spotify: Arc<Spotify>,
     cfg: Arc<Config>,
 }
 
 impl Queue {
     pub fn new(spotify: Arc<Spotify>, cfg: Arc<Config>) -> Queue {
-        let q = Queue {
+        Queue {
             queue: Arc::new(RwLock::new(Vec::new())),
             spotify,
             current_track: RwLock::new(None),
-            repeat: RwLock::new(RepeatSetting::None),
             random_order: RwLock::new(None),
             cfg,
-        };
-        q.set_repeat(q.spotify.repeat);
-        q.set_shuffle(q.spotify.shuffle);
-        q
+        }
     }
 
     pub fn next_index(&self) -> Option<usize> {
@@ -285,7 +280,7 @@ impl Queue {
     pub fn next(&self, manual: bool) {
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
-        let repeat = *self.repeat.read().unwrap();
+        let repeat = self.cfg.state().repeat;
 
         if repeat == RepeatSetting::RepeatTrack && !manual {
             if let Some(index) = current {
@@ -311,7 +306,7 @@ impl Queue {
     pub fn previous(&self) {
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
-        let repeat = *self.repeat.read().unwrap();
+        let repeat = self.cfg.state().repeat;
 
         if let Some(index) = self.previous_index() {
             self.play(index, false, false);
@@ -332,18 +327,15 @@ impl Queue {
     }
 
     pub fn get_repeat(&self) -> RepeatSetting {
-        let repeat = self.repeat.read().unwrap();
-        *repeat
+        self.cfg.state().repeat
     }
 
     pub fn set_repeat(&self, new: RepeatSetting) {
-        let mut repeat = self.repeat.write().unwrap();
-        *repeat = new;
+        self.cfg.with_state_mut(|mut s| s.repeat = new);
     }
 
     pub fn get_shuffle(&self) -> bool {
-        let random_order = self.random_order.read().unwrap();
-        random_order.is_some()
+        self.cfg.state().shuffle
     }
 
     fn generate_random_order(&self) {
@@ -365,6 +357,7 @@ impl Queue {
     }
 
     pub fn set_shuffle(&self, new: bool) {
+        self.cfg.with_state_mut(|mut s| s.shuffle = new);
         if new {
             self.generate_random_order();
         } else {

@@ -203,23 +203,6 @@ See the help screen by pressing `?` for a list of possible commands.
 ncspot will respect system proxy settings defined via the `http_proxy`
 environment variable.
 
-### Initial state
-
-The initial state can be specified in the configuration.
-It allows for example enabling shuffle per default.
-Following entries can be added to the configuration file:
-
-```
-[saved_state]
-volume = 80
-repeat = "track"
-shuffle = true
-```
-
-- `volume` needs to be an integer value between 0 and 100
-- `repeat` can be `"track"`, `"playlist"` or any other value which defaults to no
-- `shuffle` must be `"true"` or `"false"`
-
 ### Theming
 
 [Theme generator](https://ncspot-theme-generator.vaa.red/) by [@vaarad](https://github.com/vaared).
