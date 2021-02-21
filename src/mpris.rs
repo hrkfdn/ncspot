@@ -231,18 +231,29 @@ fn run_dbus_server(
     };
 
     let property_loopstatus = {
-        let queue = queue.clone();
+        let queue1 = queue.clone();
+        let queue2 = queue.clone();
         f.property::<String, _>("LoopStatus", ())
-            .access(Access::Read)
+            .access(Access::ReadWrite)
             .on_get(move |iter, _| {
                 iter.append(
-                    match queue.get_repeat() {
+                    match queue1.get_repeat() {
                         RepeatSetting::None => "None",
                         RepeatSetting::RepeatTrack => "Track",
                         RepeatSetting::RepeatPlaylist => "Playlist",
                     }
                     .to_string(),
                 );
+                Ok(())
+            })
+            .on_set(move |iter, _| {
+                let setting = match iter.get::<&str>().unwrap_or_default() {
+                    "Track" => RepeatSetting::RepeatTrack,
+                    "Playlist" => RepeatSetting::RepeatPlaylist,
+                    _ => RepeatSetting::None,
+                };
+                queue2.set_repeat(setting);
+
                 Ok(())
             })
     };
