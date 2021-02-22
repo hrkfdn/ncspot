@@ -28,8 +28,9 @@ pub struct Queue {
 
 impl Queue {
     pub fn new(spotify: Arc<Spotify>, cfg: Arc<Config>) -> Queue {
+        let queue = cfg.state().queue.clone();
         Queue {
-            queue: Arc::new(RwLock::new(Vec::new())),
+            queue: Arc::new(RwLock::new(queue)),
             spotify,
             current_track: RwLock::new(None),
             random_order: RwLock::new(None),
