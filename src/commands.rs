@@ -106,6 +106,11 @@ impl CommandManager {
         match cmd {
             Command::Noop => Ok(None),
             Command::Quit => {
+                let queue = self.queue.queue.read().expect("can't readlock queue");
+                self.config.with_state_mut(move |mut s| {
+                    s.queue = queue.clone();
+                });
+                self.config.save_state();
                 s.quit();
                 Ok(None)
             }

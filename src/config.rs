@@ -6,6 +6,7 @@ use std::{fs, process};
 use cursive::theme::Theme;
 use platform_dirs::AppDirs;
 
+use crate::playable::Playable;
 use crate::queue;
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
@@ -54,6 +55,7 @@ pub struct UserState {
     pub volume: u16,
     pub shuffle: bool,
     pub repeat: queue::RepeatSetting,
+    pub queue: Vec<Playable>,
 }
 
 impl Default for UserState {
@@ -62,6 +64,7 @@ impl Default for UserState {
             volume: u16::max_value(),
             shuffle: false,
             repeat: queue::RepeatSetting::None,
+            queue: Vec::new(),
         }
     }
 }
@@ -84,7 +87,7 @@ impl Config {
 
         let userstate = {
             let path = config_path("userstate.toml");
-            load_or_generate_default(path, |_| Ok(UserState::default()), false)
+            load_or_generate_default(path, |_| Ok(UserState::default()), true)
                 .expect("could not load user state")
         };
 
@@ -108,8 +111,11 @@ impl Config {
     {
         let state_guard = self.state.write().expect("can't writelock user state");
         cb(state_guard);
+    }
 
+    pub fn save_state(&self) {
         let path = config_path("userstate.toml");
+        debug!("saving user state to {}", path.display());
         if let Err(e) = write_content_helper(path, self.state().clone()) {
             error!("Could not save user state: {}", e);
         }
@@ -146,7 +152,6 @@ fn proj_dirs() -> AppDirs {
 pub fn config_path(file: &str) -> PathBuf {
     let proj_dirs = proj_dirs();
     let cfg_dir = &proj_dirs.config_dir;
-    trace!("{:?}", cfg_dir);
     if cfg_dir.exists() && !cfg_dir.is_dir() {
         fs::remove_file(cfg_dir).expect("unable to remove old config file");
     }
