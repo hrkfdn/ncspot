@@ -653,6 +653,16 @@ impl Spotify {
         self.api_with_retry(|api| api.album(album_id))
     }
 
+    pub fn albums(&self, album_ids: &[String]) -> Option<Vec<FullAlbum>> {
+        const MAX_SIZE: usize = 20;
+        let mut collected = Vec::new();
+        for ids in album_ids.chunks(MAX_SIZE) {
+            let fas = self.api_with_retry(|api| api.albums(ids.to_vec()))?;
+            collected.extend_from_slice(&fas.albums);
+        }
+        Some(collected)
+    }
+
     pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
         self.api_with_retry(|api| api.artist(artist_id))
     }
