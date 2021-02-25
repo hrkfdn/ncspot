@@ -13,8 +13,11 @@ use crate::{config::Config, spotify::PlayerEvent};
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
+    #[serde(rename = "off")]
     None,
+    #[serde(rename = "playlist")]
     RepeatPlaylist,
+    #[serde(rename = "track")]
     RepeatTrack,
 }
 

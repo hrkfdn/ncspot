@@ -26,6 +26,8 @@ pub struct ConfigValues {
     pub bitrate: Option<u32>,
     pub album_column: Option<bool>,
     pub gapless: Option<bool>,
+    pub shuffle: Option<bool>,
+    pub repeat: Option<queue::RepeatSetting>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -85,11 +87,19 @@ impl Config {
             process::exit(1);
         });
 
-        let userstate = {
+        let mut userstate = {
             let path = config_path("userstate.toml");
             load_or_generate_default(path, |_| Ok(UserState::default()), true)
                 .expect("could not load user state")
         };
+
+        if let Some(shuffle) = values.shuffle {
+            userstate.shuffle = shuffle;
+        }
+
+        if let Some(repeat) = values.repeat {
+            userstate.repeat = repeat;
+        }
 
         Self {
             values: RwLock::new(values),

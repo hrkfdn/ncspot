@@ -189,6 +189,8 @@ Possible configuration values are:
 * `bitrate`: The audio bitrate to use for streaming, can be 96, 160, or 320 (default is 320)
 * `album_column`: Show album column for tracks, on by default <true/false>
 * `gapless`: Allows gapless playback <true/false> (default is false)
+* `shuffle`: Set default shuffle state <true/false>
+* `repeat`: Set default repeat mode <off/track/playlist>
 
 
 Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
