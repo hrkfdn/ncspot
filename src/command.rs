@@ -147,7 +147,7 @@ impl fmt::Display for Command {
             Command::Next => "next".to_string(),
             Command::Clear => "clear".to_string(),
             Command::Queue => "queue".to_string(),
-            Command::PlayNext => "play next".to_string(),
+            Command::PlayNext => "playnext".to_string(),
             Command::Play => "play".to_string(),
             Command::UpdateLibrary => "update".to_string(),
             Command::Save => "save".to_string(),
