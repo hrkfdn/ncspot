@@ -74,7 +74,7 @@ You can find it under `target/debian`.
 * Install the latest ncspot release using `cargo install ncspot`
   * or build it yourself using `cargo build --release`
   * both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install)
-* For debugging, pass a debug log filename, e.g. `ncspot -d debug.log`
+* For debugging, you can pass a debug log filename and log stderr to a file, e.g. `ncspot -d debug.log 2> stderr.log`
 
 ## Audio backends
 
