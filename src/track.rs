@@ -241,7 +241,7 @@ impl ListItem for Track {
         None
     }
 
-    fn open_recommentations(
+    fn open_recommendations(
         &self,
         queue: Arc<Queue>,
         library: Arc<Library>,
@@ -250,7 +250,7 @@ impl ListItem for Track {
 
         let recommendations: Option<Vec<Track>> = if let Some(id) = &self.id {
             spotify
-                .recommentations(None, None, Some(vec![id.clone()]))
+                .recommendations(None, None, Some(vec![id.clone()]))
                 .map(|r| r.tracks)
                 .map(|tracks| tracks.iter().map(Track::from).collect())
         } else {

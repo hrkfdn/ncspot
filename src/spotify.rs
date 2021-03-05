@@ -683,7 +683,7 @@ impl Spotify {
         self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), self.country))
     }
 
-    pub fn recommentations(
+    pub fn recommendations(
         &self,
         seed_artists: Option<Vec<String>>,
         seed_genres: Option<Vec<String>>,
