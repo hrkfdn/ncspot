@@ -6,6 +6,7 @@ pub mod layout;
 pub mod library;
 pub mod listview;
 pub mod modal;
+pub mod pagination;
 pub mod playlist;
 pub mod playlists;
 pub mod queue;
