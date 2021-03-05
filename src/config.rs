@@ -6,6 +6,7 @@ use std::{fs, process};
 use cursive::theme::Theme;
 use platform_dirs::AppDirs;
 
+use crate::command::{SortDirection, SortKey};
 use crate::playable::Playable;
 use crate::queue;
 
@@ -54,11 +55,18 @@ pub struct ConfigTheme {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SortingOrder {
+    pub key: SortKey,
+    pub direction: SortDirection,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserState {
     pub volume: u16,
     pub shuffle: bool,
     pub repeat: queue::RepeatSetting,
     pub queue: Vec<Playable>,
+    pub playlist_orders: HashMap<String, SortingOrder>,
 }
 
 impl Default for UserState {
@@ -68,6 +76,7 @@ impl Default for UserState {
             shuffle: false,
             repeat: queue::RepeatSetting::None,
             queue: Vec::new(),
+            playlist_orders: HashMap::new(),
         }
     }
 }

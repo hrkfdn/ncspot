@@ -33,6 +33,9 @@ impl PlaylistView {
 
         let spotify = queue.get_spotify();
         let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library.clone());
+        if let Some(order) = library.cfg.state().playlist_orders.get(&playlist.id) {
+            list.sort(&order.key, &order.direction);
+        }
 
         Self {
             playlist,
@@ -74,6 +77,15 @@ impl ViewExt for PlaylistView {
         }
 
         if let Command::Sort(key, direction) = cmd {
+            self.library.cfg.with_state_mut(|mut state| {
+                let order = crate::config::SortingOrder {
+                    key: key.clone(),
+                    direction: direction.clone(),
+                };
+                state
+                    .playlist_orders
+                    .insert(self.playlist.id.clone(), order);
+            });
             self.list.sort(key, direction);
             return Ok(CommandResult::Consumed(None));
         }
