@@ -272,6 +272,7 @@ impl Library {
                 if self.needs_download(remote) {
                     info!("updating playlist {} (index: {})", remote.name, index);
                     let mut playlist: Playlist = remote.into();
+                    playlist.tracks = None;
                     playlist.load_tracks(self.spotify.clone());
                     self.append_or_update(&playlist);
                     // trigger redraw

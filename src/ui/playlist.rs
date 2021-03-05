@@ -18,12 +18,17 @@ pub struct PlaylistView {
     list: ListView<Track>,
     spotify: Arc<Spotify>,
     library: Arc<Library>,
+    queue: Arc<Queue>,
 }
 
 impl PlaylistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, playlist: &Playlist) -> Self {
         let mut playlist = playlist.clone();
         playlist.load_tracks(queue.get_spotify());
+
+        if let Some(order) = library.cfg.state().playlist_orders.get(&playlist.id) {
+            playlist.sort(&order.key, &order.direction);
+        }
 
         let tracks = if let Some(t) = playlist.tracks.as_ref() {
             t.clone()
@@ -32,16 +37,18 @@ impl PlaylistView {
         };
 
         let spotify = queue.get_spotify();
-        let list = ListView::new(Arc::new(RwLock::new(tracks)), queue, library.clone());
-        if let Some(order) = library.cfg.state().playlist_orders.get(&playlist.id) {
-            list.sort(&order.key, &order.direction);
-        }
+        let list = ListView::new(
+            Arc::new(RwLock::new(tracks)),
+            queue.clone(),
+            library.clone(),
+        );
 
         Self {
             playlist,
             list,
             spotify,
             library,
+            queue,
         }
     }
 }
@@ -58,20 +65,11 @@ impl ViewExt for PlaylistView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Delete = cmd {
             let pos = self.list.get_selected_index();
-            let tracks = if let Some(t) = self.playlist.tracks.as_ref() {
-                t.clone()
-            } else {
-                Vec::new()
-            };
-            let track = tracks.get(pos);
-            if let Some(t) = track {
-                if self.playlist.delete_tracks(
-                    &[(t.clone(), pos)],
-                    self.spotify.clone(),
-                    self.library.clone(),
-                ) {
-                    self.list.remove(pos);
-                }
+            if self
+                .playlist
+                .delete_track(pos, self.spotify.clone(), self.library.clone())
+            {
+                self.list.remove(pos);
             }
             return Ok(CommandResult::Consumed(None));
         }
@@ -86,7 +84,14 @@ impl ViewExt for PlaylistView {
                     .playlist_orders
                     .insert(self.playlist.id.clone(), order);
             });
-            self.list.sort(key, direction);
+
+            self.playlist.sort(key, direction);
+            let tracks = self.playlist.tracks.as_ref().unwrap_or(&Vec::new()).clone();
+            self.list = ListView::new(
+                Arc::new(RwLock::new(tracks)),
+                self.queue.clone(),
+                self.library.clone(),
+            );
             return Ok(CommandResult::Consumed(None));
         }
 

@@ -566,7 +566,12 @@ impl Spotify {
         .is_some()
     }
 
-    pub fn delete_tracks(&self, playlist_id: &str, track_pos_pairs: &[(Track, usize)]) -> bool {
+    pub fn delete_tracks(
+        &self,
+        playlist_id: &str,
+        snapshot_id: &str,
+        track_pos_pairs: &[(&Track, usize)],
+    ) -> bool {
         let mut tracks = Vec::new();
         for (track, pos) in track_pos_pairs {
             let track_occurrence = json!({
@@ -581,7 +586,7 @@ impl Spotify {
                 self.user.as_ref().unwrap(),
                 playlist_id,
                 tracks.clone(),
-                None,
+                Some(snapshot_id.to_string()),
             )
         })
         .is_some()

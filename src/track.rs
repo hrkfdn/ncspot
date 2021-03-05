@@ -29,6 +29,7 @@ pub struct Track {
     pub cover_url: Option<String>,
     pub url: String,
     pub added_at: Option<DateTime<Utc>>,
+    pub list_index: usize,
 }
 
 impl Track {
@@ -65,6 +66,7 @@ impl Track {
             cover_url: album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
+            list_index: 0,
         }
     }
 
@@ -104,6 +106,7 @@ impl From<&SimplifiedTrack> for Track {
             cover_url: None,
             url: track.uri.clone(),
             added_at: None,
+            list_index: 0,
         }
     }
 }
@@ -143,6 +146,7 @@ impl From<&FullTrack> for Track {
             cover_url: track.album.images.get(0).map(|img| img.url.clone()),
             url: track.uri.clone(),
             added_at: None,
+            list_index: 0,
         }
     }
 }

@@ -1,15 +1,15 @@
-use std::iter::Iterator;
 use std::sync::Arc;
+use std::{cmp::Ordering, iter::Iterator};
 
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
-use crate::library::Library;
 use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::playlist::PlaylistView;
+use crate::{command::SortDirection, command::SortKey, library::Library};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Playlist {
@@ -36,9 +36,10 @@ impl Playlist {
 
         let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
         while let Some(ref tracks) = tracks_result.clone() {
-            for listtrack in &tracks.items {
+            for (index, listtrack) in tracks.items.iter().enumerate() {
                 if let Some(track) = &listtrack.track {
                     let mut t: Track = track.into();
+                    t.list_index = index;
                     t.added_at = Some(listtrack.added_at);
                     collected_tracks.push(t);
                 }
@@ -70,19 +71,19 @@ impl Playlist {
         })
     }
 
-    pub fn delete_tracks(
+    pub fn delete_track(
         &mut self,
-        track_pos_pairs: &[(Track, usize)],
+        index: usize,
         spotify: Arc<Spotify>,
         library: Arc<Library>,
     ) -> bool {
-        match spotify.delete_tracks(&self.id, track_pos_pairs) {
+        let track = self.tracks.as_ref().unwrap()[index].clone();
+        debug!("deleting track: {} {:?}", index, track);
+        match spotify.delete_tracks(&self.id, &self.snapshot_id, &[(&track, track.list_index)]) {
             false => false,
             true => {
                 if let Some(tracks) = &mut self.tracks {
-                    for (_track, pos) in track_pos_pairs {
-                        tracks.remove(*pos);
-                    }
+                    tracks.remove(index);
                     library.playlist_update(&self);
                 }
 
@@ -115,6 +116,58 @@ impl Playlist {
 
         if has_modified {
             library.playlist_update(self);
+        }
+    }
+
+    pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
+        fn compare_artists(a: Vec<String>, b: Vec<String>) -> Ordering {
+            let sanitize_artists_name = |x: Vec<String>| -> Vec<String> {
+                x.iter()
+                    .map(|x| {
+                        x.to_lowercase()
+                            .split(' ')
+                            .skip_while(|x| x == &"the")
+                            .collect()
+                    })
+                    .collect()
+            };
+
+            let a = sanitize_artists_name(a);
+            let b = sanitize_artists_name(b);
+
+            a.cmp(&b)
+        }
+
+        if let Some(c) = self.tracks.as_mut() {
+            c.sort_by(|a, b| match (a.track(), b.track()) {
+                (Some(a), Some(b)) => match (key, direction) {
+                    (SortKey::Title, SortDirection::Ascending) => {
+                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                    }
+                    (SortKey::Title, SortDirection::Descending) => {
+                        b.title.to_lowercase().cmp(&a.title.to_lowercase())
+                    }
+                    (SortKey::Duration, SortDirection::Ascending) => a.duration.cmp(&b.duration),
+                    (SortKey::Duration, SortDirection::Descending) => b.duration.cmp(&a.duration),
+                    (SortKey::Album, SortDirection::Ascending) => a
+                        .album
+                        .map(|x| x.to_lowercase())
+                        .cmp(&b.album.map(|x| x.to_lowercase())),
+                    (SortKey::Album, SortDirection::Descending) => b
+                        .album
+                        .map(|x| x.to_lowercase())
+                        .cmp(&a.album.map(|x| x.to_lowercase())),
+                    (SortKey::Added, SortDirection::Ascending) => a.added_at.cmp(&b.added_at),
+                    (SortKey::Added, SortDirection::Descending) => b.added_at.cmp(&a.added_at),
+                    (SortKey::Artist, SortDirection::Ascending) => {
+                        compare_artists(a.artists, b.artists)
+                    }
+                    (SortKey::Artist, SortDirection::Descending) => {
+                        compare_artists(b.artists, a.artists)
+                    }
+                },
+                _ => std::cmp::Ordering::Equal,
+            })
         }
     }
 }
