@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use cursive::traits::Boxable;
 use cursive::view::Identifiable;
 use cursive::views::*;
@@ -8,13 +6,9 @@ use cursive::{CbSink, Cursive, CursiveExt};
 use librespot_core::authentication::Credentials as RespotCredentials;
 use librespot_protocol::authentication::AuthenticationType;
 
-pub fn create_credentials(path: &Path) -> Result<RespotCredentials, String> {
+pub fn create_credentials() -> Result<RespotCredentials, String> {
     let mut login_cursive = Cursive::default();
-    let info_buf = TextContent::new("Failed to authenticate\n");
-    info_buf.append(format!(
-        "Cannot read config file from {}\n",
-        path.to_str().unwrap()
-    ));
+    let info_buf = TextContent::new("Please login to Spotify\n");
     let info_view = Dialog::around(TextView::new_with_content(info_buf))
         .button("Login", move |s| {
             let login_view = Dialog::new()
