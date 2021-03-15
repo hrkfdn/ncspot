@@ -99,17 +99,13 @@ impl Library {
     }
 
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
-        for local in self
-            .playlists
+        self.playlists
             .read()
             .expect("can't readlock playlists")
             .iter()
-        {
-            if local.id == remote.id {
-                return local.snapshot_id != remote.snapshot_id;
-            }
-        }
-        true
+            .find(|local| local.id == remote.id)
+            .and_then(|local| Some(local.snapshot_id != remote.snapshot_id))
+            .unwrap_or(true)
     }
 
     fn append_or_update(&self, updated: &Playlist) -> usize {
