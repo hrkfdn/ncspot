@@ -135,14 +135,9 @@ impl ListItem for Artist {
                 .read()
                 .unwrap()
                 .iter()
-                .filter(|t| t.id().is_some())
-                .map(|t| t.id().unwrap())
+                .filter_map(|t| t.id())
                 .collect();
-            let ids: Vec<String> = tracks
-                .iter()
-                .filter(|t| t.id.is_some())
-                .map(|t| t.id.clone().unwrap())
-                .collect();
+            let ids: Vec<String> = tracks.iter().filter_map(|t| t.id.clone()).collect();
             !ids.is_empty() && playing == ids
         } else {
             false

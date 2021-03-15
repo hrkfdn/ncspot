@@ -594,11 +594,7 @@ impl Spotify {
 
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         // extract only track IDs
-        let mut tracks: Vec<String> = tracks
-            .iter()
-            .filter(|track| track.id().is_some())
-            .map(|track| track.id().unwrap())
-            .collect();
+        let mut tracks: Vec<String> = tracks.iter().filter_map(|track| track.id()).collect();
 
         // we can only send 100 tracks per request
         let mut remainder = if tracks.len() > 100 {

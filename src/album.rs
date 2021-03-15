@@ -69,12 +69,7 @@ impl From<&SimplifiedAlbum> for Album {
             id: sa.id.clone(),
             title: sa.name.clone(),
             artists: sa.artists.iter().map(|sa| sa.name.clone()).collect(),
-            artist_ids: sa
-                .artists
-                .iter()
-                .filter(|a| a.id.is_some())
-                .map(|sa| sa.id.clone().unwrap())
-                .collect(),
+            artist_ids: sa.artists.iter().filter_map(|a| a.id.clone()).collect(),
             year: sa
                 .release_date
                 .clone()
@@ -105,12 +100,7 @@ impl From<&FullAlbum> for Album {
             id: Some(fa.id.clone()),
             title: fa.name.clone(),
             artists: fa.artists.iter().map(|sa| sa.name.clone()).collect(),
-            artist_ids: fa
-                .artists
-                .iter()
-                .filter(|a| a.id.is_some())
-                .map(|sa| sa.id.clone().unwrap())
-                .collect(),
+            artist_ids: fa.artists.iter().filter_map(|a| a.id.clone()).collect(),
             year: fa.release_date.split('-').next().unwrap().into(),
             cover_url: fa.images.get(0).map(|i| i.url.clone()),
             url: Some(fa.uri.clone()),
@@ -154,14 +144,10 @@ impl ListItem for Album {
                 .read()
                 .unwrap()
                 .iter()
-                .filter(|t| t.id().is_some())
-                .map(|t| t.id().unwrap())
+                .filter_map(|t| t.id())
                 .collect();
-            let ids: Vec<String> = tracks
-                .iter()
-                .filter(|t| t.id.is_some())
-                .map(|t| t.id.clone().unwrap())
-                .collect();
+
+            let ids: Vec<String> = tracks.iter().filter_map(|t| t.id.clone()).collect();
             !ids.is_empty() && playing == ids
         } else {
             false

@@ -101,8 +101,7 @@ impl Playlist {
         let track_ids: Vec<String> = new_tracks
             .to_vec()
             .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.id.clone().unwrap())
+            .filter_map(|t| t.id.clone())
             .collect();
 
         let mut has_modified = false;
@@ -214,14 +213,9 @@ impl ListItem for Playlist {
                 .read()
                 .unwrap()
                 .iter()
-                .filter(|t| t.id().is_some())
-                .map(|t| t.id().unwrap())
+                .filter_map(|t| t.id())
                 .collect();
-            let ids: Vec<String> = tracks
-                .iter()
-                .filter(|t| t.id.is_some())
-                .map(|t| t.id.clone().unwrap())
-                .collect();
+            let ids: Vec<String> = tracks.iter().filter_map(|t| t.id.clone()).collect();
             !ids.is_empty() && playing == ids
         } else {
             false

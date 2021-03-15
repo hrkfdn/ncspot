@@ -37,18 +37,17 @@ impl Track {
         let artists = track
             .artists
             .iter()
-            .map(|ref artist| artist.name.clone())
+            .map(|artist| artist.name.clone())
             .collect::<Vec<String>>();
         let artist_ids = track
             .artists
             .iter()
-            .filter(|a| a.id.is_some())
-            .map(|ref artist| artist.id.clone().unwrap())
+            .filter_map(|a| a.id.clone())
             .collect::<Vec<String>>();
         let album_artists = album
             .artists
             .iter()
-            .map(|ref artist| artist.name.clone())
+            .map(|artist| artist.name.clone())
             .collect::<Vec<String>>();
 
         Self {
@@ -87,8 +86,7 @@ impl From<&SimplifiedTrack> for Track {
         let artist_ids = track
             .artists
             .iter()
-            .filter(|a| a.id.is_some())
-            .map(|ref artist| artist.id.clone().unwrap())
+            .filter_map(|a| a.id.clone())
             .collect::<Vec<String>>();
 
         Self {
@@ -121,8 +119,7 @@ impl From<&FullTrack> for Track {
         let artist_ids = track
             .artists
             .iter()
-            .filter(|a| a.id.is_some())
-            .map(|ref artist| artist.id.clone().unwrap())
+            .filter_map(|a| a.id.clone())
             .collect::<Vec<String>>();
         let album_artists = track
             .album

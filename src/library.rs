@@ -551,13 +551,7 @@ impl Library {
         if api
             && self
                 .spotify
-                .current_user_saved_tracks_add(
-                    tracks
-                        .iter()
-                        .filter(|t| t.id.is_some())
-                        .map(|t| t.id.clone().unwrap())
-                        .collect(),
-                )
+                .current_user_saved_tracks_add(tracks.iter().filter_map(|t| t.id.clone()).collect())
                 .is_none()
         {
             return;
@@ -591,11 +585,7 @@ impl Library {
             && self
                 .spotify
                 .current_user_saved_tracks_delete(
-                    tracks
-                        .iter()
-                        .filter(|t| t.id.is_some())
-                        .map(|t| t.id.clone().unwrap())
-                        .collect(),
+                    tracks.iter().filter_map(|t| t.id.clone()).collect(),
                 )
                 .is_none()
         {
