@@ -60,10 +60,8 @@ impl Library {
         library
     }
 
-    pub fn items(&self) -> RwLockReadGuard<Vec<Playlist>> {
-        self.playlists
-            .read()
-            .expect("could not readlock listview content")
+    pub fn playlists(&self) -> RwLockReadGuard<Vec<Playlist>> {
+        self.playlists.read().expect("can't readlock playlists")
     }
 
     fn load_cache<T: DeserializeOwned>(&self, cache_path: PathBuf, store: Arc<RwLock<Vec<T>>>) {
@@ -99,17 +97,11 @@ impl Library {
     }
 
     fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
-        for local in self
-            .playlists
-            .read()
-            .expect("can't readlock playlists")
+        self.playlists()
             .iter()
-        {
-            if local.id == remote.id {
-                return local.snapshot_id != remote.snapshot_id;
-            }
-        }
-        true
+            .find(|local| local.id == remote.id)
+            .and_then(|local| Some(local.snapshot_id != remote.snapshot_id))
+            .unwrap_or(true)
     }
 
     fn append_or_update(&self, updated: &Playlist) -> usize {
