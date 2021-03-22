@@ -233,6 +233,16 @@ impl CommandManager {
                 });
                 Ok(None)
             }
+            Command::Logout => {
+                self.spotify.shutdown();
+
+                let mut credentials_path = crate::config::cache_path("librespot");
+                credentials_path.push("credentials.json");
+                std::fs::remove_file(credentials_path).unwrap();
+
+                s.quit();
+                Ok(None)
+            }
             Command::Jump(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)

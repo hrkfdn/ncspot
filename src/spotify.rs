@@ -71,6 +71,7 @@ enum WorkerCommand {
     Seek(u32),
     SetVolume(u16),
     RequestToken(oneshot::Sender<Token>),
+    Shutdown,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -190,6 +191,10 @@ impl futures::Future for Worker {
                     WorkerCommand::RequestToken(sender) => {
                         self.token_task = Spotify::get_token(&self.session, sender);
                         progress = true;
+                    }
+                    WorkerCommand::Shutdown => {
+                        self.player.stop();
+                        self.session.shutdown();
                     }
                 }
             }
@@ -942,6 +947,10 @@ impl Spotify {
         info!("setting volume to {}", volume);
         self.cfg.with_state_mut(|mut s| s.volume = volume);
         self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
+    }
+
+    pub fn shutdown(&self) {
+        self.send_worker(WorkerCommand::Shutdown);
     }
 }
 

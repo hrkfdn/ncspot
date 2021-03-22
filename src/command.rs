@@ -134,6 +134,7 @@ pub enum Command {
     Insert(Option<String>),
     NewPlaylist(String),
     Sort(SortKey, SortDirection),
+    Logout,
 }
 
 impl fmt::Display for Command {
@@ -192,6 +193,7 @@ impl fmt::Display for Command {
             Command::Insert(_) => "insert".to_string(),
             Command::NewPlaylist(name) => format!("new playlist {}", name),
             Command::Sort(key, direction) => format!("sort {} {}", key, direction),
+            Command::Logout => "logout".to_string(),
         };
         write!(f, "{}", repr)
     }
@@ -415,6 +417,7 @@ pub fn parse(input: &str) -> Option<Command> {
                 None
             }
         }
+        "logout" => Some(Command::Logout),
         "noop" => Some(Command::Noop),
         _ => None,
     }
