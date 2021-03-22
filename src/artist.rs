@@ -39,10 +39,7 @@ impl Artist {
             for album in albums {
                 album.load_tracks(spotify.clone());
             }
-            return;
-        }
-
-        if let Some(ref artist_id) = self.id {
+        } else if let Some(ref artist_id) = self.id {
             let mut collected_ids: Vec<String> = Vec::new();
             let mut offset = 0;
             while let Some(sas) = spotify.artist_albums(artist_id, 50, offset) {
@@ -69,6 +66,9 @@ impl Artist {
                 None => Vec::new(),
             };
             self.albums = Some(albums);
+        }
+        if let Some(ref mut albums) = self.albums {
+            albums.sort_by(|a, b| b.year.cmp(&a.year));
         }
     }
 
