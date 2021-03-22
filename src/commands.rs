@@ -228,7 +228,7 @@ impl CommandManager {
                 s.call_on_name("main", |v: &mut Layout| {
                     v.set_screen("search");
                     if let Some(results) = view {
-                        v.push_view(results.as_boxed_view_ext())
+                        v.push_view(results.into_boxed_view_ext())
                     }
                 });
                 Ok(None)

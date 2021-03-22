@@ -35,7 +35,7 @@ impl TabView {
     pub fn add_tab<S: Into<String>, V: IntoBoxedViewExt>(&mut self, id: S, title: S, view: V) {
         let tab = Tab {
             title: title.into(),
-            view: view.as_boxed_view_ext(),
+            view: view.into_boxed_view_ext(),
         };
         self.tabs.push(tab);
         self.ids.insert(id.into(), self.tabs.len() - 1);

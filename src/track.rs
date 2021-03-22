@@ -269,7 +269,7 @@ impl ListItem for Track {
                 self.artists.join(", "),
                 self.title
             ))
-            .as_boxed_view_ext()
+            .into_boxed_view_ext()
         })
     }
 

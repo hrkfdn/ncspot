@@ -75,7 +75,7 @@ impl Layout {
         }
 
         let s = id.into();
-        self.screens.insert(s.clone(), view.as_boxed_view_ext());
+        self.screens.insert(s.clone(), view.into_boxed_view_ext());
         self.stack.insert(s.clone(), Vec::new());
         self.focus = Some(s);
     }

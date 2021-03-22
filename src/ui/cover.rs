@@ -262,7 +262,7 @@ impl ViewExt for CoverView {
                         GotoMode::Album => {
                             if let Some(album) = track.album(queue.clone()) {
                                 let view =
-                                    AlbumView::new(queue, library, &album).as_boxed_view_ext();
+                                    AlbumView::new(queue, library, &album).into_boxed_view_ext();
                                 return Ok(CommandResult::View(view));
                             }
                         }
@@ -274,7 +274,7 @@ impl ViewExt for CoverView {
                                     // the cover image really doesn't play nice with the menu
                                     _ => {
                                         let view = ArtistView::new(queue, library, &artists[0])
-                                            .as_boxed_view_ext();
+                                            .into_boxed_view_ext();
                                         Ok(CommandResult::View(view))
                                     }
                                 };

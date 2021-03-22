@@ -225,7 +225,7 @@ impl ListItem for Album {
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        Some(AlbumView::new(queue, library, self).as_boxed_view_ext())
+        Some(AlbumView::new(queue, library, self).into_boxed_view_ext())
     }
 
     fn share_url(&self) -> Option<String> {

@@ -104,7 +104,7 @@ impl Library {
         self.playlists()
             .iter()
             .find(|local| local.id == remote.id)
-            .and_then(|local| Some(local.snapshot_id != remote.snapshot_id))
+            .map(|local| local.snapshot_id != remote.snapshot_id)
             .unwrap_or(true)
     }
 
