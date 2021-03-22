@@ -34,6 +34,7 @@ pub struct Library {
     pub shows: Arc<RwLock<Vec<Show>>>,
     pub is_done: Arc<RwLock<bool>>,
     pub user_id: Option<String>,
+    pub display_name: Option<String>,
     ev: EventManager,
     spotify: Arc<Spotify>,
     pub cfg: Arc<Config>,
@@ -41,7 +42,9 @@ pub struct Library {
 
 impl Library {
     pub fn new(ev: &EventManager, spotify: Arc<Spotify>, cfg: Arc<Config>) -> Self {
-        let user_id = spotify.current_user().map(|u| u.id);
+        let current_user = spotify.current_user();
+        let user_id = current_user.as_ref().map(|u| u.id.clone());
+        let display_name = current_user.as_ref().and_then(|u| u.display_name.clone());
 
         let library = Self {
             tracks: Arc::new(RwLock::new(Vec::new())),
@@ -51,6 +54,7 @@ impl Library {
             shows: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
             user_id,
+            display_name,
             ev: ev.clone(),
             spotify,
             cfg,

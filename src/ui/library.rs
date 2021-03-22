@@ -14,6 +14,7 @@ use crate::ui::tabview::TabView;
 
 pub struct LibraryView {
     tabs: TabView,
+    display_name: Option<String>,
 }
 
 impl LibraryView {
@@ -45,7 +46,10 @@ impl LibraryView {
                 ListView::new(library.shows.clone(), queue, library.clone()),
             );
 
-        Self { tabs }
+        Self {
+            tabs,
+            display_name: library.display_name.clone(),
+        }
     }
 }
 
@@ -55,7 +59,11 @@ impl ViewWrapper for LibraryView {
 
 impl ViewExt for LibraryView {
     fn title(&self) -> String {
-        "Library".to_string()
+        if let Some(name) = &self.display_name {
+            format!("Library of {}", name)
+        } else {
+            "Library".to_string()
+        }
     }
 
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
