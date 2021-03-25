@@ -797,9 +797,9 @@ dependencies = [
 
 [[package]]
 name = "dbus-tree"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26a1c139b794d571d930124e17fa4cae8a904dc8e916abf551ab763b00e93a63"
+checksum = "b15e1727e94490a9e0c1174284ea83fe5e6db853b43cda77d99bb371008a4fd0"
 dependencies = [
  "dbus",
 ]
