@@ -19,7 +19,7 @@ use crate::library::Library;
 use crate::playlist::Playlist;
 use crate::queue::Queue;
 use crate::show::Show;
-use crate::spotify::{Spotify, URIType};
+use crate::spotify::{Spotify, UriType};
 use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;

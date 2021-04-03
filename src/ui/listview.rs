@@ -26,7 +26,7 @@ use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::pagination::Pagination;
-use crate::{album::Album, spotify::URIType, spotify_url::SpotifyURL};
+use crate::{album::Album, spotify::UriType, spotify_url::SpotifyUrl};
 
 pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
@@ -535,26 +535,26 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 let spotify = self.queue.get_spotify();
 
-                let url = SpotifyURL::from_url(&url);
+                let url = SpotifyUrl::from_url(&url);
 
                 if let Some(url) = url {
                     let target: Option<Box<dyn ListItem>> = match url.uri_type {
-                        URIType::Track => spotify
+                        UriType::Track => spotify
                             .track(&url.id)
                             .map(|track| Track::from(&track).as_listitem()),
-                        URIType::Album => spotify
+                        UriType::Album => spotify
                             .album(&url.id)
                             .map(|album| Album::from(&album).as_listitem()),
-                        URIType::Playlist => spotify
+                        UriType::Playlist => spotify
                             .playlist(&url.id)
                             .map(|playlist| Playlist::from(&playlist).as_listitem()),
-                        URIType::Artist => spotify
+                        UriType::Artist => spotify
                             .artist(&url.id)
                             .map(|artist| Artist::from(&artist).as_listitem()),
-                        URIType::Episode => spotify
+                        UriType::Episode => spotify
                             .episode(&url.id)
                             .map(|episode| Episode::from(&episode).as_listitem()),
-                        URIType::Show => spotify
+                        UriType::Show => spotify
                             .get_show(&url.id)
                             .map(|show| Show::from(&show).as_listitem()),
                     };

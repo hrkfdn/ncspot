@@ -64,6 +64,7 @@ mod sharing;
 mod show;
 mod spotify;
 mod spotify_url;
+mod spotify_worker;
 mod theme;
 mod track;
 mod traits;

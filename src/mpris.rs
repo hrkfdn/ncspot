@@ -19,7 +19,7 @@ use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
 use crate::show::Show;
-use crate::spotify::{PlayerEvent, Spotify, URIType, VOLUME_PERCENT};
+use crate::spotify::{PlayerEvent, Spotify, UriType, VOLUME_PERCENT};
 use crate::track::Track;
 use crate::traits::ListItem;
 use regex::Regex;
@@ -538,9 +538,9 @@ fn run_dbus_server(
                 None => "".to_string(),
             };
             let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
-            let uri_type = URIType::from_uri(&uri);
+            let uri_type = UriType::from_uri(&uri);
             match uri_type {
-                Some(URIType::Album) => {
+                Some(UriType::Album) => {
                     if let Some(a) = spotify.album(&id) {
                         if let Some(t) = &Album::from(&a).tracks {
                             queue.clear();
@@ -553,14 +553,14 @@ fn run_dbus_server(
                         }
                     }
                 }
-                Some(URIType::Track) => {
+                Some(UriType::Track) => {
                     if let Some(t) = spotify.track(&id) {
                         queue.clear();
                         queue.append(Playable::Track(Track::from(&t)));
                         queue.play(0, false, false)
                     }
                 }
-                Some(URIType::Playlist) => {
+                Some(UriType::Playlist) => {
                     if let Some(p) = spotify.playlist(&id) {
                         let mut playlist = Playlist::from(&p);
                         let spotify = spotify.clone();
@@ -576,7 +576,7 @@ fn run_dbus_server(
                         }
                     }
                 }
-                Some(URIType::Show) => {
+                Some(UriType::Show) => {
                     if let Some(s) = spotify.get_show(&id) {
                         let mut show = Show::from(&s);
                         let spotify = spotify.clone();
@@ -594,14 +594,14 @@ fn run_dbus_server(
                         }
                     }
                 }
-                Some(URIType::Episode) => {
+                Some(UriType::Episode) => {
                     if let Some(e) = spotify.episode(&id) {
                         queue.clear();
                         queue.append(Playable::Episode(Episode::from(&e)));
                         queue.play(0, false, false)
                     }
                 }
-                Some(URIType::Artist) => {
+                Some(UriType::Artist) => {
                     if let Some(a) = spotify.artist_top_tracks(&id) {
                         queue.clear();
                         queue.append_next(a.iter().map(|track| Playable::Track(track.clone())).collect());
