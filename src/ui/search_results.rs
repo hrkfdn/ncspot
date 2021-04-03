@@ -36,12 +36,12 @@ pub struct SearchResultsView {
     results_episodes: Arc<RwLock<Vec<Episode>>>,
     pagination_episodes: Pagination<Episode>,
     tabs: TabView,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     events: EventManager,
 }
 
 type SearchHandler<I> =
-    Box<dyn Fn(&Arc<Spotify>, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
+    Box<dyn Fn(&Spotify, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
 
 impl SearchResultsView {
     pub fn new(
@@ -103,7 +103,7 @@ impl SearchResultsView {
     }
 
     fn get_track(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         tracks: &Arc<RwLock<Vec<Track>>>,
         query: &str,
         _offset: usize,
@@ -119,7 +119,7 @@ impl SearchResultsView {
     }
 
     fn search_track(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         tracks: &Arc<RwLock<Vec<Track>>>,
         query: &str,
         offset: usize,
@@ -142,7 +142,7 @@ impl SearchResultsView {
     }
 
     fn get_album(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         albums: &Arc<RwLock<Vec<Album>>>,
         query: &str,
         _offset: usize,
@@ -158,7 +158,7 @@ impl SearchResultsView {
     }
 
     fn search_album(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         albums: &Arc<RwLock<Vec<Album>>>,
         query: &str,
         offset: usize,
@@ -181,7 +181,7 @@ impl SearchResultsView {
     }
 
     fn get_artist(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         artists: &Arc<RwLock<Vec<Artist>>>,
         query: &str,
         _offset: usize,
@@ -197,7 +197,7 @@ impl SearchResultsView {
     }
 
     fn search_artist(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         artists: &Arc<RwLock<Vec<Artist>>>,
         query: &str,
         offset: usize,
@@ -220,7 +220,7 @@ impl SearchResultsView {
     }
 
     fn get_playlist(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         playlists: &Arc<RwLock<Vec<Playlist>>>,
         query: &str,
         _offset: usize,
@@ -236,7 +236,7 @@ impl SearchResultsView {
     }
 
     fn search_playlist(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         playlists: &Arc<RwLock<Vec<Playlist>>>,
         query: &str,
         offset: usize,
@@ -259,7 +259,7 @@ impl SearchResultsView {
     }
 
     fn get_show(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         shows: &Arc<RwLock<Vec<Show>>>,
         query: &str,
         _offset: usize,
@@ -275,7 +275,7 @@ impl SearchResultsView {
     }
 
     fn search_show(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         shows: &Arc<RwLock<Vec<Show>>>,
         query: &str,
         offset: usize,
@@ -298,7 +298,7 @@ impl SearchResultsView {
     }
 
     fn get_episode(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         episodes: &Arc<RwLock<Vec<Episode>>>,
         query: &str,
         _offset: usize,
@@ -314,7 +314,7 @@ impl SearchResultsView {
     }
 
     fn search_episode(
-        spotify: &Arc<Spotify>,
+        spotify: &Spotify,
         episodes: &Arc<RwLock<Vec<Episode>>>,
         query: &str,
         offset: usize,

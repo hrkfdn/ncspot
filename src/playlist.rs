@@ -23,7 +23,7 @@ pub struct Playlist {
 }
 
 impl Playlist {
-    pub fn load_tracks(&mut self, spotify: Arc<Spotify>) {
+    pub fn load_tracks(&mut self, spotify: Spotify) {
         if self.tracks.is_some() {
             return;
         }
@@ -31,7 +31,7 @@ impl Playlist {
         self.tracks = Some(self.get_all_tracks(spotify));
     }
 
-    fn get_all_tracks(&self, spotify: Arc<Spotify>) -> Vec<Track> {
+    fn get_all_tracks(&self, spotify: Spotify) -> Vec<Track> {
         let mut collected_tracks = Vec::new();
 
         let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
@@ -71,12 +71,7 @@ impl Playlist {
         })
     }
 
-    pub fn delete_track(
-        &mut self,
-        index: usize,
-        spotify: Arc<Spotify>,
-        library: Arc<Library>,
-    ) -> bool {
+    pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: Arc<Library>) -> bool {
         let track = self.tracks.as_ref().unwrap()[index].clone();
         debug!("deleting track: {} {:?}", index, track);
         match spotify.delete_tracks(&self.id, &self.snapshot_id, &[(&track, track.list_index)]) {
@@ -92,12 +87,7 @@ impl Playlist {
         }
     }
 
-    pub fn append_tracks(
-        &mut self,
-        new_tracks: &[Track],
-        spotify: Arc<Spotify>,
-        library: Arc<Library>,
-    ) {
+    pub fn append_tracks(&mut self, new_tracks: &[Track], spotify: Spotify, library: Arc<Library>) {
         let track_ids: Vec<String> = new_tracks
             .to_vec()
             .iter()

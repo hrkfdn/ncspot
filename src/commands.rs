@@ -37,7 +37,7 @@ pub enum CommandResult {
 pub struct CommandManager {
     aliases: HashMap<String, String>,
     bindings: RefCell<HashMap<String, Command>>,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     queue: Arc<Queue>,
     library: Arc<Library>,
     config: Arc<Config>,
@@ -46,7 +46,7 @@ pub struct CommandManager {
 
 impl CommandManager {
     pub fn new(
-        spotify: Arc<Spotify>,
+        spotify: Spotify,
         queue: Arc<Queue>,
         library: Arc<Library>,
         config: Arc<Config>,

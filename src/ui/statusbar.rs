@@ -14,7 +14,7 @@ use crate::spotify::{PlayerEvent, Spotify};
 
 pub struct StatusBar {
     queue: Arc<Queue>,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     library: Arc<Library>,
     last_size: Vec2,
     use_nerdfont: bool,

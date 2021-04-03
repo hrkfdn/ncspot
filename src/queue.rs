@@ -25,12 +25,12 @@ pub struct Queue {
     pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     cfg: Arc<Config>,
 }
 
 impl Queue {
-    pub fn new(spotify: Arc<Spotify>, cfg: Arc<Config>) -> Queue {
+    pub fn new(spotify: Spotify, cfg: Arc<Config>) -> Queue {
         let queue = cfg.state().queue.clone();
         Queue {
             queue: Arc::new(RwLock::new(queue)),
@@ -370,7 +370,7 @@ impl Queue {
         }
     }
 
-    pub fn get_spotify(&self) -> Arc<Spotify> {
+    pub fn get_spotify(&self) -> Spotify {
         self.spotify.clone()
     }
 }

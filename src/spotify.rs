@@ -62,16 +62,17 @@ pub enum PlayerEvent {
     FinishedTrack,
 }
 
+#[derive(Clone)]
 pub struct Spotify {
     events: EventManager,
     credentials: Credentials,
     cfg: Arc<config::Config>,
-    status: RwLock<PlayerEvent>,
-    api: RwLock<SpotifyAPI>,
-    elapsed: RwLock<Option<Duration>>,
-    since: RwLock<Option<SystemTime>>,
-    token_issued: RwLock<Option<SystemTime>>,
-    channel: RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>,
+    status: Arc<RwLock<PlayerEvent>>,
+    api: Arc<RwLock<SpotifyAPI>>,
+    elapsed: Arc<RwLock<Option<Duration>>>,
+    since: Arc<RwLock<Option<SystemTime>>>,
+    token_issued: Arc<RwLock<Option<SystemTime>>>,
+    channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     user: Option<String>,
     country: Option<Country>,
 }
@@ -86,12 +87,12 @@ impl Spotify {
             events,
             credentials,
             cfg: cfg.clone(),
-            status: RwLock::new(PlayerEvent::Stopped),
-            api: RwLock::new(SpotifyAPI::default()),
-            elapsed: RwLock::new(None),
-            since: RwLock::new(None),
-            token_issued: RwLock::new(None),
-            channel: RwLock::new(None),
+            status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
+            api: Arc::new(RwLock::new(SpotifyAPI::default())),
+            elapsed: Arc::new(RwLock::new(None)),
+            since: Arc::new(RwLock::new(None)),
+            token_issued: Arc::new(RwLock::new(None)),
+            channel: Arc::new(RwLock::new(None)),
             user: None,
             country: None,
         };

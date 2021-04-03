@@ -27,7 +27,7 @@ pub struct Album {
 }
 
 impl Album {
-    pub fn load_tracks(&mut self, spotify: Arc<Spotify>) {
+    pub fn load_tracks(&mut self, spotify: Spotify) {
         if self.tracks.is_some() {
             return;
         }

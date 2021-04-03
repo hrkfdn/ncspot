@@ -36,12 +36,12 @@ pub struct Library {
     pub user_id: Option<String>,
     pub display_name: Option<String>,
     ev: EventManager,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     pub cfg: Arc<Config>,
 }
 
 impl Library {
-    pub fn new(ev: &EventManager, spotify: Arc<Spotify>, cfg: Arc<Config>) -> Self {
+    pub fn new(ev: &EventManager, spotify: Spotify, cfg: Arc<Config>) -> Self {
         let current_user = spotify.current_user();
         let user_id = current_user.as_ref().map(|u| u.id.clone());
         let display_name = current_user.as_ref().and_then(|u| u.display_name.clone());

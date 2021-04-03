@@ -34,7 +34,7 @@ impl Artist {
         }
     }
 
-    pub fn load_albums(&mut self, spotify: Arc<Spotify>) {
+    pub fn load_albums(&mut self, spotify: Spotify) {
         if let Some(albums) = self.albums.as_mut() {
             for album in albums {
                 album.load_tracks(spotify.clone());

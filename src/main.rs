@@ -197,11 +197,7 @@ fn main() {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    let spotify = Arc::new(spotify::Spotify::new(
-        event_manager.clone(),
-        credentials,
-        cfg.clone(),
-    ));
+    let spotify = spotify::Spotify::new(event_manager.clone(), credentials, cfg.clone());
 
     let queue = Arc::new(queue::Queue::new(spotify.clone(), cfg.clone()));
 

@@ -21,7 +21,7 @@ pub struct Show {
 }
 
 impl Show {
-    pub fn load_episodes(&mut self, spotify: Arc<Spotify>) {
+    pub fn load_episodes(&mut self, spotify: Spotify) {
         if self.episodes.is_some() {
             return;
         }

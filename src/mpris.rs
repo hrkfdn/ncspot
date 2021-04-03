@@ -28,7 +28,7 @@ type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
 
 struct MprisState(String, Option<Playable>);
 
-fn get_playbackstatus(spotify: Arc<Spotify>) -> String {
+fn get_playbackstatus(spotify: Spotify) -> String {
     match spotify.get_current_status() {
         PlayerEvent::Playing | PlayerEvent::FinishedTrack => "Playing",
         PlayerEvent::Paused => "Paused",
@@ -136,7 +136,7 @@ fn get_metadata(playable: Option<Playable>) -> Metadata {
 
 fn run_dbus_server(
     ev: EventManager,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     queue: Arc<Queue>,
     rx: mpsc::Receiver<MprisState>,
 ) {
@@ -691,11 +691,11 @@ fn run_dbus_server(
 pub struct MprisManager {
     tx: mpsc::Sender<MprisState>,
     queue: Arc<Queue>,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
 }
 
 impl MprisManager {
-    pub fn new(ev: EventManager, spotify: Arc<Spotify>, queue: Arc<Queue>) -> Self {
+    pub fn new(ev: EventManager, spotify: Spotify, queue: Arc<Queue>) -> Self {
         let (tx, rx) = mpsc::channel::<MprisState>();
 
         {

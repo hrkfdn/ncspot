@@ -16,7 +16,7 @@ use crate::ui::listview::ListView;
 pub struct PlaylistView {
     playlist: Playlist,
     list: ListView<Track>,
-    spotify: Arc<Spotify>,
+    spotify: Spotify,
     library: Arc<Library>,
     queue: Arc<Queue>,
 }

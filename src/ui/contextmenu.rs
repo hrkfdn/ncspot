@@ -45,7 +45,7 @@ enum ContextMenuAction {
 impl ContextMenu {
     pub fn add_track_dialog(
         library: Arc<Library>,
-        spotify: Arc<Spotify>,
+        spotify: Spotify,
         track: Track,
     ) -> NamedView<AddToPlaylistMenu> {
         let mut list_select: SelectView<Playlist> = SelectView::new();
