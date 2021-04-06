@@ -141,7 +141,7 @@ impl<I: ListItem> View for ListView<I> {
 
         self.scrollbar.draw(printer, |printer, i| {
             // draw paginator after content
-            if i == content.len() {
+            if i == content.len() && self.can_paginate() {
                 let style = ColorStyle::secondary();
 
                 let max = self.pagination.max_content().unwrap();
@@ -149,7 +149,7 @@ impl<I: ListItem> View for ListView<I> {
                 printer.with_color(style, |printer| {
                     printer.print((0, 0), &buf);
                 });
-            } else {
+            } else if i < content.len() {
                 let item = &content[i];
                 let currently_playing = item.is_playing(self.queue.clone())
                     && self.queue.get_current_index() == Some(i);

@@ -11,14 +11,14 @@ use librespot_playback::config::Bitrate;
 use librespot_playback::player::Player;
 
 use rspotify::blocking::client::Spotify as SpotifyAPI;
-use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
+use rspotify::model::album::{FullAlbum, SavedAlbum};
 use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
 use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
 use rspotify::model::search::SearchResult;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
-use rspotify::senum::SearchType;
+use rspotify::senum::{AlbumType, SearchType};
 use rspotify::{blocking::client::ApiError, senum::Country};
 
 use serde_json::{json, Map};
@@ -49,6 +49,8 @@ use crate::playable::Playable;
 use crate::spotify_worker::{Worker, WorkerCommand};
 use crate::track::Track;
 
+use crate::album::Album;
+use crate::ui::pagination::{ApiPage, ApiResult};
 use rspotify::model::recommend::Recommendations;
 use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
 
@@ -481,16 +483,6 @@ impl Spotify {
         self.api_with_retry(|api| api.album(album_id))
     }
 
-    pub fn albums(&self, album_ids: &[String]) -> Option<Vec<FullAlbum>> {
-        const MAX_SIZE: usize = 20;
-        let mut collected = Vec::new();
-        for ids in album_ids.chunks(MAX_SIZE) {
-            let fas = self.api_with_retry(|api| api.albums(ids.to_vec()))?;
-            collected.extend_from_slice(&fas.albums);
-        }
-        Some(collected)
-    }
-
     pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
         self.api_with_retry(|api| api.artist(artist_id))
     }
@@ -576,12 +568,39 @@ impl Spotify {
     pub fn artist_albums(
         &self,
         artist_id: &str,
-        limit: u32,
-        offset: u32,
-    ) -> Option<Page<SimplifiedAlbum>> {
-        self.api_with_retry(|api| {
-            api.artist_albums(artist_id, None, self.country, Some(limit), Some(offset))
-        })
+        album_type: Option<AlbumType>,
+    ) -> ApiResult<Album> {
+        const MAX_SIZE: u32 = 50;
+        let spotify = self.clone();
+        let artist_id = artist_id.to_string();
+        let fetch_page = move |offset: u32| {
+            spotify.api_with_retry(|api| {
+                match api.artist_albums(
+                    &artist_id,
+                    album_type,
+                    spotify.country,
+                    Some(MAX_SIZE),
+                    Some(offset),
+                ) {
+                    Ok(page) => {
+                        let mut albums: Vec<Album> = page
+                            .items
+                            .iter()
+                            .map(|sa| sa.into())
+                            .collect();
+                        albums.sort_by(|a, b| b.year.cmp(&a.year));
+                        Ok(ApiPage {
+                            offset: page.offset,
+                            total: page.total,
+                            items: albums,
+                        })
+                    }
+                    Err(e) => Err(e),
+                }
+            })
+        };
+
+        ApiResult::new(MAX_SIZE, Arc::new(fetch_page))
     }
 
     pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {

@@ -4,6 +4,7 @@ use std::thread;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
+use crate::album::Album;
 use crate::artist::Artist;
 use crate::command::Command;
 use crate::commands::CommandResult;
@@ -13,6 +14,7 @@ use crate::track::Track;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 use crate::ui::tabview::TabView;
+use rspotify::senum::AlbumType;
 
 pub struct ArtistView {
     artist: Artist,
@@ -21,16 +23,12 @@ pub struct ArtistView {
 
 impl ArtistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, artist: &Artist) -> Self {
-        let mut artist = artist.clone();
-
         let spotify = queue.get_spotify();
-        artist.load_albums(spotify.clone());
 
-        let albums = if let Some(a) = artist.albums.as_ref() {
-            a.clone()
-        } else {
-            Vec::new()
-        };
+        let albums_view =
+            Self::albums_view(&artist, AlbumType::Album, queue.clone(), library.clone());
+        let singles_view =
+            Self::albums_view(&artist, AlbumType::Single, queue.clone(), library.clone());
 
         let top_tracks: Arc<RwLock<Vec<Track>>> = Arc::new(RwLock::new(Vec::new()));
         {
@@ -85,15 +83,8 @@ impl ArtistView {
             ListView::new(top_tracks, queue.clone(), library.clone()),
         );
 
-        tabs.add_tab(
-            "albums",
-            "Albums",
-            ListView::new(
-                Arc::new(RwLock::new(albums)),
-                queue.clone(),
-                library.clone(),
-            ),
-        );
+        tabs.add_tab("albums", "Albums", albums_view);
+        tabs.add_tab("singles", "Singles", singles_view);
 
         tabs.add_tab(
             "related",
@@ -101,7 +92,39 @@ impl ArtistView {
             ListView::new(related, queue, library),
         );
 
-        Self { artist, tabs }
+        Self {
+            artist: artist.clone(),
+            tabs,
+        }
+    }
+
+    fn albums_view(
+        artist: &Artist,
+        album_type: AlbumType,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+    ) -> ListView<Album> {
+        if let Some(artist_id) = &artist.id {
+            let spotify = queue.get_spotify();
+            let albums_page = spotify.artist_albums(artist_id, Some(album_type));
+            let view = ListView::new(albums_page.items.clone(), queue, library.clone());
+            let pagination = view.get_pagination().clone();
+
+            pagination.set(
+                albums_page.total as usize,
+                Box::new(move |items| {
+                    if let Some(next_page) = albums_page.next() {
+                        let mut w = items.write().unwrap();
+                        w.extend(next_page);
+                        w.sort_by(|a, b| b.year.cmp(&a.year));
+                        library.trigger_redraw();
+                    }
+                }),
+            );
+            view
+        } else {
+            ListView::new(Arc::new(RwLock::new(Vec::new())), queue, library)
+        }
     }
 }
 
