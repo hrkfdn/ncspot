@@ -32,35 +32,13 @@ impl Playlist {
     }
 
     fn get_all_tracks(&self, spotify: Spotify) -> Vec<Track> {
-        let mut collected_tracks = Vec::new();
-
-        let mut tracks_result = spotify.user_playlist_tracks(&self.id, 100, 0);
-        while let Some(ref tracks) = tracks_result.clone() {
-            for (index, listtrack) in tracks.items.iter().enumerate() {
-                if let Some(track) = &listtrack.track {
-                    let mut t: Track = track.into();
-                    t.list_index = index;
-                    t.added_at = Some(listtrack.added_at);
-                    collected_tracks.push(t);
-                }
-            }
-            debug!("got {} tracks", tracks.items.len());
-
-            // load next batch if necessary
-            tracks_result = match tracks.next {
-                Some(_) => {
-                    debug!("requesting tracks again..");
-                    spotify.user_playlist_tracks(
-                        &self.id,
-                        100,
-                        tracks.offset + tracks.items.len() as u32,
-                    )
-                }
-                None => None,
-            }
+        let tracks_result = spotify.user_playlist_tracks(&self.id);
+        while !tracks_result.at_end() {
+            tracks_result.next();
         }
 
-        collected_tracks
+        let tracks = tracks_result.items.read().unwrap();
+        tracks.clone()
     }
 
     pub fn has_track(&self, track_id: &str) -> bool {

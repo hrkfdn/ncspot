@@ -14,7 +14,7 @@ use rspotify::blocking::client::Spotify as SpotifyAPI;
 use rspotify::model::album::{FullAlbum, SavedAlbum};
 use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
-use rspotify::model::playlist::{FullPlaylist, PlaylistTrack};
+use rspotify::model::playlist::FullPlaylist;
 use rspotify::model::search::SearchResult;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
@@ -550,16 +550,46 @@ impl Spotify {
         ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
     }
 
-    pub fn user_playlist_tracks(
-        &self,
-        playlist_id: &str,
-        limit: u32,
-        offset: u32,
-    ) -> Option<Page<PlaylistTrack>> {
-        let user = self.user.as_ref().unwrap();
-        self.api_with_retry(|api| {
-            api.user_playlist_tracks(user, playlist_id, None, limit, offset, self.country)
-        })
+    pub fn user_playlist_tracks(&self, playlist_id: &str) -> ApiResult<Track> {
+        const MAX_LIMIT: u32 = 100;
+        let spotify = self.clone();
+        let playlist_id = playlist_id.to_string();
+        let fetch_page = move |offset: u32| {
+            debug!(
+                "fetching playlist {} tracks, offset: {}",
+                playlist_id, offset
+            );
+            spotify.api_with_retry(|api| {
+                match api.user_playlist_tracks(
+                    spotify.user.as_ref().unwrap(),
+                    &playlist_id,
+                    None,
+                    MAX_LIMIT,
+                    offset,
+                    spotify.country,
+                ) {
+                    Ok(page) => Ok(ApiPage {
+                        offset: page.offset,
+                        total: page.total,
+                        items: page
+                            .items
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(index, pt)| {
+                                pt.track.as_ref().map(|t| {
+                                    let mut track: Track = t.into();
+                                    track.added_at = Some(pt.added_at);
+                                    track.list_index = page.offset as usize + index;
+                                    track
+                                })
+                            })
+                            .collect(),
+                    }),
+                    Err(e) => Err(e),
+                }
+            })
+        };
+        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
     }
 
     pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
