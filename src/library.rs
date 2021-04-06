@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
-use rspotify::model::playlist::SimplifiedPlaylist;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -100,7 +99,7 @@ impl Library {
         }
     }
 
-    fn needs_download(&self, remote: &SimplifiedPlaylist) -> bool {
+    fn needs_download(&self, remote: &Playlist) -> bool {
         self.playlists()
             .iter()
             .find(|local| local.id == remote.id)
@@ -255,9 +254,10 @@ impl Library {
         let mut stale_lists = self.playlists.read().unwrap().clone();
         let mut list_order = Vec::new();
 
-        let mut lists_result = self.spotify.current_user_playlist(50, 0);
-        while let Some(ref lists) = lists_result.clone() {
-            for (index, remote) in lists.items.iter().enumerate() {
+        let lists_page = self.spotify.current_user_playlist();
+        let mut lists_batch = Some(lists_page.items.read().unwrap().clone());
+        while let Some(lists) = &lists_batch {
+            for (index, remote) in lists.iter().enumerate() {
                 list_order.push(remote.id.clone());
 
                 // remove from stale playlists so we won't prune it later on
@@ -267,7 +267,7 @@ impl Library {
 
                 if self.needs_download(remote) {
                     info!("updating playlist {} (index: {})", remote.name, index);
-                    let mut playlist: Playlist = remote.into();
+                    let mut playlist: Playlist = remote.clone();
                     playlist.tracks = None;
                     playlist.load_tracks(self.spotify.clone());
                     self.append_or_update(&playlist);
@@ -275,16 +275,7 @@ impl Library {
                     self.ev.trigger();
                 }
             }
-
-            // load next batch if necessary
-            lists_result = match lists.next {
-                Some(_) => {
-                    debug!("requesting playlists again..");
-                    self.spotify
-                        .current_user_playlist(50, lists.offset + lists.items.len() as u32)
-                }
-                None => None,
-            }
+            lists_batch = lists_page.next();
         }
 
         // remove stale playlists

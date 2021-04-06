@@ -14,7 +14,7 @@ use rspotify::blocking::client::Spotify as SpotifyAPI;
 use rspotify::model::album::{FullAlbum, SavedAlbum};
 use rspotify::model::artist::FullArtist;
 use rspotify::model::page::{CursorBasedPage, Page};
-use rspotify::model::playlist::{FullPlaylist, PlaylistTrack, SimplifiedPlaylist};
+use rspotify::model::playlist::{FullPlaylist, PlaylistTrack};
 use rspotify::model::search::SearchResult;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::user::PrivateUser;
@@ -50,6 +50,7 @@ use crate::spotify_worker::{Worker, WorkerCommand};
 use crate::track::Track;
 
 use crate::album::Album;
+use crate::playlist::Playlist;
 use crate::ui::pagination::{ApiPage, ApiResult};
 use rspotify::model::recommend::Recommendations;
 use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
@@ -532,12 +533,21 @@ impl Spotify {
             .take()
     }
 
-    pub fn current_user_playlist(
-        &self,
-        limit: u32,
-        offset: u32,
-    ) -> Option<Page<SimplifiedPlaylist>> {
-        self.api_with_retry(|api| api.current_user_playlists(limit, offset))
+    pub fn current_user_playlist(&self) -> ApiResult<Playlist> {
+        const MAX_LIMIT: u32 = 50;
+        let spotify = self.clone();
+        let fetch_page = move |offset: u32| {
+            debug!("fetching user playlists, offset: {}", offset);
+            spotify.api_with_retry(|api| match api.current_user_playlists(MAX_LIMIT, offset) {
+                Ok(page) => Ok(ApiPage {
+                    offset: page.offset,
+                    total: page.total,
+                    items: page.items.iter().map(|sp| sp.into()).collect(),
+                }),
+                Err(e) => Err(e),
+            })
+        };
+        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
     }
 
     pub fn user_playlist_tracks(
@@ -574,6 +584,7 @@ impl Spotify {
         let spotify = self.clone();
         let artist_id = artist_id.to_string();
         let fetch_page = move |offset: u32| {
+            debug!("fetching artist {} albums, offset: {}", artist_id, offset);
             spotify.api_with_retry(|api| {
                 match api.artist_albums(
                     &artist_id,
@@ -583,11 +594,8 @@ impl Spotify {
                     Some(offset),
                 ) {
                     Ok(page) => {
-                        let mut albums: Vec<Album> = page
-                            .items
-                            .iter()
-                            .map(|sa| sa.into())
-                            .collect();
+                        let mut albums: Vec<Album> =
+                            page.items.iter().map(|sa| sa.into()).collect();
                         albums.sort_by(|a, b| b.year.cmp(&a.year));
                         Ok(ApiPage {
                             offset: page.offset,
