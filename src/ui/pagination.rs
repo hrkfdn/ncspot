@@ -2,6 +2,69 @@ use std::sync::{Arc, RwLock};
 
 use crate::traits::ListItem;
 
+pub struct ApiPage<I> {
+    pub offset: u32,
+    pub total: u32,
+    pub items: Vec<I>,
+}
+pub type FetchPageFn<I> = dyn Fn(u32) -> Option<ApiPage<I>> + Send + Sync;
+pub struct ApiResult<I> {
+    offset: Arc<RwLock<u32>>,
+    limit: u32,
+    pub total: u32,
+    pub items: Arc<RwLock<Vec<I>>>,
+    fetch_page: Arc<FetchPageFn<I>>,
+}
+
+impl<I: Clone> ApiResult<I> {
+    pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> ApiResult<I> {
+        let items = Arc::new(RwLock::new(Vec::new()));
+        if let Some(first_page) = fetch_page(0) {
+            items.write().unwrap().extend(first_page.items);
+            ApiResult {
+                offset: Arc::new(RwLock::new(first_page.offset)),
+                limit,
+                total: first_page.total,
+                items,
+                fetch_page: fetch_page.clone(),
+            }
+        } else {
+            ApiResult {
+                offset: Arc::new(RwLock::new(0)),
+                limit,
+                total: 0,
+                items,
+                fetch_page: fetch_page.clone(),
+            }
+        }
+    }
+
+    fn offset(&self) -> u32 {
+        *self.offset.read().unwrap()
+    }
+
+    pub fn at_end(&self) -> bool {
+        (self.offset() + self.limit as u32) >= self.total
+    }
+
+    pub fn next(&self) -> Option<Vec<I>> {
+        let offset = self.offset() + self.limit as u32;
+        debug!("fetching next page at offset {}", offset);
+        if !self.at_end() {
+            if let Some(next_page) = (self.fetch_page)(offset) {
+                *self.offset.write().unwrap() = next_page.offset;
+                self.items.write().unwrap().extend(next_page.items.clone());
+                Some(next_page.items)
+            } else {
+                None
+            }
+        } else {
+            debug!("paginator is at end");
+            None
+        }
+    }
+}
+
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 
 pub struct Pagination<I: ListItem> {
@@ -36,7 +99,7 @@ impl<I: ListItem> Pagination<I> {
         *self.max_content.write().unwrap() = None;
         *self.callback.write().unwrap() = None;
     }
-    pub fn set(&mut self, max_content: usize, callback: Paginator<I>) {
+    pub fn set(&self, max_content: usize, callback: Paginator<I>) {
         *self.max_content.write().unwrap() = Some(max_content);
         *self.callback.write().unwrap() = Some(callback);
     }
