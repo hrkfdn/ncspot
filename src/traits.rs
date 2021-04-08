@@ -55,6 +55,10 @@ pub trait ViewExt: View {
         "".into()
     }
 
+    fn title_sub(&self) -> String {
+        "".into()
+    }
+
     fn on_leave(&self) {}
 
     fn on_command(&mut self, _s: &mut Cursive, _cmd: &Command) -> Result<CommandResult, String> {
@@ -65,6 +69,10 @@ pub trait ViewExt: View {
 impl<V: ViewExt> ViewExt for NamedView<V> {
     fn title(&self) -> String {
         self.with_view(|v| v.title()).unwrap_or_default()
+    }
+
+    fn title_sub(&self) -> String {
+        self.with_view(|v| v.title_sub()).unwrap_or_default()
     }
 
     fn on_leave(&self) {

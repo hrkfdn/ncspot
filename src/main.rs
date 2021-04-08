@@ -69,6 +69,7 @@ mod theme;
 mod track;
 mod traits;
 mod ui;
+mod utils;
 
 #[cfg(feature = "mpris")]
 mod mpris;

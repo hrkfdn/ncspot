@@ -219,6 +219,11 @@ impl View for Layout {
                 printer.print((offset, 0), &view.title());
             });
 
+            printer.with_color(ColorStyle::secondary(), |printer| {
+                let offset = HAlign::Right.get_offset(view.title_sub().width(), printer.size.x);
+                printer.print((offset, 0), &view.title_sub());
+            });
+
             // screen content
             let printer = &printer
                 .offset((0, 1))

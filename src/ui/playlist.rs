@@ -62,6 +62,20 @@ impl ViewExt for PlaylistView {
         self.playlist.name.clone()
     }
 
+    fn title_sub(&self) -> String {
+        if let Some(tracks) = self.playlist.tracks.as_ref() {
+            let duration_secs = tracks.iter().map(|p| p.duration as u64 / 1000).sum();
+            let duration = std::time::Duration::from_secs(duration_secs);
+            format!(
+                "{} tracks, {}",
+                tracks.len(),
+                crate::utils::format_duration(&duration)
+            )
+        } else {
+            "".to_string()
+        }
+    }
+
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Delete = cmd {
             let pos = self.list.get_selected_index();
