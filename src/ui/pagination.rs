@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use crate::library::Library;
 use crate::traits::ListItem;
 
 pub struct ApiPage<I> {
@@ -16,7 +17,7 @@ pub struct ApiResult<I> {
     fetch_page: Arc<FetchPageFn<I>>,
 }
 
-impl<I: Clone> ApiResult<I> {
+impl<I: ListItem + Clone> ApiResult<I> {
     pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> ApiResult<I> {
         let items = Arc::new(RwLock::new(Vec::new()));
         if let Some(first_page) = fetch_page(0) {
@@ -45,6 +46,16 @@ impl<I: Clone> ApiResult<I> {
 
     pub fn at_end(&self) -> bool {
         (self.offset() + self.limit as u32) >= self.total
+    }
+
+    pub fn apply_pagination(self, pagination: &Pagination<I>) {
+        let total = self.total as usize;
+        pagination.set(
+            total,
+            Box::new(move |_| {
+                self.next();
+            }),
+        )
     }
 
     pub fn next(&self) -> Option<Vec<I>> {
@@ -112,7 +123,7 @@ impl<I: ListItem> Pagination<I> {
         *self.busy.read().unwrap()
     }
 
-    pub fn call(&self, content: &Arc<RwLock<Vec<I>>>) {
+    pub fn call(&self, content: &Arc<RwLock<Vec<I>>>, library: Arc<Library>) {
         let pagination = self.clone();
         let content = content.clone();
         if !self.is_busy() {
@@ -123,6 +134,7 @@ impl<I: ListItem> Pagination<I> {
                     debug!("calling paginator!");
                     cb(content);
                     *pagination.busy.write().unwrap() = false;
+                    library.trigger_redraw();
                 }
             });
         }

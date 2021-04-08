@@ -22,7 +22,7 @@ impl AlbumView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, album: &Album) -> Self {
         let mut album = album.clone();
 
-        album.load_tracks(queue.get_spotify());
+        album.load_all_tracks(queue.get_spotify());
 
         let tracks = if let Some(t) = album.tracks.as_ref() {
             t.clone()

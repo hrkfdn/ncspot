@@ -458,7 +458,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         return Ok(CommandResult::Consumed(None));
                     }
                     MoveMode::Down if self.selected == last_idx && self.can_paginate() => {
-                        self.pagination.call(&self.content);
+                        self.pagination.call(&self.content, self.library.clone());
                     }
                     _ => {}
                 }

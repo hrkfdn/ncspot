@@ -618,7 +618,7 @@ impl Library {
             }
         }
 
-        album.load_tracks(self.spotify.clone());
+        album.load_all_tracks(self.spotify.clone());
 
         {
             let mut store = self.albums.write().unwrap();
@@ -649,7 +649,7 @@ impl Library {
             }
         }
 
-        album.load_tracks(self.spotify.clone());
+        album.load_all_tracks(self.spotify.clone());
 
         {
             let mut store = self.albums.write().unwrap();

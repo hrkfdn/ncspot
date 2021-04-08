@@ -27,7 +27,7 @@ pub struct Album {
 }
 
 impl Album {
-    pub fn load_tracks(&mut self, spotify: Spotify) {
+    pub fn load_all_tracks(&mut self, spotify: Spotify) {
         if self.tracks.is_some() {
             return;
         }
@@ -176,7 +176,7 @@ impl ListItem for Album {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+        self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
             let tracks: Vec<Playable> = tracks
@@ -189,7 +189,7 @@ impl ListItem for Album {
     }
 
     fn play_next(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+        self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
             for t in tracks.iter().rev() {
@@ -199,7 +199,7 @@ impl ListItem for Album {
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+        self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
             for t in tracks {

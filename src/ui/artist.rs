@@ -107,20 +107,9 @@ impl ArtistView {
         if let Some(artist_id) = &artist.id {
             let spotify = queue.get_spotify();
             let albums_page = spotify.artist_albums(artist_id, Some(album_type));
-            let view = ListView::new(albums_page.items.clone(), queue, library.clone());
-            let pagination = view.get_pagination().clone();
+            let view = ListView::new(albums_page.items.clone(), queue, library);
+            albums_page.apply_pagination(view.get_pagination());
 
-            pagination.set(
-                albums_page.total as usize,
-                Box::new(move |items| {
-                    if let Some(next_page) = albums_page.next() {
-                        let mut w = items.write().unwrap();
-                        w.extend(next_page);
-                        w.sort_by(|a, b| b.year.cmp(&a.year));
-                        library.trigger_redraw();
-                    }
-                }),
-            );
             view
         } else {
             ListView::new(Arc::new(RwLock::new(Vec::new())), queue, library)

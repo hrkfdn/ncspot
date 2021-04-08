@@ -24,17 +24,8 @@ impl ShowView {
 
         let list = {
             let results = spotify.show_episodes(&show.id);
-            let view = ListView::new(results.items.clone(), queue, library.clone());
-            let pagination = view.get_pagination();
-
-            pagination.set(
-                results.total as usize,
-                Box::new(move |_| {
-                    if results.next().is_some() {
-                        library.trigger_redraw();
-                    }
-                }),
-            );
+            let view = ListView::new(results.items.clone(), queue, library);
+            results.apply_pagination(view.get_pagination());
 
             view
         };
