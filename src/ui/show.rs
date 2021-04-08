@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
@@ -19,15 +19,27 @@ pub struct ShowView {
 
 impl ShowView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, show: &Show) -> Self {
-        let mut show = show.clone();
-        show.load_episodes(queue.get_spotify());
+        let spotify = queue.get_spotify();
+        let show = show.clone();
 
-        let episodes = show.episodes.clone().unwrap_or_default();
+        let list = {
+            let results = spotify.show_episodes(&show.id);
+            let view = ListView::new(results.items.clone(), queue, library.clone());
+            let pagination = view.get_pagination();
 
-        Self {
-            list: ListView::new(Arc::new(RwLock::new(episodes)), queue, library),
-            show,
-        }
+            pagination.set(
+                results.total as usize,
+                Box::new(move |_| {
+                    if results.next().is_some() {
+                        library.trigger_redraw();
+                    }
+                }),
+            );
+
+            view
+        };
+
+        Self { list, show }
     }
 }
 

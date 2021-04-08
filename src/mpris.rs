@@ -578,9 +578,9 @@ fn run_dbus_server(
                 }
                 Some(UriType::Show) => {
                     if let Some(s) = spotify.get_show(&id) {
-                        let mut show = Show::from(&s);
+                        let mut show: Show = (&s).into();
                         let spotify = spotify.clone();
-                        show.load_episodes(spotify);
+                        show.load_all_episodes(spotify);
                         if let Some(e) = &show.episodes {
                             queue.clear();
                             let mut ep = e.clone();

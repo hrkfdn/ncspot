@@ -21,31 +21,18 @@ pub struct Show {
 }
 
 impl Show {
-    pub fn load_episodes(&mut self, spotify: Spotify) {
+    pub fn load_all_episodes(&mut self, spotify: Spotify) {
         if self.episodes.is_some() {
             return;
         }
 
-        let mut collected_episodes = Vec::new();
-
-        let mut episodes_result = spotify.show_episodes(&self.id, 0);
-        while let Some(ref episodes) = episodes_result.clone() {
-            for item in &episodes.items {
-                collected_episodes.push(item.into())
-            }
-            debug!("got {} episodes", episodes.items.len());
-
-            // load next batch if necessary
-            episodes_result = match episodes.next {
-                Some(_) => {
-                    debug!("requesting episodes again..");
-                    spotify.show_episodes(&self.id, episodes.offset + episodes.items.len() as u32)
-                }
-                None => None,
-            }
+        let episodes_result = spotify.show_episodes(&self.id);
+        while !episodes_result.at_end() {
+            episodes_result.next();
         }
 
-        self.episodes = Some(collected_episodes);
+        let episodes = episodes_result.items.read().unwrap().clone();
+        self.episodes = Some(episodes);
     }
 }
 
@@ -106,7 +93,7 @@ impl ListItem for Show {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        self.load_episodes(queue.get_spotify());
+        self.load_all_episodes(queue.get_spotify());
 
         let playables = self
             .episodes
@@ -121,7 +108,7 @@ impl ListItem for Show {
     }
 
     fn play_next(&mut self, queue: Arc<Queue>) {
-        self.load_episodes(queue.get_spotify());
+        self.load_all_episodes(queue.get_spotify());
 
         if let Some(episodes) = self.episodes.as_ref() {
             for ep in episodes.iter().rev() {
@@ -131,7 +118,7 @@ impl ListItem for Show {
     }
 
     fn queue(&mut self, queue: Arc<Queue>) {
-        self.load_episodes(queue.get_spotify());
+        self.load_all_episodes(queue.get_spotify());
 
         for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
             queue.append(Playable::Episode(ep.clone()));

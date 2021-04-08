@@ -50,10 +50,11 @@ use crate::spotify_worker::{Worker, WorkerCommand};
 use crate::track::Track;
 
 use crate::album::Album;
+use crate::episode::Episode;
 use crate::playlist::Playlist;
 use crate::ui::pagination::{ApiPage, ApiResult};
 use rspotify::model::recommend::Recommendations;
-use rspotify::model::show::{FullEpisode, FullShow, Show, SimplifiedEpisode};
+use rspotify::model::show::{FullEpisode, FullShow, Show};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -641,10 +642,25 @@ impl Spotify {
         ApiResult::new(MAX_SIZE, Arc::new(fetch_page))
     }
 
-    pub fn show_episodes(&self, show_id: &str, offset: u32) -> Option<Page<SimplifiedEpisode>> {
-        self.api_with_retry(|api| {
-            api.get_shows_episodes(show_id.to_string(), 50, offset, self.country)
-        })
+    pub fn show_episodes(&self, show_id: &str) -> ApiResult<Episode> {
+        const MAX_SIZE: u32 = 50;
+        let spotify = self.clone();
+        let show_id = show_id.to_string();
+        let fetch_page = move |offset: u32| {
+            debug!("fetching show {} episodes, offset: {}", &show_id, offset);
+            spotify.api_with_retry(|api| {
+                match api.get_shows_episodes(show_id.clone(), MAX_SIZE, offset, spotify.country) {
+                    Ok(page) => Ok(ApiPage {
+                        offset: page.offset,
+                        total: page.total,
+                        items: page.items.iter().map(|se| se.into()).collect(),
+                    }),
+                    Err(e) => Err(e),
+                }
+            })
+        };
+
+        ApiResult::new(MAX_SIZE, Arc::new(fetch_page))
     }
 
     pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
