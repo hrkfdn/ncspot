@@ -108,7 +108,15 @@ impl CommandManager {
             Command::Quit => {
                 let queue = self.queue.queue.read().expect("can't readlock queue");
                 self.config.with_state_mut(move |mut s| {
-                    s.queue = queue.clone();
+                    debug!(
+                        "saving state, {} items, current track: {:?}",
+                        queue.len(),
+                        self.queue.get_current_index()
+                    );
+                    s.queuestate.queue = queue.clone();
+                    s.queuestate.random_order = self.queue.get_random_order();
+                    s.queuestate.current_track = self.queue.get_current_index();
+                    s.queuestate.track_progress = self.spotify.get_current_progress();
                 });
                 self.config.save_state();
                 s.quit();

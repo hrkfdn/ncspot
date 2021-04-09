@@ -18,7 +18,7 @@ use std::pin::Pin;
 use std::time::Duration;
 
 pub(crate) enum WorkerCommand {
-    Load(Playable),
+    Load(Playable, bool, u32),
     Play,
     Pause,
     Stop,
@@ -90,21 +90,23 @@ impl futures::Future for Worker {
                 progress = true;
                 debug!("message received!");
                 match cmd {
-                    WorkerCommand::Load(playable) => match SpotifyId::from_uri(&playable.uri()) {
-                        Ok(id) => {
-                            info!("player loading track: {:?}", id);
-                            if id.audio_type == SpotifyAudioType::NonPlayable {
-                                warn!("track is not playable");
+                    WorkerCommand::Load(playable, start_playing, position_ms) => {
+                        match SpotifyId::from_uri(&playable.uri()) {
+                            Ok(id) => {
+                                info!("player loading track: {:?}", id);
+                                if id.audio_type == SpotifyAudioType::NonPlayable {
+                                    warn!("track is not playable");
+                                    self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+                                } else {
+                                    self.player.load(id, start_playing, position_ms);
+                                }
+                            }
+                            Err(e) => {
+                                error!("error parsing uri: {:?}", e);
                                 self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                            } else {
-                                self.player.load(id, true, 0);
                             }
                         }
-                        Err(e) => {
-                            error!("error parsing uri: {:?}", e);
-                            self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                        }
-                    },
+                    }
                     WorkerCommand::Play => {
                         self.player.play();
                     }

@@ -60,12 +60,21 @@ pub struct SortingOrder {
     pub direction: SortDirection,
 }
 
+#[derive(Serialize, Default, Deserialize, Debug, Clone)]
+pub struct QueueState {
+    pub current_track: Option<usize>,
+    pub random_order: Option<Vec<usize>>,
+    pub track_progress: std::time::Duration,
+    pub queue: Vec<Playable>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserState {
     pub volume: u16,
     pub shuffle: bool,
     pub repeat: queue::RepeatSetting,
-    pub queue: Vec<Playable>,
+    pub queuestate: QueueState,
+    #[serde(serialize_with = "toml::ser::tables_last")]
     pub playlist_orders: HashMap<String, SortingOrder>,
 }
 
@@ -75,7 +84,7 @@ impl Default for UserState {
             volume: u16::max_value(),
             shuffle: false,
             repeat: queue::RepeatSetting::None,
-            queue: Vec::new(),
+            queuestate: QueueState::default(),
             playlist_orders: HashMap::new(),
         }
     }

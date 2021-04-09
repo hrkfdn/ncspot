@@ -735,9 +735,13 @@ impl Spotify {
         self.api_with_retry(|api| api.current_user())
     }
 
-    pub fn load(&self, track: &Playable) {
+    pub fn load(&self, track: &Playable, start_playing: bool, position_ms: u32) {
         info!("loading track: {:?}", track);
-        self.send_worker(WorkerCommand::Load(track.clone()));
+        self.send_worker(WorkerCommand::Load(
+            track.clone(),
+            start_playing,
+            position_ms,
+        ));
     }
 
     pub fn update_status(&self, new_status: PlayerEvent) {

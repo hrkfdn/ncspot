@@ -31,14 +31,23 @@ pub struct Queue {
 
 impl Queue {
     pub fn new(spotify: Spotify, cfg: Arc<Config>) -> Queue {
-        let queue = cfg.state().queue.clone();
-        Queue {
-            queue: Arc::new(RwLock::new(queue)),
-            spotify,
-            current_track: RwLock::new(None),
-            random_order: RwLock::new(None),
+        let state = cfg.state().queuestate.clone();
+        let queue = Queue {
+            queue: Arc::new(RwLock::new(state.queue)),
+            spotify: spotify.clone(),
+            current_track: RwLock::new(state.current_track),
+            random_order: RwLock::new(state.random_order),
             cfg,
+        };
+
+        if let Some(playable) = queue.get_current() {
+            spotify.load(&playable, false, state.track_progress.as_millis() as u32);
+            spotify.update_track();
+            spotify.pause();
+            spotify.seek(state.track_progress.as_millis() as u32);
         }
+
+        queue
     }
 
     pub fn next_index(&self) -> Option<usize> {
@@ -245,7 +254,7 @@ impl Queue {
         }
 
         if let Some(track) = &self.queue.read().unwrap().get(index) {
-            self.spotify.load(&track);
+            self.spotify.load(&track, true, 0);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
@@ -340,6 +349,10 @@ impl Queue {
 
     pub fn get_shuffle(&self) -> bool {
         self.cfg.state().shuffle
+    }
+
+    pub fn get_random_order(&self) -> Option<Vec<usize>> {
+        self.random_order.read().unwrap().clone()
     }
 
     fn generate_random_order(&self) {
