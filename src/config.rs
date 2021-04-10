@@ -65,6 +65,7 @@ pub struct QueueState {
     pub current_track: Option<usize>,
     pub random_order: Option<Vec<usize>>,
     pub track_progress: std::time::Duration,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub queue: Vec<Playable>,
 }
 
