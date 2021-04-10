@@ -9,7 +9,7 @@ use platform_dirs::AppDirs;
 use crate::command::{SortDirection, SortKey};
 use crate::playable::Playable;
 use crate::queue;
-use crate::serialization::{Serializer, TOML};
+use crate::serialization::{Serializer, CBOR, TOML};
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
@@ -66,7 +66,6 @@ pub struct QueueState {
     pub current_track: Option<usize>,
     pub random_order: Option<Vec<usize>>,
     pub track_progress: std::time::Duration,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub queue: Vec<Playable>,
 }
 
@@ -109,8 +108,8 @@ impl Config {
         });
 
         let mut userstate = {
-            let path = config_path("userstate.toml");
-            TOML.load_or_generate_default(path, || Ok(UserState::default()), true)
+            let path = config_path("userstate.cbor");
+            CBOR.load_or_generate_default(path, || Ok(UserState::default()), true)
                 .expect("could not load user state")
         };
 
@@ -145,9 +144,9 @@ impl Config {
     }
 
     pub fn save_state(&self) {
-        let path = config_path("userstate.toml");
+        let path = config_path("userstate.cbor");
         debug!("saving user state to {}", path.display());
-        if let Err(e) = TOML.write(path, self.state().clone()) {
+        if let Err(e) = CBOR.write(path, self.state().clone()) {
             error!("Could not save user state: {}", e);
         }
     }
