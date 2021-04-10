@@ -60,6 +60,7 @@ mod library;
 mod playable;
 mod playlist;
 mod queue;
+mod serialization;
 mod sharing;
 mod show;
 mod spotify;

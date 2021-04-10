@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{fs, process};
 
@@ -9,6 +9,7 @@ use platform_dirs::AppDirs;
 use crate::command::{SortDirection, SortKey};
 use crate::playable::Playable;
 use crate::queue;
+use crate::serialization::{Serializer, TOML};
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
@@ -109,7 +110,7 @@ impl Config {
 
         let mut userstate = {
             let path = config_path("userstate.toml");
-            load_or_generate_default(path, |_| Ok(UserState::default()), true)
+            TOML.load_or_generate_default(path, || Ok(UserState::default()), true)
                 .expect("could not load user state")
         };
 
@@ -146,7 +147,7 @@ impl Config {
     pub fn save_state(&self) {
         let path = config_path("userstate.toml");
         debug!("saving user state to {}", path.display());
-        if let Err(e) = write_content_helper(path, self.state().clone()) {
+        if let Err(e) = TOML.write(path, self.state().clone()) {
             error!("Could not save user state: {}", e);
         }
     }
@@ -164,7 +165,7 @@ impl Config {
 
 fn load() -> Result<ConfigValues, String> {
     let path = config_path("config.toml");
-    load_or_generate_default(path, |_| Ok(ConfigValues::default()), false)
+    TOML.load_or_generate_default(path, || Ok(ConfigValues::default()), false)
 }
 
 fn proj_dirs() -> AppDirs {
@@ -202,53 +203,4 @@ pub fn cache_path(file: &str) -> PathBuf {
     let mut pb = cache_dir.to_path_buf();
     pb.push(file);
     pb
-}
-
-/// Configuration and credential file helper
-/// Creates a default configuration if none exist, otherwise will optionally overwrite
-/// the file if it fails to parse
-pub fn load_or_generate_default<
-    P: AsRef<Path>,
-    T: serde::Serialize + serde::de::DeserializeOwned,
-    F: Fn(&Path) -> Result<T, String>,
->(
-    path: P,
-    default: F,
-    default_on_parse_failure: bool,
-) -> Result<T, String> {
-    let path = path.as_ref();
-    // Nothing exists so just write the default and return it
-    if !path.exists() {
-        let value = default(&path)?;
-        return write_content_helper(&path, value);
-    }
-
-    // load the serialized content. Always report this failure
-    let contents = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Unable to read {}: {}", path.to_string_lossy(), e))?;
-
-    // Deserialize the content, optionally fall back to default if it fails
-    let result = toml::from_str(&contents);
-    if default_on_parse_failure && result.is_err() {
-        let value = default(&path)?;
-        return write_content_helper(&path, value);
-    }
-    result.map_err(|e| format!("Unable to parse {}: {}", path.to_string_lossy(), e))
-}
-
-fn write_content_helper<P: AsRef<Path>, T: serde::Serialize>(
-    path: P,
-    value: T,
-) -> Result<T, String> {
-    let content =
-        toml::to_string_pretty(&value).map_err(|e| format!("Failed serializing value: {}", e))?;
-    fs::write(path.as_ref(), content)
-        .map(|_| value)
-        .map_err(|e| {
-            format!(
-                "Failed writing content to {}: {}",
-                path.as_ref().display(),
-                e
-            )
-        })
 }
