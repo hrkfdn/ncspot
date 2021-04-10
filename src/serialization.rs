@@ -68,4 +68,42 @@ impl Serializer for TomlSerializer {
     }
 }
 
+pub struct CborSerializer {}
+impl Serializer for CborSerializer {
+    fn load<P: AsRef<Path>, T: serde::Serialize + serde::de::DeserializeOwned>(
+        &self,
+        path: P,
+    ) -> Result<T, String> {
+        let contents = std::fs::read(&path)
+            .map_err(|e| format!("Unable to read {}: {}", path.as_ref().to_string_lossy(), e))?;
+        serde_cbor::from_slice(&contents).map_err(|e| {
+            format!(
+                "Unable to parse CBOR {}: {}",
+                path.as_ref().to_string_lossy(),
+                e
+            )
+        })
+    }
+
+    fn write<P: AsRef<Path>, T: serde::Serialize>(&self, path: P, value: T) -> Result<T, String> {
+        let file = std::fs::File::create(&path).map_err(|e| {
+            format!(
+                "Failed creating file {}: {}",
+                path.as_ref().to_string_lossy(),
+                e
+            )
+        })?;
+        serde_cbor::to_writer(file, &value)
+            .map(|_| value)
+            .map_err(|e| {
+                format!(
+                    "Failed writing content to {}: {}",
+                    path.as_ref().display(),
+                    e
+                )
+            })
+    }
+}
+
 pub static TOML: TomlSerializer = TomlSerializer {};
+pub static CBOR: CborSerializer = CborSerializer {};
