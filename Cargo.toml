@@ -2,7 +2,7 @@
 name = "ncspot"
 description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
 exclude = ["screenshots/**"]
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
 repository = "https://github.com/hrkfdn/ncspot"
 keywords = ["spotify", "ncurses", "librespot", "terminal"]
