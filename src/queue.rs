@@ -21,6 +21,11 @@ pub enum RepeatSetting {
     RepeatTrack,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum QueueEvent {
+    PreloadTrackRequest,
+}
+
 pub struct Queue {
     pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,
@@ -380,6 +385,18 @@ impl Queue {
         } else {
             let mut random_order = self.random_order.write().unwrap();
             *random_order = None;
+        }
+    }
+
+    pub fn handle_event(&self, event: QueueEvent) {
+        match event {
+            QueueEvent::PreloadTrackRequest => {
+                if let Some(next_index) = self.next_index() {
+                    let track = self.queue.read().unwrap()[next_index].clone();
+                    debug!("Preloading track {} as requested by librespot", track);
+                    self.spotify.preload(&track);
+                }
+            }
         }
     }
 

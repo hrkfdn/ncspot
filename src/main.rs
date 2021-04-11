@@ -328,6 +328,9 @@ fn main() {
                         queue.next(false);
                     }
                 }
+                Event::Queue(event) => {
+                    queue.handle_event(event);
+                }
                 Event::SessionDied => spotify.start_worker(None),
             }
         }

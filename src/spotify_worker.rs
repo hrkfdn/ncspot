@@ -1,5 +1,6 @@
 use crate::events::{Event, EventManager};
 use crate::playable::Playable;
+use crate::queue::QueueEvent;
 use crate::spotify::{PlayerEvent, Spotify};
 use futures::channel::{mpsc, oneshot};
 use futures::compat::Stream01CompatExt;
@@ -25,6 +26,7 @@ pub(crate) enum WorkerCommand {
     Seek(u32),
     SetVolume(u16),
     RequestToken(oneshot::Sender<Token>),
+    Preload(Playable),
     Shutdown,
 }
 
@@ -126,6 +128,12 @@ impl futures::Future for Worker {
                         self.token_task = Spotify::get_token(&self.session, sender);
                         progress = true;
                     }
+                    WorkerCommand::Preload(playable) => {
+                        if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
+                            debug!("Preloading {:?}", id);
+                            self.player.preload(id);
+                        }
+                    }
                     WorkerCommand::Shutdown => {
                         self.player.stop();
                         self.session.shutdown();
@@ -172,6 +180,10 @@ impl futures::Future for Worker {
                     LibrespotPlayerEvent::EndOfTrack { .. } => {
                         self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                         progress = true;
+                    }
+                    LibrespotPlayerEvent::TimeToPreloadNextTrack { .. } => {
+                        self.events
+                            .send(Event::Queue(QueueEvent::PreloadTrackRequest));
                     }
                     _ => {}
                 }

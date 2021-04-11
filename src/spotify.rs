@@ -842,6 +842,10 @@ impl Spotify {
         self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
     }
 
+    pub fn preload(&self, track: &Playable) {
+        self.send_worker(WorkerCommand::Preload(track.clone()));
+    }
+
     pub fn shutdown(&self) {
         self.send_worker(WorkerCommand::Shutdown);
     }

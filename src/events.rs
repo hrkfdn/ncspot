@@ -1,10 +1,12 @@
 use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
 use cursive::{CbSink, Cursive};
 
+use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
 
 pub enum Event {
     Player(PlayerEvent),
+    Queue(QueueEvent),
     SessionDied,
 }
 
