@@ -60,8 +60,8 @@ pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlayerEvent {
-    Playing,
-    Paused,
+    Playing(SystemTime),
+    Paused(Duration),
     Stopped,
     FinishedTrack,
 }
@@ -746,12 +746,13 @@ impl Spotify {
 
     pub fn update_status(&self, new_status: PlayerEvent) {
         match new_status {
-            PlayerEvent::Paused => {
-                self.set_elapsed(Some(self.get_current_progress()));
+            PlayerEvent::Paused(position) => {
+                self.set_elapsed(Some(position));
                 self.set_since(None);
             }
-            PlayerEvent::Playing => {
-                self.set_since(Some(SystemTime::now()));
+            PlayerEvent::Playing(playback_start) => {
+                self.set_since(Some(playback_start));
+                self.set_elapsed(None);
             }
             PlayerEvent::Stopped | PlayerEvent::FinishedTrack => {
                 self.set_elapsed(None);
@@ -778,8 +779,8 @@ impl Spotify {
 
     pub fn toggleplayback(&self) {
         match self.get_current_status() {
-            PlayerEvent::Playing => self.pause(),
-            PlayerEvent::Paused => self.play(),
+            PlayerEvent::Playing(_) => self.pause(),
+            PlayerEvent::Paused(_) => self.play(),
             _ => (),
         }
     }
@@ -805,13 +806,6 @@ impl Spotify {
     }
 
     pub fn seek(&self, position_ms: u32) {
-        self.set_elapsed(Some(Duration::from_millis(position_ms.into())));
-        self.set_since(if self.get_current_status() == PlayerEvent::Playing {
-            Some(SystemTime::now())
-        } else {
-            None
-        });
-
         self.send_worker(WorkerCommand::Seek(position_ms));
     }
 

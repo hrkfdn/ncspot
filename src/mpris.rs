@@ -30,8 +30,8 @@ struct MprisState(String, Option<Playable>);
 
 fn get_playbackstatus(spotify: Spotify) -> String {
     match spotify.get_current_status() {
-        PlayerEvent::Playing | PlayerEvent::FinishedTrack => "Playing",
-        PlayerEvent::Paused => "Paused",
+        PlayerEvent::Playing(_) | PlayerEvent::FinishedTrack => "Playing",
+        PlayerEvent::Paused(_) => "Paused",
         _ => "Stopped",
     }
     .to_string()

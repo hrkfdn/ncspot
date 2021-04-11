@@ -273,7 +273,7 @@ impl Queue {
 
     pub fn toggleplayback(&self) {
         match self.spotify.get_current_status() {
-            PlayerEvent::Playing | PlayerEvent::Paused => {
+            PlayerEvent::Playing(_) | PlayerEvent::Paused(_) => {
                 self.spotify.toggleplayback();
             }
             PlayerEvent::Stopped => match self.next_index() {

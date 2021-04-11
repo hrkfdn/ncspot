@@ -14,8 +14,8 @@ use librespot_core::session::Session;
 use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
-use std::pin::Pin;
 use std::time::Duration;
+use std::{pin::Pin, time::SystemTime};
 
 pub(crate) enum WorkerCommand {
     Load(Playable, bool, u32),
@@ -141,13 +141,28 @@ impl futures::Future for Worker {
                     | LibrespotPlayerEvent::Changed { .. } => {
                         progress = true;
                     }
-                    LibrespotPlayerEvent::Playing { .. } => {
-                        self.events.send(Event::Player(PlayerEvent::Playing));
+                    LibrespotPlayerEvent::Playing {
+                        play_request_id: _,
+                        track_id: _,
+                        position_ms,
+                        duration_ms: _,
+                    } => {
+                        let position = Duration::from_millis(position_ms as u64);
+                        let playback_start = SystemTime::now() - position;
+                        self.events
+                            .send(Event::Player(PlayerEvent::Playing(playback_start)));
                         self.refresh_task = self.create_refresh();
                         self.active = true;
                     }
-                    LibrespotPlayerEvent::Paused { .. } => {
-                        self.events.send(Event::Player(PlayerEvent::Paused));
+                    LibrespotPlayerEvent::Paused {
+                        play_request_id: _,
+                        track_id: _,
+                        position_ms,
+                        duration_ms: _,
+                    } => {
+                        let position = Duration::from_millis(position_ms as u64);
+                        self.events
+                            .send(Event::Player(PlayerEvent::Paused(position)));
                         self.active = false;
                     }
                     LibrespotPlayerEvent::Stopped { .. } => {
