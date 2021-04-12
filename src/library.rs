@@ -618,17 +618,11 @@ impl Library {
             }
         }
 
-        album.load_all_tracks(self.spotify.clone());
-
         {
             let mut store = self.albums.write().unwrap();
             if !store.iter().any(|a| a.id == album.id) {
                 store.insert(0, album.clone());
             }
-        }
-
-        if let Some(tracks) = album.tracks.as_ref() {
-            self.save_tracks(tracks.iter().collect(), false);
         }
 
         self.save_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
@@ -649,15 +643,9 @@ impl Library {
             }
         }
 
-        album.load_all_tracks(self.spotify.clone());
-
         {
             let mut store = self.albums.write().unwrap();
             *store = store.iter().filter(|a| a.id != album.id).cloned().collect();
-        }
-
-        if let Some(tracks) = album.tracks.as_ref() {
-            self.unsave_tracks(tracks.iter().collect(), false);
         }
 
         self.save_cache(config::cache_path(CACHE_ALBUMS), self.albums.clone());
