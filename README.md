@@ -139,10 +139,13 @@ depending on your desktop environment settings. Have a look at the
 Use `/` to open a Vim-like search bar, you can use `n` and `N` to go for the next/previous
 search occurrence, respectivly.
 
+### Commands
+
 You can also open a Vim style commandprompt using `:`, the following commands
 are supported:
 
 * `quit`: Quit ncspot
+* `logout`: Remove any cached credentials from disk and quit ncspot
 * `toggle`: Toggle playback
 * `stop`: Stop playback
 * `previous`/`next`: Play previous/next track
@@ -247,3 +250,11 @@ To allow scaling the album art up beyond its resolution (640x640 for Spotify cov
 ```
 cover_max_scale = 2
 ```
+
+### Authentication 
+
+`ncspot` prompts for a Spotify username and password on first launch, uses this to generate an OAuth token, and stores it to disk.
+
+The credentials are stored in `~/.cache/ncspot/librespot/credentials.json` (unless the base path has been changed with the `--basepath` option).
+
+The `:logout` command can be used to programmatically remove cached credentials (see [Commands](#commands) above).
