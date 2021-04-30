@@ -5,35 +5,3 @@ updates:
   schedule:
     interval: daily
     time: "04:00"
-  open-pull-requests-limit: 10
-  ignore:
-  - dependency-name: crossbeam-channel
-    versions:
-    - 0.5.1
-  - dependency-name: futures
-    versions:
-    - 0.3.14
-  - dependency-name: libc
-    versions:
-    - 0.2.85
-    - 0.2.88
-    - 0.2.91
-    - 0.2.93
-  - dependency-name: dbus-tree
-    versions:
-    - 0.9.1
-  - dependency-name: serde
-    versions:
-    - 1.0.125
-  - dependency-name: serde_json
-    versions:
-    - 1.0.63
-  - dependency-name: librespot-core
-    versions:
-    - 0.1.6
-  - dependency-name: librespot-protocol
-    versions:
-    - 0.1.6
-  - dependency-name: url
-    versions:
-    - 2.2.0
