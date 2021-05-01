@@ -300,6 +300,10 @@ fn main() {
                     if let Some(data) = s.user_data::<UserData>().cloned() {
                         data.cmd.handle(s, parsed)
                     }
+                } else {
+                    let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
+                    let err_msg = format!("Unknown command: \"{}\"", c);
+                    main.set_result(Err(err_msg));
                 }
             }
             ev.trigger();
