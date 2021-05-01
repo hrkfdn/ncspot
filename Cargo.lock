@@ -2023,7 +2023,6 @@ dependencies = [
  "futures 0.3.14",
  "ioctl-rs",
  "lazy_static",
- "libc",
  "librespot-core",
  "librespot-playback",
  "librespot-protocol",
