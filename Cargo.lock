@@ -2043,7 +2043,7 @@ dependencies = [
  "tokio-timer",
  "toml",
  "unicode-width",
- "url 1.7.2",
+ "url 2.2.1",
  "webbrowser",
 ]
 
