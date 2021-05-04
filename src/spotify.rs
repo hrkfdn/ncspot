@@ -5,6 +5,7 @@ use librespot_core::keymaster::Token;
 use librespot_core::mercury::MercuryError;
 use librespot_core::session::Session;
 use librespot_playback::config::PlayerConfig;
+use log::{debug, error, info};
 
 use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;

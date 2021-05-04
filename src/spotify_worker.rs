@@ -15,6 +15,7 @@ use librespot_core::session::Session;
 use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
+use log::{debug, error, info, warn};
 use std::time::Duration;
 use std::{pin::Pin, time::SystemTime};
 

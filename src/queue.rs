@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::sync::{Arc, RwLock};
 
+use log::{debug, error, info};
 #[cfg(feature = "notify")]
 use notify_rust::Notification;
 

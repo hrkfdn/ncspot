@@ -1,6 +1,3 @@
-extern crate dbus;
-extern crate dbus_tree;
-
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{mpsc, Arc};
@@ -11,6 +8,7 @@ use dbus::ffidisp::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use dbus::message::SignalArgs;
 use dbus::strings::Path;
 use dbus_tree::{Access, Factory};
+use log::{debug, warn};
 
 use crate::album::Album;
 use crate::episode::Episode;

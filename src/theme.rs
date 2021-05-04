@@ -2,6 +2,7 @@ use cursive::theme::BaseColor::*;
 use cursive::theme::Color::*;
 use cursive::theme::PaletteColor::*;
 use cursive::theme::*;
+use log::warn;
 
 use crate::config::ConfigTheme;
 

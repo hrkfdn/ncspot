@@ -4,6 +4,7 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{fs, process};
 
 use cursive::theme::Theme;
+use log::{debug, error};
 use platform_dirs::AppDirs;
 
 use crate::command::{SortDirection, SortKey};

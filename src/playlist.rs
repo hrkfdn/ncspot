@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::{cmp::Ordering, iter::Iterator};
 
+use log::debug;
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use crate::playable::Playable;
