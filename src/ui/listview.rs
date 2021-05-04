@@ -1,3 +1,4 @@
+use log::{info, trace};
 use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
 

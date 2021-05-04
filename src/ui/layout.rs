@@ -10,6 +10,7 @@ use cursive::vec::Vec2;
 use cursive::view::{IntoBoxedView, Selector};
 use cursive::views::EditView;
 use cursive::{Cursive, Printer};
+use log::debug;
 use unicode_width::UnicodeWidthStr;
 
 use crate::command::Command;

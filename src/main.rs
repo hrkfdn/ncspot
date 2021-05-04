@@ -1,39 +1,9 @@
-extern crate clap;
-extern crate crossbeam_channel;
 #[macro_use]
 extern crate cursive;
-#[cfg(feature = "share_clipboard")]
-extern crate clipboard;
-extern crate failure;
-extern crate futures;
 #[macro_use]
 extern crate lazy_static;
-extern crate librespot_core;
-extern crate librespot_playback;
-extern crate librespot_protocol;
-extern crate rspotify;
-extern crate tokio_core;
-extern crate tokio_timer;
-extern crate unicode_width;
-extern crate webbrowser;
-
 #[macro_use]
 extern crate serde;
-extern crate serde_json;
-extern crate toml;
-
-#[macro_use]
-extern crate log;
-extern crate chrono;
-extern crate fern;
-
-extern crate rand;
-extern crate url;
-
-extern crate strum;
-extern crate strum_macros;
-
-extern crate regex;
 
 use std::fs;
 use std::path::PathBuf;
@@ -42,10 +12,10 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 use cursive::traits::Identifiable;
-
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_playback::audio_backend;
+use log::{info, trace};
 
 mod album;
 mod artist;

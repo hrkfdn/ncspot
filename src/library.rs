@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
+use log::{debug, error, info};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 

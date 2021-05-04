@@ -25,6 +25,7 @@ use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::Dialog;
 use cursive::Cursive;
+use log::{debug, error, info};
 use std::cell::RefCell;
 
 pub enum CommandResult {
