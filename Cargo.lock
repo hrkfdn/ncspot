@@ -1729,7 +1729,7 @@ dependencies = [
  "hyper 0.11.27",
  "hyper-proxy",
  "lazy_static",
- "librespot-protocol",
+ "librespot-protocol 0.1.6",
  "log 0.4.14",
  "num-bigint",
  "num-integer",
@@ -1759,7 +1759,7 @@ dependencies = [
  "byteorder",
  "futures 0.1.31",
  "librespot-core",
- "librespot-protocol",
+ "librespot-protocol 0.1.6",
  "linear-map",
  "log 0.4.14",
  "protobuf",
@@ -1791,6 +1791,18 @@ name = "librespot-protocol"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d42302b49ef369d44a0dfe4fb9e8803e7500f0dda7ea95413457664f1eca0fd9"
+dependencies = [
+ "glob",
+ "protobuf",
+ "protobuf-codegen",
+ "protobuf-codegen-pure",
+]
+
+[[package]]
+name = "librespot-protocol"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c753be4c3bd0f02b30c00d5d8547f16d557654cb737e70505aec6aa9990435d"
 dependencies = [
  "glob",
  "protobuf",
@@ -2026,7 +2038,7 @@ dependencies = [
  "lazy_static",
  "librespot-core",
  "librespot-playback",
- "librespot-protocol",
+ "librespot-protocol 0.2.0",
  "log 0.4.14",
  "notify-rust",
  "platform-dirs",
