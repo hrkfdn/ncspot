@@ -133,8 +133,8 @@ depending on your desktop environment settings. Have a look at the
 * `r` to toggle repeat mode
 * `z` to toggle shuffle playback
 * `q` quits ncspot
-* `x` copies a sharable URL of the song to the system clipboard
-* `Shift-x` copies a sharable URL of the currently selected item to the system clipboard
+* `x` copies a sharable URL of the currently selected item to the system clipboard
+* `Shift-x` copies a sharable URL of the currently playing track to the system clipboard
 
 Use `/` to open a Vim-like search bar, you can use `n` and `N` to go for the next/previous
 search occurrence, respectivly.
