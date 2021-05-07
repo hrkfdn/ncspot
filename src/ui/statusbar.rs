@@ -72,14 +72,14 @@ impl View for StatusBar {
 
         let state_icon = if self.use_nerdfont {
             match self.spotify.get_current_status() {
-                PlayerEvent::Playing(_) => "\u{f909} ",
-                PlayerEvent::Paused(_) => "\u{f8e3} ",
+                PlayerEvent::Paused(_) => "\u{f909} ",
+                PlayerEvent::Playing(_) => "\u{f8e3} ",
                 PlayerEvent::Stopped | PlayerEvent::FinishedTrack => "\u{f9da} ",
             }
         } else {
             match self.spotify.get_current_status() {
-                PlayerEvent::Playing(_) => "▶ ",
-                PlayerEvent::Paused(_) => "▮▮",
+                PlayerEvent::Paused(_) => "▶ ",
+                PlayerEvent::Playing(_) => "▮▮",
                 PlayerEvent::Stopped | PlayerEvent::FinishedTrack => "◼ ",
             }
         }
