@@ -1,9 +1,8 @@
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_core::config::SessionConfig;
-use librespot_core::keymaster::Token;
-use librespot_core::mercury::MercuryError;
 use librespot_core::session::Session;
+use librespot_core::session::SessionError;
 use librespot_playback::config::PlayerConfig;
 use log::{debug, error, info};
 
@@ -26,22 +25,16 @@ use serde_json::{json, Map};
 
 use failure::Error;
 
-use futures_01::future::Future as v01_Future;
-
-use futures::channel::mpsc;
 use futures::channel::oneshot;
-use futures::compat::Future01CompatExt;
-use futures::Future;
+use tokio::sync::mpsc;
 
-use tokio_core::reactor::Core;
 use url::Url;
 
-use std::pin::Pin;
+use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
-use std::{env, io};
 
 use crate::artist::Artist;
 use crate::config;
@@ -117,7 +110,7 @@ impl Spotify {
     }
 
     pub fn start_worker(&self, user_tx: Option<oneshot::Sender<String>>) {
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, rx) = mpsc::unbounded_channel();
         *self
             .channel
             .write()
@@ -127,15 +120,9 @@ impl Spotify {
             let events = self.events.clone();
             let volume = self.volume();
             let credentials = self.credentials.clone();
-            thread::spawn(move || {
-                Self::worker(
-                    events,
-                    Box::pin(rx),
-                    cfg.clone(),
-                    credentials,
-                    user_tx,
-                    volume,
-                )
+            let handle = tokio::runtime::Handle::current();
+            handle.spawn(async move {
+                Self::worker(events, rx, cfg.clone(), credentials, user_tx, volume).await
             });
         }
 
@@ -155,72 +142,37 @@ impl Spotify {
         session_config
     }
 
-    pub fn test_credentials(credentials: Credentials) -> Result<Session, std::io::Error> {
-        let jh = thread::spawn(move || {
-            let mut core = Core::new().unwrap();
-            let config = Self::session_config();
-            let handle = core.handle();
-
-            core.run(Session::connect(config, credentials, None, handle))
-        });
-        match jh.join() {
-            Ok(session) => session,
-            Err(e) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                e.downcast_ref::<String>()
-                    .unwrap_or(&"N/A".to_string())
-                    .to_string(),
-            )),
-        }
+    pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
+        let config = Self::session_config();
+        // let rt = Runtime::new().unwrap();
+        let handle = tokio::runtime::Handle::current();
+        let jh = handle.spawn(async { Session::connect(config, credentials, None).await });
+        futures::executor::block_on(jh).unwrap()
     }
 
-    fn create_session(core: &mut Core, cfg: &config::Config, credentials: Credentials) -> Session {
+    async fn create_session(
+        cfg: &config::Config,
+        credentials: Credentials,
+    ) -> Result<Session, SessionError> {
         let session_config = Self::session_config();
+        let audio_cache_path = match cfg.values().audio_cache.unwrap_or(true) {
+            true => Some(config::cache_path("librespot").join("files")),
+            false => None,
+        };
         let cache = Cache::new(
-            config::cache_path("librespot"),
-            cfg.values().audio_cache.unwrap_or(true),
-        );
-        let handle = core.handle();
+            Some(config::cache_path("librespot")),
+            audio_cache_path,
+            None,
+        )
+        .expect("Could not create cache");
         debug!("opening spotify session");
         println!("Connecting to Spotify..");
-        core.run(Session::connect(
-            session_config,
-            credentials,
-            Some(cache),
-            handle,
-        ))
-        .expect("could not open spotify session")
+        Session::connect(session_config, credentials, Some(cache)).await
     }
 
-    pub(crate) fn get_token(
-        session: &Session,
-        sender: oneshot::Sender<Token>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), MercuryError>>>> {
-        let client_id = config::CLIENT_ID;
-        let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
-        let url = format!(
-            "hm://keymaster/token/authenticated?client_id={}&scope={}",
-            client_id, scopes
-        );
-        Box::pin(
-            session
-                .mercury()
-                .get(url)
-                .map(move |response| {
-                    let data = response.payload.first().expect("Empty payload");
-                    let data = String::from_utf8(data.clone()).unwrap();
-                    let token: Token = serde_json::from_str(&data).unwrap();
-                    info!("new token received: {:?}", token);
-                    token
-                })
-                .map(|token| sender.send(token).unwrap())
-                .compat(),
-        )
-    }
-
-    fn worker(
+    async fn worker(
         events: EventManager,
-        commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
+        commands: mpsc::UnboundedReceiver<WorkerCommand>,
         cfg: Arc<config::Config>,
         credentials: Credentials,
         user_tx: Option<oneshot::Sender<String>>,
@@ -237,11 +189,12 @@ impl Spotify {
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.values().volnorm.unwrap_or(false),
             normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
+            ..Default::default()
         };
 
-        let mut core = Core::new().unwrap();
-
-        let session = Self::create_session(&mut core, &cfg, credentials);
+        let session = Self::create_session(&cfg, credentials)
+            .await
+            .expect("Could not create session");
         user_tx.map(|tx| tx.send(session.username()));
 
         let create_mixer = librespot_playback::mixer::find(Some("softvol".to_owned()))
@@ -250,14 +203,15 @@ impl Spotify {
         mixer.set_volume(volume);
 
         let backend = audio_backend::find(cfg.values().backend.clone()).unwrap();
+        let audio_format: librespot_playback::config::AudioFormat = Default::default();
         let (player, player_events) = Player::new(
             player_config,
             session.clone(),
             mixer.get_audio_filter(),
-            move || (backend)(cfg.values().backend_device.clone()),
+            move || (backend)(cfg.values().backend_device.clone(), audio_format),
         );
 
-        let worker = Worker::new(
+        let mut worker = Worker::new(
             events.clone(),
             player_events,
             commands,
@@ -266,10 +220,10 @@ impl Spotify {
             mixer,
         );
         debug!("worker thread ready.");
-        if core.run(futures::compat::Compat::new(worker)).is_err() {
-            error!("worker thread died, requesting restart");
-            events.send(Event::SessionDied)
-        }
+        worker.run_loop().await;
+
+        error!("worker thread died, requesting restart");
+        events.send(Event::SessionDied)
     }
 
     pub fn get_current_status(&self) -> PlayerEvent {
@@ -789,9 +743,7 @@ impl Spotify {
     fn send_worker(&self, cmd: WorkerCommand) {
         let channel = self.channel.read().expect("can't readlock worker channel");
         match channel.as_ref() {
-            Some(channel) => channel
-                .unbounded_send(cmd)
-                .expect("can't send message to worker"),
+            Some(channel) => channel.send(cmd).expect("can't send message to worker"),
             None => error!("no channel to worker available"),
         }
     }
