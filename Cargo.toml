@@ -16,7 +16,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 clap = "2.33.0"
 chrono = "0.4"
-reqwest = "0.9"
+reqwest = "0.10"
 crossbeam-channel = "0.5"
 platform-dirs = "0.3.0"
 failure = "0.1"
