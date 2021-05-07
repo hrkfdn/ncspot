@@ -1,16 +1,11 @@
+use crate::config;
 use crate::events::{Event, EventManager};
 use crate::playable::Playable;
 use crate::queue::QueueEvent;
-use crate::spotify::{PlayerEvent, Spotify};
-use futures::channel::{mpsc, oneshot};
-use futures::compat::Stream01CompatExt;
-use futures::task::{Context, Poll};
-use futures::{Future, Stream};
-use futures_01::stream::Stream as v01_Stream;
-use futures_01::sync::mpsc::UnboundedReceiver;
-use futures_01::Async as v01_Async;
+use crate::spotify::PlayerEvent;
+use futures::channel::oneshot;
+use futures::{Future, FutureExt};
 use librespot_core::keymaster::Token;
-use librespot_core::mercury::MercuryError;
 use librespot_core::session::Session;
 use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
 use librespot_playback::mixer::Mixer;
@@ -18,7 +13,12 @@ use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 use log::{debug, error, info, warn};
 use std::time::Duration;
 use std::{pin::Pin, time::SystemTime};
+use tokio::sync::mpsc;
+use tokio::time;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::StreamExt;
 
+#[derive(Debug)]
 pub(crate) enum WorkerCommand {
     Load(Playable, bool, u32),
     Play,
@@ -33,12 +33,11 @@ pub(crate) enum WorkerCommand {
 
 pub struct Worker {
     events: EventManager,
-    player_events: UnboundedReceiver<LibrespotPlayerEvent>,
-    commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
+    player_events: UnboundedReceiverStream<LibrespotPlayerEvent>,
+    commands: UnboundedReceiverStream<WorkerCommand>,
     session: Session,
     player: Player,
-    refresh_task: Pin<Box<dyn Stream<Item = Result<(), tokio_timer::Error>>>>,
-    token_task: Pin<Box<dyn Future<Output = Result<(), MercuryError>>>>,
+    token_task: Pin<Box<dyn Future<Output = ()> + Send>>,
     active: bool,
     mixer: Box<dyn Mixer>,
 }
@@ -46,19 +45,18 @@ pub struct Worker {
 impl Worker {
     pub(crate) fn new(
         events: EventManager,
-        player_events: UnboundedReceiver<LibrespotPlayerEvent>,
-        commands: Pin<Box<mpsc::UnboundedReceiver<WorkerCommand>>>,
+        player_events: mpsc::UnboundedReceiver<LibrespotPlayerEvent>,
+        commands: mpsc::UnboundedReceiver<WorkerCommand>,
         session: Session,
         player: Player,
         mixer: Box<dyn Mixer>,
     ) -> Worker {
         Worker {
             events,
-            player_events,
-            commands,
+            player_events: UnboundedReceiverStream::new(player_events),
+            commands: UnboundedReceiverStream::new(commands),
             player,
             session,
-            refresh_task: Box::pin(futures::stream::empty()),
             token_task: Box::pin(futures::future::pending()),
             active: false,
             mixer,
@@ -67,33 +65,43 @@ impl Worker {
 }
 
 impl Worker {
-    fn create_refresh(&self) -> Pin<Box<dyn Stream<Item = Result<(), tokio_timer::Error>>>> {
-        let ev = self.events.clone();
-        let future =
-            tokio_timer::Interval::new_interval(Duration::from_millis(400)).map(move |_| {
-                ev.trigger();
-            });
-        Box::pin(future.compat())
+    fn get_token(
+        &self,
+        sender: oneshot::Sender<Token>,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        let client_id = config::CLIENT_ID;
+        let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
+        let url = format!(
+            "hm://keymaster/token/authenticated?client_id={}&scope={}",
+            client_id, scopes
+        );
+        Box::pin(
+            self.session
+                .mercury()
+                .get(url)
+                .map(move |response| {
+                    let payload = response
+                        .as_ref()
+                        .unwrap()
+                        .payload
+                        .first()
+                        .expect("Empty payload");
+                    let data = String::from_utf8(payload.clone()).unwrap();
+                    let token: Token = serde_json::from_str(&data).unwrap();
+                    info!("new token received: {:?}", token);
+                    token
+                })
+                .map(|token| sender.send(token).unwrap()),
+        )
     }
-}
 
-impl futures::Future for Worker {
-    type Output = Result<(), ()>;
+    pub async fn run_loop(&mut self) {
+        let mut ui_refresh = time::interval(Duration::from_millis(400));
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> futures::task::Poll<Self::Output> {
         loop {
-            let mut progress = false;
-
-            if self.session.is_invalid() {
-                self.events.send(Event::Player(PlayerEvent::Stopped));
-                return Poll::Ready(Result::Err(()));
-            }
-
-            if let Poll::Ready(Some(cmd)) = self.commands.as_mut().poll_next(cx) {
-                progress = true;
-                debug!("message received!");
-                match cmd {
-                    WorkerCommand::Load(playable, start_playing, position_ms) => {
+            tokio::select! {
+                cmd = self.commands.next() => match cmd {
+                    Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
                         match SpotifyId::from_uri(&playable.uri()) {
                             Ok(id) => {
                                 info!("player loading track: {:?}", id);
@@ -110,46 +118,37 @@ impl futures::Future for Worker {
                             }
                         }
                     }
-                    WorkerCommand::Play => {
+                    Some(WorkerCommand::Play) => {
                         self.player.play();
                     }
-                    WorkerCommand::Pause => {
+                    Some(WorkerCommand::Pause) => {
                         self.player.pause();
                     }
-                    WorkerCommand::Stop => {
+                    Some(WorkerCommand::Stop) => {
                         self.player.stop();
                     }
-                    WorkerCommand::Seek(pos) => {
+                    Some(WorkerCommand::Seek(pos)) => {
                         self.player.seek(pos);
                     }
-                    WorkerCommand::SetVolume(volume) => {
+                    Some(WorkerCommand::SetVolume(volume)) => {
                         self.mixer.set_volume(volume);
                     }
-                    WorkerCommand::RequestToken(sender) => {
-                        self.token_task = Spotify::get_token(&self.session, sender);
-                        progress = true;
+                    Some(WorkerCommand::RequestToken(sender)) => {
+                        self.token_task = self.get_token(sender);
                     }
-                    WorkerCommand::Preload(playable) => {
+                    Some(WorkerCommand::Preload(playable)) => {
                         if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
                             debug!("Preloading {:?}", id);
                             self.player.preload(id);
                         }
                     }
-                    WorkerCommand::Shutdown => {
+                    Some(WorkerCommand::Shutdown) => {
                         self.player.stop();
                         self.session.shutdown();
                     }
-                }
-            }
-
-            if let Ok(v01_Async::Ready(Some(event))) = self.player_events.poll() {
-                debug!("librespot player event: {:?}", event);
-                match event {
-                    LibrespotPlayerEvent::Started { .. }
-                    | LibrespotPlayerEvent::Loading { .. }
-                    | LibrespotPlayerEvent::Changed { .. } => {
-                        progress = true;
-                    }
+                    None => info!("empty stream")
+                },
+                event = self.player_events.next() => match event.unwrap() {
                     LibrespotPlayerEvent::Playing {
                         play_request_id: _,
                         track_id: _,
@@ -160,7 +159,6 @@ impl futures::Future for Worker {
                         let playback_start = SystemTime::now() - position;
                         self.events
                             .send(Event::Player(PlayerEvent::Playing(playback_start)));
-                        self.refresh_task = self.create_refresh();
                         self.active = true;
                     }
                     LibrespotPlayerEvent::Paused {
@@ -180,38 +178,27 @@ impl futures::Future for Worker {
                     }
                     LibrespotPlayerEvent::EndOfTrack { .. } => {
                         self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                        progress = true;
                     }
                     LibrespotPlayerEvent::TimeToPreloadNextTrack { .. } => {
                         self.events
                             .send(Event::Queue(QueueEvent::PreloadTrackRequest));
                     }
                     _ => {}
-                }
-            }
-
-            if let Poll::Ready(Some(Ok(_))) = self.refresh_task.as_mut().poll_next(cx) {
-                self.refresh_task = if self.active {
-                    progress = true;
-                    self.create_refresh()
-                } else {
-                    Box::pin(futures::stream::empty())
-                };
-            }
-
-            match self.token_task.as_mut().poll(cx) {
-                Poll::Ready(Ok(_)) => {
+                },
+                _ = ui_refresh.tick() => {
+                    if self.active {
+                        self.events.trigger();
+                    }
+                },
+                _ = self.token_task.as_mut() => {
                     info!("token updated!");
-                    self.token_task = Box::pin(futures::future::pending())
+                    self.token_task = Box::pin(futures::future::pending());
                 }
-                Poll::Ready(Err(e)) => {
-                    error!("could not generate token: {:?}", e);
-                }
-                _ => (),
             }
 
-            if !progress {
-                return Poll::Pending;
+            if self.session.is_invalid() {
+                self.events.send(Event::Player(PlayerEvent::Stopped));
+                break;
             }
         }
     }

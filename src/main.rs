@@ -95,7 +95,8 @@ struct UserDataInner {
     pub cmd: CommandManager,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
@@ -139,7 +140,12 @@ fn main() {
     // otherwise the error message will not be seen by a user
     let cfg: Arc<crate::config::Config> = Arc::new(Config::new());
 
-    let cache = Cache::new(config::cache_path("librespot"), true);
+    let cache = Cache::new(
+        Some(config::cache_path("librespot")),
+        Some(config::cache_path("librespot").join("files")),
+        None,
+    )
+    .expect("Could not create librespot cache");
     let mut credentials = {
         let cached_credentials = cache.credentials();
         match cached_credentials {
@@ -152,10 +158,7 @@ fn main() {
     };
 
     while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
-        let error_msg = match error.get_ref() {
-            Some(inner) => inner.to_string(),
-            None => error.to_string(),
-        };
+        let error_msg = format!("{}", error);
         credentials = credentials_prompt(Some(error_msg));
     }
 
