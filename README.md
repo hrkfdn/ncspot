@@ -185,6 +185,7 @@ Possible configuration values are:
 * `backend_device`: Audio device string to configure the backend
 * `audio_cache`: Enable or disable caching of audio files, on by default
   <true/false>
+* `audio_cache_size`: Maximum size of audio cache in MiB
 * `volnorm`: Enable or disable volume normalization, off by default <true/false>
 * `volnorm_pregain`: Normalization pregain to apply (if enabled)
 * `default_keybindings`: If disabled, the default keybindings are discarded, off

@@ -162,7 +162,9 @@ impl Spotify {
         let cache = Cache::new(
             Some(config::cache_path("librespot")),
             audio_cache_path,
-            None,
+            cfg.values()
+                .audio_cache_size
+                .map(|size| (size * 1048576) as u64),
         )
         .expect("Could not create cache");
         debug!("opening spotify session");
