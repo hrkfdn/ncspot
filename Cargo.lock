@@ -1984,7 +1984,7 @@ dependencies = [
 
 [[package]]
 name = "ncspot"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "clap",
