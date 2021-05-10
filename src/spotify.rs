@@ -144,7 +144,6 @@ impl Spotify {
 
     pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
         let config = Self::session_config();
-        // let rt = Runtime::new().unwrap();
         let handle = tokio::runtime::Handle::current();
         let jh = handle.spawn(async { Session::connect(config, credentials, None).await });
         futures::executor::block_on(jh).unwrap()
