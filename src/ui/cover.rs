@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::{Cursive, Printer, Vec2, View};
 use ioctl_rs::{ioctl, TIOCGWINSZ};
+use log::{debug, error};
 
 use crate::command::{Command, GotoMode};
 use crate::commands::CommandResult;
