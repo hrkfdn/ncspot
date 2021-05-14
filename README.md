@@ -180,6 +180,9 @@ configuration during runtime use the `reload` statement in the command prompt
 Possible configuration values are:
 
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
+* `flip_status_indicators`: By default the statusbar will show a play icon when
+   a track is playing and a pause icon when playback is stopped. If this setting
+   is enabled, the behavior is reversed. <true/false>
 * `theme`: Set a custom color palette (see below)
 * `backend`: Audio backend to use, run `ncspot -h` for a list of devices
 * `backend_device`: Audio device string to configure the backend

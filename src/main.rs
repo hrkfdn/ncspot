@@ -185,7 +185,7 @@ async fn main() {
         spotify.clone(),
         queue.clone(),
         library.clone(),
-        cfg.clone(),
+        cfg,
         event_manager.clone(),
     );
 
@@ -204,11 +204,7 @@ async fn main() {
     #[cfg(feature = "cover")]
     let coverview = ui::cover::CoverView::new(queue.clone(), library.clone(), &cfg);
 
-    let status = ui::statusbar::StatusBar::new(
-        queue.clone(),
-        library,
-        cfg.values().use_nerdfont.unwrap_or(false),
-    );
+    let status = ui::statusbar::StatusBar::new(queue.clone(), library);
 
     let mut layout = ui::layout::Layout::new(status, &event_manager, theme)
         .screen("search", search.with_name("search"))

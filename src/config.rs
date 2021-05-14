@@ -20,6 +20,7 @@ pub struct ConfigValues {
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,
     pub use_nerdfont: Option<bool>,
+    pub flip_status_indicators: Option<bool>,
     pub audio_cache: Option<bool>,
     pub audio_cache_size: Option<u32>,
     pub backend: Option<String>,

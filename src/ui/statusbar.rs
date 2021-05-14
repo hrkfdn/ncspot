@@ -17,11 +17,10 @@ pub struct StatusBar {
     spotify: Spotify,
     library: Arc<Library>,
     last_size: Vec2,
-    use_nerdfont: bool,
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>, use_nerdfont: bool) -> StatusBar {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> StatusBar {
         let spotify = queue.get_spotify();
 
         StatusBar {
@@ -29,7 +28,37 @@ impl StatusBar {
             spotify,
             library,
             last_size: Vec2::new(0, 0),
-            use_nerdfont,
+        }
+    }
+
+    fn use_nerdfont(&self) -> bool {
+        self.library.cfg.values().use_nerdfont.unwrap_or(false)
+    }
+
+    fn playback_indicator(&self) -> &str {
+        let status = self.spotify.get_current_status();
+        let nerdfont = self.use_nerdfont();
+        let flipped = self
+            .library
+            .cfg
+            .values()
+            .flip_status_indicators
+            .unwrap_or(false);
+
+        const NF_PLAY: &str = "\u{f909} ";
+        const NF_PAUSE: &str = "\u{f909} ";
+        const NF_STOP: &str = "\u{f909} ";
+        let indicators = match (nerdfont, flipped) {
+            (false, false) => ("▶ ", "▮▮", "◼ "),
+            (false, true) => ("▮▮", "▶ ", "▶ "),
+            (true, false) => (NF_PLAY, NF_PAUSE, NF_STOP),
+            (true, true) => (NF_PAUSE, NF_PLAY, NF_PLAY),
+        };
+
+        match status {
+            PlayerEvent::Playing(_) => indicators.0,
+            PlayerEvent::Paused(_) => indicators.1,
+            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => indicators.2,
         }
     }
 }
@@ -70,27 +99,12 @@ impl View for StatusBar {
             );
         });
 
-        let state_icon = if self.use_nerdfont {
-            match self.spotify.get_current_status() {
-                PlayerEvent::Playing(_) => "\u{f909} ",
-                PlayerEvent::Paused(_) => "\u{f8e3} ",
-                PlayerEvent::Stopped | PlayerEvent::FinishedTrack => "\u{f9da} ",
-            }
-        } else {
-            match self.spotify.get_current_status() {
-                PlayerEvent::Playing(_) => "▶ ",
-                PlayerEvent::Paused(_) => "▮▮",
-                PlayerEvent::Stopped | PlayerEvent::FinishedTrack => "◼ ",
-            }
-        }
-        .to_string();
-
         printer.with_color(style, |printer| {
-            printer.print((1, 1), &state_icon);
+            printer.print((1, 1), self.playback_indicator());
         });
 
         let updating = if !*self.library.is_done.read().unwrap() {
-            if self.use_nerdfont {
+            if self.use_nerdfont() {
                 "\u{f9e5} "
             } else {
                 "[U] "
@@ -99,7 +113,7 @@ impl View for StatusBar {
             ""
         };
 
-        let repeat = if self.use_nerdfont {
+        let repeat = if self.use_nerdfont() {
             match self.queue.get_repeat() {
                 RepeatSetting::None => "",
                 RepeatSetting::RepeatPlaylist => "\u{f955} ",
@@ -114,7 +128,7 @@ impl View for StatusBar {
         };
 
         let shuffle = if self.queue.get_shuffle() {
-            if self.use_nerdfont {
+            if self.use_nerdfont() {
                 "\u{f99c} "
             } else {
                 "[Z] "
@@ -168,18 +182,6 @@ impl View for StatusBar {
                 printer.print((0, 0), &"━".repeat(duration_width + 1));
             });
         }
-
-        // if let Some(Playable::Track(ref t)) = self.queue.get_current() {
-        //     let saved = if self.library.is_saved_track(&Playable::Track(t.clone())) {
-        //         if self.use_nerdfont {
-        //             "\u{f62b} "
-        //         } else {
-        //             "✓ "
-        //         }
-        //     } else {
-        //         ""
-        //     };
-        // }
     }
 
     fn layout(&mut self, size: Vec2) {
