@@ -4,6 +4,7 @@ use librespot_core::config::SessionConfig;
 use librespot_core::session::Session;
 use librespot_core::session::SessionError;
 use librespot_playback::config::PlayerConfig;
+use librespot_playback::player::NormalisationData;
 use log::{debug, error, info};
 
 use librespot_playback::audio_backend;
@@ -190,6 +191,9 @@ impl Spotify {
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.values().volnorm.unwrap_or(false),
             normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
+            normalisation_threshold: NormalisationData::db_to_ratio(
+                PlayerConfig::default().normalisation_threshold,
+            ),
             ..Default::default()
         };
 
