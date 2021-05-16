@@ -44,7 +44,7 @@ ncspot is available via Homebrew: `brew install ncspot`.
 
 On Debian based systems you need following packages for development headers:
 ```
-sudo apt install libncursesw5-dev libdbus-1-dev libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+sudo apt install libdbus-1-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
 
 For Fedora, these dependencies are required:
