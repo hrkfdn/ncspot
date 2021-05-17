@@ -33,7 +33,7 @@ rspotify = { version = "0.10.0", features = ["blocking"] }
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
-tokio-stream = "0.1.5"
+tokio-stream = "0.1.6"
 toml = "0.5"
 unicode-width = "0.1.8"
 dbus = { version = "0.9.2", optional = true }
