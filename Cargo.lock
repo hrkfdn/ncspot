@@ -1693,7 +1693,7 @@ dependencies = [
  "log",
  "ogg",
  "tempfile",
- "tokio 1.5.0",
+ "tokio 1.6.0",
  "zerocopy",
 ]
 
@@ -1728,7 +1728,7 @@ dependencies = [
  "sha-1",
  "shannon",
  "thiserror",
- "tokio 1.5.0",
+ "tokio 1.6.0",
  "tokio-stream",
  "tokio-util 0.6.6",
  "url 2.2.2",
@@ -1771,7 +1771,7 @@ dependencies = [
  "rodio",
  "shell-words",
  "thiserror",
- "tokio 1.5.0",
+ "tokio 1.6.0",
  "zerocopy",
 ]
 
@@ -2016,7 +2016,7 @@ dependencies = [
  "serde_json",
  "strum 0.20.0",
  "strum_macros 0.20.1",
- "tokio 1.5.0",
+ "tokio 1.6.0",
  "tokio-stream",
  "toml",
  "unicode-width",
@@ -3639,9 +3639,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83f0c8e7c0addab50b663055baf787d0af7f413a46e6e7fb9559a4e4db7137a5"
+checksum = "bd3076b5c8cc18138b8f8814895c11eb4de37114a5d127bafdc5e55798ceef37"
 dependencies = [
  "autocfg 1.0.1",
  "bytes 1.0.1",
@@ -3746,7 +3746,7 @@ checksum = "e177a5d8c3bf36de9ebe6d58537d8879e964332f93fb3339e43f618c81361af0"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.6",
- "tokio 1.5.0",
+ "tokio 1.6.0",
 ]
 
 [[package]]
@@ -3837,7 +3837,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.2.6",
- "tokio 1.5.0",
+ "tokio 1.6.0",
 ]
 
 [[package]]
