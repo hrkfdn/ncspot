@@ -185,7 +185,7 @@ async fn main() {
         spotify.clone(),
         queue.clone(),
         library.clone(),
-        cfg,
+        cfg.clone(),
         event_manager.clone(),
     );
 
