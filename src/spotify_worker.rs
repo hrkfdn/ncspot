@@ -99,6 +99,12 @@ impl Worker {
         let mut ui_refresh = time::interval(Duration::from_millis(400));
 
         loop {
+            if self.session.is_invalid() {
+                info!("Librespot session invalidated, terminating worker");
+                self.events.send(Event::Player(PlayerEvent::Stopped));
+                break;
+            }
+
             tokio::select! {
                 cmd = self.commands.next() => match cmd {
                     Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
@@ -194,11 +200,6 @@ impl Worker {
                     info!("token updated!");
                     self.token_task = Box::pin(futures::future::pending());
                 }
-            }
-
-            if self.session.is_invalid() {
-                self.events.send(Event::Player(PlayerEvent::Stopped));
-                break;
             }
         }
     }
