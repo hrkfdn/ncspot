@@ -154,41 +154,45 @@ impl Worker {
                     }
                     None => info!("empty stream")
                 },
-                event = self.player_events.next() => match event.unwrap() {
-                    LibrespotPlayerEvent::Playing {
+                event = self.player_events.next() => match event {
+                    Some(LibrespotPlayerEvent::Playing {
                         play_request_id: _,
                         track_id: _,
                         position_ms,
                         duration_ms: _,
-                    } => {
+                    }) => {
                         let position = Duration::from_millis(position_ms as u64);
                         let playback_start = SystemTime::now() - position;
                         self.events
                             .send(Event::Player(PlayerEvent::Playing(playback_start)));
                         self.active = true;
                     }
-                    LibrespotPlayerEvent::Paused {
+                    Some(LibrespotPlayerEvent::Paused {
                         play_request_id: _,
                         track_id: _,
                         position_ms,
                         duration_ms: _,
-                    } => {
+                    }) => {
                         let position = Duration::from_millis(position_ms as u64);
                         self.events
                             .send(Event::Player(PlayerEvent::Paused(position)));
                         self.active = false;
                     }
-                    LibrespotPlayerEvent::Stopped { .. } => {
+                    Some(LibrespotPlayerEvent::Stopped { .. }) => {
                         self.events.send(Event::Player(PlayerEvent::Stopped));
                         self.active = false;
                     }
-                    LibrespotPlayerEvent::EndOfTrack { .. } => {
+                    Some(LibrespotPlayerEvent::EndOfTrack { .. }) => {
                         self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                     }
-                    LibrespotPlayerEvent::TimeToPreloadNextTrack { .. } => {
+                    Some(LibrespotPlayerEvent::TimeToPreloadNextTrack { .. }) => {
                         self.events
                             .send(Event::Queue(QueueEvent::PreloadTrackRequest));
                     }
+                    None => {
+                        warn!("Librespot player event channel died, terminating worker");
+                        break
+                    },
                     _ => {}
                 },
                 _ = ui_refresh.tick() => {
