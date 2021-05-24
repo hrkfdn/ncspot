@@ -117,13 +117,23 @@ impl Spotify {
             .write()
             .expect("can't writelock worker channel") = Some(tx);
         {
+            let worker_channel = self.channel.clone();
             let cfg = self.cfg.clone();
             let events = self.events.clone();
             let volume = self.volume();
             let credentials = self.credentials.clone();
             let handle = tokio::runtime::Handle::current();
             handle.spawn(async move {
-                Self::worker(events, rx, cfg.clone(), credentials, user_tx, volume).await
+                Self::worker(
+                    worker_channel,
+                    events,
+                    rx,
+                    cfg.clone(),
+                    credentials,
+                    user_tx,
+                    volume,
+                )
+                .await
             });
         }
 
@@ -173,6 +183,7 @@ impl Spotify {
     }
 
     async fn worker(
+        worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
         events: EventManager,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         cfg: Arc<config::Config>,
@@ -228,6 +239,9 @@ impl Spotify {
         worker.run_loop().await;
 
         error!("worker thread died, requesting restart");
+        *worker_channel
+            .write()
+            .expect("can't writelock worker channel") = None;
         events.send(Event::SessionDied)
     }
 
