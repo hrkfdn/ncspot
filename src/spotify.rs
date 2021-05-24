@@ -178,7 +178,6 @@ impl Spotify {
         )
         .expect("Could not create cache");
         debug!("opening spotify session");
-        println!("Connecting to Spotify..");
         Session::connect(session_config, credentials, Some(cache)).await
     }
 
