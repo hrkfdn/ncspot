@@ -51,7 +51,7 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         })
         .button("Login with Facebook", |s| {
             let urls: std::collections::HashMap<String, String> =
-                reqwest::get("https://login2.spotify.com/v1/config")
+                reqwest::blocking::get("https://login2.spotify.com/v1/config")
                     .expect("didn't connect")
                     .json()
                     .expect("didn't parse");
@@ -92,7 +92,7 @@ fn auth_poller(url: &str, app_sink: &CbSink) {
             .unwrap_or(timeout)
             < timeout
         {
-            if let Ok(mut response) = reqwest::get(&url) {
+            if let Ok(mut response) = reqwest::blocking::get(&url) {
                 if response.status() != reqwest::StatusCode::ACCEPTED {
                     let result = match response.status() {
                         reqwest::StatusCode::OK => {

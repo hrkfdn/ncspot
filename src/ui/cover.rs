@@ -292,8 +292,8 @@ impl ViewExt for CoverView {
 }
 
 fn download(url: String, path: PathBuf) -> Result<(), std::io::Error> {
-    let mut resp =
-        reqwest::get(&url).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let mut resp = reqwest::blocking::get(&url)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     std::fs::create_dir_all(path.parent().unwrap())?;
     let mut file = File::create(path)?;
