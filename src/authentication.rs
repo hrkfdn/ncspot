@@ -92,7 +92,7 @@ fn auth_poller(url: &str, app_sink: &CbSink) {
             .unwrap_or(timeout)
             < timeout
         {
-            if let Ok(mut response) = reqwest::blocking::get(&url) {
+            if let Ok(response) = reqwest::blocking::get(&url) {
                 if response.status() != reqwest::StatusCode::ACCEPTED {
                     let result = match response.status() {
                         reqwest::StatusCode::OK => {
