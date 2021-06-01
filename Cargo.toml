@@ -42,7 +42,7 @@ rand = "0.8"
 webbrowser = "0.5"
 clipboard = { version = "0.5", optional = true }
 url = "2.2"
-strum = "0.20.0"
+strum = "0.21.0"
 strum_macros = "0.20.1"
 regex = "1"
 ioctl-rs = { version = "0.2", optional = true }
