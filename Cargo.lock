@@ -1906,7 +1906,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
- "strum 0.20.0",
+ "strum 0.21.0",
  "strum_macros 0.20.1",
  "tokio 1.6.1",
  "tokio-stream",
@@ -3218,9 +3218,9 @@ checksum = "4ca6e4730f517e041e547ffe23d29daab8de6b73af4b6ae2a002108169f5e7da"
 
 [[package]]
 name = "strum"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+checksum = "aaf86bbcfd1fa9670b7a129f64fc0c9fcbbfe4f1bc4210e9e98fe71ffc12cde2"
 
 [[package]]
 name = "strum_macros"
