@@ -69,6 +69,14 @@ cargo deb
 You can find it under `target/debian`.
 
 
+### On Windows
+
+Make sure you're using MSVC toolchain
+
+```
+cargo install ncspot --no-default-features --features rodio_backend,cursive/pancurses-backend
+```
+
 ## Usage
 
 * Install the latest ncspot release using `cargo install ncspot`
@@ -173,7 +181,7 @@ To close the commandprompt at any time, press `esc`.
 
 ## Configuration
 
-Configuration is saved to `~/.config/ncspot/config.toml`. To reload the
+Configuration is saved to `~/.config/ncspot/config.toml` (or `%AppData%\ncspot\config.toml` on Windows). To reload the
 configuration during runtime use the `reload` statement in the command prompt
 `:reload`.
 
@@ -255,7 +263,7 @@ To allow scaling the album art up beyond its resolution (640x640 for Spotify cov
 cover_max_scale = 2
 ```
 
-### Authentication 
+### Authentication
 
 `ncspot` prompts for a Spotify username and password on first launch, uses this to generate an OAuth token, and stores it to disk.
 
