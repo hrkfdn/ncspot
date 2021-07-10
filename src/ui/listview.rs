@@ -509,9 +509,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                         let dialog = ContextMenu::select_artist_dialog(
                                             library, queue, artists,
                                         );
-                                        _s.add_layer(dialog);
-
-                                        Ok(CommandResult::Consumed(None))
+                                        Ok(CommandResult::Modal(Box::new(dialog)))
                                     }
                                 };
                             }

@@ -72,7 +72,6 @@ impl ContextMenu {
                     let library = library.clone();
 
                     playlist.append_tracks(&[track.clone()], spotify, library);
-                    // playlist.map(|p| p.append_tracks(&[track.clone()], spotify, library));
                     c.pop_layer();
 
                     // Close add_track_dialog too
@@ -225,6 +224,7 @@ impl ContextMenu {
 
 impl ViewExt for AddToPlaylistMenu {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        log::info!("playlist command: {:?}", cmd);
         handle_move_command::<Playlist>(&mut self.dialog, s, cmd, "addplaylist_select")
     }
 }
@@ -232,6 +232,13 @@ impl ViewExt for AddToPlaylistMenu {
 impl ViewExt for ContextMenu {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         handle_move_command::<ContextMenuAction>(&mut self.dialog, s, cmd, "contextmenu_select")
+    }
+}
+
+impl ViewExt for SelectArtistMenu {
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        log::info!("artist move command: {:?}", cmd);
+        handle_move_command::<Artist>(&mut self.dialog, s, cmd, "artist_select")
     }
 }
 
