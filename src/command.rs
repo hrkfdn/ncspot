@@ -338,7 +338,10 @@ pub fn parse(input: &str) -> Option<Command> {
             Some(Command::Repeat(mode))
         }
         "seek" => args.get(0).and_then(|arg| match arg.chars().next() {
-            Some(x) if x == '-' || x == '+' => String::from_iter(arg.chars().skip(1))
+            Some(x) if x == '-' || x == '+' => arg
+                .chars()
+                .skip(1)
+                .collect::<String>()
                 .parse::<i32>()
                 .ok()
                 .map(|amount| {
@@ -350,7 +353,9 @@ pub fn parse(input: &str) -> Option<Command> {
                             },
                     ))
                 }),
-            _ => String::from_iter(arg.chars())
+            _ => arg
+                .chars()
+                .collect::<String>()
                 .parse()
                 .ok()
                 .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),

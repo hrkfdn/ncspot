@@ -257,22 +257,21 @@ async fn main() {
                 let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
                 main.clear_cmdline();
             }
+            let cmd_without_prefix = &cmd[1..];
             if cmd.strip_prefix('/').is_some() {
-                let query = &cmd[1..];
-                let command = Command::Jump(JumpMode::Query(query.to_string()));
+                let command = Command::Jump(JumpMode::Query(cmd_without_prefix.to_string()));
                 if let Some(data) = s.user_data::<UserData>().cloned() {
                     data.cmd.handle(s, command);
                 }
             } else {
-                let c = &cmd[1..];
-                let parsed = command::parse(c);
+                let parsed = command::parse(cmd_without_prefix);
                 if let Some(parsed) = parsed {
                     if let Some(data) = s.user_data::<UserData>().cloned() {
                         data.cmd.handle(s, parsed)
                     }
                 } else {
                     let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                    let err_msg = format!("Unknown command: \"{}\"", c);
+                    let err_msg = format!("Unknown command: \"{}\"", cmd_without_prefix);
                     main.set_result(Err(err_msg));
                 }
             }
