@@ -12,6 +12,9 @@ use crate::playable::Playable;
 use crate::spotify::Spotify;
 use crate::{config::Config, spotify::PlayerEvent};
 
+#[cfg(feature = "cover")]
+use crate::ui;
+
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     #[serde(rename = "off")]
@@ -262,11 +265,14 @@ impl Queue {
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
+
+            #[cfg(feature = "notify")]
             if self.cfg.values().notify.unwrap_or(false) {
-                #[cfg(feature = "notify")]
-                if let Err(e) = Notification::new().summary(&track.to_string()).show() {
-                    error!("error showing notification: {:?}", e);
-                }
+                std::thread::spawn({
+                    let track_name = track.to_string();
+                    let cover_url = track.cover_url();
+                    move || send_notification(&track_name, cover_url)
+                });
             }
         }
 
@@ -401,5 +407,33 @@ impl Queue {
 
     pub fn get_spotify(&self) -> Spotify {
         self.spotify.clone()
+    }
+}
+
+pub fn send_notification(track_name: &str, cover_url: Option<String>) {
+    #[cfg(feature = "cover")]
+    let res = if let Some(u) = cover_url {
+        // download album cover image
+        let path = ui::cover::cache_path_for_url(u.to_string());
+
+        if !path.exists() {
+            if let Err(e) = ui::cover::download(u.to_string(), path.clone()) {
+                error!("Failed to download cover: {}", e);
+            }
+        }
+
+        Notification::new()
+            .summary(track_name)
+            .icon(&path.to_str().unwrap())
+            .show()
+    } else {
+        Notification::new().summary(track_name).show()
+    };
+
+    #[cfg(not(feature = "cover"))]
+    let res = Notification::new().summary(track_name).show();
+
+    if let Err(e) = res {
+        error!("Failed to send notification cover: {}", e);
     }
 }

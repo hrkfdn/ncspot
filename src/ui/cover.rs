@@ -166,8 +166,7 @@ impl CoverView {
     }
 
     fn cache_path(&self, url: String) -> Option<PathBuf> {
-        let mut path = crate::config::cache_path("covers");
-        path.push(url.split("/").last().unwrap());
+        let path = cache_path_for_url(url.clone());
 
         let mut loading = self.loading.write().unwrap();
         if loading.contains(&url) {
@@ -291,7 +290,13 @@ impl ViewExt for CoverView {
     }
 }
 
-fn download(url: String, path: PathBuf) -> Result<(), std::io::Error> {
+pub fn cache_path_for_url(url: String) -> PathBuf {
+    let mut path = crate::config::cache_path("covers");
+    path.push(url.split("/").last().unwrap());
+    return path;
+}
+
+pub fn download(url: String, path: PathBuf) -> Result<(), std::io::Error> {
     let mut resp = reqwest::blocking::get(&url)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
