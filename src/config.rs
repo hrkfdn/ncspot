@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{fs, process};
+use std::{fs, process, env};
 
 use cursive::theme::Theme;
 use log::{debug, error};
@@ -13,6 +13,7 @@ use crate::queue;
 use crate::serialization::{Serializer, CBOR, TOML};
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
+pub const ALT_CONFIG_FILENAME: &str = "NCSPOT_CONFIG_FILE";
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
@@ -165,7 +166,12 @@ impl Config {
 }
 
 fn load() -> Result<ConfigValues, String> {
-    let path = config_path("config.toml");
+        let config_filename = match env::var(ALT_CONFIG_FILENAME) {
+        Ok(val) => val,
+        Err(_e) => "config.toml".to_string(),
+    };
+
+    let path = config_path(&config_filename);
     TOML.load_or_generate_default(path, || Ok(ConfigValues::default()), false)
 }
 

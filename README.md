@@ -185,6 +185,8 @@ Configuration is saved to `~/.config/ncspot/config.toml` (or `%AppData%\ncspot\c
 configuration during runtime use the `reload` statement in the command prompt
 `:reload`.
 
+If a different config filename should be used, within the same directory, it can be set by the environment variable `NCSPOT_CONFIG_FILE` e.g `NCSPOT_CONFIG_FILE=alternative.toml`
+
 Possible configuration values are:
 
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
