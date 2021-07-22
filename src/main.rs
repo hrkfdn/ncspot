@@ -122,6 +122,15 @@ async fn main() {
                 .help("custom basepath to config/cache files")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .help("Filename of config file in basepath")
+                .takes_value(true)
+                .default_value("config.toml"),
+        )
         .get_matches();
 
     if let Some(filename) = matches.value_of("debug") {
@@ -138,7 +147,9 @@ async fn main() {
 
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
-    let cfg: Arc<crate::config::Config> = Arc::new(Config::new());
+    let cfg: Arc<crate::config::Config> = Arc::new(Config::new(
+        matches.value_of("config").unwrap_or("config.toml"),
+    ));
 
     let cache = Cache::new(
         Some(config::cache_path("librespot")),

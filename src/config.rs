@@ -98,13 +98,14 @@ lazy_static! {
 }
 
 pub struct Config {
+    filename: String,
     values: RwLock<ConfigValues>,
     state: RwLock<UserState>,
 }
 
 impl Config {
-    pub fn new() -> Self {
-        let values = load().unwrap_or_else(|e| {
+    pub fn new(filename: &str) -> Self {
+        let values = load(filename).unwrap_or_else(|e| {
             eprintln!("could not load config: {}", e);
             process::exit(1);
         });
@@ -124,6 +125,7 @@ impl Config {
         }
 
         Self {
+            filename: filename.to_string(),
             values: RwLock::new(values),
             state: RwLock::new(userstate),
         }
@@ -159,13 +161,13 @@ impl Config {
     }
 
     pub fn reload(&self) {
-        let cfg = load().expect("could not reload config");
+        let cfg = load(&self.filename).expect("could not reload config");
         *self.values.write().expect("can't writelock config values") = cfg
     }
 }
 
-fn load() -> Result<ConfigValues, String> {
-    let path = config_path("config.toml");
+fn load(filename: &str) -> Result<ConfigValues, String> {
+    let path = config_path(filename);
     TOML.load_or_generate_default(path, || Ok(ConfigValues::default()), false)
 }
 
