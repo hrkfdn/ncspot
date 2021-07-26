@@ -75,7 +75,7 @@ fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-fn credentials_prompt(error_message: Option<String>) -> Credentials {
+fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, String> {
     if let Some(message) = error_message {
         let mut siv = cursive::default();
         let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
@@ -87,7 +87,7 @@ fn credentials_prompt(error_message: Option<String>) -> Credentials {
         siv.run();
     }
 
-    authentication::create_credentials().expect("Could not create credentials")
+    authentication::create_credentials()
 }
 
 type UserData = Arc<UserDataInner>;
@@ -96,7 +96,7 @@ struct UserDataInner {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
@@ -164,13 +164,13 @@ async fn main() {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(None),
+            None => credentials_prompt(None)?,
         }
     };
 
     while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
         let error_msg = format!("{}", error);
-        credentials = credentials_prompt(Some(error_msg));
+        credentials = credentials_prompt(Some(error_msg))?;
     }
 
     let mut cursive = cursive::default().into_runner();
@@ -315,4 +315,6 @@ async fn main() {
             }
         }
     }
+
+    Ok(())
 }
