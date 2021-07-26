@@ -35,9 +35,19 @@ fn get_playbackstatus(spotify: Spotify) -> String {
     .to_string()
 }
 
-fn get_metadata(playable: Option<Playable>) -> Metadata {
+fn get_metadata(playable: Option<Playable>, spotify: Spotify) -> Metadata {
     let mut hm: Metadata = HashMap::new();
-    let playable = playable.as_ref();
+
+    // Fetch full track details in case this playable is based on a SimplifiedTrack
+    // This is necessary because SimplifiedTrack objects don't contain a cover_url
+    let playable_full = playable.and_then(|p| match p {
+        Playable::Track(track) => spotify
+            .track(&track.id.unwrap_or_default())
+            .as_ref()
+            .map(|t| Playable::Track(t.into())),
+        Playable::Episode(episode) => Some(Playable::Episode(episode)),
+    });
+    let playable = playable_full.as_ref();
 
     hm.insert(
         "mpris:trackid".to_string(),
@@ -257,11 +267,12 @@ fn run_dbus_server(
     };
 
     let property_metadata = {
+        let spotify = spotify.clone();
         let queue = queue.clone();
         f.property::<HashMap<String, Variant<Box<dyn RefArg>>>, _>("Metadata", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                let hm = get_metadata(queue.clone().get_current());
+                let hm = get_metadata(queue.clone().get_current(), spotify.clone());
 
                 iter.append(hm);
                 Ok(())
@@ -518,6 +529,7 @@ fn run_dbus_server(
     };
 
     let method_openuri = {
+        let spotify = spotify.clone();
         f.method("OpenUri", (), move |m| {
             let uri_data: Option<&str> = m.msg.get1();
             let uri = match uri_data {
@@ -670,7 +682,7 @@ fn run_dbus_server(
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
                 "Metadata".to_string(),
-                Variant(Box::new(get_metadata(state.1))),
+                Variant(Box::new(get_metadata(state.1, spotify.clone()))),
             );
 
             changed
