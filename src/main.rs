@@ -11,6 +11,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use clap::{App, Arg};
+use cursive::event::EventTrigger;
 use cursive::traits::Identifiable;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
@@ -229,13 +230,23 @@ async fn main() -> Result<(), String> {
     // initial screen is library
     layout.set_screen("library");
 
-    cursive.add_global_callback(':', move |s| {
-        if s.find_name::<ContextMenu>("contextmenu").is_none() {
-            s.call_on_name("main", |v: &mut ui::layout::Layout| {
-                v.enable_cmdline();
-            });
-        }
-    });
+    let cmd_key = |cfg: Arc<Config>| cfg.values().command_key.unwrap_or(':');
+
+    {
+        let c = cfg.clone();
+        cursive.set_on_post_event(
+            EventTrigger::from_fn(move |event| {
+                event == &cursive::event::Event::Char(cmd_key(c.clone()))
+            }),
+            move |s| {
+                if s.find_name::<ContextMenu>("contextmenu").is_none() {
+                    s.call_on_name("main", |v: &mut ui::layout::Layout| {
+                        v.enable_cmdline(cmd_key(cfg.clone()));
+                    });
+                }
+            },
+        );
+    }
 
     cursive.add_global_callback('/', move |s| {
         if s.find_name::<ContextMenu>("contextmenu").is_none() {

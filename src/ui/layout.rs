@@ -56,9 +56,9 @@ impl Layout {
         }
     }
 
-    pub fn enable_cmdline(&mut self) {
+    pub fn enable_cmdline(&mut self, prefix: char) {
         if !self.cmdline_focus {
-            self.cmdline.set_content(":");
+            self.cmdline.set_content(prefix);
             self.cmdline_focus = true;
         }
     }

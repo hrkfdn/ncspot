@@ -187,6 +187,8 @@ configuration during runtime use the `reload` statement in the command prompt
 
 Possible configuration values are:
 
+* `command_key`: Key to open command line <single character>, set to `:` by
+  default
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `flip_status_indicators`: By default the statusbar will show a play icon when
    a track is playing and a pause icon when playback is stopped. If this setting
