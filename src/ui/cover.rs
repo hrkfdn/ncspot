@@ -292,8 +292,8 @@ impl ViewExt for CoverView {
 
 pub fn cache_path_for_url(url: String) -> PathBuf {
     let mut path = crate::config::cache_path("covers");
-    path.push(url.split("/").last().unwrap());
-    return path;
+    path.push(url.split('/').last().unwrap());
+    path
 }
 
 pub fn download(url: String, path: PathBuf) -> Result<(), std::io::Error> {

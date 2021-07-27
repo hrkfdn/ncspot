@@ -411,7 +411,7 @@ impl Queue {
 }
 
 pub fn send_notification(track_name: &str, cover_url: Option<String>) {
-    #[cfg(feature = "cover")]
+    #[cfg(all(feature = "notify", feature = "cover"))]
     let res = if let Some(u) = cover_url {
         // download album cover image
         let path = ui::cover::cache_path_for_url(u.to_string());
@@ -430,9 +430,10 @@ pub fn send_notification(track_name: &str, cover_url: Option<String>) {
         Notification::new().summary(track_name).show()
     };
 
-    #[cfg(not(feature = "cover"))]
+    #[cfg(all(feature = "notify", not(feature = "cover")))]
     let res = Notification::new().summary(track_name).show();
 
+    #[cfg(feature = "notify")]
     if let Err(e) = res {
         error!("Failed to send notification cover: {}", e);
     }
