@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build_target: [linux, macos]
+        build_target: [linux, macos, windows]
         include:
           - build_target: linux
             os: ubuntu-latest
@@ -23,6 +23,11 @@ jobs:
             artifact_prefix: macos
             target: x86_64-apple-darwin
             features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
+          - build_target: windows
+            os: windows-latest
+            artifact_prefix: windows
+            target: x86_64-pc-windows-msvc
+            features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
     steps:
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -60,9 +65,17 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          strip ncspot
-          tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz ncspot
-          shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+          case ${{ matrix.target }} in
+          *-pc-windows-*) 
+            7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.zip ncspot.exe
+            sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+            ;;
+          *) 
+            strip ncspot
+            tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz ncspot
+            shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+            ;;
+          esac;
       - name: Releasing assets
         uses: softprops/action-gh-release@v1
         with:
