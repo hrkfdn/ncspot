@@ -41,10 +41,17 @@ fn get_metadata(playable: Option<Playable>, spotify: Spotify) -> Metadata {
     // Fetch full track details in case this playable is based on a SimplifiedTrack
     // This is necessary because SimplifiedTrack objects don't contain a cover_url
     let playable_full = playable.and_then(|p| match p {
-        Playable::Track(track) => spotify
-            .track(&track.id.unwrap_or_default())
-            .as_ref()
-            .map(|t| Playable::Track(t.into())),
+        Playable::Track(track) => {
+            if track.cover_url.is_some() {
+                // We already have `cover_url`, no need to fetch the full track
+                Some(Playable::Track(track))
+            } else {
+                spotify
+                    .track(&track.id.unwrap_or_default())
+                    .as_ref()
+                    .map(|t| Playable::Track(t.into()))
+            }
+        }
         Playable::Episode(episode) => Some(Playable::Episode(episode)),
     });
     let playable = playable_full.as_ref();
