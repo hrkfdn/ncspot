@@ -58,7 +58,7 @@ impl Playlist {
             true => {
                 if let Some(tracks) = &mut self.tracks {
                     tracks.remove(index);
-                    library.playlist_update(&self);
+                    library.playlist_update(self);
                 }
 
                 true

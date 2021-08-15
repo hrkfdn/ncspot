@@ -81,7 +81,7 @@ impl From<&SimplifiedTrack> for Track {
         let artists = track
             .artists
             .iter()
-            .map(|ref artist| artist.name.clone())
+            .map(|artist| artist.name.clone())
             .collect::<Vec<String>>();
         let artist_ids = track
             .artists
@@ -114,7 +114,7 @@ impl From<&FullTrack> for Track {
         let artists = track
             .artists
             .iter()
-            .map(|ref artist| artist.name.clone())
+            .map(|artist| artist.name.clone())
             .collect::<Vec<String>>();
         let artist_ids = track
             .artists
@@ -125,7 +125,7 @@ impl From<&FullTrack> for Track {
             .album
             .artists
             .iter()
-            .map(|ref artist| artist.name.clone())
+            .map(|artist| artist.name.clone())
             .collect::<Vec<String>>();
 
         Self {
@@ -283,7 +283,7 @@ impl ListItem for Track {
         let spotify = queue.get_spotify();
 
         match self.album_id {
-            Some(ref album_id) => spotify.album(&album_id).map(|ref fa| fa.into()),
+            Some(ref album_id) => spotify.album(album_id).map(|ref fa| fa.into()),
             None => None,
         }
     }

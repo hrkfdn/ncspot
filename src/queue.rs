@@ -261,7 +261,7 @@ impl Queue {
         }
 
         if let Some(track) = &self.queue.read().unwrap().get(index) {
-            self.spotify.load(&track, true, 0);
+            self.spotify.load(track, true, 0);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();

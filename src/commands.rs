@@ -321,7 +321,7 @@ impl CommandManager {
         let kb = self.bindings.borrow();
 
         for (k, _v) in kb.iter() {
-            if let Some(binding) = Self::parse_keybinding(&k) {
+            if let Some(binding) = Self::parse_keybinding(k) {
                 cursive.clear_global_callbacks(binding);
             }
         }
@@ -331,10 +331,10 @@ impl CommandManager {
         let kb = self.bindings.borrow();
 
         for (k, v) in kb.iter() {
-            if let Some(binding) = Self::parse_keybinding(&k) {
+            if let Some(binding) = Self::parse_keybinding(k) {
                 self.register_keybinding(cursive, binding, v.clone());
             } else {
-                error!("Could not parse keybinding: \"{}\"", &k);
+                error!("Could not parse keybinding: \"{}\"", k);
             }
         }
     }
@@ -521,7 +521,7 @@ impl CommandManager {
                 None
             }
         } else {
-            Some(Self::parse_key(&kb))
+            Some(Self::parse_key(kb))
         }
     }
 }

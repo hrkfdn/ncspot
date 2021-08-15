@@ -127,7 +127,7 @@ impl Library {
 
         let pos = {
             let store = self.playlists.read().expect("can't readlock playlists");
-            store.iter().position(|ref i| i.id == id)
+            store.iter().position(|i| i.id == id)
         };
 
         if let Some(position) = pos {
@@ -143,7 +143,7 @@ impl Library {
 
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to list {}", tracks.len(), id);
-        self.spotify.overwrite_playlist(id, &tracks);
+        self.spotify.overwrite_playlist(id, tracks);
 
         self.fetch_playlists();
         self.save_cache(config::cache_path(CACHE_PLAYLISTS), self.playlists.clone());
@@ -152,7 +152,7 @@ impl Library {
     pub fn save_playlist(&self, name: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to new list {}", tracks.len(), name);
         match self.spotify.create_playlist(name, None, None) {
-            Some(id) => self.overwrite_playlist(&id, &tracks),
+            Some(id) => self.overwrite_playlist(&id, tracks),
             None => error!("could not create new playlist.."),
         }
     }

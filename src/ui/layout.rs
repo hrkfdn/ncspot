@@ -256,7 +256,7 @@ impl View for Layout {
 
         if cmdline_visible {
             let printer = &printer.offset((0, printer.size.y - 1));
-            self.cmdline.draw(&printer);
+            self.cmdline.draw(printer);
         }
     }
 

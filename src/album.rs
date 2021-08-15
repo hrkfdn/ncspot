@@ -93,7 +93,7 @@ impl From<&FullAlbum> for Album {
             fa.tracks
                 .items
                 .iter()
-                .map(|st| Track::from_simplified_track(&st, &fa))
+                .map(|st| Track::from_simplified_track(st, fa))
                 .collect(),
         );
 

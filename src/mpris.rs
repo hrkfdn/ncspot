@@ -558,7 +558,7 @@ fn run_dbus_server(
             let uri_type = UriType::from_uri(&uri);
             match uri_type {
                 Some(UriType::Album) => {
-                    if let Some(a) = spotify.album(&id) {
+                    if let Some(a) = spotify.album(id) {
                         if let Some(t) = &Album::from(&a).tracks {
                             queue.clear();
                             let index = queue.append_next(
@@ -571,14 +571,14 @@ fn run_dbus_server(
                     }
                 }
                 Some(UriType::Track) => {
-                    if let Some(t) = spotify.track(&id) {
+                    if let Some(t) = spotify.track(id) {
                         queue.clear();
                         queue.append(Playable::Track(Track::from(&t)));
                         queue.play(0, false, false)
                     }
                 }
                 Some(UriType::Playlist) => {
-                    if let Some(p) = spotify.playlist(&id) {
+                    if let Some(p) = spotify.playlist(id) {
                         let mut playlist = Playlist::from(&p);
                         let spotify = spotify.clone();
                         playlist.load_tracks(spotify);
@@ -594,7 +594,7 @@ fn run_dbus_server(
                     }
                 }
                 Some(UriType::Show) => {
-                    if let Some(s) = spotify.get_show(&id) {
+                    if let Some(s) = spotify.get_show(id) {
                         let mut show: Show = (&s).into();
                         let spotify = spotify.clone();
                         show.load_all_episodes(spotify);
@@ -612,14 +612,14 @@ fn run_dbus_server(
                     }
                 }
                 Some(UriType::Episode) => {
-                    if let Some(e) = spotify.episode(&id) {
+                    if let Some(e) = spotify.episode(id) {
                         queue.clear();
                         queue.append(Playable::Episode(Episode::from(&e)));
                         queue.play(0, false, false)
                     }
                 }
                 Some(UriType::Artist) => {
-                    if let Some(a) = spotify.artist_top_tracks(&id) {
+                    if let Some(a) = spotify.artist_top_tracks(id) {
                         queue.clear();
                         queue.append_next(a.iter().map(|track| Playable::Track(track.clone())).collect());
                         queue.play(0, false, false)

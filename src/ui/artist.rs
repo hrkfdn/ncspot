@@ -26,9 +26,9 @@ impl ArtistView {
         let spotify = queue.get_spotify();
 
         let albums_view =
-            Self::albums_view(&artist, AlbumType::Album, queue.clone(), library.clone());
+            Self::albums_view(artist, AlbumType::Album, queue.clone(), library.clone());
         let singles_view =
-            Self::albums_view(&artist, AlbumType::Single, queue.clone(), library.clone());
+            Self::albums_view(artist, AlbumType::Single, queue.clone(), library.clone());
 
         let top_tracks: Arc<RwLock<Vec<Track>>> = Arc::new(RwLock::new(Vec::new()));
         {

@@ -65,7 +65,7 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
                 .child(controls);
             let url = &urls["login_url"];
             webbrowser::open(url).ok();
-            auth_poller(&urls["credentials_url"], &s.cb_sink());
+            auth_poller(&urls["credentials_url"], s.cb_sink());
             s.pop_layer();
             s.add_layer(login_view)
         })

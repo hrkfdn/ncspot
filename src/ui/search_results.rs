@@ -109,7 +109,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.track(&query) {
+        if let Some(results) = spotify.track(query) {
             let t = vec![(&results).into()];
             let mut r = tracks.write().unwrap();
             *r = t;
@@ -126,7 +126,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Tracks(results)) =
-            spotify.search(SearchType::Track, &query, 50, offset as u32)
+            spotify.search(SearchType::Track, query, 50, offset as u32)
         {
             let mut t = results.items.iter().map(|ft| ft.into()).collect();
             let mut r = tracks.write().unwrap();
@@ -148,7 +148,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.album(&query) {
+        if let Some(results) = spotify.album(query) {
             let a = vec![(&results).into()];
             let mut r = albums.write().unwrap();
             *r = a;
@@ -165,7 +165,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Albums(results)) =
-            spotify.search(SearchType::Album, &query, 50, offset as u32)
+            spotify.search(SearchType::Album, query, 50, offset as u32)
         {
             let mut a = results.items.iter().map(|sa| sa.into()).collect();
             let mut r = albums.write().unwrap();
@@ -187,7 +187,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.artist(&query) {
+        if let Some(results) = spotify.artist(query) {
             let a = vec![(&results).into()];
             let mut r = artists.write().unwrap();
             *r = a;
@@ -204,7 +204,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Artists(results)) =
-            spotify.search(SearchType::Artist, &query, 50, offset as u32)
+            spotify.search(SearchType::Artist, query, 50, offset as u32)
         {
             let mut a = results.items.iter().map(|fa| fa.into()).collect();
             let mut r = artists.write().unwrap();
@@ -226,7 +226,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.playlist(&query).as_ref() {
+        if let Some(result) = spotify.playlist(query).as_ref() {
             let pls = vec![result.into()];
             let mut r = playlists.write().unwrap();
             *r = pls;
@@ -243,7 +243,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Playlists(results)) =
-            spotify.search(SearchType::Playlist, &query, 50, offset as u32)
+            spotify.search(SearchType::Playlist, query, 50, offset as u32)
         {
             let mut pls = results.items.iter().map(|sp| sp.into()).collect();
             let mut r = playlists.write().unwrap();
@@ -265,7 +265,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.get_show(&query).as_ref() {
+        if let Some(result) = spotify.get_show(query).as_ref() {
             let pls = vec![result.into()];
             let mut r = shows.write().unwrap();
             *r = pls;
@@ -282,7 +282,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Shows(results)) =
-            spotify.search(SearchType::Show, &query, 50, offset as u32)
+            spotify.search(SearchType::Show, query, 50, offset as u32)
         {
             let mut pls = results.items.iter().map(|sp| sp.into()).collect();
             let mut r = shows.write().unwrap();
@@ -304,7 +304,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.episode(&query).as_ref() {
+        if let Some(result) = spotify.episode(query).as_ref() {
             let e = vec![result.into()];
             let mut r = episodes.write().unwrap();
             *r = e;
@@ -321,7 +321,7 @@ impl SearchResultsView {
         append: bool,
     ) -> u32 {
         if let Some(SearchResult::Episodes(results)) =
-            spotify.search(SearchType::Episode, &query, 50, offset as u32)
+            spotify.search(SearchType::Episode, query, 50, offset as u32)
         {
             let mut e = results.items.iter().map(|se| se.into()).collect();
             let mut r = episodes.write().unwrap();

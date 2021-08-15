@@ -1,7 +1,6 @@
 use crate::queue::RepeatSetting;
 use std::collections::HashMap;
 use std::fmt;
-use std::iter::FromIterator;
 
 use strum_macros::Display;
 
@@ -235,7 +234,7 @@ fn handle_aliases(input: &str) -> &str {
 pub fn parse(input: &str) -> Option<Command> {
     let components: Vec<_> = input.trim().split(' ').collect();
 
-    let command = handle_aliases(&components[0]);
+    let command = handle_aliases(components[0]);
     let args = components[1..].to_vec();
 
     match command {

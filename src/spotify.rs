@@ -360,12 +360,7 @@ impl Spotify {
         position: Option<i32>,
     ) -> bool {
         self.api_with_retry(|api| {
-            api.user_playlist_add_tracks(
-                self.user.as_ref().unwrap(),
-                playlist_id,
-                &tracks,
-                position,
-            )
+            api.user_playlist_add_tracks(self.user.as_ref().unwrap(), playlist_id, tracks, position)
         })
         .is_some()
     }
