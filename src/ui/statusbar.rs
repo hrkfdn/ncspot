@@ -61,6 +61,13 @@ impl StatusBar {
             PlayerEvent::Stopped | PlayerEvent::FinishedTrack => indicators.2,
         }
     }
+
+    fn volume_display(&self) -> String {
+        format!(
+            " [{}%]",
+            (self.spotify.volume() as f64 / 65535_f64 * 100.0).round() as u16
+        )
+    }
 }
 
 impl View for StatusBar {
@@ -137,10 +144,7 @@ impl View for StatusBar {
             ""
         };
 
-        let volume = format!(
-            " [{}%]",
-            (self.spotify.volume() as f64 / 65535_f64 * 100.0).round() as u16
-        );
+        let volume = self.volume_display();
 
         printer.with_color(style_bar_bg, |printer| {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
@@ -200,6 +204,7 @@ impl View for StatusBar {
         } = event
         {
             let position = position - offset;
+            let volume_len = self.volume_display().len();
 
             if position.y == 0 {
                 if event == MouseEvent::WheelUp {
@@ -218,6 +223,24 @@ impl View for StatusBar {
                         let new = playable.duration() as f32 * f;
                         self.spotify.seek(new as u32);
                     }
+                }
+            } else if self.last_size.x - position.x < volume_len {
+                if event == MouseEvent::WheelUp {
+                    let volume = self
+                        .spotify
+                        .volume()
+                        .saturating_add(crate::spotify::VOLUME_PERCENT);
+
+                    self.spotify.set_volume(volume);
+                }
+
+                if event == MouseEvent::WheelDown {
+                    let volume = self
+                        .spotify
+                        .volume()
+                        .saturating_sub(crate::spotify::VOLUME_PERCENT);
+
+                    self.spotify.set_volume(volume);
                 }
             } else if event == MouseEvent::Press(MouseButton::Left) {
                 self.queue.toggleplayback();
