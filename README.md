@@ -10,7 +10,7 @@
 [![ncspot](https://snapcraft.io//ncspot/trending.svg?name=0)](https://snapcraft.io/ncspot)
 
 ncurses Spotify client written in Rust using librespot. It is heavily inspired
-by ncurses MPD clients, such as ncmpc.  My motivation was to provide a simple
+by ncurses MPD clients, such as ncmpc. My motivation was to provide a simple
 and resource friendly alternative to the official client as well as to support
 platforms that currently don't have a Spotify client, such as the *BSDs.
 
@@ -60,7 +60,7 @@ You can use `cargo-deb` create in order to build a Debian package from source. I
 cargo install cargo-deb
 ```
 
-Then you can build a Dabian package with:
+Then you can build a Debian package with:
 
 ```
 cargo deb
