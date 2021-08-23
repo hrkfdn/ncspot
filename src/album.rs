@@ -35,7 +35,7 @@ impl Album {
 
         if let Some(ref album_id) = self.id {
             let mut collected_tracks = Vec::new();
-            if let Some(full_album) = spotify.full_album(album_id) {
+            if let Some(full_album) = spotify.api.full_album(album_id) {
                 let mut tracks_result = Some(full_album.tracks.clone());
                 while let Some(ref tracks) = tracks_result {
                     for t in &tracks.items {
@@ -48,7 +48,7 @@ impl Album {
                     tracks_result = match tracks.next {
                         Some(_) => {
                             debug!("requesting tracks again..");
-                            spotify.album_tracks(
+                            spotify.api.album_tracks(
                                 album_id,
                                 50,
                                 tracks.offset + tracks.items.len() as u32,

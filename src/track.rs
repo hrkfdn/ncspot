@@ -251,6 +251,7 @@ impl ListItem for Track {
 
         let recommendations: Option<Vec<Track>> = if let Some(id) = &self.id {
             spotify
+                .api
                 .recommendations(None, None, Some(vec![id.clone()]))
                 .map(|r| r.tracks)
                 .map(|tracks| tracks.iter().map(Track::from).collect())
@@ -283,7 +284,7 @@ impl ListItem for Track {
         let spotify = queue.get_spotify();
 
         match self.album_id {
-            Some(ref album_id) => spotify.album(album_id).map(|ref fa| fa.into()),
+            Some(ref album_id) => spotify.api.album(album_id).map(|ref fa| fa.into()),
             None => None,
         }
     }

@@ -38,7 +38,7 @@ impl ArtistView {
             let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id {
-                    if let Some(tracks) = spotify.artist_top_tracks(&id) {
+                    if let Some(tracks) = spotify.api.artist_top_tracks(&id) {
                         top_tracks.write().unwrap().extend(tracks);
                         library.trigger_redraw();
                     }
@@ -53,7 +53,7 @@ impl ArtistView {
             let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id {
-                    if let Some(artists) = spotify.artist_related_artists(id) {
+                    if let Some(artists) = spotify.api.artist_related_artists(id) {
                         related.write().unwrap().extend(artists);
                         library.trigger_redraw();
                     }
@@ -106,7 +106,7 @@ impl ArtistView {
     ) -> ListView<Album> {
         if let Some(artist_id) = &artist.id {
             let spotify = queue.get_spotify();
-            let albums_page = spotify.artist_albums(artist_id, Some(album_type));
+            let albums_page = spotify.api.artist_albums(artist_id, Some(album_type));
             let view = ListView::new(albums_page.items.clone(), queue, library);
             albums_page.apply_pagination(view.get_pagination());
 

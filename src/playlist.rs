@@ -33,7 +33,7 @@ impl Playlist {
     }
 
     fn get_all_tracks(&self, spotify: Spotify) -> Vec<Track> {
-        let tracks_result = spotify.user_playlist_tracks(&self.id);
+        let tracks_result = spotify.api.user_playlist_tracks(&self.id);
         while !tracks_result.at_end() {
             tracks_result.next();
         }
@@ -53,7 +53,10 @@ impl Playlist {
     pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: Arc<Library>) -> bool {
         let track = self.tracks.as_ref().unwrap()[index].clone();
         debug!("deleting track: {} {:?}", index, track);
-        match spotify.delete_tracks(&self.id, &self.snapshot_id, &[(&track, track.list_index)]) {
+        match spotify
+            .api
+            .delete_tracks(&self.id, &self.snapshot_id, &[(&track, track.list_index)])
+        {
             false => false,
             true => {
                 if let Some(tracks) = &mut self.tracks {
@@ -75,7 +78,7 @@ impl Playlist {
 
         let mut has_modified = false;
 
-        if spotify.append_tracks(&self.id, &track_ids, None) {
+        if spotify.api.append_tracks(&self.id, &track_ids, None) {
             if let Some(tracks) = &mut self.tracks {
                 tracks.append(&mut new_tracks.to_vec());
                 has_modified = true;

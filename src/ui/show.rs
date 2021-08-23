@@ -23,7 +23,7 @@ impl ShowView {
         let show = show.clone();
 
         let list = {
-            let results = spotify.show_episodes(&show.id);
+            let results = spotify.api.show_episodes(&show.id);
             let view = ListView::new(results.items.clone(), queue, library);
             results.apply_pagination(view.get_pagination());
 

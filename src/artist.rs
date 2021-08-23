@@ -34,7 +34,7 @@ impl Artist {
     fn load_top_tracks(&mut self, spotify: Spotify) {
         if let Some(artist_id) = &self.id {
             if self.tracks.is_none() {
-                self.tracks = spotify.artist_top_tracks(artist_id);
+                self.tracks = spotify.api.artist_top_tracks(artist_id);
             }
         }
     }

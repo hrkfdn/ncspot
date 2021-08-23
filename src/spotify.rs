@@ -11,20 +11,7 @@ use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;
 use librespot_playback::player::Player;
 
-use rspotify::blocking::client::Spotify as SpotifyAPI;
-use rspotify::model::album::{FullAlbum, SavedAlbum};
-use rspotify::model::artist::FullArtist;
-use rspotify::model::page::{CursorBasedPage, Page};
-use rspotify::model::playlist::FullPlaylist;
-use rspotify::model::search::SearchResult;
-use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
-use rspotify::model::user::PrivateUser;
-use rspotify::senum::{AlbumType, SearchType};
-use rspotify::{blocking::client::ApiError, senum::Country};
-
-use serde_json::{json, Map};
-
-use failure::Error;
+use rspotify::senum::Country;
 
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
@@ -34,22 +21,13 @@ use url::Url;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::{Duration, SystemTime};
 
-use crate::artist::Artist;
 use crate::config;
 use crate::events::{Event, EventManager};
 use crate::playable::Playable;
+use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
-use crate::track::Track;
-
-use crate::album::Album;
-use crate::episode::Episode;
-use crate::playlist::Playlist;
-use crate::ui::pagination::{ApiPage, ApiResult};
-use rspotify::model::recommend::Recommendations;
-use rspotify::model::show::{FullEpisode, FullShow, Show};
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -67,13 +45,12 @@ pub struct Spotify {
     credentials: Credentials,
     cfg: Arc<config::Config>,
     status: Arc<RwLock<PlayerEvent>>,
-    api: Arc<RwLock<SpotifyAPI>>,
+    pub api: WebApi,
     elapsed: Arc<RwLock<Option<Duration>>>,
     since: Arc<RwLock<Option<SystemTime>>>,
     token_issued: Arc<RwLock<Option<SystemTime>>>,
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     user: Option<String>,
-    country: Option<Country>,
 }
 
 impl Spotify {
@@ -87,13 +64,12 @@ impl Spotify {
             credentials,
             cfg: cfg.clone(),
             status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
-            api: Arc::new(RwLock::new(SpotifyAPI::default())),
+            api: WebApi::new(),
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             token_issued: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
             user: None,
-            country: None,
         };
 
         let (user_tx, user_rx) = oneshot::channel();
@@ -102,10 +78,17 @@ impl Spotify {
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
-        spotify.country = spotify
+        spotify.api.set_worker_channel(spotify.channel.clone());
+        spotify.api.update_token();
+
+        let country: Option<Country> = spotify
+            .api
             .current_user()
             .and_then(|u| u.country)
             .and_then(|c| c.parse().ok());
+
+        spotify.api.set_user(spotify.user.clone());
+        spotify.api.set_country(country);
 
         spotify
     }
@@ -136,9 +119,6 @@ impl Spotify {
                 .await
             });
         }
-
-        // acquire token for web api usage
-        self.refresh_token();
     }
 
     pub fn session_config() -> SessionConfig {
@@ -290,417 +270,6 @@ impl Spotify {
             .read()
             .expect("could not acquire read lock on since time");
         *since
-    }
-
-    pub fn refresh_token(&self) {
-        {
-            let expiry = self.token_issued.read().unwrap();
-            if let Some(time) = *expiry {
-                if time.elapsed().unwrap() < Duration::from_secs(3000) {
-                    return;
-                }
-            }
-        }
-
-        let (token_tx, token_rx) = oneshot::channel();
-        self.send_worker(WorkerCommand::RequestToken(token_tx));
-        let token = futures::executor::block_on(token_rx).unwrap();
-
-        // update token used by web api calls
-        self.api.write().expect("can't writelock api").access_token = Some(token.access_token);
-        self.token_issued
-            .write()
-            .unwrap()
-            .replace(SystemTime::now());
-    }
-
-    /// retries once when rate limits are hit
-    fn api_with_retry<F, R>(&self, cb: F) -> Option<R>
-    where
-        F: Fn(&SpotifyAPI) -> Result<R, Error>,
-    {
-        let result = {
-            let api = self.api.read().expect("can't read api");
-            cb(&api)
-        };
-        match result {
-            Ok(v) => Some(v),
-            Err(e) => {
-                debug!("api error: {:?}", e);
-                if let Ok(apierror) = e.downcast::<ApiError>() {
-                    match apierror {
-                        ApiError::RateLimited(d) => {
-                            debug!("rate limit hit. waiting {:?} seconds", d);
-                            thread::sleep(Duration::from_secs(d.unwrap_or(0) as u64));
-                            let api = self.api.read().expect("can't read api");
-                            cb(&api).ok()
-                        }
-                        ApiError::Unauthorized => {
-                            debug!("token unauthorized. trying refresh..");
-                            self.refresh_token();
-                            let api = self.api.read().expect("can't read api");
-                            cb(&api).ok()
-                        }
-                        e => {
-                            error!("unhandled api error: {}", e);
-                            None
-                        }
-                    }
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    pub fn append_tracks(
-        &self,
-        playlist_id: &str,
-        tracks: &[String],
-        position: Option<i32>,
-    ) -> bool {
-        self.api_with_retry(|api| {
-            api.user_playlist_add_tracks(self.user.as_ref().unwrap(), playlist_id, tracks, position)
-        })
-        .is_some()
-    }
-
-    pub fn delete_tracks(
-        &self,
-        playlist_id: &str,
-        snapshot_id: &str,
-        track_pos_pairs: &[(&Track, usize)],
-    ) -> bool {
-        let mut tracks = Vec::new();
-        for (track, pos) in track_pos_pairs {
-            let track_occurrence = json!({
-                "uri": format!("spotify:track:{}", track.id.clone().unwrap()),
-                "positions": [pos]
-            });
-            let track_occurrence_object = track_occurrence.as_object();
-            tracks.push(track_occurrence_object.unwrap().clone());
-        }
-        self.api_with_retry(|api| {
-            api.user_playlist_remove_specific_occurrenes_of_tracks(
-                self.user.as_ref().unwrap(),
-                playlist_id,
-                tracks.clone(),
-                Some(snapshot_id.to_string()),
-            )
-        })
-        .is_some()
-    }
-
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
-        // extract only track IDs
-        let mut tracks: Vec<String> = tracks.iter().filter_map(|track| track.id()).collect();
-
-        // we can only send 100 tracks per request
-        let mut remainder = if tracks.len() > 100 {
-            Some(tracks.split_off(100))
-        } else {
-            None
-        };
-
-        if let Some(()) = self.api_with_retry(|api| {
-            api.user_playlist_replace_tracks(self.user.as_ref().unwrap(), id, &tracks)
-        }) {
-            debug!("saved {} tracks to playlist {}", tracks.len(), id);
-            while let Some(ref mut tracks) = remainder.clone() {
-                // grab the next set of 100 tracks
-                remainder = if tracks.len() > 100 {
-                    Some(tracks.split_off(100))
-                } else {
-                    None
-                };
-
-                debug!("adding another {} tracks to playlist", tracks.len());
-                if self.append_tracks(id, tracks, None) {
-                    debug!("{} tracks successfully added", tracks.len());
-                } else {
-                    error!("error saving tracks to playlists {}", id);
-                    return;
-                }
-            }
-        } else {
-            error!("error saving tracks to playlist {}", id);
-        }
-    }
-
-    pub fn delete_playlist(&self, id: &str) -> bool {
-        self.api_with_retry(|api| api.user_playlist_unfollow(self.user.as_ref().unwrap(), id))
-            .is_some()
-    }
-
-    pub fn create_playlist(
-        &self,
-        name: &str,
-        public: Option<bool>,
-        description: Option<String>,
-    ) -> Option<String> {
-        let result = self.api_with_retry(|api| {
-            api.user_playlist_create(
-                self.user.as_ref().unwrap(),
-                name,
-                public,
-                description.clone(),
-            )
-        });
-        result.map(|r| r.id)
-    }
-
-    pub fn album(&self, album_id: &str) -> Option<FullAlbum> {
-        self.api_with_retry(|api| api.album(album_id))
-    }
-
-    pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
-        self.api_with_retry(|api| api.artist(artist_id))
-    }
-
-    pub fn playlist(&self, playlist_id: &str) -> Option<FullPlaylist> {
-        self.api_with_retry(|api| api.playlist(playlist_id, None, self.country))
-    }
-
-    pub fn track(&self, track_id: &str) -> Option<FullTrack> {
-        self.api_with_retry(|api| api.track(track_id))
-    }
-
-    pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
-        self.api_with_retry(|api| api.get_a_show(show_id.to_string(), self.country))
-    }
-
-    pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
-        self.api_with_retry(|api| api.get_an_episode(episode_id.to_string(), self.country))
-    }
-
-    pub fn recommendations(
-        &self,
-        seed_artists: Option<Vec<String>>,
-        seed_genres: Option<Vec<String>>,
-        seed_tracks: Option<Vec<String>>,
-    ) -> Option<Recommendations> {
-        self.api_with_retry(|api| {
-            api.recommendations(
-                seed_artists.clone(),
-                seed_genres.clone(),
-                seed_tracks.clone(),
-                100,
-                self.country,
-                &Map::new(),
-            )
-        })
-    }
-
-    pub fn search(
-        &self,
-        searchtype: SearchType,
-        query: &str,
-        limit: u32,
-        offset: u32,
-    ) -> Option<SearchResult> {
-        self.api_with_retry(|api| api.search(query, searchtype, limit, offset, self.country, None))
-            .take()
-    }
-
-    pub fn current_user_playlist(&self) -> ApiResult<Playlist> {
-        const MAX_LIMIT: u32 = 50;
-        let spotify = self.clone();
-        let fetch_page = move |offset: u32| {
-            debug!("fetching user playlists, offset: {}", offset);
-            spotify.api_with_retry(|api| match api.current_user_playlists(MAX_LIMIT, offset) {
-                Ok(page) => Ok(ApiPage {
-                    offset: page.offset,
-                    total: page.total,
-                    items: page.items.iter().map(|sp| sp.into()).collect(),
-                }),
-                Err(e) => Err(e),
-            })
-        };
-        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
-    }
-
-    pub fn user_playlist_tracks(&self, playlist_id: &str) -> ApiResult<Track> {
-        const MAX_LIMIT: u32 = 100;
-        let spotify = self.clone();
-        let playlist_id = playlist_id.to_string();
-        let fetch_page = move |offset: u32| {
-            debug!(
-                "fetching playlist {} tracks, offset: {}",
-                playlist_id, offset
-            );
-            spotify.api_with_retry(|api| {
-                match api.user_playlist_tracks(
-                    spotify.user.as_ref().unwrap(),
-                    &playlist_id,
-                    None,
-                    MAX_LIMIT,
-                    offset,
-                    spotify.country,
-                ) {
-                    Ok(page) => Ok(ApiPage {
-                        offset: page.offset,
-                        total: page.total,
-                        items: page
-                            .items
-                            .iter()
-                            .enumerate()
-                            .flat_map(|(index, pt)| {
-                                pt.track.as_ref().map(|t| {
-                                    let mut track: Track = t.into();
-                                    track.added_at = Some(pt.added_at);
-                                    track.list_index = page.offset as usize + index;
-                                    track
-                                })
-                            })
-                            .collect(),
-                    }),
-                    Err(e) => Err(e),
-                }
-            })
-        };
-        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
-    }
-
-    pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
-        self.api_with_retry(|api| api.album(album_id))
-    }
-
-    pub fn album_tracks(
-        &self,
-        album_id: &str,
-        limit: u32,
-        offset: u32,
-    ) -> Option<Page<SimplifiedTrack>> {
-        self.api_with_retry(|api| api.album_track(album_id, limit, offset))
-    }
-
-    pub fn artist_albums(
-        &self,
-        artist_id: &str,
-        album_type: Option<AlbumType>,
-    ) -> ApiResult<Album> {
-        const MAX_SIZE: u32 = 50;
-        let spotify = self.clone();
-        let artist_id = artist_id.to_string();
-        let fetch_page = move |offset: u32| {
-            debug!("fetching artist {} albums, offset: {}", artist_id, offset);
-            spotify.api_with_retry(|api| {
-                match api.artist_albums(
-                    &artist_id,
-                    album_type,
-                    spotify.country,
-                    Some(MAX_SIZE),
-                    Some(offset),
-                ) {
-                    Ok(page) => {
-                        let mut albums: Vec<Album> =
-                            page.items.iter().map(|sa| sa.into()).collect();
-                        albums.sort_by(|a, b| b.year.cmp(&a.year));
-                        Ok(ApiPage {
-                            offset: page.offset,
-                            total: page.total,
-                            items: albums,
-                        })
-                    }
-                    Err(e) => Err(e),
-                }
-            })
-        };
-
-        ApiResult::new(MAX_SIZE, Arc::new(fetch_page))
-    }
-
-    pub fn show_episodes(&self, show_id: &str) -> ApiResult<Episode> {
-        const MAX_SIZE: u32 = 50;
-        let spotify = self.clone();
-        let show_id = show_id.to_string();
-        let fetch_page = move |offset: u32| {
-            debug!("fetching show {} episodes, offset: {}", &show_id, offset);
-            spotify.api_with_retry(|api| {
-                match api.get_shows_episodes(show_id.clone(), MAX_SIZE, offset, spotify.country) {
-                    Ok(page) => Ok(ApiPage {
-                        offset: page.offset,
-                        total: page.total,
-                        items: page.items.iter().map(|se| se.into()).collect(),
-                    }),
-                    Err(e) => Err(e),
-                }
-            })
-        };
-
-        ApiResult::new(MAX_SIZE, Arc::new(fetch_page))
-    }
-
-    pub fn get_saved_shows(&self, offset: u32) -> Option<Page<Show>> {
-        self.api_with_retry(|api| api.get_saved_show(50, offset))
-    }
-
-    pub fn save_shows(&self, ids: Vec<String>) -> bool {
-        self.api_with_retry(|api| api.save_shows(ids.clone()))
-            .is_some()
-    }
-
-    pub fn unsave_shows(&self, ids: Vec<String>) -> bool {
-        self.api_with_retry(|api| api.remove_users_saved_shows(ids.clone(), self.country))
-            .is_some()
-    }
-
-    pub fn current_user_followed_artists(
-        &self,
-        last: Option<String>,
-    ) -> Option<CursorBasedPage<FullArtist>> {
-        self.api_with_retry(|api| api.current_user_followed_artists(50, last.clone()))
-            .map(|cp| cp.artists)
-    }
-
-    pub fn user_follow_artists(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.user_follow_artists(&ids))
-    }
-
-    pub fn user_unfollow_artists(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.user_unfollow_artists(&ids))
-    }
-
-    pub fn current_user_saved_albums(&self, offset: u32) -> Option<Page<SavedAlbum>> {
-        self.api_with_retry(|api| api.current_user_saved_albums(50, offset))
-    }
-
-    pub fn current_user_saved_albums_add(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.current_user_saved_albums_add(&ids))
-    }
-
-    pub fn current_user_saved_albums_delete(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.current_user_saved_albums_delete(&ids))
-    }
-
-    pub fn current_user_saved_tracks(&self, offset: u32) -> Option<Page<SavedTrack>> {
-        self.api_with_retry(|api| api.current_user_saved_tracks(50, offset))
-    }
-
-    pub fn current_user_saved_tracks_add(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.current_user_saved_tracks_add(&ids))
-    }
-
-    pub fn current_user_saved_tracks_delete(&self, ids: Vec<String>) -> Option<()> {
-        self.api_with_retry(|api| api.current_user_saved_tracks_delete(&ids))
-    }
-
-    pub fn user_playlist_follow_playlist(&self, owner_id: String, id: String) -> Option<()> {
-        self.api_with_retry(|api| api.user_playlist_follow_playlist(&owner_id, &id, true))
-    }
-
-    pub fn artist_top_tracks(&self, id: &str) -> Option<Vec<Track>> {
-        self.api_with_retry(|api| api.artist_top_tracks(id, self.country))
-            .map(|ft| ft.tracks.iter().map(|t| t.into()).collect())
-    }
-
-    pub fn artist_related_artists(&self, id: String) -> Option<Vec<Artist>> {
-        self.api_with_retry(|api| api.artist_related_artists(&id))
-            .map(|fa| fa.artists.iter().map(|a| a.into()).collect())
-    }
-
-    pub fn current_user(&self) -> Option<PrivateUser> {
-        self.api_with_retry(|api| api.current_user())
     }
 
     pub fn load(&self, track: &Playable, start_playing: bool, position_ms: u32) {

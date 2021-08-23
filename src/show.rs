@@ -26,7 +26,7 @@ impl Show {
             return;
         }
 
-        let episodes_result = spotify.show_episodes(&self.id);
+        let episodes_result = spotify.api.show_episodes(&self.id);
         while !episodes_result.at_end() {
             episodes_result.next();
         }

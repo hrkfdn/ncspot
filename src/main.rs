@@ -34,6 +34,7 @@ mod serialization;
 mod sharing;
 mod show;
 mod spotify;
+mod spotify_api;
 mod spotify_url;
 mod spotify_worker;
 mod theme;
