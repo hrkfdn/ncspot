@@ -1,7 +1,7 @@
 use cursive::traits::Boxable;
 use cursive::view::Identifiable;
 use cursive::views::*;
-use cursive::{CbSink, Cursive, CursiveExt};
+use cursive::{Cursive, CursiveExt};
 
 use librespot_core::authentication::Credentials as RespotCredentials;
 use librespot_protocol::authentication::AuthenticationType;
@@ -49,26 +49,6 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
             s.pop_layer();
             s.add_layer(login_view);
         })
-        .button("Login with Facebook", |s| {
-            let urls: std::collections::HashMap<String, String> =
-                reqwest::blocking::get("https://login2.spotify.com/v1/config")
-                    .expect("didn't connect")
-                    .json()
-                    .expect("didn't parse");
-            // not a dialog to let people copy & paste the URL
-            let url_notice = TextView::new(format!("Browse to {}", &urls["login_url"]));
-
-            let controls = Button::new("Quit", Cursive::quit);
-
-            let login_view = LinearLayout::new(cursive::direction::Orientation::Vertical)
-                .child(url_notice)
-                .child(controls);
-            let url = &urls["login_url"];
-            webbrowser::open(url).ok();
-            auth_poller(&urls["credentials_url"], s.cb_sink());
-            s.pop_layer();
-            s.add_layer(login_view)
-        })
         .button("Quit", Cursive::quit);
 
     login_cursive.add_layer(info_view);
@@ -78,58 +58,6 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         .user_data()
         .cloned()
         .unwrap_or_else(|| Err("Didn't obtain any credentials".to_string()))
-}
-
-// TODO: better with futures?
-fn auth_poller(url: &str, app_sink: &CbSink) {
-    let app_sink = app_sink.clone();
-    let url = url.to_string();
-    std::thread::spawn(move || {
-        let timeout = std::time::Duration::from_secs(5 * 60);
-        let start_time = std::time::SystemTime::now();
-        while std::time::SystemTime::now()
-            .duration_since(start_time)
-            .unwrap_or(timeout)
-            < timeout
-        {
-            if let Ok(response) = reqwest::blocking::get(&url) {
-                if response.status() != reqwest::StatusCode::ACCEPTED {
-                    let result = match response.status() {
-                        reqwest::StatusCode::OK => {
-                            let creds = response
-                                .json::<AuthResponse>()
-                                .expect("Unable to parse")
-                                .credentials;
-                            Ok(creds)
-                        }
-
-                        _ => Err(format!(
-                            "Facebook auth failed with code {}: {}",
-                            response.status(),
-                            response.text().unwrap()
-                        )),
-                    };
-                    app_sink
-                        .send(Box::new(|s: &mut Cursive| {
-                            s.set_user_data(result);
-                            s.quit();
-                        }))
-                        .unwrap();
-                    return;
-                }
-            }
-            std::thread::sleep(std::time::Duration::from_millis(1000));
-        }
-
-        app_sink
-            .send(Box::new(|s: &mut Cursive| {
-                s.set_user_data::<Result<RespotCredentials, String>>(Err(
-                    "Timed out authenticating".to_string(),
-                ));
-                s.quit();
-            }))
-            .unwrap();
-    });
 }
 
 #[derive(Serialize, Deserialize, Debug)]
