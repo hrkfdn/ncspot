@@ -1,5 +1,8 @@
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, RwLock};
 use std::{cmp::Ordering, iter::Iterator};
+
+use rand::{seq::IteratorRandom, thread_rng};
 
 use log::debug;
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
@@ -9,7 +12,7 @@ use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::playlist::PlaylistView;
+use crate::ui::{listview::ListView, playlist::PlaylistView};
 use crate::{command::SortDirection, command::SortKey, library::Library};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -278,6 +281,47 @@ impl ListItem for Playlist {
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
         Some(PlaylistView::new(queue, library, self).into_boxed_view_ext())
+    }
+
+    fn open_recommendations(
+        &mut self,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+    ) -> Option<Box<dyn ViewExt>> {
+        self.load_tracks(queue.get_spotify());
+        const MAX_SEEDS: usize = 5;
+        let track_ids: Vec<String> = self
+            .tracks
+            .as_ref()?
+            .iter()
+            .map(|t| t.id.clone())
+            .flatten()
+            // only select unique tracks
+            .collect::<HashSet<_>>()
+            .into_iter()
+            // spotify allows at max 5 seed items, so choose them at random
+            .choose_multiple(&mut thread_rng(), MAX_SEEDS);
+
+        if track_ids.is_empty() {
+            return None;
+        }
+
+        let spotify = queue.get_spotify();
+        let recommendations: Option<Vec<Track>> = spotify
+            .api
+            .recommendations(None, None, Some(track_ids))
+            .map(|r| r.tracks)
+            .map(|tracks| tracks.iter().map(Track::from).collect());
+
+        recommendations.map(|tracks| {
+            ListView::new(
+                Arc::new(RwLock::new(tracks)),
+                queue.clone(),
+                library.clone(),
+            )
+            .set_title(format!("Similar to Tracks in \"{}\"", self.name,))
+            .into_boxed_view_ext()
+        })
     }
 
     fn share_url(&self) -> Option<String> {

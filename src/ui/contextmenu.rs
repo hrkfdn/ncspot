@@ -38,7 +38,7 @@ enum ContextMenuAction {
     SelectArtist(Vec<Artist>),
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
-    ShowRecommendations(Box<dyn ListItem>),
+    ShowRecommendations(Track),
     ToggleTrackSavedStatus(Box<Track>),
 }
 
@@ -162,7 +162,7 @@ impl ContextMenu {
             );
             content.add_item(
                 "Similar tracks",
-                ContextMenuAction::ShowRecommendations(Box::new(t.clone())),
+                ContextMenuAction::ShowRecommendations(t.clone()),
             );
             content.add_item(
                 match library.is_saved_track(&Playable::Track(t.clone())) {
@@ -195,7 +195,7 @@ impl ContextMenu {
                     s.add_layer(dialog);
                 }
                 ContextMenuAction::ShowRecommendations(item) => {
-                    if let Some(view) = item.open_recommendations(queue, library) {
+                    if let Some(view) = item.to_owned().open_recommendations(queue, library) {
                         s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                     }
                 }

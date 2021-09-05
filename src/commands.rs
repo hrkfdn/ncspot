@@ -258,6 +258,7 @@ impl CommandManager {
             | Command::Delete
             | Command::Back
             | Command::Open(_)
+            | Command::ShowRecommendations(_)
             | Command::Insert(_)
             | Command::Goto(_) => Ok(None),
             _ => Err("Unknown Command".into()),
@@ -389,6 +390,15 @@ impl CommandManager {
         kb.insert("Shift+o".into(), Command::Open(TargetMode::Current));
         kb.insert("a".into(), Command::Goto(GotoMode::Album));
         kb.insert("A".into(), Command::Goto(GotoMode::Artist));
+
+        kb.insert(
+            "m".into(),
+            Command::ShowRecommendations(TargetMode::Selected),
+        );
+        kb.insert(
+            "M".into(),
+            Command::ShowRecommendations(TargetMode::Current),
+        );
 
         kb.insert("Up".into(), Command::Move(MoveMode::Up, Default::default()));
         kb.insert(

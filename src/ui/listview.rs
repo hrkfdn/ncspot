@@ -576,6 +576,25 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 return Ok(CommandResult::Consumed(None));
             }
+            Command::ShowRecommendations(mode) => {
+                let queue = self.queue.clone();
+                let library = self.library.clone();
+                let target: Option<Box<dyn ListItem>> = match mode {
+                    TargetMode::Current => self.queue.get_current().map(|t| t.as_listitem()),
+                    TargetMode::Selected => {
+                        let content = self.content.read().unwrap();
+                        content.get(self.selected).map(|t| t.as_listitem())
+                    }
+                };
+
+                if let Some(mut target) = target {
+                    let view = target.open_recommendations(queue.clone(), library.clone());
+                    return match view {
+                        Some(view) => Ok(CommandResult::View(view)),
+                        None => Ok(CommandResult::Consumed(None)),
+                    };
+                }
+            }
             _ => {}
         };
 

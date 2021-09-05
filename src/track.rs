@@ -243,7 +243,7 @@ impl ListItem for Track {
     }
 
     fn open_recommendations(
-        &self,
+        &mut self,
         queue: Arc<Queue>,
         library: Arc<Library>,
     ) -> Option<Box<dyn ViewExt>> {

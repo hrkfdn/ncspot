@@ -27,7 +27,7 @@ pub trait ListItem: Sync + Send + 'static {
     fn unsave(&mut self, library: Arc<Library>);
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>>;
     fn open_recommendations(
-        &self,
+        &mut self,
         _queue: Arc<Queue>,
         _library: Arc<Library>,
     ) -> Option<Box<dyn ViewExt>> {
