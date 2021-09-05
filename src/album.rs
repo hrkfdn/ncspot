@@ -243,23 +243,24 @@ impl ListItem for Album {
             .iter()
             .map(|t| t.id.clone())
             .flatten()
-            // spotify allows at max 5 seed items, so choose them at random
-            .choose_multiple(&mut thread_rng(), MAX_SEEDS);
+            // spotify allows at max 5 seed items, so choose 4 random tracks...
+            .choose_multiple(&mut thread_rng(), MAX_SEEDS - 1);
 
-        let artist_ids: Vec<String> = self
+        let artist_id: Option<String> = self
             .artist_ids
             .iter()
             .map(|aid| aid.clone())
-            .choose_multiple(&mut thread_rng(), MAX_SEEDS);
+            // ...and one artist
+            .choose(&mut thread_rng());
 
-        if track_ids.is_empty() && artist_ids.is_empty() {
+        if track_ids.is_empty() && artist_id.is_some() {
             return None;
         }
 
         let spotify = queue.get_spotify();
         let recommendations: Option<Vec<Track>> = spotify
             .api
-            .recommendations(Some(artist_ids), None, Some(track_ids))
+            .recommendations(artist_id.map(|aid| vec![aid]), None, Some(track_ids))
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
         recommendations.map(|tracks| {
