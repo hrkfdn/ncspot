@@ -196,6 +196,8 @@ impl fmt::Display for Command {
             Command::Logout => "logout".to_string(),
             Command::ShowRecommendations(mode) => format!("similar {}", mode),
         };
+        // escape the command separator
+        let repr = repr.replace(";", ";;");
         write!(f, "{}", repr)
     }
 }
@@ -233,206 +235,236 @@ fn handle_aliases(input: &str) -> &str {
     }
 }
 
-pub fn parse(input: &str) -> Option<Command> {
-    let components: Vec<_> = input.trim().split(' ').collect();
-
-    let command = handle_aliases(components[0]);
-    let args = components[1..].to_vec();
-
-    match command {
-        "quit" => Some(Command::Quit),
-        "playpause" => Some(Command::TogglePlay),
-        "stop" => Some(Command::Stop),
-        "previous" => Some(Command::Previous),
-        "next" => Some(Command::Next),
-        "clear" => Some(Command::Clear),
-        "playnext" => Some(Command::PlayNext),
-        "queue" => Some(Command::Queue),
-        "play" => Some(Command::Play),
-        "update" => Some(Command::UpdateLibrary),
-        "delete" => Some(Command::Delete),
-        "back" => Some(Command::Back),
-        "open" => args
-            .get(0)
-            .and_then(|target| match *target {
-                "selected" => Some(TargetMode::Selected),
-                "current" => Some(TargetMode::Current),
-                _ => None,
-            })
-            .map(Command::Open),
-        "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
-        "search" => Some(Command::Search(args.join(" "))),
-        "shift" => {
-            let amount = args.get(1).and_then(|amount| amount.parse().ok());
-
-            args.get(0)
-                .and_then(|direction| match *direction {
-                    "up" => Some(ShiftMode::Up),
-                    "down" => Some(ShiftMode::Down),
-                    _ => None,
-                })
-                .map(|mode| Command::Shift(mode, amount))
+pub fn parse(input: &str) -> Option<Vec<Command>> {
+    let mut command_inputs = vec!["".to_string()];
+    let mut command_idx = 0;
+    enum ParseState {
+        Normal,
+        SeparatorEncountered,
+    }
+    let mut parse_state = ParseState::Normal;
+    for c in input.chars() {
+        let is_separator = c == ';';
+        match parse_state {
+            ParseState::Normal if is_separator => parse_state = ParseState::SeparatorEncountered,
+            ParseState::Normal => command_inputs[command_idx].push(c),
+            // ";" is escaped using ";;", so if the previous char already was a ';' push a ';'.
+            ParseState::SeparatorEncountered if is_separator => {
+                command_inputs[command_idx].push(c);
+                parse_state = ParseState::Normal;
+            }
+            ParseState::SeparatorEncountered => {
+                command_idx += 1;
+                command_inputs.push(c.to_string());
+                parse_state = ParseState::Normal;
+            }
         }
-        "move" => {
-            let cmd: Option<Command> = {
-                args.get(0).and_then(|extreme| match *extreme {
-                    "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
-                    "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
-                    "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
-                    "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
-                    "playing" => Some(Command::Move(MoveMode::Playing, MoveAmount::default())),
+    }
+
+    let mut commands = vec![];
+    for command_input in command_inputs {
+        let components: Vec<_> = command_input.trim().split(' ').collect();
+
+        let command = handle_aliases(components[0]);
+        let args = components[1..].to_vec();
+
+        let command = match command {
+            "quit" => Some(Command::Quit),
+            "playpause" => Some(Command::TogglePlay),
+            "stop" => Some(Command::Stop),
+            "previous" => Some(Command::Previous),
+            "next" => Some(Command::Next),
+            "clear" => Some(Command::Clear),
+            "playnext" => Some(Command::PlayNext),
+            "queue" => Some(Command::Queue),
+            "play" => Some(Command::Play),
+            "update" => Some(Command::UpdateLibrary),
+            "delete" => Some(Command::Delete),
+            "back" => Some(Command::Back),
+            "open" => args
+                .get(0)
+                .and_then(|target| match *target {
+                    "selected" => Some(TargetMode::Selected),
+                    "current" => Some(TargetMode::Current),
                     _ => None,
                 })
-            };
-
-            cmd.or({
-                let amount = args
-                    .get(1)
-                    .and_then(|amount| amount.parse().ok())
-                    .map(MoveAmount::Integer)
-                    .unwrap_or_default();
+                .map(Command::Open),
+            "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
+            "search" => Some(Command::Search(args.join(" "))),
+            "shift" => {
+                let amount = args.get(1).and_then(|amount| amount.parse().ok());
 
                 args.get(0)
                     .and_then(|direction| match *direction {
-                        "up" => Some(MoveMode::Up),
-                        "down" => Some(MoveMode::Down),
-                        "left" => Some(MoveMode::Left),
-                        "right" => Some(MoveMode::Right),
+                        "up" => Some(ShiftMode::Up),
+                        "down" => Some(ShiftMode::Down),
                         _ => None,
                     })
-                    .map(|mode| Command::Move(mode, amount))
-            })
-        }
-        "goto" => args
-            .get(0)
-            .and_then(|mode| match *mode {
-                "album" => Some(GotoMode::Album),
-                "artist" => Some(GotoMode::Artist),
-                _ => None,
-            })
-            .map(Command::Goto),
-        "share" => args
-            .get(0)
-            .and_then(|target| match *target {
-                "selected" => Some(TargetMode::Selected),
-                "current" => Some(TargetMode::Current),
-                _ => None,
-            })
-            .map(Command::Share),
-        "shuffle" => {
-            let shuffle = args.get(0).and_then(|mode| match *mode {
-                "on" => Some(true),
-                "off" => Some(false),
-                _ => None,
-            });
-
-            Some(Command::Shuffle(shuffle))
-        }
-        "repeat" => {
-            let mode = args.get(0).and_then(|mode| match *mode {
-                "list" | "playlist" | "queue" => Some(RepeatSetting::RepeatPlaylist),
-                "track" | "once" => Some(RepeatSetting::RepeatTrack),
-                "none" | "off" => Some(RepeatSetting::None),
-                _ => None,
-            });
-
-            Some(Command::Repeat(mode))
-        }
-        "seek" => args.get(0).and_then(|arg| match arg.chars().next() {
-            Some(x) if x == '-' || x == '+' => arg
-                .chars()
-                .skip(1)
-                .collect::<String>()
-                .parse::<i32>()
-                .ok()
-                .map(|amount| {
-                    Command::Seek(SeekDirection::Relative(
-                        amount
-                            * match x {
-                                '-' => -1,
-                                _ => 1,
-                            },
-                    ))
-                }),
-            _ => arg
-                .chars()
-                .collect::<String>()
-                .parse()
-                .ok()
-                .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),
-        }),
-        "focus" => args
-            .get(0)
-            .map(|target| Command::Focus((*target).to_string())),
-        "save" => args
-            .get(0)
-            .map(|target| match *target {
-                "queue" => Command::SaveQueue,
-                _ => Command::Save,
-            })
-            .or(Some(Command::Save)),
-        "volup" => Some(Command::VolumeUp(
-            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
-        )),
-        "voldown" => Some(Command::VolumeDown(
-            args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
-        )),
-        "help" => Some(Command::Help),
-        "reload" => Some(Command::ReloadConfig),
-        "insert" => {
-            if args.is_empty() {
-                Some(Command::Insert(None))
-            } else {
-                args.get(0)
-                    .map(|url| Command::Insert(Some((*url).to_string())))
+                    .map(|mode| Command::Shift(mode, amount))
             }
-        }
-        "newplaylist" => {
-            if !args.is_empty() {
-                Some(Command::NewPlaylist(args.join(" ")))
-            } else {
-                None
-            }
-        }
-        "sort" => {
-            if !args.is_empty() {
-                let sort_key = args.get(0).and_then(|key| match *key {
-                    "title" => Some(SortKey::Title),
-                    "duration" => Some(SortKey::Duration),
-                    "album" => Some(SortKey::Album),
-                    "added" => Some(SortKey::Added),
-                    "artist" => Some(SortKey::Artist),
-                    _ => None,
-                })?;
-
-                let sort_direction = args
-                    .get(1)
-                    .map(|direction| match *direction {
-                        "a" => SortDirection::Ascending,
-                        "asc" => SortDirection::Ascending,
-                        "ascending" => SortDirection::Ascending,
-                        "d" => SortDirection::Descending,
-                        "desc" => SortDirection::Descending,
-                        "descending" => SortDirection::Descending,
-                        _ => SortDirection::Ascending,
+            "move" => {
+                let cmd: Option<Command> = {
+                    args.get(0).and_then(|extreme| match *extreme {
+                        "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
+                        "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
+                        "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
+                        "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
+                        "playing" => Some(Command::Move(MoveMode::Playing, MoveAmount::default())),
+                        _ => None,
                     })
-                    .unwrap_or(SortDirection::Ascending);
+                };
 
-                Some(Command::Sort(sort_key, sort_direction))
-            } else {
-                None
+                cmd.or({
+                    let amount = args
+                        .get(1)
+                        .and_then(|amount| amount.parse().ok())
+                        .map(MoveAmount::Integer)
+                        .unwrap_or_default();
+
+                    args.get(0)
+                        .and_then(|direction| match *direction {
+                            "up" => Some(MoveMode::Up),
+                            "down" => Some(MoveMode::Down),
+                            "left" => Some(MoveMode::Left),
+                            "right" => Some(MoveMode::Right),
+                            _ => None,
+                        })
+                        .map(|mode| Command::Move(mode, amount))
+                })
             }
-        }
-        "logout" => Some(Command::Logout),
-        "similar" => args
-            .get(0)
-            .and_then(|target| match *target {
-                "selected" => Some(TargetMode::Selected),
-                "current" => Some(TargetMode::Current),
-                _ => None,
-            })
-            .map(Command::ShowRecommendations),
-        "noop" => Some(Command::Noop),
-        _ => None,
+            "goto" => args
+                .get(0)
+                .and_then(|mode| match *mode {
+                    "album" => Some(GotoMode::Album),
+                    "artist" => Some(GotoMode::Artist),
+                    _ => None,
+                })
+                .map(Command::Goto),
+            "share" => args
+                .get(0)
+                .and_then(|target| match *target {
+                    "selected" => Some(TargetMode::Selected),
+                    "current" => Some(TargetMode::Current),
+                    _ => None,
+                })
+                .map(Command::Share),
+            "shuffle" => {
+                let shuffle = args.get(0).and_then(|mode| match *mode {
+                    "on" => Some(true),
+                    "off" => Some(false),
+                    _ => None,
+                });
+
+                Some(Command::Shuffle(shuffle))
+            }
+            "repeat" => {
+                let mode = args.get(0).and_then(|mode| match *mode {
+                    "list" | "playlist" | "queue" => Some(RepeatSetting::RepeatPlaylist),
+                    "track" | "once" => Some(RepeatSetting::RepeatTrack),
+                    "none" | "off" => Some(RepeatSetting::None),
+                    _ => None,
+                });
+
+                Some(Command::Repeat(mode))
+            }
+            "seek" => args.get(0).and_then(|arg| match arg.chars().next() {
+                Some(x) if x == '-' || x == '+' => arg
+                    .chars()
+                    .skip(1)
+                    .collect::<String>()
+                    .parse::<i32>()
+                    .ok()
+                    .map(|amount| {
+                        Command::Seek(SeekDirection::Relative(
+                            amount
+                                * match x {
+                                    '-' => -1,
+                                    _ => 1,
+                                },
+                        ))
+                    }),
+                _ => arg
+                    .chars()
+                    .collect::<String>()
+                    .parse()
+                    .ok()
+                    .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),
+            }),
+            "focus" => args
+                .get(0)
+                .map(|target| Command::Focus((*target).to_string())),
+            "save" => args
+                .get(0)
+                .map(|target| match *target {
+                    "queue" => Command::SaveQueue,
+                    _ => Command::Save,
+                })
+                .or(Some(Command::Save)),
+            "volup" => Some(Command::VolumeUp(
+                args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+            )),
+            "voldown" => Some(Command::VolumeDown(
+                args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
+            )),
+            "help" => Some(Command::Help),
+            "reload" => Some(Command::ReloadConfig),
+            "insert" => {
+                if args.is_empty() {
+                    Some(Command::Insert(None))
+                } else {
+                    args.get(0)
+                        .map(|url| Command::Insert(Some((*url).to_string())))
+                }
+            }
+            "newplaylist" => {
+                if !args.is_empty() {
+                    Some(Command::NewPlaylist(args.join(" ")))
+                } else {
+                    None
+                }
+            }
+            "sort" => {
+                if !args.is_empty() {
+                    let sort_key = args.get(0).and_then(|key| match *key {
+                        "title" => Some(SortKey::Title),
+                        "duration" => Some(SortKey::Duration),
+                        "album" => Some(SortKey::Album),
+                        "added" => Some(SortKey::Added),
+                        "artist" => Some(SortKey::Artist),
+                        _ => None,
+                    })?;
+
+                    let sort_direction = args
+                        .get(1)
+                        .map(|direction| match *direction {
+                            "a" => SortDirection::Ascending,
+                            "asc" => SortDirection::Ascending,
+                            "ascending" => SortDirection::Ascending,
+                            "d" => SortDirection::Descending,
+                            "desc" => SortDirection::Descending,
+                            "descending" => SortDirection::Descending,
+                            _ => SortDirection::Ascending,
+                        })
+                        .unwrap_or(SortDirection::Ascending);
+
+                    Some(Command::Sort(sort_key, sort_direction))
+                } else {
+                    None
+                }
+            }
+            "logout" => Some(Command::Logout),
+            "similar" => args
+                .get(0)
+                .and_then(|target| match *target {
+                    "selected" => Some(TargetMode::Selected),
+                    "current" => Some(TargetMode::Current),
+                    _ => None,
+                })
+                .map(Command::ShowRecommendations),
+            "noop" => Some(Command::Noop),
+            _ => None,
+        };
+        commands.push(command?);
     }
+    Some(commands)
 }
