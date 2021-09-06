@@ -288,13 +288,15 @@ async fn main() -> Result<(), String> {
                 }
             } else {
                 let parsed = command::parse(cmd_without_prefix);
-                if let Some(parsed) = parsed {
+                if let Some(commands) = parsed {
                     if let Some(data) = s.user_data::<UserData>().cloned() {
-                        data.cmd.handle(s, parsed)
+                        for cmd in commands {
+                            data.cmd.handle(s, cmd);
+                        }
                     }
                 } else {
                     let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                    let err_msg = format!("Unknown command: \"{}\"", cmd_without_prefix);
+                    let err_msg = format!("Failed to parse command(s): \"{}\"", cmd_without_prefix);
                     main.set_result(Err(err_msg));
                 }
             }

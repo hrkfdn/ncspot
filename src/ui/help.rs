@@ -17,7 +17,7 @@ pub struct HelpView {
 }
 
 impl HelpView {
-    pub fn new(bindings: HashMap<String, Command>) -> HelpView {
+    pub fn new(bindings: HashMap<String, Vec<Command>>) -> HelpView {
         let mut text = StyledString::styled("Keybindings\n\n", Effect::Bold);
 
         let note = format!(
@@ -30,8 +30,16 @@ impl HelpView {
         keys.sort();
 
         for key in keys {
-            let command = &bindings[key];
-            let binding = format!("{} -> {}\n", key, command);
+            let commands = &bindings[key];
+            let binding = format!(
+                "{} -> {}\n",
+                key,
+                commands
+                    .iter()
+                    .map(|c| c.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            );
             text.append(binding);
         }
 
