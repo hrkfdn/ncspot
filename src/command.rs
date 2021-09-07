@@ -134,6 +134,7 @@ pub enum Command {
     NewPlaylist(String),
     Sort(SortKey, SortDirection),
     Logout,
+    ShowRecommendations(TargetMode),
 }
 
 impl fmt::Display for Command {
@@ -193,6 +194,7 @@ impl fmt::Display for Command {
             Command::NewPlaylist(name) => format!("new playlist {}", name),
             Command::Sort(key, direction) => format!("sort {} {}", key, direction),
             Command::Logout => "logout".to_string(),
+            Command::ShowRecommendations(mode) => format!("similar {}", mode),
         };
         write!(f, "{}", repr)
     }
@@ -422,6 +424,14 @@ pub fn parse(input: &str) -> Option<Command> {
             }
         }
         "logout" => Some(Command::Logout),
+        "similar" => args
+            .get(0)
+            .and_then(|target| match *target {
+                "selected" => Some(TargetMode::Selected),
+                "current" => Some(TargetMode::Current),
+                _ => None,
+            })
+            .map(Command::ShowRecommendations),
         "noop" => Some(Command::Noop),
         _ => None,
     }

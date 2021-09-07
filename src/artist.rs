@@ -1,5 +1,5 @@
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 
@@ -9,7 +9,7 @@ use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::artist::ArtistView;
+use crate::ui::{artist::ArtistView, listview::ListView};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Artist {
@@ -172,6 +172,31 @@ impl ListItem for Artist {
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
         Some(ArtistView::new(queue, library, self).into_boxed_view_ext())
+    }
+
+    fn open_recommendations(
+        &mut self,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+    ) -> Option<Box<dyn ViewExt>> {
+        let id = self.id.as_ref()?.to_string();
+
+        let spotify = queue.get_spotify();
+        let recommendations: Option<Vec<Track>> = spotify
+            .api
+            .recommendations(Some(vec![id]), None, None)
+            .map(|r| r.tracks)
+            .map(|tracks| tracks.iter().map(Track::from).collect());
+
+        recommendations.map(|tracks| {
+            ListView::new(
+                Arc::new(RwLock::new(tracks)),
+                queue.clone(),
+                library.clone(),
+            )
+            .set_title(format!("Similar to Artist \"{}\"", self.name,))
+            .into_boxed_view_ext()
+        })
     }
 
     fn share_url(&self) -> Option<String> {
