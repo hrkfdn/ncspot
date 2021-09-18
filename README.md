@@ -71,11 +71,7 @@ You can find it under `target/debian`.
 
 ### On Windows
 
-Make sure you're using MSVC toolchain
-
-```
-cargo install ncspot --no-default-features --features rodio_backend,cursive/pancurses-backend
-```
+ncspot is available via Scoop: `scoop install ncspot`
 
 ## Usage
 
@@ -87,11 +83,13 @@ cargo install ncspot --no-default-features --features rodio_backend,cursive/panc
 ## Audio backends
 
 By default ncspot is built using the PulseAudio backend.  To make it use the
-PortAudio backend (e.g. for *BSD or macOS), you need to recompile ncspot with
-the `portaudio_backend` feature:
+PortAudio backend (e.g. for *BSD or macOS) or Rodio backend (e.g. for Windows), 
+you need to recompile ncspot with the respective features:
 
 * `cargo run --no-default-features --features
   portaudio_backend,cursive/pancurses-backend`
+* `cargo run --no-default-features --features 
+  rodio_backend,cursive/pancurses-backend`
 
 ### Key Bindings
 
