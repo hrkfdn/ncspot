@@ -155,6 +155,10 @@ impl ContextMenu {
             #[cfg(feature = "share_clipboard")]
             content.add_item("Share", ContextMenuAction::ShareUrl(url));
         }
+        if let Some(url) = item.album(queue.clone()).and_then(|a| a.share_url()) {
+            #[cfg(feature = "share_clipboard")]
+            content.add_item("Share album", ContextMenuAction::ShareUrl(url));
+        }
         if let Some(t) = item.track() {
             content.add_item(
                 "Add to playlist",
