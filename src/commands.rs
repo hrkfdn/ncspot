@@ -119,6 +119,11 @@ impl CommandManager {
                 s.quit();
                 Ok(None)
             }
+            Command::Redraw => {
+                info!("Redrawing screen");
+                s.clear();
+                Ok(None)
+            }
             Command::Stop => {
                 self.queue.stop();
                 Ok(None)
@@ -346,6 +351,7 @@ impl CommandManager {
         let mut kb = HashMap::new();
 
         kb.insert("q".into(), vec![Command::Quit]);
+        kb.insert("Ctrl+l".into(), vec![Command::Redraw]);
         kb.insert("Shift+p".into(), vec![Command::TogglePlay]);
         kb.insert("Shift+u".into(), vec![Command::UpdateLibrary]);
         kb.insert("Shift+s".into(), vec![Command::Stop]);

@@ -135,6 +135,7 @@ pub enum Command {
     Sort(SortKey, SortDirection),
     Logout,
     ShowRecommendations(TargetMode),
+    Redraw,
 }
 
 impl fmt::Display for Command {
@@ -195,6 +196,7 @@ impl fmt::Display for Command {
             Command::Sort(key, direction) => format!("sort {} {}", key, direction),
             Command::Logout => "logout".to_string(),
             Command::ShowRecommendations(mode) => format!("similar {}", mode),
+            Command::Redraw => "redraw".to_string(),
         };
         // escape the command separator
         let repr = repr.replace(";", ";;");
@@ -462,6 +464,7 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
                 })
                 .map(Command::ShowRecommendations),
             "noop" => Some(Command::Noop),
+            "redraw" => Some(Command::Redraw),
             _ => None,
         };
         commands.push(command?);
