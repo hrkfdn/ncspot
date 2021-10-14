@@ -1540,6 +1540,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
+
+[[package]]
 name = "libpulse-binding"
 version = "2.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1589,22 +1595,18 @@ dependencies = [
 
 [[package]]
 name = "librespot-audio"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa0e89d3e106d80600537eba02c17ea6dd8b3de3f46c99952b813b6f6d6445c0"
+checksum = "105fcf66cdc7ff36509ecd5ab6c5b8731c9315b99b0d2432fa82fad3389ab776"
 dependencies = [
  "aes-ctr",
  "byteorder",
  "bytes 1.1.0",
- "cfg-if 1.0.0",
  "futures-util",
- "lewton",
- "librespot-core",
+ "librespot-core 0.3.0",
  "log",
- "ogg",
  "tempfile",
  "tokio 1.12.0",
- "zerocopy",
 ]
 
 [[package]]
@@ -1625,7 +1627,48 @@ dependencies = [
  "httparse",
  "hyper 0.14.12",
  "hyper-proxy",
- "librespot-protocol",
+ "librespot-protocol 0.2.0",
+ "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "once_cell",
+ "pbkdf2",
+ "priority-queue",
+ "protobuf",
+ "rand 0.8.4",
+ "serde",
+ "serde_json",
+ "sha-1",
+ "shannon",
+ "thiserror",
+ "tokio 1.12.0",
+ "tokio-stream",
+ "tokio-util 0.6.8",
+ "url 2.2.2",
+ "uuid",
+ "vergen",
+]
+
+[[package]]
+name = "librespot-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46e3917eda633cb490b9aa0fe57c805bafb9522a3978ec24eebf0c6da213da8e"
+dependencies = [
+ "aes",
+ "base64 0.13.0",
+ "byteorder",
+ "bytes 1.1.0",
+ "form_urlencoded",
+ "futures-core",
+ "futures-util",
+ "hmac",
+ "http",
+ "httparse",
+ "hyper 0.14.12",
+ "hyper-proxy",
+ "librespot-protocol 0.3.0",
  "log",
  "num-bigint",
  "num-integer",
@@ -1650,36 +1693,40 @@ dependencies = [
 
 [[package]]
 name = "librespot-metadata"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84157ce5d901dbdcaef17ed305deba5d87171725347673a1b632a334d910af47"
+checksum = "1c4cc473f70928d771e6287aa3d0687e04848ea2e967fe662aabb0de01d7f818"
 dependencies = [
  "async-trait",
  "byteorder",
- "librespot-core",
- "librespot-protocol",
+ "librespot-core 0.3.0",
+ "librespot-protocol 0.3.0",
  "log",
  "protobuf",
 ]
 
 [[package]]
 name = "librespot-playback"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59ca3df986a7e1a43008717660803e159177e86a589d484a0fc01fccd7967ad6"
+checksum = "57a57d4272b87b520d26dee2cfba7fe3a45daac88d63a7e6e4bda03dd2f66aac"
 dependencies = [
  "alsa",
  "byteorder",
  "cpal",
  "futures-executor",
  "futures-util",
+ "lewton",
  "libpulse-binding",
  "libpulse-simple-binding",
  "librespot-audio",
- "librespot-core",
+ "librespot-core 0.3.0",
  "librespot-metadata",
  "log",
+ "ogg",
  "portaudio-rs",
+ "rand 0.8.4",
+ "rand_distr",
  "rodio",
  "shell-words",
  "thiserror",
@@ -1696,6 +1743,17 @@ dependencies = [
  "glob",
  "protobuf",
  "protobuf-codegen",
+ "protobuf-codegen-pure",
+]
+
+[[package]]
+name = "librespot-protocol"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2708f27ba45ed06435f3214cc3fc93f2f4658a67068091139af956426d2c39fc"
+dependencies = [
+ "glob",
+ "protobuf",
  "protobuf-codegen-pure",
 ]
 
@@ -1898,9 +1956,9 @@ dependencies = [
  "futures 0.3.17",
  "ioctl-rs",
  "lazy_static",
- "librespot-core",
+ "librespot-core 0.2.0",
  "librespot-playback",
- "librespot-protocol",
+ "librespot-protocol 0.2.0",
  "log",
  "notify-rust",
  "pancurses 0.17.0",
@@ -2159,6 +2217,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg 1.0.1",
+ "libm",
 ]
 
 [[package]]
@@ -2701,6 +2760,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "964d548f8e7d12e102ef183a0de7e98180c9f8729f555897a857b96e48122d2f"
+dependencies = [
+ "num-traits",
+ "rand 0.8.4",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2931,9 +3000,9 @@ dependencies = [
 
 [[package]]
 name = "rodio"
-version = "0.13.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b65c2eda643191f6d1bb12ea323a9db8d9ba95374e9be3780b5a9fb5cfb8520f"
+checksum = "4d98f5e557b61525057e2bc142c8cd7f0e70d75dc32852309bec440e6e046bf9"
 dependencies = [
  "cpal",
 ]
