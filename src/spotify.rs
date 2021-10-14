@@ -4,7 +4,8 @@ use librespot_core::config::SessionConfig;
 use librespot_core::session::Session;
 use librespot_core::session::SessionError;
 use librespot_playback::config::PlayerConfig;
-use librespot_playback::player::NormalisationData;
+use librespot_playback::mixer::softmixer::SoftMixer;
+use librespot_playback::mixer::MixerConfig;
 use log::{debug, error, info};
 
 use librespot_playback::audio_backend;
@@ -181,9 +182,6 @@ impl Spotify {
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.values().volnorm.unwrap_or(false),
             normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
-            normalisation_threshold: NormalisationData::db_to_ratio(
-                PlayerConfig::default().normalisation_threshold,
-            ),
             ..Default::default()
         };
 
@@ -192,9 +190,9 @@ impl Spotify {
             .expect("Could not create session");
         user_tx.map(|tx| tx.send(session.username()));
 
-        let create_mixer = librespot_playback::mixer::find(Some("softvol".to_owned()))
+        let create_mixer = librespot_playback::mixer::find(Some(SoftMixer::NAME))
             .expect("could not create softvol mixer");
-        let mixer = create_mixer(None);
+        let mixer = create_mixer(MixerConfig::default());
         mixer.set_volume(volume);
 
         let backend = audio_backend::find(cfg.values().backend.clone()).unwrap();
@@ -354,27 +352,10 @@ impl Spotify {
         self.cfg.state().volume
     }
 
-    fn log_scale(volume: u16) -> u16 {
-        // https://www.dr-lex.be/info-stuff/volumecontrols.html#ideal2
-        // a * exp(b * x)
-        const A: f64 = 1.0 / 1000.0;
-        const B: f64 = 6.908;
-        let volume_percent = volume as f64 / u16::max_value() as f64;
-        let log_volume = A * (B * volume_percent).exp();
-        let result = log_volume * u16::max_value() as f64;
-
-        // u16 overflow check
-        if result > u16::max_value() as f64 {
-            u16::max_value()
-        } else {
-            result as u16
-        }
-    }
-
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
         self.cfg.with_state_mut(|mut s| s.volume = volume);
-        self.send_worker(WorkerCommand::SetVolume(Self::log_scale(volume)));
+        self.send_worker(WorkerCommand::SetVolume(volume));
     }
 
     pub fn preload(&self, track: &Playable) {

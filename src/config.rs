@@ -27,7 +27,7 @@ pub struct ConfigValues {
     pub backend: Option<String>,
     pub backend_device: Option<String>,
     pub volnorm: Option<bool>,
-    pub volnorm_pregain: Option<f32>,
+    pub volnorm_pregain: Option<f64>,
     pub notify: Option<bool>,
     pub bitrate: Option<u32>,
     pub album_column: Option<bool>,
