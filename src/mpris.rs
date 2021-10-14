@@ -13,6 +13,7 @@ use log::{debug, warn};
 use crate::album::Album;
 use crate::episode::Episode;
 use crate::events::EventManager;
+use crate::library::Library;
 use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::{Queue, RepeatSetting};
@@ -35,7 +36,7 @@ fn get_playbackstatus(spotify: Spotify) -> String {
     .to_string()
 }
 
-fn get_metadata(playable: Option<Playable>, spotify: Spotify) -> Metadata {
+fn get_metadata(playable: Option<Playable>, spotify: Spotify, library: Arc<Library>) -> Metadata {
     let mut hm: Metadata = HashMap::new();
 
     // Fetch full track details in case this playable is based on a SimplifiedTrack
@@ -146,6 +147,20 @@ fn get_metadata(playable: Option<Playable>, spotify: Spotify) -> Metadata {
                 .unwrap_or_default(),
         )),
     );
+    hm.insert(
+        "xesam:userRating".to_string(),
+        Variant(Box::new(
+            playable
+                .and_then(|p| p.track())
+                .map(
+                    |t| match library.is_saved_track(&Playable::Track(t.clone())) {
+                        true => 1.0,
+                        false => 0.0,
+                    },
+                )
+                .unwrap_or(0.0) as f64,
+        )),
+    );
 
     hm
 }
@@ -154,6 +169,7 @@ fn run_dbus_server(
     ev: EventManager,
     spotify: Spotify,
     queue: Arc<Queue>,
+    library: Arc<Library>,
     rx: mpsc::Receiver<MprisState>,
 ) {
     let conn = Rc::new(
@@ -277,10 +293,15 @@ fn run_dbus_server(
     let property_metadata = {
         let spotify = spotify.clone();
         let queue = queue.clone();
+        let library = library.clone();
         f.property::<HashMap<String, Variant<Box<dyn RefArg>>>, _>("Metadata", ())
             .access(Access::Read)
             .on_get(move |iter, _| {
-                let hm = get_metadata(queue.clone().get_current(), spotify.clone());
+                let hm = get_metadata(
+                    queue.clone().get_current(),
+                    spotify.clone(),
+                    library.clone(),
+                );
 
                 iter.append(hm);
                 Ok(())
@@ -690,7 +711,11 @@ fn run_dbus_server(
             changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
             changed.changed_properties.insert(
                 "Metadata".to_string(),
-                Variant(Box::new(get_metadata(state.1, spotify.clone()))),
+                Variant(Box::new(get_metadata(
+                    state.1,
+                    spotify.clone(),
+                    library.clone(),
+                ))),
             );
 
             changed
@@ -710,21 +735,33 @@ pub struct MprisManager {
     tx: mpsc::Sender<MprisState>,
     queue: Arc<Queue>,
     spotify: Spotify,
+    library: Arc<Library>,
 }
 
 impl MprisManager {
-    pub fn new(ev: EventManager, spotify: Spotify, queue: Arc<Queue>) -> Self {
+    pub fn new(
+        ev: EventManager,
+        spotify: Spotify,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+    ) -> Self {
         let (tx, rx) = mpsc::channel::<MprisState>();
 
         {
             let spotify = spotify.clone();
             let queue = queue.clone();
+            let library = library.clone();
             std::thread::spawn(move || {
-                run_dbus_server(ev, spotify.clone(), queue.clone(), rx);
+                run_dbus_server(ev, spotify.clone(), queue.clone(), library.clone(), rx);
             });
         }
 
-        MprisManager { tx, queue, spotify }
+        MprisManager {
+            tx,
+            queue,
+            spotify,
+            library,
+        }
     }
 
     pub fn update(&self) {
