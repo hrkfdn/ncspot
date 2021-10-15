@@ -83,12 +83,12 @@ ncspot is available via Scoop: `scoop install ncspot`
 ## Audio backends
 
 By default ncspot is built using the PulseAudio backend.  To make it use the
-PortAudio backend (e.g. for *BSD or macOS) or Rodio backend (e.g. for Windows), 
+PortAudio backend (e.g. for *BSD or macOS) or Rodio backend (e.g. for Windows),
 you need to recompile ncspot with the respective features:
 
 * `cargo run --no-default-features --features
   portaudio_backend,cursive/pancurses-backend`
-* `cargo run --no-default-features --features 
+* `cargo run --no-default-features --features
   rodio_backend,cursive/pancurses-backend`
 
 ### Key Bindings
@@ -189,6 +189,8 @@ Possible configuration values are:
 
 * `command_key`: Key to open command line <single character>, set to `:` by
   default
+* `initial_screen`: Screen to show after startup
+  <`"library"|"search"|"queue"|"cover" (if enabled)`> (default is `"library"`)
 * `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
 * `flip_status_indicators`: By default the statusbar will show a play icon when
    a track is playing and a pause icon when playback is stopped. If this setting

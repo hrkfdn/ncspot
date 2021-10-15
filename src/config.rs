@@ -17,6 +17,7 @@ pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
+    pub initial_screen: Option<String>,
     pub default_keybindings: Option<bool>,
     pub keybindings: Option<HashMap<String, String>>,
     pub theme: Option<ConfigTheme>,

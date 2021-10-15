@@ -16,7 +16,7 @@ use cursive::traits::Identifiable;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_playback::audio_backend;
-use log::{info, trace};
+use log::{error, info, trace};
 
 mod album;
 mod artist;
@@ -230,7 +230,17 @@ async fn main() -> Result<(), String> {
     layout.add_screen("cover", coverview.with_name("cover"));
 
     // initial screen is library
-    layout.set_screen("library");
+    let initial_screen = cfg
+        .values()
+        .initial_screen
+        .clone()
+        .unwrap_or("library".to_string());
+    if layout.has_screen(&initial_screen) {
+        layout.set_screen(initial_screen);
+    } else {
+        error!("Invalid screen name: {}", initial_screen);
+        layout.set_screen("library");
+    }
 
     let cmd_key = |cfg: Arc<Config>| cfg.values().command_key.unwrap_or(':');
 
