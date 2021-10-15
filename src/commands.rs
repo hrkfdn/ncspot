@@ -415,14 +415,14 @@ impl CommandManager {
         kb.insert("o".into(), vec![Command::Open(TargetMode::Selected)]);
         kb.insert("Shift+o".into(), vec![Command::Open(TargetMode::Current)]);
         kb.insert("a".into(), vec![Command::Goto(GotoMode::Album)]);
-        kb.insert("A".into(), vec![Command::Goto(GotoMode::Artist)]);
+        kb.insert("Shift+a".into(), vec![Command::Goto(GotoMode::Artist)]);
 
         kb.insert(
             "m".into(),
             vec![Command::ShowRecommendations(TargetMode::Selected)],
         );
         kb.insert(
-            "M".into(),
+            "Shift+m".into(),
             vec![Command::ShowRecommendations(TargetMode::Current)],
         );
 

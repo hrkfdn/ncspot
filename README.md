@@ -125,9 +125,9 @@ depending on your desktop environment settings. Have a look at the
       * "Similar tracks"
 * `Shift-o` will open a context menu for the currently playing track
 * `a` will open the album view for the selected item
-* `A` will open the artist view for the selected item
+* `Shift-a` will open the artist view for the selected item
 * `m` will open a view with recommendations based on the selected item
-* `M` will open a view with recommendations based on the currently playing track
+* `Shift-m` will open a view with recommendations based on the currently playing track
 * `Ctrl-v` will open the context menu for a Spotify link in your clipboard
 * `Backspace` closes the current view
 * `Shift-p` toggles playback of a track (play/pause)
