@@ -633,6 +633,9 @@ impl Library {
             let mut store = self.albums.write().unwrap();
             if !store.iter().any(|a| a.id == album.id) {
                 store.insert(0, album.clone());
+
+                // resort list of albums
+                store.sort_unstable_by_key(|a| format!("{}{}{}", a.artists[0], a.year, a.title));
             }
         }
 
