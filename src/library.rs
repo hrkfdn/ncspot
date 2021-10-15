@@ -648,9 +648,7 @@ impl Library {
                 store.insert(0, album.clone());
 
                 // resort list of albums
-                store.sort_unstable_by_key(|a| {
-                    format!("{}{}{}", a.artists[0], a.year, a.title)
-                });
+                store.sort_unstable_by_key(|a| format!("{}{}{}", a.artists[0], a.year, a.title));
             }
         }
 
