@@ -64,6 +64,13 @@ impl Worker {
     }
 }
 
+impl Drop for Worker {
+    fn drop(&mut self) {
+        debug!("Worker thread is shutting down, stopping player");
+        self.player.stop();
+    }
+}
+
 impl Worker {
     fn get_token(
         &self,
