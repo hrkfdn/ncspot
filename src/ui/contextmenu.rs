@@ -71,7 +71,7 @@ impl ContextMenu {
                     let spotify = spotify.clone();
                     let library = library.clone();
 
-                    playlist.append_tracks(&[track.clone()], spotify, library);
+                    playlist.append_tracks(&[Playable::Track(track.clone())], spotify, library);
                     c.pop_layer();
 
                     // Close add_track_dialog too
@@ -81,7 +81,7 @@ impl ContextMenu {
                 let modal = Modal::new(already_added_dialog);
                 s.add_layer(modal);
             } else {
-                playlist.append_tracks(&[track], spotify, library);
+                playlist.append_tracks(&[Playable::Track(track)], spotify, library);
                 s.pop_layer();
             }
         });

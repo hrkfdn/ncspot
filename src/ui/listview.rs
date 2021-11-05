@@ -117,7 +117,7 @@ impl<I: ListItem> ListView<I> {
                 .iter()
                 .map(|track| Playable::Track(track.clone()))
                 .collect();
-            let index = self.queue.append_next(tracks);
+            let index = self.queue.append_next(&tracks);
             self.queue.play(index + self.selected, true, false);
             true
         } else {

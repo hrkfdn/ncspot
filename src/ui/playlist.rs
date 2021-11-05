@@ -6,16 +6,17 @@ use cursive::Cursive;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
+use crate::playable::Playable;
 use crate::playlist::Playlist;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::track::Track;
+
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 
 pub struct PlaylistView {
     playlist: Playlist,
-    list: ListView<Track>,
+    list: ListView<Playable>,
     spotify: Spotify,
     library: Arc<Library>,
     queue: Arc<Queue>,
@@ -54,7 +55,7 @@ impl PlaylistView {
 }
 
 impl ViewWrapper for PlaylistView {
-    wrap_impl!(self.list: ListView<Track>);
+    wrap_impl!(self.list: ListView<Playable>);
 }
 
 impl ViewExt for PlaylistView {
@@ -64,7 +65,7 @@ impl ViewExt for PlaylistView {
 
     fn title_sub(&self) -> String {
         if let Some(tracks) = self.playlist.tracks.as_ref() {
-            let duration_secs = tracks.iter().map(|p| p.duration as u64 / 1000).sum();
+            let duration_secs = tracks.iter().map(|p| p.duration() as u64 / 1000).sum();
             let duration = std::time::Duration::from_secs(duration_secs);
             format!(
                 "{} tracks, {}",

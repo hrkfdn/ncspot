@@ -3,6 +3,7 @@ use std::thread;
 
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
+use rspotify::model::AlbumType;
 
 use crate::album::Album;
 use crate::artist::Artist;
@@ -14,7 +15,6 @@ use crate::track::Track;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 use crate::ui::tabview::TabView;
-use rspotify::senum::AlbumType;
 
 pub struct ArtistView {
     artist: Artist,
@@ -53,7 +53,7 @@ impl ArtistView {
             let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id {
-                    if let Some(artists) = spotify.api.artist_related_artists(id) {
+                    if let Some(artists) = spotify.api.artist_related_artists(&id) {
                         related.write().unwrap().extend(artists);
                         library.trigger_redraw();
                     }

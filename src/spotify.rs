@@ -12,8 +12,6 @@ use librespot_playback::audio_backend;
 use librespot_playback::config::Bitrate;
 use librespot_playback::player::Player;
 
-use rspotify::senum::Country;
-
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
 
@@ -82,14 +80,7 @@ impl Spotify {
         spotify.api.set_worker_channel(spotify.channel.clone());
         spotify.api.update_token();
 
-        let country: Option<Country> = spotify
-            .api
-            .current_user()
-            .and_then(|u| u.country)
-            .and_then(|c| c.parse().ok());
-
         spotify.api.set_user(spotify.user.clone());
-        spotify.api.set_country(country);
 
         spotify
     }

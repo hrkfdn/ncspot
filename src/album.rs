@@ -1,4 +1,5 @@
 use rand::{seq::IteratorRandom, thread_rng};
+use rspotify::model::Id;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
@@ -68,10 +69,14 @@ impl Album {
 impl From<&SimplifiedAlbum> for Album {
     fn from(sa: &SimplifiedAlbum) -> Self {
         Self {
-            id: sa.id.clone(),
+            id: sa.id.as_ref().map(|id| id.id().to_string()),
             title: sa.name.clone(),
             artists: sa.artists.iter().map(|sa| sa.name.clone()).collect(),
-            artist_ids: sa.artists.iter().filter_map(|a| a.id.clone()).collect(),
+            artist_ids: sa
+                .artists
+                .iter()
+                .filter_map(|a| a.id.as_ref().map(|id| id.id().to_string()))
+                .collect(),
             year: sa
                 .release_date
                 .clone()
@@ -81,7 +86,7 @@ impl From<&SimplifiedAlbum> for Album {
                 .unwrap()
                 .into(),
             cover_url: sa.images.get(0).map(|i| i.url.clone()),
-            url: sa.uri.clone(),
+            url: sa.id.as_ref().map(|id| id.url()),
             tracks: None,
             added_at: None,
         }
@@ -99,13 +104,17 @@ impl From<&FullAlbum> for Album {
         );
 
         Self {
-            id: Some(fa.id.clone()),
+            id: Some(fa.id.id().to_string()),
             title: fa.name.clone(),
             artists: fa.artists.iter().map(|sa| sa.name.clone()).collect(),
-            artist_ids: fa.artists.iter().filter_map(|a| a.id.clone()).collect(),
+            artist_ids: fa
+                .artists
+                .iter()
+                .filter_map(|a| a.id.as_ref().map(|id| id.id().to_string()))
+                .collect(),
             year: fa.release_date.split('-').next().unwrap().into(),
             cover_url: fa.images.get(0).map(|i| i.url.clone()),
-            url: Some(fa.uri.clone()),
+            url: Some(fa.id.uri()),
             tracks,
             added_at: None,
         }
@@ -185,7 +194,7 @@ impl ListItem for Album {
                 .iter()
                 .map(|track| Playable::Track(track.clone()))
                 .collect();
-            let index = queue.append_next(tracks);
+            let index = queue.append_next(&tracks);
             queue.play(index, true, true);
         }
     }
@@ -237,11 +246,11 @@ impl ListItem for Album {
     ) -> Option<Box<dyn ViewExt>> {
         self.load_all_tracks(queue.get_spotify());
         const MAX_SEEDS: usize = 5;
-        let track_ids: Vec<String> = self
+        let track_ids: Vec<&str> = self
             .tracks
             .as_ref()?
             .iter()
-            .map(|t| t.id.clone())
+            .map(|t| t.id.as_ref().map(|id| id.as_str()))
             .flatten()
             // spotify allows at max 5 seed items, so choose 4 random tracks...
             .choose_multiple(&mut thread_rng(), MAX_SEEDS - 1);
@@ -260,7 +269,11 @@ impl ListItem for Album {
         let spotify = queue.get_spotify();
         let recommendations: Option<Vec<Track>> = spotify
             .api
-            .recommendations(artist_id.map(|aid| vec![aid]), None, Some(track_ids))
+            .recommendations(
+                artist_id.as_ref().map(|aid| vec![aid.as_str()]),
+                None,
+                Some(track_ids),
+            )
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
         recommendations.map(|tracks| {

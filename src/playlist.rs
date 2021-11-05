@@ -6,6 +6,7 @@ use rand::{seq::IteratorRandom, thread_rng};
 
 use log::debug;
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
+use rspotify::model::Id;
 
 use crate::playable::Playable;
 use crate::queue::Queue;
@@ -22,7 +23,7 @@ pub struct Playlist {
     pub owner_id: String,
     pub snapshot_id: String,
     pub num_tracks: usize,
-    pub tracks: Option<Vec<Track>>,
+    pub tracks: Option<Vec<Playable>>,
     pub collaborative: bool,
 }
 
@@ -35,7 +36,7 @@ impl Playlist {
         self.tracks = Some(self.get_all_tracks(spotify));
     }
 
-    fn get_all_tracks(&self, spotify: Spotify) -> Vec<Track> {
+    fn get_all_tracks(&self, spotify: Spotify) -> Vec<Playable> {
         let tracks_result = spotify.api.user_playlist_tracks(&self.id);
         while !tracks_result.at_end() {
             tracks_result.next();
@@ -49,7 +50,7 @@ impl Playlist {
         self.tracks.as_ref().map_or(false, |tracks| {
             tracks
                 .iter()
-                .any(|track| track.id == Some(track_id.to_string()))
+                .any(|track| track.id() == Some(track_id.to_string()))
         })
     }
 
@@ -58,7 +59,7 @@ impl Playlist {
         debug!("deleting track: {} {:?}", index, track);
         match spotify
             .api
-            .delete_tracks(&self.id, &self.snapshot_id, &[(&track, track.list_index)])
+            .delete_tracks(&self.id, &self.snapshot_id, &[track])
         {
             false => false,
             true => {
@@ -72,16 +73,15 @@ impl Playlist {
         }
     }
 
-    pub fn append_tracks(&mut self, new_tracks: &[Track], spotify: Spotify, library: Arc<Library>) {
-        let track_ids: Vec<String> = new_tracks
-            .to_vec()
-            .iter()
-            .filter_map(|t| t.id.clone())
-            .collect();
-
+    pub fn append_tracks(
+        &mut self,
+        new_tracks: &[Playable],
+        spotify: Spotify,
+        library: Arc<Library>,
+    ) {
         let mut has_modified = false;
 
-        if spotify.api.append_tracks(&self.id, &track_ids, None) {
+        if spotify.api.append_tracks(&self.id, new_tracks, None) {
             if let Some(tracks) = &mut self.tracks {
                 tracks.append(&mut new_tracks.to_vec());
                 has_modified = true;
@@ -148,18 +148,12 @@ impl Playlist {
 
 impl From<&SimplifiedPlaylist> for Playlist {
     fn from(list: &SimplifiedPlaylist) -> Self {
-        let num_tracks = if let Some(number) = list.tracks.get("total") {
-            number.as_u64().unwrap() as usize
-        } else {
-            0
-        };
-
         Playlist {
-            id: list.id.clone(),
+            id: list.id.id().to_string(),
             name: list.name.clone(),
-            owner_id: list.owner.id.clone(),
+            owner_id: list.owner.id.id().to_string(),
             snapshot_id: list.snapshot_id.clone(),
-            num_tracks,
+            num_tracks: list.tracks.total as usize,
             tracks: None,
             collaborative: list.collaborative,
         }
@@ -169,9 +163,9 @@ impl From<&SimplifiedPlaylist> for Playlist {
 impl From<&FullPlaylist> for Playlist {
     fn from(list: &FullPlaylist) -> Self {
         Playlist {
-            id: list.id.clone(),
+            id: list.id.id().to_string(),
             name: list.name.clone(),
-            owner_id: list.owner.id.clone(),
+            owner_id: list.owner.id.id().to_string(),
             snapshot_id: list.snapshot_id.clone(),
             num_tracks: list.tracks.total as usize,
             tracks: None,
@@ -190,7 +184,7 @@ impl ListItem for Playlist {
                 .iter()
                 .filter_map(|t| t.id())
                 .collect();
-            let ids: Vec<String> = tracks.iter().filter_map(|t| t.id.clone()).collect();
+            let ids: Vec<String> = tracks.iter().filter_map(|t| t.id()).collect();
             !ids.is_empty() && playing == ids
         } else {
             false
@@ -229,10 +223,6 @@ impl ListItem for Playlist {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = &self.tracks {
-            let tracks: Vec<Playable> = tracks
-                .iter()
-                .map(|track| Playable::Track(track.clone()))
-                .collect();
             let index = queue.append_next(tracks);
             queue.play(index, true, true);
         }
@@ -243,7 +233,7 @@ impl ListItem for Playlist {
 
         if let Some(tracks) = self.tracks.as_ref() {
             for track in tracks.iter().rev() {
-                queue.insert_after_current(Playable::Track(track.clone()));
+                queue.insert_after_current(track.clone());
             }
         }
     }
@@ -253,7 +243,7 @@ impl ListItem for Playlist {
 
         if let Some(tracks) = self.tracks.as_ref() {
             for track in tracks.iter() {
-                queue.append(Playable::Track(track.clone()));
+                queue.append(track.clone());
             }
         }
     }
@@ -294,7 +284,7 @@ impl ListItem for Playlist {
             .tracks
             .as_ref()?
             .iter()
-            .map(|t| t.id.clone())
+            .map(|t| t.id())
             .flatten()
             // only select unique tracks
             .collect::<HashSet<_>>()
@@ -309,7 +299,11 @@ impl ListItem for Playlist {
         let spotify = queue.get_spotify();
         let recommendations: Option<Vec<Track>> = spotify
             .api
-            .recommendations(None, None, Some(track_ids))
+            .recommendations(
+                None,
+                None,
+                Some(track_ids.iter().map(|t| t.as_ref()).collect()),
+            )
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
 

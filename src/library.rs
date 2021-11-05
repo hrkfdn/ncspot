@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
 
 use log::{debug, error, info};
+use rspotify::model::Id;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -43,7 +44,7 @@ pub struct Library {
 impl Library {
     pub fn new(ev: &EventManager, spotify: Spotify, cfg: Arc<Config>) -> Self {
         let current_user = spotify.api.current_user();
-        let user_id = current_user.as_ref().map(|u| u.id.clone());
+        let user_id = current_user.as_ref().map(|u| u.id.id().to_string());
         let display_name = current_user.as_ref().and_then(|u| u.display_name.clone());
 
         let library = Self {
@@ -307,7 +308,7 @@ impl Library {
 
     fn fetch_artists(&self) {
         let mut artists: Vec<Artist> = Vec::new();
-        let mut last: Option<String> = None;
+        let mut last: Option<&str> = None;
 
         let mut i: u32 = 0;
 
@@ -324,7 +325,7 @@ impl Library {
             artists.extend(page.items.iter().map(|fa| fa.into()));
 
             if page.next.is_some() {
-                last = artists.last().unwrap().id.clone();
+                last = artists.last().unwrap().id.as_ref().map(|id| id.as_str());
             } else {
                 break;
             }
@@ -387,7 +388,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, a)| a.album.id != store[i].id.clone().unwrap_or_default())
+                        .any(|(i, a)| a.album.id.id() != store[i].id.clone().unwrap_or_default())
                 {
                     return;
                 }
@@ -438,7 +439,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, t)| t.track.id != store[i].id)
+                        .any(|(i, t)| Some(t.track.id.id().to_string()) != store[i].id)
                 {
                     return;
                 }
@@ -547,7 +548,12 @@ impl Library {
             && self
                 .spotify
                 .api
-                .current_user_saved_tracks_add(tracks.iter().filter_map(|t| t.id.clone()).collect())
+                .current_user_saved_tracks_add(
+                    tracks
+                        .iter()
+                        .filter_map(|t| t.id.as_ref().map(|id| id.as_str()))
+                        .collect(),
+                )
                 .is_none()
         {
             return;
@@ -582,7 +588,10 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_tracks_delete(
-                    tracks.iter().filter_map(|t| t.id.clone()).collect(),
+                    tracks
+                        .iter()
+                        .filter_map(|t| t.id.as_ref().map(|id| id.as_str()))
+                        .collect(),
                 )
                 .is_none()
         {
@@ -622,7 +631,7 @@ impl Library {
             if self
                 .spotify
                 .api
-                .current_user_saved_albums_add(vec![album_id.clone()])
+                .current_user_saved_albums_add(vec![album_id.as_str()])
                 .is_none()
             {
                 return;
@@ -651,7 +660,7 @@ impl Library {
             if self
                 .spotify
                 .api
-                .current_user_saved_albums_delete(vec![album_id.clone()])
+                .current_user_saved_albums_delete(vec![album_id.as_str()])
                 .is_none()
             {
                 return;
@@ -684,7 +693,7 @@ impl Library {
             if self
                 .spotify
                 .api
-                .user_follow_artists(vec![artist_id.clone()])
+                .user_follow_artists(vec![artist_id.as_str()])
                 .is_none()
             {
                 return;
@@ -716,7 +725,7 @@ impl Library {
             if self
                 .spotify
                 .api
-                .user_unfollow_artists(vec![artist_id.clone()])
+                .user_unfollow_artists(vec![artist_id.as_str()])
                 .is_none()
             {
                 return;
@@ -759,7 +768,7 @@ impl Library {
         if self
             .spotify
             .api
-            .user_playlist_follow_playlist(playlist.owner_id.clone(), playlist.id.clone())
+            .user_playlist_follow_playlist(playlist.id.as_str())
             .is_none()
         {
             return;
@@ -792,7 +801,7 @@ impl Library {
             return;
         }
 
-        if self.spotify.api.save_shows(vec![show.id.clone()]) {
+        if self.spotify.api.save_shows(vec![show.id.as_str()]) {
             {
                 let mut store = self.shows.write().unwrap();
                 if !store.iter().any(|s| s.id == show.id) {
@@ -807,7 +816,7 @@ impl Library {
             return;
         }
 
-        if self.spotify.api.unsave_shows(vec![show.id.clone()]) {
+        if self.spotify.api.unsave_shows(vec![show.id.as_str()]) {
             {
                 let mut store = self.shows.write().unwrap();
                 *store = store.iter().filter(|s| s.id != show.id).cloned().collect();

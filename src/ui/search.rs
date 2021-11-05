@@ -28,7 +28,6 @@ use crate::ui::pagination::Pagination;
 use crate::ui::search_results::SearchResultsView;
 use crate::ui::tabview::TabView;
 use rspotify::model::search::SearchResult;
-use rspotify::senum::SearchType;
 
 pub struct SearchView {
     edit: NamedView<EditView>,
