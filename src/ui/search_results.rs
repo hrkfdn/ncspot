@@ -18,7 +18,7 @@ use crate::ui::tabview::TabView;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 use rspotify::model::search::SearchResult;
-use rspotify::senum::SearchType;
+use rspotify::model::SearchType;
 use std::sync::{Arc, RwLock};
 
 pub struct SearchResultsView {

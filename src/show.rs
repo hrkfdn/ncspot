@@ -6,6 +6,7 @@ use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::show::ShowView;
 use rspotify::model::show::{FullShow, SimplifiedShow};
+use rspotify::model::Id;
 use std::fmt;
 use std::sync::Arc;
 
@@ -39,8 +40,8 @@ impl Show {
 impl From<&SimplifiedShow> for Show {
     fn from(show: &SimplifiedShow) -> Self {
         Self {
-            id: show.id.clone(),
-            uri: show.uri.clone(),
+            id: show.id.id().to_string(),
+            uri: show.id.uri(),
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
@@ -53,8 +54,8 @@ impl From<&SimplifiedShow> for Show {
 impl From<&FullShow> for Show {
     fn from(show: &FullShow) -> Self {
         Self {
-            id: show.id.clone(),
-            uri: show.uri.clone(),
+            id: show.id.id().to_string(),
+            uri: show.id.uri(),
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
@@ -103,7 +104,7 @@ impl ListItem for Show {
             .map(|ep| Playable::Episode(ep.clone()))
             .collect();
 
-        let index = queue.append_next(playables);
+        let index = queue.append_next(&playables);
         queue.play(index, true, true);
     }
 

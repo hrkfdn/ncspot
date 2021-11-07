@@ -146,7 +146,7 @@ impl Queue {
         q.push(track);
     }
 
-    pub fn append_next(&self, tracks: Vec<Playable>) -> usize {
+    pub fn append_next(&self, tracks: &Vec<Playable>) -> usize {
         let mut q = self.queue.write().unwrap();
 
         {

@@ -2,7 +2,9 @@ use crate::library::Library;
 use crate::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
+use chrono::{DateTime, Utc};
 use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
+use rspotify::model::Id;
 use std::fmt;
 use std::sync::Arc;
 
@@ -15,6 +17,8 @@ pub struct Episode {
     pub description: String,
     pub release_date: String,
     pub cover_url: Option<String>,
+    pub added_at: Option<DateTime<Utc>>,
+    pub list_index: usize,
 }
 
 impl Episode {
@@ -28,13 +32,15 @@ impl Episode {
 impl From<&SimplifiedEpisode> for Episode {
     fn from(episode: &SimplifiedEpisode) -> Self {
         Self {
-            id: episode.id.clone(),
-            uri: episode.uri.clone(),
-            duration: episode.duration_ms,
+            id: episode.id.id().to_string(),
+            uri: episode.id.uri(),
+            duration: episode.duration.as_millis() as u32,
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
             cover_url: episode.images.get(0).map(|img| img.url.clone()),
+            added_at: None,
+            list_index: 0,
         }
     }
 }
@@ -42,13 +48,15 @@ impl From<&SimplifiedEpisode> for Episode {
 impl From<&FullEpisode> for Episode {
     fn from(episode: &FullEpisode) -> Self {
         Self {
-            id: episode.id.clone(),
-            uri: episode.uri.clone(),
-            duration: episode.duration_ms,
+            id: episode.id.id().to_string(),
+            uri: episode.id.uri(),
+            duration: episode.duration.as_millis() as u32,
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
             cover_url: episode.images.get(0).map(|img| img.url.clone()),
+            added_at: None,
+            list_index: 0,
         }
     }
 }
@@ -76,7 +84,7 @@ impl ListItem for Episode {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(vec![Playable::Episode(self.clone())]);
+        let index = queue.append_next(&vec![Playable::Episode(self.clone())]);
         queue.play(index, true, false);
     }
 

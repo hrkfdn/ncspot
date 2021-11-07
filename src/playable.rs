@@ -1,3 +1,6 @@
+use chrono::{DateTime, Utc};
+use rspotify::model::PlayableItem;
+
 use crate::album::Album;
 use crate::artist::Artist;
 use crate::episode::Episode;
@@ -44,6 +47,34 @@ impl Playable {
         }
     }
 
+    pub fn list_index(&self) -> usize {
+        match self {
+            Playable::Track(track) => track.list_index,
+            Playable::Episode(episode) => episode.list_index,
+        }
+    }
+
+    pub fn set_list_index(&mut self, index: usize) {
+        match self {
+            Playable::Track(track) => track.list_index = index,
+            Playable::Episode(episode) => episode.list_index = index,
+        }
+    }
+
+    pub fn added_at(&self) -> Option<DateTime<Utc>> {
+        match self {
+            Playable::Track(track) => track.added_at,
+            Playable::Episode(episode) => episode.added_at,
+        }
+    }
+
+    pub fn set_added_at(&mut self, added_at: Option<DateTime<Utc>>) {
+        match self {
+            Playable::Track(track) => track.added_at = added_at,
+            Playable::Episode(episode) => episode.added_at = added_at,
+        }
+    }
+
     pub fn duration_str(&self) -> String {
         let duration = self.duration();
         let minutes = duration / 60_000;
@@ -55,6 +86,15 @@ impl Playable {
         match self {
             Playable::Track(track) => track.as_listitem(),
             Playable::Episode(episode) => episode.as_listitem(),
+        }
+    }
+}
+
+impl From<&PlayableItem> for Playable {
+    fn from(item: &PlayableItem) -> Self {
+        match item {
+            PlayableItem::Episode(episode) => Playable::Episode(episode.into()),
+            PlayableItem::Track(track) => Playable::Track(track.into()),
         }
     }
 }

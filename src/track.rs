@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
+use rspotify::model::Id;
 
 use crate::album::Album;
 use crate::artist::Artist;
@@ -42,7 +43,7 @@ impl Track {
         let artist_ids = track
             .artists
             .iter()
-            .filter_map(|a| a.id.clone())
+            .filter_map(|a| a.id.as_ref().map(|id| id.id().to_string()))
             .collect::<Vec<String>>();
         let album_artists = album
             .artists
@@ -51,19 +52,19 @@ impl Track {
             .collect::<Vec<String>>();
 
         Self {
-            id: track.id.clone(),
-            uri: track.uri.clone(),
+            id: track.id.as_ref().map(|id| id.id().to_string()),
+            uri: track.id.as_ref().map(|id| id.uri()).unwrap_or_default(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
-            duration: track.duration_ms,
+            duration: track.duration.as_millis() as u32,
             artists,
             artist_ids,
             album: Some(album.name.clone()),
-            album_id: Some(album.id.clone()),
+            album_id: Some(album.id.id().to_string()),
             album_artists,
             cover_url: album.images.get(0).map(|img| img.url.clone()),
-            url: track.uri.clone(),
+            url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
         }
@@ -86,23 +87,23 @@ impl From<&SimplifiedTrack> for Track {
         let artist_ids = track
             .artists
             .iter()
-            .filter_map(|a| a.id.clone())
+            .filter_map(|a| a.id.as_ref().map(|a| a.id().to_string()))
             .collect::<Vec<String>>();
 
         Self {
-            id: track.id.clone(),
-            uri: track.uri.clone(),
+            id: track.id.as_ref().map(|id| id.id().to_string()),
+            uri: track.id.as_ref().map(|id| id.uri()).unwrap_or_default(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
-            duration: track.duration_ms,
+            duration: track.duration.as_millis() as u32,
             artists,
             artist_ids,
             album: None,
             album_id: None,
             album_artists: Vec::new(),
             cover_url: None,
-            url: track.uri.clone(),
+            url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
         }
@@ -119,7 +120,7 @@ impl From<&FullTrack> for Track {
         let artist_ids = track
             .artists
             .iter()
-            .filter_map(|a| a.id.clone())
+            .filter_map(|a| a.id.as_ref().map(|a| a.id().to_string()))
             .collect::<Vec<String>>();
         let album_artists = track
             .album
@@ -129,19 +130,19 @@ impl From<&FullTrack> for Track {
             .collect::<Vec<String>>();
 
         Self {
-            id: track.id.clone(),
-            uri: track.uri.clone(),
+            id: Some(track.id.id().to_string()),
+            uri: track.id.uri(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,
-            duration: track.duration_ms,
+            duration: track.duration.as_millis() as u32,
             artists,
             artist_ids,
             album: Some(track.album.name.clone()),
-            album_id: track.album.id.clone(),
+            album_id: track.album.id.as_ref().map(|a| a.id().to_string()),
             album_artists,
             cover_url: track.album.images.get(0).map(|img| img.url.clone()),
-            url: track.uri.clone(),
+            url: track.id.url(),
             added_at: None,
             list_index: 0,
         }
@@ -210,7 +211,7 @@ impl ListItem for Track {
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(vec![Playable::Track(self.clone())]);
+        let index = queue.append_next(&vec![Playable::Track(self.clone())]);
         queue.play(index, true, false);
     }
 
@@ -252,7 +253,7 @@ impl ListItem for Track {
         let recommendations: Option<Vec<Track>> = if let Some(id) = &self.id {
             spotify
                 .api
-                .recommendations(None, None, Some(vec![id.clone()]))
+                .recommendations(None, None, Some(vec![id]))
                 .map(|r| r.tracks)
                 .map(|tracks| tracks.iter().map(Track::from).collect())
         } else {

@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use rspotify::model::artist::{FullArtist, SimplifiedArtist};
+use rspotify::model::Id;
 
 use crate::library::Library;
 use crate::playable::Playable;
@@ -43,9 +44,9 @@ impl Artist {
 impl From<&SimplifiedArtist> for Artist {
     fn from(sa: &SimplifiedArtist) -> Self {
         Self {
-            id: sa.id.clone(),
+            id: sa.id.as_ref().map(|id| id.id().to_string()),
             name: sa.name.clone(),
-            url: sa.uri.clone(),
+            url: sa.id.as_ref().map(|id| id.url()),
             tracks: None,
             is_followed: false,
         }
@@ -55,9 +56,9 @@ impl From<&SimplifiedArtist> for Artist {
 impl From<&FullArtist> for Artist {
     fn from(fa: &FullArtist) -> Self {
         Self {
-            id: Some(fa.id.clone()),
+            id: Some(fa.id.id().to_string()),
             name: fa.name.clone(),
-            url: Some(fa.uri.clone()),
+            url: Some(fa.id.url()),
             tracks: None,
             is_followed: false,
         }
@@ -129,7 +130,7 @@ impl ListItem for Artist {
                 .iter()
                 .map(|track| Playable::Track(track.clone()))
                 .collect();
-            let index = queue.append_next(tracks);
+            let index = queue.append_next(&tracks);
             queue.play(index, true, true);
         }
     }
@@ -184,7 +185,7 @@ impl ListItem for Artist {
         let spotify = queue.get_spotify();
         let recommendations: Option<Vec<Track>> = spotify
             .api
-            .recommendations(Some(vec![id]), None, None)
+            .recommendations(Some(vec![&id]), None, None)
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
 
