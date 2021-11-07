@@ -64,11 +64,7 @@ impl Track {
             album_id: Some(album.id.id().to_string()),
             album_artists,
             cover_url: album.images.get(0).map(|img| img.url.clone()),
-            url: track
-                .id
-                .as_ref()
-                .map(|id| id.url().to_string())
-                .unwrap_or_default(),
+            url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
         }
@@ -107,11 +103,7 @@ impl From<&SimplifiedTrack> for Track {
             album_id: None,
             album_artists: Vec::new(),
             cover_url: None,
-            url: track
-                .id
-                .as_ref()
-                .map(|id| id.url().to_string())
-                .unwrap_or_default(),
+            url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
         }
@@ -139,7 +131,7 @@ impl From<&FullTrack> for Track {
 
         Self {
             id: Some(track.id.id().to_string()),
-            uri: track.id.uri().to_string(),
+            uri: track.id.uri(),
             title: track.name.clone(),
             track_number: track.track_number,
             disc_number: track.disc_number,

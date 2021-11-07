@@ -33,7 +33,7 @@ impl From<&SimplifiedEpisode> for Episode {
     fn from(episode: &SimplifiedEpisode) -> Self {
         Self {
             id: episode.id.id().to_string(),
-            uri: episode.id.uri().to_string(),
+            uri: episode.id.uri(),
             duration: episode.duration.as_millis() as u32,
             name: episode.name.clone(),
             description: episode.description.clone(),
@@ -49,7 +49,7 @@ impl From<&FullEpisode> for Episode {
     fn from(episode: &FullEpisode) -> Self {
         Self {
             id: episode.id.id().to_string(),
-            uri: episode.id.uri().to_string(),
+            uri: episode.id.uri(),
             duration: episode.duration.as_millis() as u32,
             name: episode.name.clone(),
             description: episode.description.clone(),

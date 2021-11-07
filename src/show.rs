@@ -41,7 +41,7 @@ impl From<&SimplifiedShow> for Show {
     fn from(show: &SimplifiedShow) -> Self {
         Self {
             id: show.id.id().to_string(),
-            uri: show.id.uri().to_string(),
+            uri: show.id.uri(),
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
@@ -55,7 +55,7 @@ impl From<&FullShow> for Show {
     fn from(show: &FullShow) -> Self {
         Self {
             id: show.id.id().to_string(),
-            uri: show.id.uri().to_string(),
+            uri: show.id.uri(),
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),

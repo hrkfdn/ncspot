@@ -325,7 +325,7 @@ impl Library {
             artists.extend(page.items.iter().map(|fa| fa.into()));
 
             if page.next.is_some() {
-                last = artists.last().unwrap().id.as_ref().map(|id| id.as_str());
+                last = artists.last().unwrap().id.as_deref();
             } else {
                 break;
             }
@@ -549,10 +549,7 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_tracks_add(
-                    tracks
-                        .iter()
-                        .filter_map(|t| t.id.as_ref().map(|id| id.as_str()))
-                        .collect(),
+                    tracks.iter().filter_map(|t| t.id.as_deref()).collect(),
                 )
                 .is_none()
         {
@@ -588,10 +585,7 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_tracks_delete(
-                    tracks
-                        .iter()
-                        .filter_map(|t| t.id.as_ref().map(|id| id.as_str()))
-                        .collect(),
+                    tracks.iter().filter_map(|t| t.id.as_deref()).collect(),
                 )
                 .is_none()
         {

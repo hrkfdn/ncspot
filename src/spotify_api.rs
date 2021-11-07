@@ -205,7 +205,7 @@ impl WebApi {
 
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         // create mutable copy for chunking
-        let mut tracks: Vec<Playable> = tracks.iter().cloned().collect();
+        let mut tracks: Vec<Playable> = tracks.to_vec();
 
         // we can only send 100 tracks per request
         let mut remainder = if tracks.len() > 100 {
@@ -242,7 +242,7 @@ impl WebApi {
                 };
 
                 debug!("adding another {} tracks to playlist", tracks.len());
-                if self.append_tracks(id, &tracks, None) {
+                if self.append_tracks(id, tracks, None) {
                     debug!("{} tracks successfully added", tracks.len());
                 } else {
                     error!("error saving tracks to playlists {}", id);
@@ -271,7 +271,7 @@ impl WebApi {
                 name,
                 public,
                 None,
-                description.clone(),
+                description,
             )
         });
         result.map(|r| r.id.id().to_string())
@@ -537,7 +537,7 @@ impl WebApi {
         &self,
         last: Option<&str>,
     ) -> Option<CursorBasedPage<FullArtist>> {
-        self.api_with_retry(|api| api.current_user_followed_artists(last.clone(), Some(50)))
+        self.api_with_retry(|api| api.current_user_followed_artists(last, Some(50)))
     }
 
     pub fn user_follow_artists(&self, ids: Vec<&str>) -> Option<()> {

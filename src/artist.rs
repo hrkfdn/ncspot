@@ -58,7 +58,7 @@ impl From<&FullArtist> for Artist {
         Self {
             id: Some(fa.id.id().to_string()),
             name: fa.name.clone(),
-            url: Some(fa.id.url().to_string()),
+            url: Some(fa.id.url()),
             tracks: None,
             is_followed: false,
         }

@@ -606,11 +606,7 @@ fn run_dbus_server(
                         playlist.load_tracks(spotify);
                         if let Some(t) = &playlist.tracks {
                             queue.clear();
-                            let index = queue.append_next(
-                                &t.iter()
-                                    .map(|track| track.clone())
-                                    .collect(),
-                            );
+                            let index = queue.append_next(&t.iter().cloned().collect());
                             queue.play(index, false, false)
                         }
                     }
