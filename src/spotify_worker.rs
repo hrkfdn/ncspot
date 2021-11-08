@@ -1,6 +1,6 @@
 use crate::config;
 use crate::events::{Event, EventManager};
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
 use futures::channel::oneshot;

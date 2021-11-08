@@ -5,13 +5,13 @@ use cursive::view::ViewWrapper;
 use cursive::Cursive;
 use rspotify::model::AlbumType;
 
-use crate::album::Album;
-use crate::artist::Artist;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::track::Track;
 use crate::queue::Queue;
-use crate::track::Track;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 use crate::ui::tabview::TabView;

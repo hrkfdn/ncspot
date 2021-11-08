@@ -5,10 +5,10 @@ use cursive::Cursive;
 
 use crate::command::Command;
 use crate::commands::CommandResult;
-use crate::episode::Episode;
 use crate::library::Library;
+use crate::model::episode::Episode;
+use crate::model::show::Show;
 use crate::queue::Queue;
-use crate::show::Show;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 

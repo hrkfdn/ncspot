@@ -4,19 +4,20 @@ use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, NamedView, ScrollView, SelectView};
 use cursive::Cursive;
 
+use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::artist::Artist;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
+use crate::model::track::Track;
 use crate::queue::Queue;
 #[cfg(feature = "share_clipboard")]
 use crate::sharing::write_share;
-use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
-use crate::{artist::Artist, commands::CommandResult};
 use crate::{
     command::{Command, MoveAmount, MoveMode},
-    playlist::Playlist,
     spotify::Spotify,
 };
 use cursive::traits::{Finder, Nameable};

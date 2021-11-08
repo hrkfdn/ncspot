@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use rspotify::model::PlayableItem;
 
-use crate::album::Album;
-use crate::artist::Artist;
-use crate::episode::Episode;
 use crate::library::Library;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::episode::Episode;
+use crate::model::track::Track;
 use crate::queue::Queue;
-use crate::track::Track;
 use crate::traits::{ListItem, ViewExt};
 use std::fmt;
 use std::sync::Arc;

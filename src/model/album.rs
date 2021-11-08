@@ -7,12 +7,12 @@ use chrono::{DateTime, Utc};
 use log::debug;
 use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
-use crate::artist::Artist;
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::artist::Artist;
+use crate::model::playable::Playable;
+use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::{album::AlbumView, listview::ListView};
 

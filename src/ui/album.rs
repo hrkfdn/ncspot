@@ -3,11 +3,11 @@ use std::sync::{Arc, RwLock};
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 
-use crate::album::Album;
-use crate::artist::Artist;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;

@@ -10,24 +10,25 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::artist::Artist;
 use crate::command::{Command, GotoMode, JumpMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
-use crate::episode::Episode;
 use crate::library::Library;
-use crate::playable::Playable;
-use crate::playlist::Playlist;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::episode::Episode;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
+use crate::model::show::Show;
+use crate::model::track::Track;
 use crate::queue::Queue;
 #[cfg(feature = "share_clipboard")]
 use crate::sharing::{read_share, write_share};
-use crate::show::Show;
-use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::pagination::Pagination;
-use crate::{album::Album, spotify::UriType, spotify_url::SpotifyUrl};
+use crate::{spotify::UriType, spotify_url::SpotifyUrl};
 
 pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,

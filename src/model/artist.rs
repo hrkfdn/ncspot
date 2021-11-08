@@ -5,10 +5,10 @@ use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 use rspotify::model::Id;
 
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::playable::Playable;
+use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::{artist::ArtistView, listview::ListView};
 

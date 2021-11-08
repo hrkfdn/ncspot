@@ -6,8 +6,8 @@ use cursive::Cursive;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::playable::Playable;
-use crate::playlist::Playlist;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 

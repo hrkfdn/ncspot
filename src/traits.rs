@@ -4,13 +4,13 @@ use cursive::view::{View, ViewWrapper};
 use cursive::views::NamedView;
 use cursive::Cursive;
 
-use crate::album::Album;
-use crate::artist::Artist;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::track::Track;
 use crate::queue::Queue;
-use crate::track::Track;
 
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;

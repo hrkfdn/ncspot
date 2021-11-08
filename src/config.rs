@@ -8,7 +8,7 @@ use log::{debug, error};
 use platform_dirs::AppDirs;
 
 use crate::command::{SortDirection, SortKey};
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::queue;
 use crate::serialization::{Serializer, CBOR, TOML};
 

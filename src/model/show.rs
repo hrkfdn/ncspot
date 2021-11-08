@@ -1,6 +1,6 @@
-use crate::episode::Episode;
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::episode::Episode;
+use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};

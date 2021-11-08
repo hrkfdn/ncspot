@@ -6,10 +6,10 @@ use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::Id;
 
-use crate::album::Album;
-use crate::artist::Artist;
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::listview::ListView;

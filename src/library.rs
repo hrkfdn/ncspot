@@ -10,16 +10,16 @@ use rspotify::model::Id;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::album::Album;
-use crate::artist::Artist;
 use crate::config;
 use crate::config::Config;
 use crate::events::EventManager;
-use crate::playable::Playable;
-use crate::playlist::Playlist;
-use crate::show::Show;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
+use crate::model::show::Show;
+use crate::model::track::Track;
 use crate::spotify::Spotify;
-use crate::track::Track;
 
 const CACHE_TRACKS: &str = "tracks.db";
 const CACHE_ALBUMS: &str = "albums.db";

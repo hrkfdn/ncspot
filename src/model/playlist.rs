@@ -8,10 +8,10 @@ use log::debug;
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 use rspotify::model::Id;
 
-use crate::playable::Playable;
+use crate::model::playable::Playable;
+use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::track::Track;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::{listview::ListView, playlist::PlaylistView};
 use crate::{command::SortDirection, command::SortKey, library::Library};

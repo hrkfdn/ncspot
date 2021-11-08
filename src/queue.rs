@@ -8,7 +8,7 @@ use notify_rust::Notification;
 use rand::prelude::*;
 use strum_macros::Display;
 
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::spotify::Spotify;
 use crate::{config::Config, spotify::PlayerEvent};
 

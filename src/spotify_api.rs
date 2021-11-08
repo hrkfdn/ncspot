@@ -1,10 +1,10 @@
-use crate::album::Album;
-use crate::artist::Artist;
-use crate::episode::Episode;
-use crate::playable::Playable;
-use crate::playlist::Playlist;
+use crate::model::album::Album;
+use crate::model::artist::Artist;
+use crate::model::episode::Episode;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
+use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
-use crate::track::Track;
 use crate::ui::pagination::{ApiPage, ApiResult};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use futures::channel::oneshot;

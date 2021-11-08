@@ -10,16 +10,16 @@ use dbus::strings::Path;
 use dbus_tree::{Access, Factory};
 use log::{debug, warn};
 
-use crate::album::Album;
-use crate::episode::Episode;
 use crate::events::EventManager;
 use crate::library::Library;
-use crate::playable::Playable;
-use crate::playlist::Playlist;
+use crate::model::album::Album;
+use crate::model::episode::Episode;
+use crate::model::playable::Playable;
+use crate::model::playlist::Playlist;
+use crate::model::show::Show;
+use crate::model::track::Track;
 use crate::queue::{Queue, RepeatSetting};
-use crate::show::Show;
 use crate::spotify::{PlayerEvent, Spotify, UriType, VOLUME_PERCENT};
-use crate::track::Track;
 use crate::traits::ListItem;
 use regex::Regex;
 

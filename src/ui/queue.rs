@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::command::{Command, MoveMode, ShiftMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;

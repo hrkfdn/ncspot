@@ -1,5 +1,5 @@
 use crate::library::Library;
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 use chrono::{DateTime, Utc};

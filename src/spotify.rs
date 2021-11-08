@@ -24,7 +24,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::config;
 use crate::events::{Event, EventManager};
-use crate::playable::Playable;
+use crate::model::playable::Playable;
 use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
 
