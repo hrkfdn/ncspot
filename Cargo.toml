@@ -8,7 +8,7 @@ repository = "https://github.com/hrkfdn/ncspot"
 keywords = ["spotify", "ncurses", "librespot", "terminal"]
 license = "BSD-2-Clause"
 readme = "README.md"
-edition = "2018"
+edition = "2021"
 
 [badges]
 maintenance = { status = "actively-developed" }
