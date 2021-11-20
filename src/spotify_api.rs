@@ -562,7 +562,7 @@ impl WebApi {
 
     pub fn current_user_saved_albums(&self, offset: u32) -> Option<Page<SavedAlbum>> {
         self.api_with_retry(|api| {
-            api.current_user_saved_albums_manual(Some(&Market::FromToken), Some(50), Some(offset))
+            api.current_user_saved_albums_manual(None, Some(50), Some(offset))
         })
     }
 
