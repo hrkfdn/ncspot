@@ -1,3 +1,7 @@
+<p align="center" style="text-align:center">
+	<img src="logo.svg" width="128px" alt="logo"/>
+</p>
+
 # ncspot
 
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
@@ -9,220 +13,339 @@
 [![ncspot](https://snapcraft.io//ncspot/badge.svg)](https://snapcraft.io/ncspot)
 [![ncspot](https://snapcraft.io//ncspot/trending.svg?name=0)](https://snapcraft.io/ncspot)
 
-ncurses Spotify client written in Rust using librespot. It is heavily inspired
-by ncurses MPD clients, such as ncmpc. My motivation was to provide a simple
-and resource friendly alternative to the official client as well as to support
-platforms that currently don't have a Spotify client, such as the *BSDs.
+`ncspot` is a ncurses Spotify client written in Rust using `librespot`. It is
+heavily inspired by ncurses MPD clients, such as ncmpc. My motivation was to
+provide a simple and resource friendly alternative to the official client as
+well as to support platforms that currently don't have a Spotify client, such
+as the \*BSDs.
 
 [![Search](/screenshots/screenshot-thumb.png?raw=true)](/screenshots/screenshot.png?raw=true)
 
-## Resource footprint comparison
+## Table of Contents
+
+- [Resource Footprint Comparison](#resource-footprint-comparison)
+- [Installation](#installation)
+  - [On macOs](#on-macos)
+  - [On Windows](#on-windows)
+  - [On Linux](#on-linux)
+- [Build](#build)
+  - [Audio Backends](#audio-backends)
+- [Key Bindings](#build)
+  - [Navigation](#navigation)
+  - [Playback](#playback)
+  - [Context Menus](#context-menus)
+  - [Sharing](#sharing)
+  - [Queue](#queue)
+  - [Library](#library)
+  - [Vim-like Search Bat](#vim-like-search-bar)
+- [Vim-Like Commands](#vim-like-commands)
+- [Configuration](#configuration)
+  - [Custom Keybindings](#custom-keybindings)
+  - [Proxy](#proxy)
+  - [Theming](#theming)
+- [Cover Drawing](#cover-drawing)
+- [Authentication](#authentication)
+
+## Resource Footprint Comparison
 
 Measured using `ps_mem` on Linux during playback:
 
-| Client | Private Memory | Shared Memory | Total |
-| --- | --- | --- | --- |
-| ncspot | 22.1 MiB | 24.1 MiB | 46.2 MiB |
-| Spotify | 407.3 MiB | 592.7 MiB | 1000.0 MiB |
+| Client  | Private Memory | Shared Memory | Total      |
+| ------- | -------------- | ------------- | ---------- |
+| ncspot  | 22.1 MiB       | 24.1 MiB      | 46.2 MiB   |
+| Spotify | 407.3 MiB      | 592.7 MiB     | 1000.0 MiB |
 
-## Requirements
+## Installation
 
 ### On macOS
 
-ncspot is available via Homebrew: `brew install ncspot`.
+`ncspot` is available via [Homebrew](https://brew.sh/):
+
+```zsh
+brew install ncspot
+```
+
+### On Windows
+
+`ncspot` is available via [Scoop](https://scoop.sh/):
+
+```powershell
+scoop install ncspot
+```
 
 ### On Linux
 
-* Rust
-* Python 3 (needed for building `rust-xcb` dependency)
-* `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
-* `libncurses-dev` and `libssl-dev`
-* `libdbus-1-dev`
-* `libxcb` + development headers (for clipboard access)
-* A Spotify premium account
-* pkg-config
+Requirements:
+
+- Rust
+- Python 3 (needed for building `rust-xcb` dependency)
+- `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
+- `libncurses-dev` and `libssl-dev`
+- `libdbus-1-dev`
+- `libxcb` + development headers (for clipboard access)
+- `pkg-config`
+- A Spotify premium account
 
 On Debian based systems you need following packages for development headers:
-```
+
+```bash
 sudo apt install libncursesw5-dev libdbus-1-dev libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 ```
 
 For Fedora, these dependencies are required:
-```
+
+```bash
 dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-devel
 ```
 
 #### Building a Debian Package
 
-You can use `cargo-deb` create in order to build a Debian package from source. Install it by:
+You can use `cargo-deb` create in order to build a Debian package from source.
+Install it with:
 
-```
+```bash
 cargo install cargo-deb
 ```
 
 Then you can build a Debian package with:
 
-```
+```bash
 cargo deb
 ```
 
 You can find it under `target/debian`.
 
+## Build
 
-### On Windows
+Install the latest `ncspot` release using:
 
-ncspot is available via Scoop: `scoop install ncspot`
+```bash
+cargo install ncspot
+```
 
-## Usage
+Or build it yourself using:
 
-* Install the latest ncspot release using `cargo install ncspot`
-  * or build it yourself using `cargo build --release`
-  * both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install)
-* For debugging, you can pass a debug log filename and log stderr to a file, e.g. `RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log`
+```bash
+cargo build --release
 
-## Audio backends
+# NB: add these flags on Windows
+cargo build --release --no-default-features --features rodio_backend,cursive/pancurses-backend
+```
 
-By default ncspot is built using the PulseAudio backend.  To make it use the
-PortAudio backend (e.g. for *BSD or macOS) or Rodio backend (e.g. for Windows),
-you need to recompile ncspot with the respective features:
+- Both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install).
+- For debugging, you can pass a debug log filename and log stderr to a file,
+  e.g. :
 
-* `cargo run --no-default-features --features
-  portaudio_backend,cursive/pancurses-backend`
-* `cargo run --no-default-features --features
-  rodio_backend,cursive/pancurses-backend`
+  ```bash
+  RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log
+  ```
 
-### Key Bindings
+### Audio Backends
 
-The keybindings listed below are configured by default. Additionally, if you run
-ncspot with MPRIS support, you may be able to use media keys to control playback
-depending on your desktop environment settings. Have a look at the
+By default `ncspot` is built using the PulseAudio backend. To make it use the
+PortAudio backend (e.g. for \*BSD or macOS) or Rodio backend (e.g. for
+Windows), you need to recompile `ncspot` with the respective features:
+
+```bash
+# PortAudio (BSD/macOS)
+cargo run --no-default-features --features portaudio_backend,cursive/pancurses-backend
+
+# Rodio (Windows)
+cargo run --no-default-features --features rodio_backend,cursive/pancurses-backend
+```
+
+## Key Bindings
+
+The keybindings listed below are configured by default. Additionally, if you
+run `ncspot` with MPRIS support, you may be able to use media keys to control
+playback depending on your desktop environment settings. Have a look at the
 [configuration section](#configuration) if you want to set custom bindings.
 
-* `?` show help screen
-* Navigate through the screens using the F-keys:
-  * `F1`: Queue
-    * `c` clears the entire queue
-    * `d` deletes the currently selected track
-    * `Ctrl-s` opens a dialog to save the queue to a playlist
-  * `F2`: Search
-  * `F3`: Library
-    * `d` deletes the currently selected playlist
-  * `F8`: Album art (if compiled with the `cover` feature)
-* Tracks and playlists can be played using `Return` and queued using `Space`
-* `.` will play the selected item after the currently playing track
-* `p` will move to the currently playing track in the queue
-* `s` will save, `d` will remove the currently selected track to/from your
-  library
-* `o` will open a detail view or context menu for the selected item
-  * if the _selected item_ is **not** a track:
-    * opens a detail view
-  * if the _selected item_ **is** a track:
-    * opens a context menu for the _selected item_ presenting 4 options:
-      * "Show Artist"
-      * "Show Album"
-      * "Share"
-      * "Add to playlist"
-      * "Similar tracks"
-* `Shift-o` will open a context menu for the currently playing track
-* `a` will open the album view for the selected item
-* `Shift-a` will open the artist view for the selected item
-* `m` will open a view with recommendations based on the selected item
-* `Shift-m` will open a view with recommendations based on the currently playing track
-* `Ctrl-v` will open the context menu for a Spotify link in your clipboard
-* `Backspace` closes the current view
-* `Shift-p` toggles playback of a track (play/pause)
-* `Shift-s` stops a track
-* `Shift-u` updates the library cache (tracks, artists, albums, playlists)
-* `<` and `>` play the previous or next track
-* `f` and `b` to seek forward or backward
-* `Shift-f` and `Shift-b` to seek forward or backward in steps of 10s
-* `-` and `+` decrease or increase the volume by 1
-* `[` and `]` decrease of increase the volume by 5
-* `r` to toggle repeat mode
-* `z` to toggle shuffle playback
-* `q` quits ncspot
-* `x` copies a sharable URL of the currently selected item to the system clipboard
-* `Shift-x` copies a sharable URL of the currently playing track to the system clipboard
+### Navigation
 
-Use `/` to open a Vim-like search bar, you can use `n` and `N` to go for the next/previous
-search occurrence, respectivly.
+| Key               | Command                                                                       |
+| :---------------- | :---------------------------------------------------------------------------- |
+| <kbd>?</kbd>      | Show help screen.                                                             |
+| <kbd>F1</kbd>     | Queue (See [specific commands](#queue)).                                      |
+| <kbd>F2</kbd>     | Search.                                                                       |
+| <kbd>F3</kbd>     | Library (See [specific commands](#library)).                                  |
+| <kbd>F8</kbd>     | Album Art (if compiled with the `cover` feature).                             |
+| <kbd>/</kbd>      | Open a Vim-like search bar (See [specific commands](#vim-like-search-bar)).   |
+| <kbd>:</kbd>      | Open a Vim-like command prompt (See [specific commands](#vim-like-commands)). |
+| <kbd>Escape</kbd> | Close Vim-like search bar or command prompt.                                  |
+| <kbd>Q</kbd>      | Quit `ncspot`.                                                                |
 
-### Commands
+### Playback
 
-You can also open a Vim style commandprompt using `:`, the following commands
-are supported:
+| Key                           | Command                                                        |
+| :---------------------------- | :------------------------------------------------------------- |
+| <kbd>Return</kbd>             | Play track or playlist.                                        |
+| <kbd>Space</kbd>              | Queue track or playlist.                                       |
+| <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
+| <kbd>P</kbd>                  | Move to the currently playing track in the queue.              |
+| <kbd>S</kbd>                  | Save the currently playing track to your library.              |
+| <kbd>D</kbd>                  | Remove the currently playing track from your library.          |
+| <kbd>Shift</kbd>+<kbd>P</kbd> | Toggle playback (i.e. Play/Pause).                             |
+| <kbd>Shift</kbd>+<kbd>S</kbd> | Stop playback.                                                 |
+| <kbd>Shift</kbd>+<kbd>U</kbd> | Update the library cache (tracks, artists, albums, playlists). |
+| <kbd><</kbd>                  | Play the previous track.                                       |
+| <kbd>></kbd>                  | Play the next track.                                           |
+| <kbd>F</kbd>                  | Seek forward.                                                  |
+| <kbd>Shift</kbd>+<kbd>F</kbd> | Seek forward with a 10-second step.                            |
+| <kbd>B</kbd>                  | Seek backwards.                                                |
+| <kbd>Shift</kbd>+<kbd>B</kbd> | Seek backwards with a 10-second step.                          |
+| <kbd>-</kbd>                  | Decrease volume by 1.                                          |
+| <kbd>+</kbd>                  | Increase volume by 1.                                          |
+| <kbd>[</kbd>                  | Decrease volume by 5.                                          |
+| <kbd>]</kbd>                  | Increase volume by 5.                                          |
+| <kbd>R</kbd>                  | Toggle _Repeat_ mode.                                          |
+| <kbd>Z</kbd>                  | Toggle _Shuffle_ state.                                        |
 
-* `quit`: Quit ncspot
-* `logout`: Remove any cached credentials from disk and quit ncspot
-* `toggle`: Toggle playback
-* `stop`: Stop playback
-* `previous`/`next`: Play previous/next track
-* `clear`: Clear playlist
-* `share [current | selected]`: Copies a sharable URL of either the selected item or the currernt song to the system clipboard
-* `newplaylist <name>`: Create new playlist with name `<name>`
-* `sort <sort_key> <sort_direction>`: Sort a playlist by `<sort_key>` in direction `<sort_direction>`
+### Context Menus
 
-  Supported `<sort_key>` are:
-    * title
-    * album
-    * artist
-    * duration
-    * added
+| Key                           | Command                                                                |
+| :---------------------------- | :--------------------------------------------------------------------- |
+| <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.               |
+| <kbd>Shift</kbd>+<kbd>O</kbd> | Open a context menu for the **currently playing track**.               |
+| <kbd>A</kbd>                  | Open the **album view** for the selected item.                         |
+| <kbd>Shift</kbd>+<kbd>A</kbd> | Open the **artist view** for the selected item.                        |
+| <kbd>M</kbd>                  | Open the **recommendations view** for the **selected item**.           |
+| <kbd>Shift</kbd>+<kbd>M</kbd> | Open the **recommendations view** for the **currently playing track**. |
+| <kbd>Ctrl</kbd>+<kbd>V</kbd>  | Open the context menu for a Spotify link in your clipboard.            |
+| <kbd>Backspace</kbd>          | Close the current view.                                                |
 
-  Supported `<sort_direction>` are:
-    * a | asc | ascending
-    * d | desc | descending
+When pressing <kbd>O</kbd>:
+
+- If the _selected item_ is **not** a track, it opens a detail view.
+- If the _selected item_ **is** a track, it opens a context menu with:
+  - "Show Artist"
+  - "Show Album"
+  - "Share"
+  - "Add to playlist"
+  - "Similar tracks"
+
+### Sharing
+
+| Key                           | Command                                                                         |
+| :---------------------------- | :------------------------------------------------------------------------------ |
+| <kbd>X</kbd>                  | Copy a sharable URL of the **currently selected item** to the system clipboard. |
+| <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a sharable URL of the **currently playing track** to the system clipboard. |
+
+### Queue
+
+| Key                          | Command                              |
+| :--------------------------- | :----------------------------------- |
+| <kbd>C</kbd>                 | Clear the entire queue.              |
+| <kbd>D</kbd>                 | Delete the currently selected track. |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
+
+### Library
+
+| Key          | Command                                 |
+| :----------- | :-------------------------------------- |
+| <kbd>D</kbd> | Delete the currently selected playlist. |
+
+### Vim-Like Search Bar
+
+| Key          | Command                    |
+| :----------- | :------------------------- |
+| <kbd>n</kbd> | Previous search occurence. |
+| <kbd>N</kbd> | Next search occurence.     |
+
+## Vim-Like Commands
+
+You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
+time with <kbd>Escape</kbd>.
+
+The following commands are supported:
+
+| Command                            | Action                                                           |
+| :--------------------------------- | :--------------------------------------------------------------- |
+| `quit`                             | Quit `ncspot`.                                                   |
+| `logout`                           | Remove any cached credentials from disk and quit `ncspot`.       |
+| `toggle`                           | Toggle playback.                                                 |
+| `stop`                             | Stop playback.                                                   |
+| `previous`                         | Play previous track.                                             |
+| `next`                             | Play next track.                                                 |
+| `clear`                            | Clear playlist.                                                  |
+| `share <item>`                     | Copies a sharable URL of the item to the system clipboard.       |
+| `newplaylist <name>`               | Create new playlist with name `<name>`.                          |
+| `sort <sort_key> <sort_direction>` | Sort a playlist by `<sort_key>` in direction `<sort_direction>`. |
+
+Supported `<item>` are:
+
+- `selected`: Selected item.
+- `current`: Current song.
+
+Supported `<sort_key>` are:
+
+- `title`
+- `album`
+- `artist`
+- `duration`
+- `added`
+
+Supported `<sort_direction>` are:
+
+- `a` | `asc` | `ascending`
+- `d` | `desc` | `descending`
 
 The screens can be opened with `focus <queue|search|library>`.
+
 The `search` command can be supplied with a search term that will be
 entered after opening the search view.
 
-To close the commandprompt at any time, press `esc`.
-
 ## Configuration
 
-Configuration is saved to `~/.config/ncspot/config.toml` (or `%AppData%\ncspot\config.toml` on Windows). To reload the
-configuration during runtime use the `reload` statement in the command prompt
-`:reload`.
+Configuration is saved to `~/.config/ncspot/config.toml` (or
+`%AppData%\ncspot\config.toml` on Windows). To reload the configuration during
+runtime use the command prompt by typing `:reload`.
 
 Possible configuration values are:
 
-* `command_key`: Key to open command line <single character>, set to `:` by
-  default
-* `initial_screen`: Screen to show after startup
-  <`"library"|"search"|"queue"|"cover" (if enabled)`> (default is `"library"`)
-* `use_nerdfont`: Turn nerdfont glyphs on/off <true/false>
-* `flip_status_indicators`: By default the statusbar will show a play icon when
-   a track is playing and a pause icon when playback is stopped. If this setting
-   is enabled, the behavior is reversed. <true/false>
-* `theme`: Set a custom color palette (see below)
-* `backend`: Audio backend to use, run `ncspot -h` for a list of devices
-* `backend_device`: Audio device string to configure the backend
-* `audio_cache`: Enable or disable caching of audio files, on by default
-  <true/false>
-* `audio_cache_size`: Maximum size of audio cache in MiB
-* `volnorm`: Enable or disable volume normalization, off by default <true/false>
-* `volnorm_pregain`: Normalization pregain to apply (if enabled)
-* `default_keybindings`: If disabled, the default keybindings are discarded, off
-  by default <true/false>
-* `notify`: Enable or disable desktop notifications, off by default <true/false>
-* `bitrate`: The audio bitrate to use for streaming, can be 96, 160, or 320 (default is 320)
-* `album_column`: Show album column for tracks, on by default <true/false>
-* `gapless`: Allows gapless playback <true/false> (default is false)
-* `shuffle`: Set default shuffle state <true/false>
-* `repeat`: Set default repeat mode <off/track/playlist>
+| Name                     | Description                                 | Possible values                                   |   Default   |
+| :----------------------- | :------------------------------------------ | :------------------------------------------------ | :---------: |
+| `command_key`            | Key to open command line                    | Single character                                  |     `:`     |
+| `initial_screen`         | Screen to show after startup                | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
+| `use_nerdfont`           | Turn nerdfont glyphs on/off                 | `true`, `false`                                   |   `false`   |
+| `flip_status_indicators` | Revese play/pause icon meaning[^1]          | `true`, `false`                                   |   `false`   |
+| `backend`                | Audio backend to use                        | String [^3]                                       |             |
+| `backend_device`         | Audio device to configure the backend       | String                                            |             |
+| `audio_cache`            | Enable caching of audio files               | `true`, `false`                                   |   `true`    |
+| `audio_cache_size`       | Maximum size of audio cache in MiB          | Number                                            |             |
+| `volnorm`                | Enable volume normalization                 | `true`, `false`                                   |   `false`   |
+| `volnorm_pregain`        | Normalization pregain to apply (if enabled) | Number                                            |      0      |
+| `default_keybindings`    | Enable default keybindings                  | `true`, `false`                                   |   `false`   |
+| `notify`                 | Enable desktop notifications                | `true`, `false`                                   |   `false`   |
+| `bitrate`                | Audio bitrate to use for streaming          | `96`, `160`, `320`                                |    `320`    |
+| `album_column`           | Show album column for tracks                | `true`, `false`                                   |   `true`    |
+| `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `false`   |
+| `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
+| `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
+| `[theme]`                | Custom theme                                | See [custom theme](<(#theming)>)                  |             |
+| `[keybindings]`          | Custom keybindings                          | See [custom keybindings](<(#custom-keybindings)>) |             |
 
+[^1]:
+    By default the statusbar will show a play icon when a track is playing and
+    a pause icon when playback is stopped. If this setting is enabled, the behavior
+    is reversed.
 
-Keybindings can be configured in `[keybindings]` section in `config.toml`, e.g. as such:
+[^2]: If [enabled](#cover-drawing).
+[^3]: Run `ncspot -h` for a list of devices.
 
-```
+### Custom Keybindings
+
+Keybindings can be configured in `[keybindings]` section in `config.toml`,
+e.g. as such:
+
+```toml
 [keybindings]
 "Shift+i" = "seek +10000"
 ```
 
-See the help screen by pressing `?` for a list of possible commands.
+### Proxy
 
-ncspot will respect system proxy settings defined via the `http_proxy`
+`ncspot` will respect system proxy settings defined via the `http_proxy`
 environment variable.
 
 ### Theming
@@ -230,10 +353,10 @@ environment variable.
 [Theme generator](https://ncspot-theme-generator.vaa.red/) by [@vaarad](https://github.com/vaared).
 
 The color palette can be modified in the configuration. For instance, to have
-ncspot match Spotify's official client, you can add the following entries to the
-configuration file:
+`ncspot` match Spotify's official client, you can add the following entries to
+the configuration file:
 
-```
+```toml
 [theme]
 background = "black"
 primary = "light white"
@@ -254,23 +377,30 @@ cmdline_bg = "black"
 search_match = "light red"
 ```
 
-More examples can be found in pull request
-https://github.com/hrkfdn/ncspot/pull/40.
+More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
-### Cover Drawing
+## Cover Drawing
 
-When compiled with the `cover` feature, `ncspot` can draw the album art of the current track in a dedicated view (`:focus cover` or `F8` by default) using [Überzug](https://github.com/seebye/ueberzug). For more information on installation and terminal compatibility, consult that repository.
+When compiled with the `cover` feature, `ncspot` can draw the album art of the
+current track in a dedicated view (`:focus cover` or <kbd>F8</kbd> by default)
+using [Überzug](https://github.com/seebye/ueberzug). For more information on
+installation and terminal compatibility, consult that repository.
 
-To allow scaling the album art up beyond its resolution (640x640 for Spotify covers), use the config key `cover_max_scale`. This is especially useful for HiDPI displays:
+To allow scaling the album art up beyond its resolution (640x640 for Spotify
+covers), use the config key `cover_max_scale`. This is especially useful for
+HiDPI displays:
 
-```
+```toml
 cover_max_scale = 2
 ```
 
-### Authentication
+## Authentication
 
-`ncspot` prompts for a Spotify username and password on first launch, uses this to generate an OAuth token, and stores it to disk.
+`ncspot` prompts for a Spotify username and password on first launch, uses this
+to generate an OAuth token, and stores it to disk.
 
-The credentials are stored in `~/.cache/ncspot/librespot/credentials.json` (unless the base path has been changed with the `--basepath` option).
+The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
+(unless the base path has been changed with the `--basepath` option).
 
-The `:logout` command can be used to programmatically remove cached credentials (see [Commands](#commands) above).
+The `:logout` command can be used to programmatically remove cached credentials
+(see [Commands](#commands) above).
