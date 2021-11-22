@@ -21,6 +21,7 @@ pub struct Playlist {
     pub id: String,
     pub name: String,
     pub owner_id: String,
+    pub owner_name: Option<String>,
     pub snapshot_id: String,
     pub num_tracks: usize,
     pub tracks: Option<Vec<Playable>>,
@@ -152,6 +153,7 @@ impl From<&SimplifiedPlaylist> for Playlist {
             id: list.id.id().to_string(),
             name: list.name.clone(),
             owner_id: list.owner.id.id().to_string(),
+            owner_name: list.owner.display_name.clone(),
             snapshot_id: list.snapshot_id.clone(),
             num_tracks: list.tracks.total as usize,
             tracks: None,
@@ -166,6 +168,7 @@ impl From<&FullPlaylist> for Playlist {
             id: list.id.id().to_string(),
             name: list.name.clone(),
             owner_id: list.owner.id.id().to_string(),
+            owner_name: list.owner.display_name.clone(),
             snapshot_id: list.snapshot_id.clone(),
             num_tracks: list.tracks.total as usize,
             tracks: None,
@@ -196,7 +199,10 @@ impl ListItem for Playlist {
     }
 
     fn display_left(&self) -> String {
-        self.name.clone()
+        match self.owner_name.as_ref() {
+            Some(owner) => format!("{} • {}", self.name, owner),
+            None => self.name.clone(),
+        }
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
