@@ -15,17 +15,17 @@ jobs:
         include:
           - build_target: linux
             os: ubuntu-latest
-            artifact_prefix: linux
+            artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
             features: ''
           - build_target: macos
             os: macos-latest
-            artifact_prefix: macos
+            artifact_suffix: macos-x86_64
             target: x86_64-apple-darwin
             features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
           - build_target: windows
             os: windows-latest
-            artifact_prefix: windows
+            artifact_suffix: windows-x86_64
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
     steps:
@@ -67,13 +67,13 @@ jobs:
           cd target/${{ matrix.target }}/release
           case ${{ matrix.target }} in
           *-pc-windows-*) 
-            7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.zip ncspot.exe
-            sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+            7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.zip ncspot.exe
+            sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
             ;;
           *) 
             strip ncspot
-            tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz ncspot
-            shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_prefix }}.sha256
+            tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz ncspot
+            shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
             ;;
           esac;
       - name: Releasing assets
