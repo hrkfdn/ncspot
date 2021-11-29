@@ -1,7 +1,7 @@
 [package]
 name = "ncspot"
 description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
-exclude = ["screenshots/**"]
+exclude = ["images/**"]
 version = "0.9.1"
 authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
 repository = "https://github.com/hrkfdn/ncspot"

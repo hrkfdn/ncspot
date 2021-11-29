@@ -1,5 +1,5 @@
 <p align="center" style="text-align:center">
-	<img src="logo.svg" width="128px" alt="logo"/>
+	<img src="images/logo.svg" width="128px" alt="logo"/>
 </p>
 
 # ncspot
@@ -19,7 +19,7 @@ provide a simple and resource friendly alternative to the official client as
 well as to support platforms that currently don't have a Spotify client, such
 as the \*BSDs.
 
-[![Search](/screenshots/screenshot-thumb.png?raw=true)](/screenshots/screenshot.png?raw=true)
+[![Search](/images/screenshot-thumb.png?raw=true)](/images/screenshot.png?raw=true)
 
 ## Table of Contents
 
