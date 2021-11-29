@@ -439,7 +439,7 @@ impl Library {
                         .items
                         .iter()
                         .enumerate()
-                        .any(|(i, t)| Some(t.track.id.id().to_string()) != store[i].id)
+                        .any(|(i, t)| t.track.id.as_ref().map(|id| id.to_string()) != store[i].id)
                 {
                     return;
                 }
