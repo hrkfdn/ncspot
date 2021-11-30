@@ -130,7 +130,7 @@ impl From<&FullTrack> for Track {
             .collect::<Vec<String>>();
 
         Self {
-            id: track.id.as_ref().map(|id| id.to_string()),
+            id: track.id.as_ref().map(|id| id.id().to_string()),
             uri: track.id.as_ref().map(|id| id.uri()).unwrap_or_default(),
             title: track.name.clone(),
             track_number: track.track_number,
