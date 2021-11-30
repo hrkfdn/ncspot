@@ -10,8 +10,8 @@ use rspotify::model::Id;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::config;
 use crate::config::Config;
+use crate::config::{self, CACHE_VERSION};
 use crate::events::EventManager;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
@@ -70,13 +70,22 @@ impl Library {
     }
 
     fn load_cache<T: DeserializeOwned>(&self, cache_path: PathBuf, store: Arc<RwLock<Vec<T>>>) {
+        let saved_cache_version = self.cfg.state().cache_version;
+        if saved_cache_version < CACHE_VERSION {
+            debug!(
+                "Cache version for {:?} has changed from {} to {}, ignoring cache",
+                cache_path, saved_cache_version, CACHE_VERSION
+            );
+            return;
+        }
+
         if let Ok(contents) = std::fs::read_to_string(&cache_path) {
             debug!("loading cache from {}", cache_path.display());
             let parsed: Result<Vec<T>, _> = serde_json::from_str(&contents);
             match parsed {
                 Ok(cache) => {
                     debug!(
-                        "cache from {} loaded ({} lists)",
+                        "cache from {} loaded ({} items)",
                         cache_path.display(),
                         cache.len()
                     );

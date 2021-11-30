@@ -13,6 +13,7 @@ use crate::queue;
 use crate::serialization::{Serializer, CBOR, TOML};
 
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
+pub const CACHE_VERSION: u16 = 1;
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
@@ -81,6 +82,7 @@ pub struct UserState {
     pub repeat: queue::RepeatSetting,
     pub queuestate: QueueState,
     pub playlist_orders: HashMap<String, SortingOrder>,
+    pub cache_version: u16,
 }
 
 impl Default for UserState {
@@ -91,6 +93,7 @@ impl Default for UserState {
             repeat: queue::RepeatSetting::None,
             queuestate: QueueState::default(),
             playlist_orders: HashMap::new(),
+            cache_version: 0,
         }
     }
 }
@@ -150,6 +153,9 @@ impl Config {
     }
 
     pub fn save_state(&self) {
+        // update cache version number
+        self.with_state_mut(|mut state| state.cache_version = CACHE_VERSION);
+
         let path = config_path("userstate.cbor");
         debug!("saving user state to {}", path.display());
         if let Err(e) = CBOR.write(path, self.state().clone()) {
