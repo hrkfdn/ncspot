@@ -582,13 +582,14 @@ fn run_dbus_server(
                 Some(UriType::Album) => {
                     if let Some(a) = spotify.api.album(id) {
                         if let Some(t) = &Album::from(&a).tracks {
+                            let should_shuffle = queue.get_shuffle();
                             queue.clear();
                             let index = queue.append_next(
                                 &t.iter()
                                     .map(|track| Playable::Track(track.clone()))
                                     .collect(),
                             );
-                            queue.play(index, false, false)
+                            queue.play(index, should_shuffle, should_shuffle)
                         }
                     }
                 }
@@ -604,10 +605,11 @@ fn run_dbus_server(
                         let mut playlist = Playlist::from(&p);
                         let spotify = spotify.clone();
                         playlist.load_tracks(spotify);
-                        if let Some(t) = &playlist.tracks {
+                        if let Some(tracks) = &playlist.tracks {
+                            let should_shuffle = queue.get_shuffle();
                             queue.clear();
-                            let index = queue.append_next(&t.iter().cloned().collect());
-                            queue.play(index, false, false)
+                            let index = queue.append_next(&tracks.iter().cloned().collect());
+                            queue.play(index, should_shuffle, should_shuffle)
                         }
                     }
                 }
@@ -617,6 +619,7 @@ fn run_dbus_server(
                         let spotify = spotify.clone();
                         show.load_all_episodes(spotify);
                         if let Some(e) = &show.episodes {
+                            let should_shuffle = queue.get_shuffle();
                             queue.clear();
                             let mut ep = e.clone();
                             ep.reverse();
@@ -625,7 +628,7 @@ fn run_dbus_server(
                                     .map(|episode| Playable::Episode(episode.clone()))
                                     .collect(),
                             );
-                            queue.play(index, false, false)
+                            queue.play(index, should_shuffle, should_shuffle)
                         }
                     }
                 }
@@ -638,9 +641,10 @@ fn run_dbus_server(
                 }
                 Some(UriType::Artist) => {
                     if let Some(a) = spotify.api.artist_top_tracks(id) {
+                        let should_shuffle = queue.get_shuffle();
                         queue.clear();
-                        queue.append_next(&a.iter().map(|track| Playable::Track(track.clone())).collect());
-                        queue.play(0, false, false)
+                        let index = queue.append_next(&a.iter().map(|track| Playable::Track(track.clone())).collect());
+                        queue.play(index, should_shuffle, should_shuffle)
                     }
                 }
                 None => {}
