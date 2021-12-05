@@ -322,7 +322,7 @@ Possible configuration values are:
 | `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `false`   |
 | `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
-| `[theme]`                | Custom theme                                | See [custom theme](<(#theming)>)                  |             |
+| `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
 | `[keybindings]`          | Custom keybindings                          | See [custom keybindings](<(#custom-keybindings)>) |             |
 
 [^1]:
