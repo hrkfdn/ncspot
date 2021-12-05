@@ -323,7 +323,7 @@ Possible configuration values are:
 | `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
 | `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
-| `[keybindings]`          | Custom keybindings                          | See [custom keybindings](<(#custom-keybindings)>) |             |
+| `[keybindings]`          | Custom keybindings                          | See [custom keybindings](#custom-keybindings)     |             |
 
 [^1]:
     By default the statusbar will show a play icon when a track is playing and
