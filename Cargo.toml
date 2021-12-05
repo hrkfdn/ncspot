@@ -38,6 +38,7 @@ dbus-tree = { version = "0.9.2", optional = true }
 rand = "0.8"
 webbrowser = "0.5"
 clipboard = { version = "0.5", optional = true }
+wl-clipboard-rs = { version = "0.4", optional = true }
 url = "2.2"
 strum = "0.23.0"
 strum_macros = "0.23.1"
@@ -56,8 +57,8 @@ version = "0.16.3"
 default-features = false
 
 [features]
-share_clipboard = ["clipboard"]
-share_selection = ["clipboard"] # Use the primary selection for sharing - linux only
+share_clipboard = ["clipboard", "wl-clipboard-rs"]
+share_selection = ["clipboard", "wl-clipboard-rs"] # Use the primary selection for sharing - linux only
 alsa_backend = ["librespot-playback/alsa-backend"]
 pulseaudio_backend = ["librespot-playback/pulseaudio-backend"]
 rodio_backend = ["librespot-playback/rodio-backend"]
