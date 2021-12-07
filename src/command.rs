@@ -292,6 +292,8 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
                 })
                 .map(Command::Open),
             "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
+            "jumpnext" => Some(Command::Jump(JumpMode::Next)),
+            "jumpprevious" => Some(Command::Jump(JumpMode::Previous)),
             "search" => Some(Command::Search(args.join(" "))),
             "shift" => {
                 let amount = args.get(1).and_then(|amount| amount.parse().ok());
