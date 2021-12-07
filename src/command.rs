@@ -188,7 +188,11 @@ impl fmt::Display for Command {
             Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
             Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
             Command::Search(term) => format!("search {}", term),
-            Command::Jump(term) => format!("jump {}", term),
+            Command::Jump(mode) => match mode {
+                JumpMode::Previous => "jumpprevious".to_string(),
+                JumpMode::Next => "jumpnext".to_string(),
+                JumpMode::Query(term) => format!("jump {}", term).to_string(),
+            },
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
             Command::Insert(_) => "insert".to_string(),
