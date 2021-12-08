@@ -113,12 +113,14 @@ impl<I: ListItem> ListView<I> {
     fn attempt_play_all_tracks(&self) -> bool {
         let content = self.content.read().unwrap();
         let any = &(*content) as &dyn std::any::Any;
-        if let Some(tracks) = any.downcast_ref::<Vec<Track>>() {
-            let tracks: Vec<Playable> = tracks
-                .iter()
-                .map(|track| Playable::Track(track.clone()))
-                .collect();
-            let index = self.queue.append_next(&tracks);
+        let playables = any.downcast_ref::<Vec<Playable>>();
+        let tracks = any.downcast_ref::<Vec<Track>>().map(|t| {
+            t.iter()
+                .map(|t| Playable::Track(t.clone()))
+                .collect::<Vec<Playable>>()
+        });
+        if let Some(tracks) = playables.or_else(|| tracks.as_ref()) {
+            let index = self.queue.append_next(tracks);
             self.queue.play(index + self.selected, true, false);
             true
         } else {
