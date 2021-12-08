@@ -7,23 +7,57 @@ on:
     branches: [ main ]
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  check-macos:
+    name: Checking ${{ matrix.build_target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build_target: [linux, macos, windows]
+        include:
+          - build_target: linux
+            os: ubuntu-latest
+            artifact_suffix: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            features: ''
+          - build_target: macos
+            os: macos-latest
+            artifact_suffix: macos-x86_64
+            target: x86_64-apple-darwin
+            features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
+          - build_target: windows
+            os: windows-latest
+            artifact_suffix: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
     steps:
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+          profile: minimal
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install portaudio pkg-config
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - uses: actions/checkout@v2
-      - name: Update APT package lists
-        run: sudo apt update
-      - name: Install dependencies
-        run: sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev  libxcb-shape0-dev libxcb-xfixes0-dev
+        name: Checkout src
       - uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: cargo check
-        run: cargo check
+      - name: Running cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --locked --release --target ${{ matrix.target }} ${{ matrix.features }}
 
   fmt:
     runs-on: ubuntu-latest
