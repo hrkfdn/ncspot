@@ -5,19 +5,29 @@ on:
     tags:
       - "v*.*.*"
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   publish:
     name: Publishing ${{ matrix.build_target }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       matrix:
-        build_target: [linux, macos, windows]
+        build_target: [linux-amd64, linux-arm64, macos, windows]
         include:
-          - build_target: linux
+          - build_target: linux-amd64
             os: ubuntu-latest
             artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
             features: ''
+          - build_target: linux-arm64
+            os: ubuntu-latest
+            container: rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
+            artifact_suffix: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            features: '--no-default-features --features alsa_backend,cursive/pancurses-backend'
           - build_target: macos
             os: macos-latest
             artifact_suffix: macos-x86_64
@@ -39,8 +49,16 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Linux dependencies (arm64)
+        if: matrix.build_target == 'linux-arm64'
+        run: |
+          dpkg --add-architecture arm64
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          apt update
+          apt install -y libasound2-dev:arm64 libncursesw5-dev:arm64 libssl-dev:arm64
+      - name: Install Linux dependencies (amd64)
+        if: matrix.build_target == 'linux-amd64'
         run: |
           sudo apt update
           sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
@@ -71,7 +89,6 @@ jobs:
             sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
             ;;
           *) 
-            strip ncspot
             tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz ncspot
             shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
             ;;
