@@ -16,14 +16,17 @@ use wl_clipboard_rs::{
     paste::{get_contents, Error, Seat},
 };
 
-#[cfg(not(feature = "share_selection"))]
-pub fn read_share() -> Option<String> {
-    if std::option_env!("XDG_SESSION_TYPE").unwrap_or_default() == "wayland"
+fn is_wayland() -> bool {
+    std::option_env!("XDG_SESSION_TYPE").unwrap_or_default() == "wayland"
         || !std::option_env!("WAYLAND_DISPLAY")
             .unwrap_or_default()
             .is_empty()
         || std::option_env!("GDK_BACKEND").unwrap_or_default() == "wayland"
-    {
+}
+
+#[cfg(not(feature = "share_selection"))]
+pub fn read_share() -> Option<String> {
+    if is_wayland() {
         //use wayland clipboard
         let result = get_contents(
             paste::ClipboardType::Regular,
@@ -55,12 +58,7 @@ pub fn read_share() -> Option<String> {
 
 #[cfg(feature = "share_selection")]
 pub fn read_share() -> Option<String> {
-    if std::option_env!("XDG_SESSION_TYPE").unwrap_or_default() == "wayland"
-        || !std::option_env!("WAYLAND_DISPLAY")
-            .unwrap_or_default()
-            .is_empty()
-        || std::option_env!("GDK_BACKEND").unwrap_or_default() == "wayland"
-    {
+    if is_wayland() {
         //use wayland clipboard
         match is_primary_selection_supported() {
             Ok(supported) => {
@@ -113,12 +111,7 @@ pub fn read_share() -> Option<String> {
 
 #[cfg(not(feature = "share_selection"))]
 pub fn write_share(url: String) -> Option<()> {
-    if std::option_env!("XDG_SESSION_TYPE").unwrap_or_default() == "wayland"
-        || !std::option_env!("WAYLAND_DISPLAY")
-            .unwrap_or_default()
-            .is_empty()
-        || std::option_env!("GDK_BACKEND").unwrap_or_default() == "wayland"
-    {
+    if is_wayland() {
         //use wayland clipboard
         let opts = Options::new();
         opts.copy(
@@ -136,12 +129,7 @@ pub fn write_share(url: String) -> Option<()> {
 
 #[cfg(feature = "share_selection")]
 pub fn write_share(url: String) -> Option<()> {
-    if std::option_env!("XDG_SESSION_TYPE").unwrap_or_default() == "wayland"
-        || !std::option_env!("WAYLAND_DISPLAY")
-            .unwrap_or_default()
-            .is_empty()
-        || std::option_env!("GDK_BACKEND").unwrap_or_default() == "wayland"
-    {
+    if is_wayland() {
         //use wayland clipboard
         let mut opts = Options::new();
         opts.clipboard(copy::ClipboardType::Primary);
