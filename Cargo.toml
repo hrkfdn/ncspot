@@ -57,7 +57,8 @@ version = "0.16.3"
 default-features = false
 
 [features]
-share_clipboard = ["clipboard", "wl-clipboard-rs"]
+share_clipboard = ["clipboard"]
+wayland_clipboard = ["wl-clipboard-rs"] # Support wayland clipboard - linux only
 share_selection = ["clipboard", "wl-clipboard-rs"] # Use the primary selection for sharing - linux only
 alsa_backend = ["librespot-playback/alsa-backend"]
 pulseaudio_backend = ["librespot-playback/pulseaudio-backend"]
