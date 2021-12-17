@@ -259,18 +259,19 @@ time with <kbd>Escape</kbd>.
 
 The following commands are supported:
 
-| Command                            | Action                                                           |
-| :--------------------------------- | :--------------------------------------------------------------- |
-| `quit`                             | Quit `ncspot`.                                                   |
-| `logout`                           | Remove any cached credentials from disk and quit `ncspot`.       |
-| `toggle`                           | Toggle playback.                                                 |
-| `stop`                             | Stop playback.                                                   |
-| `previous`                         | Play previous track.                                             |
-| `next`                             | Play next track.                                                 |
-| `clear`                            | Clear playlist.                                                  |
-| `share <item>`                     | Copies a sharable URL of the item to the system clipboard.       |
-| `newplaylist <name>`               | Create new playlist with name `<name>`.                          |
+| Command | Action |
+|---|---|
+| `quit` | Quit `ncspot`. |
+| `logout` | Remove any cached credentials from disk and quit `ncspot`. |
+| `toggle` | Toggle playback. |
+| `stop` | Stop playback. |
+| `previous` | Play previous track. |
+| `next` | Play next track. |
+| `clear` | Clear playlist. |
+| `share <item>` | Copies a sharable URL of the item to the system clipboard. |
+| `newplaylist <name>` | Create new playlist with name `<name>`. |
 | `sort <sort_key> <sort_direction>` | Sort a playlist by `<sort_key>` in direction `<sort_direction>`. |
+| `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
 
 Supported `<item>` are:
 

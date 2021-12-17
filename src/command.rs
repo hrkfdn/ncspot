@@ -136,6 +136,7 @@ pub enum Command {
     Logout,
     ShowRecommendations(TargetMode),
     Redraw,
+    Execute(String),
 }
 
 impl fmt::Display for Command {
@@ -191,7 +192,7 @@ impl fmt::Display for Command {
             Command::Jump(mode) => match mode {
                 JumpMode::Previous => "jumpprevious".to_string(),
                 JumpMode::Next => "jumpnext".to_string(),
-                JumpMode::Query(term) => format!("jump {}", term).to_string(),
+                JumpMode::Query(term) => String::from(format!("jump {}", term)),
             },
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
@@ -201,6 +202,7 @@ impl fmt::Display for Command {
             Command::Logout => "logout".to_string(),
             Command::ShowRecommendations(mode) => format!("similar {}", mode),
             Command::Redraw => "redraw".to_string(),
+            Command::Execute(cmd) => format!("exec {}", cmd),
         };
         // escape the command separator
         let repr = repr.replace(";", ";;");
@@ -471,6 +473,7 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
                 .map(Command::ShowRecommendations),
             "noop" => Some(Command::Noop),
             "redraw" => Some(Command::Redraw),
+            "exec" => Some(Command::Execute(args.join(" "))),
             _ => None,
         };
         commands.push(command?);
