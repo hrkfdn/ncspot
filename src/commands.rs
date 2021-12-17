@@ -253,6 +253,13 @@ impl CommandManager {
                 s.quit();
                 Ok(None)
             }
+            Command::Execute(cmd) => {
+                log::info!("Executing command: {}", cmd);
+                let cmd = std::ffi::CString::new(cmd.clone()).unwrap();
+                let result = unsafe { libc::system(cmd.as_ptr()) };
+                log::info!("Exit code: {}", result);
+                Ok(None)
+            }
             Command::Jump(_)
             | Command::Move(_, _)
             | Command::Shift(_, _)
