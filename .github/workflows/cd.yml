@@ -15,27 +15,36 @@ jobs:
     container: ${{ matrix.container }}
     strategy:
       matrix:
-        build_target: [linux-amd64, linux-arm64, macos, windows]
+        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x68_64, windows-x68_64]
         include:
-          - build_target: linux-amd64
+          - build_target: linux-x86_64
             os: ubuntu-latest
-            artifact_suffix: linux-x86_64
+            container: rust
             target: x86_64-unknown-linux-gnu
             features: ''
+            dependencies: 'libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev'
           - build_target: linux-arm64
             os: ubuntu-latest
             container: rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
-            artifact_suffix: linux-arm64
             target: aarch64-unknown-linux-gnu
-            features: '--no-default-features --features alsa_backend,cursive/pancurses-backend'
-          - build_target: macos
+            features: '--no-default-features --features alsa_backend,cursive/termion-backend'
+            dependencies: 'libasound2-dev:arm64 libssl-dev:arm64'
+            cross_arch: 'arm64'
+            pkg_config_path: '/usr/lib/aarch64-linux-gnu/pkgconfig/'
+          - build_target: linux-armhf
+            os: ubuntu-latest
+            container: rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
+            target: armv7-unknown-linux-gnueabihf
+            features: '--no-default-features --features alsa_backend,cursive/termion-backend'
+            dependencies: 'libasound2-dev:armhf libssl-dev:armhf'
+            cross_arch: 'armhf'
+            pkg_config_path: '/usr/lib/arm-linux-gnueabihf/pkgconfig/'
+          - build_target: macos-x68_64
             os: macos-latest
-            artifact_suffix: macos-x86_64
             target: x86_64-apple-darwin
             features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
-          - build_target: windows
+          - build_target: windows-x68_64
             os: windows-latest
-            artifact_suffix: windows-x86_64
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
     steps:
@@ -49,19 +58,17 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
-      - name: Install Linux dependencies (arm64)
-        if: matrix.build_target == 'linux-arm64'
+      - name: Set up cross compilation
+        if: matrix.cross_arch
         run: |
-          dpkg --add-architecture arm64
-          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
+          dpkg --add-architecture ${{ matrix.cross_arch }}
+          echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          apt update
-          apt install -y libasound2-dev:arm64 libncursesw5-dev:arm64 libssl-dev:arm64
-      - name: Install Linux dependencies (amd64)
-        if: matrix.build_target == 'linux-amd64'
+      - name: Install Linux dependencies
+        if: startsWith(matrix.build_target, 'linux-')
         run: |
-          sudo apt update
-          sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
+          apt update
+          apt install -y ${{ matrix.dependencies }}
       - uses: actions/checkout@v2
         name: Checkout src
       - uses: actions/cache@v2
@@ -85,12 +92,12 @@ jobs:
           cd target/${{ matrix.target }}/release
           case ${{ matrix.target }} in
           *-pc-windows-*) 
-            7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.zip ncspot.exe
-            sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
+            7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.zip ncspot.exe
+            sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.sha256
             ;;
           *) 
-            tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz ncspot
-            shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.artifact_suffix }}.sha256
+            tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.tar.gz ncspot
+            shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.sha256
             ;;
           esac;
       - name: Releasing assets
