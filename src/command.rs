@@ -395,7 +395,9 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
                     .and_then(|millis| {
                         match first_char {
                             // handle i32::MAX < millis < u32::MAX gracefully
-                            Some('+') => i32::try_from(millis).ok().map(|signed| SeekDirection::Relative(signed)),
+                            Some('+') => i32::try_from(millis)
+                                .ok()
+                                .map(|signed| SeekDirection::Relative(signed)),
                             Some('-') => i32::try_from(millis)
                                 .ok()
                                 .map(|signed| SeekDirection::Relative(-signed)),
