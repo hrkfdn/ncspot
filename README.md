@@ -265,6 +265,7 @@ The following commands are supported:
 | `logout` | Remove any cached credentials from disk and quit `ncspot`. |
 | `toggle` | Toggle playback. |
 | `stop` | Stop playback. |
+| `seek [+\|-]<time>` | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
 | `previous` | Play previous track. |
 | `next` | Play next track. |
 | `clear` | Clear playlist. |
