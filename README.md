@@ -260,45 +260,44 @@ When pressing <kbd>O</kbd>:
 You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
 time with <kbd>Escape</kbd>.
 
-The following commands are supported:
+The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs).
 
-| Command | Action |
-|---|---|
-| `quit` | Quit `ncspot`. |
-| `logout` | Remove any cached credentials from disk and quit `ncspot`. |
-| `toggle` | Toggle playback. |
-| `stop` | Stop playback. |
-| `seek [+\|-]<time>` | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
-| `previous` | Play previous track. |
-| `next` | Play next track. |
-| `clear` | Clear playlist. |
-| `share <item>` | Copies a shareable URL of the item to the system clipboard. |
-| `newplaylist <name>` | Create new playlist with name `<name>`. |
-| `sort <sort_key> <sort_direction>` | Sort a playlist by `<sort_key>` in direction `<sort_direction>`. |
-| `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
+| Command | Aliases | Action |
+|---|---|---|
+| `help` | | Show current key bindings. |
+| `quit` | `q`, `x` | Quit `ncspot`. |
+| `logout` | | Remove any cached credentials from disk and quit `ncspot`. |
+| `playpause` | `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
+| `stop` | | Stop playback. |
+| `seek [+\|-]<time>` | | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
+| `repeat [repeat_mode]` | `loop` | Set repeat mode. Omit `repeat_mode` argument to step through the available modes. |
+| `shuffle [on\|off]` | | Enable or disable shuffle. Omit argument to toggle. |
+| `previous` | | Play previous track. |
+| `next` | | Play next track. |
+| `focus <queue\|search\|library>` | | Switch to a screen. |
+| `search <keyword>` | | Search a song. |
+| `clear` | | Clear playlist. |
+| `share <item>` | | Copies a shareable URL of the item to the system clipboard. |
+| `newplaylist <name>` | | Create new playlist with name `name`. |
+| `sort <sort_key> [sort_direction]` | | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
+| `exec <cmd>` | | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
 
-Supported `<item>` are:
-
-- `selected`: Selected item.
-- `current`: Current song.
-
-Supported `<sort_key>` are:
-
-- `title`
-- `album`
-- `artist`
-- `duration`
-- `added`
-
-Supported `<sort_direction>` are:
-
-- `a` | `asc` | `ascending`
-- `d` | `desc` | `descending`
-
-The screens can be opened with `focus <queue|search|library>`.
-
-The `search` command can be supplied with a search term that will be
-entered after opening the search view.
+- Supported `repeat_mode` are:
+  - `list` | `playlist` | `queue`
+  - `track` | `once` | `single`
+  - `none` | `off`
+- Supported `item` are:
+  - `selected`: Selected item.
+  - `current`: Current song.
+- Supported `sort_key` are:
+  - `title`
+  - `album`
+  - `artist`
+  - `duration`
+  - `added`
+- Supported `sort_direction` are:
+  - `a` | `asc` | `ascending`
+  - `d` | `desc` | `descending`
 
 ## Configuration
 
@@ -408,4 +407,4 @@ The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
 (unless the base path has been changed with the `--basepath` option).
 
 The `:logout` command can be used to programmatically remove cached credentials
-(see [Commands](#commands) above).
+(see [Vim-Like Commands](#vim-like-commands) above).
