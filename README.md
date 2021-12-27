@@ -23,28 +23,31 @@ as the \*BSDs.
 
 ## Table of Contents
 
-- [Resource Footprint Comparison](#resource-footprint-comparison)
-- [Installation](#installation)
-  - [On macOs](#on-macos)
-  - [On Windows](#on-windows)
-  - [On Linux](#on-linux)
-- [Build](#build)
-  - [Audio Backends](#audio-backends)
-- [Key Bindings](#build)
-  - [Navigation](#navigation)
-  - [Playback](#playback)
-  - [Context Menus](#context-menus)
-  - [Sharing](#sharing)
-  - [Queue](#queue)
-  - [Library](#library)
-  - [Vim-like Search Bat](#vim-like-search-bar)
-- [Vim-Like Commands](#vim-like-commands)
-- [Configuration](#configuration)
-  - [Custom Keybindings](#custom-keybindings)
-  - [Proxy](#proxy)
-  - [Theming](#theming)
-- [Cover Drawing](#cover-drawing)
-- [Authentication](#authentication)
+- [ncspot](#ncspot)
+  - [Table of Contents](#table-of-contents)
+  - [Resource Footprint Comparison](#resource-footprint-comparison)
+  - [Installation](#installation)
+    - [On macOS](#on-macos)
+    - [On Windows](#on-windows)
+    - [On Linux](#on-linux)
+      - [Building a Debian Package](#building-a-debian-package)
+  - [Build](#build)
+    - [Audio Backends](#audio-backends)
+  - [Key Bindings](#key-bindings)
+    - [Navigation](#navigation)
+    - [Playback](#playback)
+    - [Context Menus](#context-menus)
+    - [Sharing](#sharing)
+    - [Queue](#queue)
+    - [Library](#library)
+    - [Vim-Like Search Bar](#vim-like-search-bar)
+  - [Vim-Like Commands](#vim-like-commands)
+  - [Configuration](#configuration)
+    - [Custom Keybindings](#custom-keybindings)
+    - [Proxy](#proxy)
+    - [Theming](#theming)
+  - [Cover Drawing](#cover-drawing)
+  - [Authentication](#authentication)
 
 ## Resource Footprint Comparison
 
@@ -228,8 +231,8 @@ When pressing <kbd>O</kbd>:
 
 | Key                           | Command                                                                         |
 | :---------------------------- | :------------------------------------------------------------------------------ |
-| <kbd>X</kbd>                  | Copy a sharable URL of the **currently selected item** to the system clipboard. |
-| <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a sharable URL of the **currently playing track** to the system clipboard. |
+| <kbd>X</kbd>                  | Copy a shareable URL of the **currently selected item** to the system clipboard. |
+| <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a shareable URL of the **currently playing track** to the system clipboard. |
 
 ### Queue
 
@@ -249,53 +252,52 @@ When pressing <kbd>O</kbd>:
 
 | Key          | Command                    |
 | :----------- | :------------------------- |
-| <kbd>n</kbd> | Previous search occurence. |
-| <kbd>N</kbd> | Next search occurence.     |
+| <kbd>n</kbd> | Previous search occurrence. |
+| <kbd>N</kbd> | Next search occurrence.     |
 
 ## Vim-Like Commands
 
 You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
 time with <kbd>Escape</kbd>.
 
-The following commands are supported:
+The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs).
 
 | Command | Action |
 |---|---|
-| `quit` | Quit `ncspot`. |
+| `help` | Show current key bindings. |
+| `quit`<br/>Aliases: `q`, `x` | Quit `ncspot`. |
 | `logout` | Remove any cached credentials from disk and quit `ncspot`. |
-| `toggle` | Toggle playback. |
+| `playpause`<br/>Aliases: `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
 | `stop` | Stop playback. |
 | `seek [+\|-]<time>` | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
+| `repeat [repeat_mode]`<br/>Aliases: `loop` | Set repeat mode. Omit `repeat_mode` argument to step through the available modes. |
+| `shuffle [on\|off]` | Enable or disable shuffle. Omit argument to toggle. |
 | `previous` | Play previous track. |
 | `next` | Play next track. |
+| `focus <queue\|search\|library>` | Switch to a screen. |
+| `search <keyword>` | Search a song. |
 | `clear` | Clear playlist. |
-| `share <item>` | Copies a sharable URL of the item to the system clipboard. |
-| `newplaylist <name>` | Create new playlist with name `<name>`. |
-| `sort <sort_key> <sort_direction>` | Sort a playlist by `<sort_key>` in direction `<sort_direction>`. |
+| `share <item>` | Copies a shareable URL of the item to the system clipboard. |
+| `newplaylist <name>` | Create new playlist with name `name`. |
+| `sort <sort_key> [sort_direction]` | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
 | `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
 
-Supported `<item>` are:
-
-- `selected`: Selected item.
-- `current`: Current song.
-
-Supported `<sort_key>` are:
-
-- `title`
-- `album`
-- `artist`
-- `duration`
-- `added`
-
-Supported `<sort_direction>` are:
-
-- `a` | `asc` | `ascending`
-- `d` | `desc` | `descending`
-
-The screens can be opened with `focus <queue|search|library>`.
-
-The `search` command can be supplied with a search term that will be
-entered after opening the search view.
+- Supported `repeat_mode` are:
+  - `list` | `playlist` | `queue`
+  - `track` | `once` | `single`
+  - `none` | `off`
+- Supported `item` are:
+  - `selected`: Selected item.
+  - `current`: Current song.
+- Supported `sort_key` are:
+  - `title`
+  - `album`
+  - `artist`
+  - `duration`
+  - `added`
+- Supported `sort_direction` are:
+  - `a` | `asc` | `ascending`
+  - `d` | `desc` | `descending`
 
 ## Configuration
 
@@ -310,7 +312,7 @@ Possible configuration values are:
 | `command_key`            | Key to open command line                    | Single character                                  |     `:`     |
 | `initial_screen`         | Screen to show after startup                | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
 | `use_nerdfont`           | Turn nerdfont glyphs on/off                 | `true`, `false`                                   |   `false`   |
-| `flip_status_indicators` | Revese play/pause icon meaning[^1]          | `true`, `false`                                   |   `false`   |
+| `flip_status_indicators` | Reverse play/pause icon meaning[^1]         | `true`, `false`                                   |   `false`   |
 | `backend`                | Audio backend to use                        | String [^3]                                       |             |
 | `backend_device`         | Audio device to configure the backend       | String                                            |             |
 | `audio_cache`            | Enable caching of audio files               | `true`, `false`                                   |   `true`    |
@@ -405,4 +407,4 @@ The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
 (unless the base path has been changed with the `--basepath` option).
 
 The `:logout` command can be used to programmatically remove cached credentials
-(see [Commands](#commands) above).
+(see [Vim-Like Commands](#vim-like-commands) above).
