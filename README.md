@@ -231,8 +231,8 @@ When pressing <kbd>O</kbd>:
 
 | Key                           | Command                                                                         |
 | :---------------------------- | :------------------------------------------------------------------------------ |
-| <kbd>X</kbd>                  | Copy a sharable URL of the **currently selected item** to the system clipboard. |
-| <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a sharable URL of the **currently playing track** to the system clipboard. |
+| <kbd>X</kbd>                  | Copy a shareable URL of the **currently selected item** to the system clipboard. |
+| <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a shareable URL of the **currently playing track** to the system clipboard. |
 
 ### Queue
 
@@ -252,8 +252,8 @@ When pressing <kbd>O</kbd>:
 
 | Key          | Command                    |
 | :----------- | :------------------------- |
-| <kbd>n</kbd> | Previous search occurence. |
-| <kbd>N</kbd> | Next search occurence.     |
+| <kbd>n</kbd> | Previous search occurrence. |
+| <kbd>N</kbd> | Next search occurrence.     |
 
 ## Vim-Like Commands
 
@@ -272,7 +272,7 @@ The following commands are supported:
 | `previous` | Play previous track. |
 | `next` | Play next track. |
 | `clear` | Clear playlist. |
-| `share <item>` | Copies a sharable URL of the item to the system clipboard. |
+| `share <item>` | Copies a shareable URL of the item to the system clipboard. |
 | `newplaylist <name>` | Create new playlist with name `<name>`. |
 | `sort <sort_key> <sort_direction>` | Sort a playlist by `<sort_key>` in direction `<sort_direction>`. |
 | `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
@@ -313,7 +313,7 @@ Possible configuration values are:
 | `command_key`            | Key to open command line                    | Single character                                  |     `:`     |
 | `initial_screen`         | Screen to show after startup                | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
 | `use_nerdfont`           | Turn nerdfont glyphs on/off                 | `true`, `false`                                   |   `false`   |
-| `flip_status_indicators` | Revese play/pause icon meaning[^1]          | `true`, `false`                                   |   `false`   |
+| `flip_status_indicators` | Reverse play/pause icon meaning[^1]         | `true`, `false`                                   |   `false`   |
 | `backend`                | Audio backend to use                        | String [^3]                                       |             |
 | `backend_device`         | Audio device to configure the backend       | String                                            |             |
 | `audio_cache`            | Enable caching of audio files               | `true`, `false`                                   |   `true`    |
