@@ -262,25 +262,25 @@ time with <kbd>Escape</kbd>.
 
 The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs).
 
-| Command | Aliases | Action |
-|---|---|---|
-| `help` | | Show current key bindings. |
-| `quit` | `q`, `x` | Quit `ncspot`. |
-| `logout` | | Remove any cached credentials from disk and quit `ncspot`. |
-| `playpause` | `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
-| `stop` | | Stop playback. |
-| `seek [+\|-]<time>` | | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
-| `repeat [repeat_mode]` | `loop` | Set repeat mode. Omit `repeat_mode` argument to step through the available modes. |
-| `shuffle [on\|off]` | | Enable or disable shuffle. Omit argument to toggle. |
-| `previous` | | Play previous track. |
-| `next` | | Play next track. |
-| `focus <queue\|search\|library>` | | Switch to a screen. |
-| `search <keyword>` | | Search a song. |
-| `clear` | | Clear playlist. |
-| `share <item>` | | Copies a shareable URL of the item to the system clipboard. |
-| `newplaylist <name>` | | Create new playlist with name `name`. |
-| `sort <sort_key> [sort_direction]` | | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
-| `exec <cmd>` | | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
+| Command | Action |
+|---|---|
+| `help` | Show current key bindings. |
+| `quit`<br/>Aliases: `q`, `x` | Quit `ncspot`. |
+| `logout` | Remove any cached credentials from disk and quit `ncspot`. |
+| `playpause`<br/>Aliases: `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
+| `stop` | Stop playback. |
+| `seek [+\|-]<time>` | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
+| `repeat [repeat_mode]`<br/>Aliases: `loop` | Set repeat mode. Omit `repeat_mode` argument to step through the available modes. |
+| `shuffle [on\|off]` | Enable or disable shuffle. Omit argument to toggle. |
+| `previous` | Play previous track. |
+| `next` | Play next track. |
+| `focus <queue\|search\|library>` | Switch to a screen. |
+| `search <keyword>` | Search a song. |
+| `clear` | Clear playlist. |
+| `share <item>` | Copies a shareable URL of the item to the system clipboard. |
+| `newplaylist <name>` | Create new playlist with name `name`. |
+| `sort <sort_key> [sort_direction]` | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
+| `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
 
 - Supported `repeat_mode` are:
   - `list` | `playlist` | `queue`
