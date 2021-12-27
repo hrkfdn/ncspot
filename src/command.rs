@@ -370,7 +370,7 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
             "repeat" => {
                 let mode = args.get(0).and_then(|mode| match *mode {
                     "list" | "playlist" | "queue" => Some(RepeatSetting::RepeatPlaylist),
-                    "track" | "once" => Some(RepeatSetting::RepeatTrack),
+                    "track" | "once" | "single" => Some(RepeatSetting::RepeatTrack),
                     "none" | "off" => Some(RepeatSetting::None),
                     _ => None,
                 });
