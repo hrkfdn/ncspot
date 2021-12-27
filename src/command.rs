@@ -377,29 +377,43 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
 
                 Some(Command::Repeat(mode))
             }
-            "seek" => args.get(0).and_then(|arg| match arg.chars().next() {
-                Some(x) if x == '-' || x == '+' => arg
-                    .chars()
-                    .skip(1)
-                    .collect::<String>()
-                    .parse::<i32>()
+            "seek" => {
+                let arg = args.join(" ");
+                let first_char = arg.chars().next();
+                let duration_raw = match first_char {
+                    Some('+' | '-') => arg.chars().skip(1).collect(),
+                    _ => arg.to_string(),
+                };
+                duration_raw
+                    .parse::<u32>() // accept raw milliseconds for backward compatibility
                     .ok()
-                    .map(|amount| {
-                        Command::Seek(SeekDirection::Relative(
-                            amount
-                                * match x {
-                                    '-' => -1,
-                                    _ => 1,
-                                },
-                        ))
-                    }),
-                _ => arg
-                    .chars()
-                    .collect::<String>()
-                    .parse()
-                    .ok()
-                    .map(|amount| Command::Seek(SeekDirection::Absolute(amount))),
-            }),
+                    .or_else(|| {
+                        parse_duration::parse(&duration_raw) // accept fancy duration
+                            .ok()
+                            .and_then(|dur| dur.as_millis().try_into().ok())
+                    })
+                    .and_then(|unsigned_millis| {
+                        match first_char {
+                            // handle i32::MAX < unsigned_millis < u32::MAX gracefully
+                            Some('+') => {
+                                i32::try_from(unsigned_millis)
+                                    .ok()
+                                    .map(|unsigned_millis_i32| {
+                                        SeekDirection::Relative(unsigned_millis_i32)
+                                    })
+                            }
+                            Some('-') => {
+                                i32::try_from(unsigned_millis)
+                                    .ok()
+                                    .map(|unsigned_millis_i32| {
+                                        SeekDirection::Relative(-unsigned_millis_i32)
+                                    })
+                            }
+                            _ => Some(SeekDirection::Absolute(unsigned_millis)),
+                        }
+                        .map(|direction| Command::Seek(direction))
+                    })
+            }
             "focus" => args
                 .get(0)
                 .map(|target| Command::Focus((*target).to_string())),
