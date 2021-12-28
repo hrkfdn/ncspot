@@ -2,6 +2,7 @@ use crate::queue::RepeatSetting;
 use std::collections::HashMap;
 use std::fmt;
 
+use regex::Regex;
 use strum_macros::Display;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -243,7 +244,40 @@ fn handle_aliases(input: &str) -> &str {
     }
 }
 
-pub fn parse(input: &str) -> Option<Vec<Command>> {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum CommandParseError {
+    NoSuchCommand { cmd: String },
+    NotEnoughArgs { cmd: String, hint: Option<String> },
+    BadEnumArg { arg: String, accept: Vec<String> },
+    ArgParseError { arg: String, err: String },
+}
+
+impl fmt::Display for CommandParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use CommandParseError::*;
+        let formatted = match self {
+            NoSuchCommand { cmd } => format!("No such command \"{}\"", cmd),
+            NotEnoughArgs { cmd, hint } => {
+                if let Some(hint_str) = hint {
+                    format!("\"{}\" requires additional arguments: {}", cmd, hint_str)
+                } else {
+                    format!("\"{}\" requires additional arguments", cmd)
+                }
+            }
+            BadEnumArg { arg, accept } => {
+                format!(
+                    "Illegal argument \"{}\": supported values are {}",
+                    arg,
+                    accept.join("|")
+                )
+            }
+            ArgParseError { arg, err } => format!("Error with argument \"{}\": {}", arg, err),
+        };
+        write!(f, "{}", formatted)
+    }
+}
+
+pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
     let mut command_inputs = vec!["".to_string()];
     let mut command_idx = 0;
     enum ParseState {
@@ -271,226 +305,351 @@ pub fn parse(input: &str) -> Option<Vec<Command>> {
 
     let mut commands = vec![];
     for command_input in command_inputs {
-        let components: Vec<_> = command_input.trim().split(' ').collect();
+        lazy_static! {
+            // https://docs.rs/regex/latest/regex/#example-avoid-compiling-the-same-regex-in-a-loop
+            static ref CONTINUOUS_SPACE_MATCHER: Regex = Regex::new(r" +").unwrap();
+        }
+        let commands_sanitised = CONTINUOUS_SPACE_MATCHER.replace_all(&command_input, " ");
+        let components: Vec<_> = commands_sanitised.trim().split(' ').collect();
 
         let command = handle_aliases(components[0]);
         let args = components[1..].to_vec();
 
+        use CommandParseError::*;
         let command = match command {
-            "quit" => Some(Command::Quit),
-            "playpause" => Some(Command::TogglePlay),
-            "stop" => Some(Command::Stop),
-            "previous" => Some(Command::Previous),
-            "next" => Some(Command::Next),
-            "clear" => Some(Command::Clear),
-            "playnext" => Some(Command::PlayNext),
-            "queue" => Some(Command::Queue),
-            "play" => Some(Command::Play),
-            "update" => Some(Command::UpdateLibrary),
-            "delete" => Some(Command::Delete),
-            "back" => Some(Command::Back),
-            "open" => args
-                .get(0)
-                .and_then(|target| match *target {
-                    "selected" => Some(TargetMode::Selected),
-                    "current" => Some(TargetMode::Current),
-                    _ => None,
-                })
-                .map(Command::Open),
-            "jump" => Some(Command::Jump(JumpMode::Query(args.join(" ")))),
-            "jumpnext" => Some(Command::Jump(JumpMode::Next)),
-            "jumpprevious" => Some(Command::Jump(JumpMode::Previous)),
-            "search" => Some(Command::Search(args.join(" "))),
+            "quit" => Command::Quit,
+            "playpause" => Command::TogglePlay,
+            "stop" => Command::Stop,
+            "previous" => Command::Previous,
+            "next" => Command::Next,
+            "clear" => Command::Clear,
+            "playnext" => Command::PlayNext,
+            "queue" => Command::Queue,
+            "play" => Command::Play,
+            "update" => Command::UpdateLibrary,
+            "delete" => Command::Delete,
+            "back" => Command::Back,
+            "open" => {
+                let &target_mode_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("selected|current".into()),
+                })?;
+                let target_mode = match target_mode_raw {
+                    "selected" => Ok(TargetMode::Selected),
+                    "current" => Ok(TargetMode::Current),
+                    _ => Err(BadEnumArg {
+                        arg: target_mode_raw.into(),
+                        accept: vec!["selected".into(), "current".into()],
+                    }),
+                }?;
+                Command::Open(target_mode)
+            }
+            "jump" => Command::Jump(JumpMode::Query(args.join(" "))),
+            "jumpnext" => Command::Jump(JumpMode::Next),
+            "jumpprevious" => Command::Jump(JumpMode::Previous),
+            "search" => Command::Search(args.join(" ")),
             "shift" => {
-                let amount = args.get(1).and_then(|amount| amount.parse().ok());
-
-                args.get(0)
-                    .and_then(|direction| match *direction {
-                        "up" => Some(ShiftMode::Up),
-                        "down" => Some(ShiftMode::Down),
-                        _ => None,
-                    })
-                    .map(|mode| Command::Shift(mode, amount))
+                let &shift_dir_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("up|down".into()),
+                })?;
+                let shift_dir = match shift_dir_raw {
+                    "up" => Ok(ShiftMode::Up),
+                    "down" => Ok(ShiftMode::Down),
+                    _ => Err(BadEnumArg {
+                        arg: shift_dir_raw.into(),
+                        accept: vec!["up".into(), "down".into()],
+                    }),
+                }?;
+                let amount = match args.get(1) {
+                    Some(&amount_raw) => {
+                        let amount = amount_raw.parse::<i32>().map_err(|err| ArgParseError {
+                            arg: amount_raw.into(),
+                            err: err.to_string(),
+                        })?;
+                        Some(amount)
+                    }
+                    None => None,
+                };
+                Command::Shift(shift_dir, amount)
             }
             "move" => {
-                let cmd: Option<Command> = {
-                    args.get(0).and_then(|extreme| match *extreme {
-                        "top" => Some(Command::Move(MoveMode::Up, MoveAmount::Extreme)),
-                        "bottom" => Some(Command::Move(MoveMode::Down, MoveAmount::Extreme)),
-                        "leftmost" => Some(Command::Move(MoveMode::Left, MoveAmount::Extreme)),
-                        "rightmost" => Some(Command::Move(MoveMode::Right, MoveAmount::Extreme)),
-                        "playing" => Some(Command::Move(MoveMode::Playing, MoveAmount::default())),
-                        _ => None,
-                    })
+                let &move_mode_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("a direction".into()),
+                })?;
+                let move_mode = {
+                    use MoveMode::*;
+                    match move_mode_raw {
+                        "playing" => Ok(Playing),
+                        "top" | "up" => Ok(Up),
+                        "bottom" | "down" => Ok(Down),
+                        "leftmost" | "left" => Ok(Left),
+                        "rightmost" | "right" => Ok(Right),
+                        _ => Err(BadEnumArg {
+                            arg: move_mode_raw.into(),
+                            accept: vec![
+                                "playing".into(),
+                                "top".into(),
+                                "bottom".into(),
+                                "leftmost".into(),
+                                "rightmost".into(),
+                                "up".into(),
+                                "down".into(),
+                                "left".into(),
+                                "right".into(),
+                            ],
+                        }),
+                    }?
                 };
-
-                cmd.or({
-                    let amount = args
-                        .get(1)
-                        .and_then(|amount| amount.parse().ok())
-                        .map(MoveAmount::Integer)
-                        .unwrap_or_default();
-
-                    args.get(0)
-                        .and_then(|direction| match *direction {
-                            "up" => Some(MoveMode::Up),
-                            "down" => Some(MoveMode::Down),
-                            "left" => Some(MoveMode::Left),
-                            "right" => Some(MoveMode::Right),
-                            _ => None,
-                        })
-                        .map(|mode| Command::Move(mode, amount))
-                })
+                let move_amount = match move_mode_raw {
+                    "playing" => Ok(MoveAmount::default()),
+                    "top" | "bottom" | "leftmost" | "rightmost" => Ok(MoveAmount::Extreme),
+                    "up" | "down" | "left" | "right" => {
+                        let amount = match args.get(1) {
+                            Some(&amount_raw) => amount_raw
+                                .parse::<i32>()
+                                .map(MoveAmount::Integer)
+                                .map_err(|err| ArgParseError {
+                                    arg: amount_raw.into(),
+                                    err: err.to_string(),
+                                })?,
+                            None => MoveAmount::default(),
+                        };
+                        Ok(amount)
+                    }
+                    _ => unreachable!(), // already guarded when determining MoveMode
+                }?;
+                Command::Move(move_mode, move_amount)
             }
-            "goto" => args
-                .get(0)
-                .and_then(|mode| match *mode {
-                    "album" => Some(GotoMode::Album),
-                    "artist" => Some(GotoMode::Artist),
-                    _ => None,
-                })
-                .map(Command::Goto),
-            "share" => args
-                .get(0)
-                .and_then(|target| match *target {
-                    "selected" => Some(TargetMode::Selected),
-                    "current" => Some(TargetMode::Current),
-                    _ => None,
-                })
-                .map(Command::Share),
+            "goto" => {
+                let &goto_mode_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("album|artist".into()),
+                })?;
+                let goto_mode = match goto_mode_raw {
+                    "album" => Ok(GotoMode::Album),
+                    "artist" => Ok(GotoMode::Artist),
+                    _ => Err(BadEnumArg {
+                        arg: goto_mode_raw.into(),
+                        accept: vec!["album".into(), "artist".into()],
+                    }),
+                }?;
+                Command::Goto(goto_mode)
+            }
+            "share" => {
+                let &target_mode_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("selected|current".into()),
+                })?;
+                let target_mode = match target_mode_raw {
+                    "selected" => Ok(TargetMode::Selected),
+                    "current" => Ok(TargetMode::Current),
+                    _ => Err(BadEnumArg {
+                        arg: target_mode_raw.into(),
+                        accept: vec!["selected".into(), "current".into()],
+                    }),
+                }?;
+                Command::Share(target_mode)
+            }
             "shuffle" => {
-                let shuffle = args.get(0).and_then(|mode| match *mode {
-                    "on" => Some(true),
-                    "off" => Some(false),
-                    _ => None,
-                });
-
-                Some(Command::Shuffle(shuffle))
+                let switch = match args.get(0).cloned() {
+                    Some("on") => Ok(Some(true)),
+                    Some("off") => Ok(Some(false)),
+                    Some(arg) => Err(BadEnumArg {
+                        arg: arg.into(),
+                        accept: vec!["**omit**".into(), "on".into(), "off".into()],
+                    }),
+                    None => Ok(None),
+                }?;
+                Command::Shuffle(switch)
             }
             "repeat" => {
-                let mode = args.get(0).and_then(|mode| match *mode {
-                    "list" | "playlist" | "queue" => Some(RepeatSetting::RepeatPlaylist),
-                    "track" | "once" | "single" => Some(RepeatSetting::RepeatTrack),
-                    "none" | "off" => Some(RepeatSetting::None),
-                    _ => None,
-                });
-
-                Some(Command::Repeat(mode))
+                let mode = match args.get(0).cloned() {
+                    Some("list" | "playlist" | "queue") => Ok(Some(RepeatSetting::RepeatPlaylist)),
+                    Some("track" | "once" | "single") => Ok(Some(RepeatSetting::RepeatTrack)),
+                    Some("none" | "off") => Ok(Some(RepeatSetting::None)),
+                    Some(arg) => Err(BadEnumArg {
+                        arg: arg.into(),
+                        accept: vec![
+                            "**omit**".into(),
+                            "list".into(),
+                            "playlist".into(),
+                            "queue".into(),
+                            "track".into(),
+                            "once".into(),
+                            "single".into(),
+                            "none".into(),
+                            "off".into(),
+                        ],
+                    }),
+                    None => Ok(None),
+                }?;
+                Command::Repeat(mode)
             }
             "seek" => {
                 let arg = args.join(" ");
                 let first_char = arg.chars().next();
                 let duration_raw = match first_char {
-                    Some('+' | '-') => arg.chars().skip(1).collect(),
-                    _ => arg.to_string(),
+                    Some('+' | '-') => {
+                        arg.chars().skip(1).collect::<String>().trim().into()
+                        // `trim` is necessary here, otherwise `+1000` -> 1 second, but `+ 1000` -> 1000 seconds
+                        // this behaviour is inconsistent and could cause confusion
+                    }
+                    _ => arg,
                 };
-                duration_raw
-                    .parse::<u32>() // accept raw milliseconds for backward compatibility
-                    .ok()
-                    .or_else(|| {
-                        parse_duration::parse(&duration_raw) // accept fancy duration
-                            .ok()
-                            .and_then(|dur| dur.as_millis().try_into().ok())
-                    })
-                    .and_then(|unsigned_millis| {
-                        match first_char {
-                            // handle i32::MAX < unsigned_millis < u32::MAX gracefully
-                            Some('+') => {
-                                i32::try_from(unsigned_millis)
-                                    .ok()
-                                    .map(|unsigned_millis_i32| {
-                                        SeekDirection::Relative(unsigned_millis_i32)
-                                    })
-                            }
-                            Some('-') => {
-                                i32::try_from(unsigned_millis)
-                                    .ok()
-                                    .map(|unsigned_millis_i32| {
-                                        SeekDirection::Relative(-unsigned_millis_i32)
-                                    })
-                            }
-                            _ => Some(SeekDirection::Absolute(unsigned_millis)),
-                        }
-                        .map(|direction| Command::Seek(direction))
-                    })
-            }
-            "focus" => args
-                .get(0)
-                .map(|target| Command::Focus((*target).to_string())),
-            "save" => args
-                .get(0)
-                .map(|target| match *target {
-                    "queue" => Command::SaveQueue,
-                    _ => Command::Save,
-                })
-                .or(Some(Command::Save)),
-            "volup" => Some(Command::VolumeUp(
-                args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
-            )),
-            "voldown" => Some(Command::VolumeDown(
-                args.get(0).and_then(|v| v.parse::<u16>().ok()).unwrap_or(1),
-            )),
-            "help" => Some(Command::Help),
-            "reload" => Some(Command::ReloadConfig),
-            "insert" => {
-                if args.is_empty() {
-                    Some(Command::Insert(None))
-                } else {
-                    args.get(0)
-                        .map(|url| Command::Insert(Some((*url).to_string())))
+                let unsigned_millis = match duration_raw.parse() {
+                    // accept raw milliseconds
+                    Ok(millis) => millis,
+                    Err(_) => parse_duration::parse(&duration_raw) // accept fancy duration
+                        .map_err(|err| ArgParseError {
+                            arg: duration_raw.clone(),
+                            err: err.to_string(),
+                        })
+                        .and_then(|dur| {
+                            dur.as_millis().try_into().map_err(|_| ArgParseError {
+                                arg: duration_raw.clone(),
+                                err: "Duration value too large".into(),
+                            })
+                        })?,
+                };
+                let seek_direction = match first_char {
+                    // handle i32::MAX < unsigned_millis < u32::MAX gracefully
+                    Some('+') => {
+                        i32::try_from(unsigned_millis).map(|millis| SeekDirection::Relative(millis))
+                    }
+                    Some('-') => i32::try_from(unsigned_millis)
+                        .map(|millis| SeekDirection::Relative(-millis)),
+                    _ => Ok(SeekDirection::Absolute(unsigned_millis)),
                 }
+                .map_err(|_| ArgParseError {
+                    arg: duration_raw,
+                    err: "Duration value too large".into(),
+                })?;
+                Command::Seek(seek_direction)
+            }
+            "focus" => {
+                let &target = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("queue|search|library".into()),
+                })?;
+                // TODO: this really should be strongly typed
+                Command::Focus(target.into())
+            }
+            "save" => match args.get(0).cloned() {
+                Some("queue") => Ok(Command::SaveQueue),
+                Some(arg) => Err(BadEnumArg {
+                    arg: arg.into(),
+                    accept: vec!["**omit**".into(), "queue".into()],
+                }),
+                None => Ok(Command::Save),
+            }?,
+            "volup" => {
+                let amount = match args.get(0) {
+                    Some(&amount_raw) => {
+                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            arg: amount_raw.into(),
+                            err: err.to_string(),
+                        })?
+                    }
+                    None => 1,
+                };
+                Command::VolumeUp(amount)
+            }
+            "voldown" => {
+                let amount = match args.get(0) {
+                    Some(&amount_raw) => {
+                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            arg: amount_raw.into(),
+                            err: err.to_string(),
+                        })?
+                    }
+                    None => 1,
+                };
+                Command::VolumeDown(amount)
+            }
+            "help" => Command::Help,
+            "reload" => Command::ReloadConfig,
+            "insert" => {
+                // IDEA: this should fail fast too
+                Command::Insert(args.get(0).map(|&url| url.into()))
             }
             "newplaylist" => {
                 if !args.is_empty() {
-                    Some(Command::NewPlaylist(args.join(" ")))
+                    Ok(Command::NewPlaylist(args.join(" ")))
                 } else {
-                    None
-                }
+                    Err(NotEnoughArgs {
+                        cmd: command.into(),
+                        hint: Some("a name".into()),
+                    })
+                }?
             }
             "sort" => {
-                if !args.is_empty() {
-                    let sort_key = args.get(0).and_then(|key| match *key {
-                        "title" => Some(SortKey::Title),
-                        "duration" => Some(SortKey::Duration),
-                        "album" => Some(SortKey::Album),
-                        "added" => Some(SortKey::Added),
-                        "artist" => Some(SortKey::Artist),
-                        _ => None,
-                    })?;
-
-                    let sort_direction = args
-                        .get(1)
-                        .map(|direction| match *direction {
-                            "a" => SortDirection::Ascending,
-                            "asc" => SortDirection::Ascending,
-                            "ascending" => SortDirection::Ascending,
-                            "d" => SortDirection::Descending,
-                            "desc" => SortDirection::Descending,
-                            "descending" => SortDirection::Descending,
-                            _ => SortDirection::Ascending,
-                        })
-                        .unwrap_or(SortDirection::Ascending);
-
-                    Some(Command::Sort(sort_key, sort_direction))
-                } else {
-                    None
-                }
+                let &key_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("a sort key".into()),
+                })?;
+                let key = match key_raw {
+                    "title" => Ok(SortKey::Title),
+                    "duration" => Ok(SortKey::Duration),
+                    "album" => Ok(SortKey::Album),
+                    "added" => Ok(SortKey::Added),
+                    "artist" => Ok(SortKey::Artist),
+                    _ => Err(BadEnumArg {
+                        arg: key_raw.into(),
+                        accept: vec![
+                            "title".into(),
+                            "duration".into(),
+                            "album".into(),
+                            "added".into(),
+                            "artist".into(),
+                        ],
+                    }),
+                }?;
+                let direction = match args.get(1) {
+                    Some(&direction_raw) => match direction_raw {
+                        "a" | "asc" | "ascending" => Ok(SortDirection::Ascending),
+                        "d" | "desc" | "descending" => Ok(SortDirection::Descending),
+                        _ => Err(BadEnumArg {
+                            arg: direction_raw.into(),
+                            accept: vec![
+                                "a".into(),
+                                "asc".into(),
+                                "ascending".into(),
+                                "d".into(),
+                                "desc".into(),
+                                "descending".into(),
+                            ],
+                        }),
+                    },
+                    None => Ok(SortDirection::Ascending),
+                }?;
+                Command::Sort(key, direction)
             }
-            "logout" => Some(Command::Logout),
-            "similar" => args
-                .get(0)
-                .and_then(|target| match *target {
-                    "selected" => Some(TargetMode::Selected),
-                    "current" => Some(TargetMode::Current),
-                    _ => None,
-                })
-                .map(Command::ShowRecommendations),
-            "noop" => Some(Command::Noop),
-            "redraw" => Some(Command::Redraw),
-            "exec" => Some(Command::Execute(args.join(" "))),
-            _ => None,
+            "logout" => Command::Logout,
+            "similar" => {
+                let &target_mode_raw = args.get(0).ok_or(NotEnoughArgs {
+                    cmd: command.into(),
+                    hint: Some("selected|current".into()),
+                })?;
+                let target_mode = match target_mode_raw {
+                    "selected" => Ok(TargetMode::Selected),
+                    "current" => Ok(TargetMode::Current),
+                    _ => Err(BadEnumArg {
+                        arg: target_mode_raw.into(),
+                        accept: vec!["selected".into(), "current".into()],
+                    }),
+                }?;
+                Command::ShowRecommendations(target_mode)
+            }
+            "noop" => Command::Noop,
+            "redraw" => Command::Redraw,
+            "exec" => Command::Execute(args.join(" ")),
+            _ => Err(NoSuchCommand {
+                cmd: command.into(),
+            })?, // I'm surprised this compiles lol
         };
-        commands.push(command?);
+        commands.push(command);
     }
-    Some(commands)
+    Ok(commands)
 }

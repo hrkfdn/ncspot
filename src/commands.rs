@@ -71,11 +71,17 @@ impl CommandManager {
         let custom_bindings: Option<HashMap<String, String>> = config.keybindings.clone();
 
         for (key, commands) in custom_bindings.unwrap_or_default() {
-            if let Some(commands) = parse(&commands) {
-                info!("Custom keybinding: {} -> {:?}", key, commands);
-                kb.insert(key, commands);
-            } else {
-                error!("Invalid command(s) for key {}: {}", key, commands);
+            match parse(&commands) {
+                Ok(cmds) => {
+                    info!("Custom keybinding: {} -> {:?}", key, cmds);
+                    kb.insert(key, cmds);
+                }
+                Err(err) => {
+                    error!(
+                        "Invalid command(s) for key {}-\"{}\": {}",
+                        key, commands, err
+                    );
+                }
             }
         }
 
