@@ -309,8 +309,8 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
             // https://docs.rs/regex/latest/regex/#example-avoid-compiling-the-same-regex-in-a-loop
             static ref CONTINUOUS_SPACE_MATCHER: Regex = Regex::new(r" +").unwrap();
         }
-        let commands_sanitised = CONTINUOUS_SPACE_MATCHER.replace_all(&command_input, " ");
-        let components: Vec<_> = commands_sanitised.trim().split(' ').collect();
+        let command_sanitised = CONTINUOUS_SPACE_MATCHER.replace_all(&command_input, " ");
+        let components: Vec<_> = command_sanitised.trim().split(' ').collect();
 
         let command = handle_aliases(components[0]);
         let args = components[1..].to_vec();
