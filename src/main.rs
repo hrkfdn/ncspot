@@ -302,10 +302,7 @@ async fn main() -> Result<(), String> {
                     }
                     Err(err) => {
                         let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                        let err_msg = format!(
-                            "Failed to parse command(s) \"{}\": {}",
-                            cmd_without_prefix, err
-                        );
+                        let err_msg = format!("Failed to parse command(s): {}", err);
                         main.set_result(Err(err_msg));
                     }
                 }
