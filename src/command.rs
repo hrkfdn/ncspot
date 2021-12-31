@@ -2,7 +2,6 @@ use crate::queue::RepeatSetting;
 use std::collections::HashMap;
 use std::fmt;
 
-use regex::Regex;
 use strum_macros::Display;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
