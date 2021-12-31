@@ -77,19 +77,23 @@ impl WebApi {
             .as_ref()
         {
             channel.send(cmd).expect("can't send message to worker");
-            let token = futures::executor::block_on(token_rx).unwrap();
-            *self.api.token.lock().expect("can't writelock api token") = Some(Token {
-                access_token: token.access_token,
-                expires_in: chrono::Duration::seconds(token.expires_in.into()),
-                scopes: HashSet::from_iter(token.scope),
-                expires_at: None,
-                refresh_token: None,
-            });
-            *self
-                .token_expiration
-                .write()
-                .expect("could not writelock token") =
-                Utc::now() + ChronoDuration::seconds(token.expires_in.into());
+            let token_option = futures::executor::block_on(token_rx).unwrap();
+            if let Some(token) = token_option {
+                *self.api.token.lock().expect("can't writelock api token") = Some(Token {
+                    access_token: token.access_token,
+                    expires_in: chrono::Duration::seconds(token.expires_in.into()),
+                    scopes: HashSet::from_iter(token.scope),
+                    expires_at: None,
+                    refresh_token: None,
+                });
+                *self
+                    .token_expiration
+                    .write()
+                    .expect("could not writelock token") =
+                    Utc::now() + ChronoDuration::seconds(token.expires_in.into());
+            } else {
+                error!("Failed to update token");
+            }
         } else {
             error!("worker channel is not set");
         }

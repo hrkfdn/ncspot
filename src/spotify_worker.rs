@@ -26,7 +26,7 @@ pub(crate) enum WorkerCommand {
     Stop,
     Seek(u32),
     SetVolume(u16),
-    RequestToken(oneshot::Sender<Token>),
+    RequestToken(oneshot::Sender<Option<Token>>),
     Preload(Playable),
     Shutdown,
 }
@@ -74,7 +74,7 @@ impl Drop for Worker {
 impl Worker {
     fn get_token(
         &self,
-        sender: oneshot::Sender<Token>,
+        sender: oneshot::Sender<Option<Token>>,
     ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
@@ -87,18 +87,16 @@ impl Worker {
                 .mercury()
                 .get(url)
                 .map(move |response| {
-                    let payload = response
-                        .as_ref()
-                        .unwrap()
-                        .payload
-                        .first()
-                        .expect("Empty payload");
-                    let data = String::from_utf8(payload.clone()).unwrap();
-                    let token: Token = serde_json::from_str(&data).unwrap();
-                    info!("new token received: {:?}", token);
-                    token
+                    response.ok().and_then(move |response| {
+                        let payload = response.payload.first()?;
+
+                        let data = String::from_utf8(payload.clone()).ok()?;
+                        let token: Token = serde_json::from_str(&data).ok()?;
+                        info!("new token received: {:?}", token);
+                        Some(token)
+                    })
                 })
-                .map(|token| sender.send(token).unwrap()),
+                .map(|result| sender.send(result).unwrap()),
         )
     }
 
