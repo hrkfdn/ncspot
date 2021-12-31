@@ -93,6 +93,9 @@ struct UserDataInner {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
+    #[cfg(not(windows))]
+    print!("\x1b]2;{}\x07", "ncspot");
+
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
