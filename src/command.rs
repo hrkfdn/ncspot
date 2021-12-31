@@ -305,12 +305,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
 
     let mut commands = vec![];
     for command_input in command_inputs {
-        lazy_static! {
-            // https://docs.rs/regex/latest/regex/#example-avoid-compiling-the-same-regex-in-a-loop
-            static ref CONTINUOUS_SPACE_MATCHER: Regex = Regex::new(r" +").unwrap();
-        }
-        let command_sanitised = CONTINUOUS_SPACE_MATCHER.replace_all(&command_input, " ");
-        let components: Vec<_> = command_sanitised.trim().split(' ').collect();
+        let components: Vec<_> = command_input.split_whitespace().collect();
 
         let command = handle_aliases(components[0]);
         let args = components[1..].to_vec();
