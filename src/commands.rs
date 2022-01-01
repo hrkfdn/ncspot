@@ -267,20 +267,27 @@ impl CommandManager {
                 log::info!("Exit code: {}", result);
                 Ok(None)
             }
-            Command::Jump(_)
-            | Command::Move(_, _)
-            | Command::Shift(_, _)
-            | Command::Play
+
+            Command::Queue
             | Command::PlayNext
-            | Command::Queue
+            | Command::Play
             | Command::Save
+            | Command::SaveQueue
             | Command::Delete
+            | Command::Focus(_)
+            | Command::Share(_)
             | Command::Back
             | Command::Open(_)
-            | Command::ShowRecommendations(_)
+            | Command::Goto(_)
+            | Command::Move(_, _)
+            | Command::Shift(_, _)
+            | Command::Jump(_)
             | Command::Insert(_)
-            | Command::Goto(_) => Ok(None),
-            _ => Err("Unknown Command".into()),
+            | Command::ShowRecommendations(_)
+            | Command::Sort(_, _) => Err(format!(
+                "The command \"{}\" is unsupported in this view",
+                cmd.basename()
+            )),
         }
     }
 
