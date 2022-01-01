@@ -3,7 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    parse, Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, SeekDirection,
+    ShiftMode, TargetMode,
 };
 use crate::config::Config;
 use crate::events::EventManager;
@@ -514,7 +515,12 @@ impl CommandManager {
             "Shift+Down".into(),
             vec![Command::Shift(ShiftMode::Down, None)],
         );
-        kb.insert("Ctrl+v".into(), vec![Command::Insert(None)]);
+
+        #[cfg(feature = "share_clipboard")]
+        kb.insert(
+            "Ctrl+v".into(),
+            vec![Command::Insert(InsertSource::Clipboard)],
+        );
 
         kb
     }

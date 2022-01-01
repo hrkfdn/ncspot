@@ -1,4 +1,5 @@
 use crate::queue::RepeatSetting;
+use crate::spotify_url::SpotifyUrl;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -98,6 +99,14 @@ impl fmt::Display for SeekDirection {
     }
 }
 
+#[derive(Display, Clone, Serialize, Deserialize, Debug)]
+#[strum(serialize_all = "lowercase")]
+pub enum InsertSource {
+    Input(SpotifyUrl),
+    #[cfg(feature = "share_clipboard")]
+    Clipboard,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Command {
     Quit,
@@ -130,7 +139,7 @@ pub enum Command {
     Help,
     ReloadConfig,
     Noop,
-    Insert(Option<String>),
+    Insert(InsertSource),
     NewPlaylist(String),
     Sort(SortKey, SortDirection),
     Logout,
@@ -565,8 +574,24 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
             "help" => Command::Help,
             "reload" => Command::ReloadConfig,
             "insert" => {
-                // IDEA: this should fail fast too
-                Command::Insert(args.get(0).map(|&url| url.into()))
+                let insert_source =
+                    match args.get(0).cloned() {
+                        #[cfg(feature = "share_clipboard")]
+                        Some("") | None => Ok(InsertSource::Clipboard),
+                        Some(url) => SpotifyUrl::from_url(url).map(InsertSource::Input).ok_or(
+                            ArgParseError {
+                                arg: url.into(),
+                                err: "Invalid Spotify URL".into(),
+                            },
+                        ),
+                        // if clipboard feature is disabled and args is empty
+                        #[allow(unreachable_patterns)]
+                        None => Err(InsufficientArgs {
+                            cmd: command.into(),
+                            hint: Some("a Spotify URL".into()),
+                        }),
+                    }?;
+                Command::Insert(insert_source)
             }
             "newplaylist" => {
                 if !args.is_empty() {

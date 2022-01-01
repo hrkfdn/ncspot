@@ -358,7 +358,7 @@ impl Spotify {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum UriType {
     Album,
     Artist,
