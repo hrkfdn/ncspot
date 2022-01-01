@@ -99,12 +99,22 @@ impl fmt::Display for SeekDirection {
     }
 }
 
-#[derive(Display, Clone, Serialize, Deserialize, Debug)]
-#[strum(serialize_all = "lowercase")]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum InsertSource {
-    Input(SpotifyUrl),
     #[cfg(feature = "share_clipboard")]
     Clipboard,
+    Input(SpotifyUrl),
+}
+
+impl fmt::Display for InsertSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let repr = match self {
+            #[cfg(feature = "share_clipboard")]
+            InsertSource::Clipboard => "".into(),
+            InsertSource::Input(url) => url.to_string(),
+        };
+        write!(f, "{}", repr)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -169,17 +179,14 @@ impl fmt::Display for Command {
             Command::Seek(direction) => format!("seek {}", direction),
             Command::VolumeUp(amount) => format!("volup {}", amount),
             Command::VolumeDown(amount) => format!("voldown {}", amount),
-            Command::Repeat(mode) => {
-                let param = match mode {
-                    Some(mode) => format!("{}", mode),
-                    None => "".to_string(),
-                };
-                format!("repeat {}", param)
-            }
-            Command::Shuffle(on) => {
-                let param = on.map(|x| if x { "on" } else { "off" });
-                format!("shuffle {}", param.unwrap_or(""))
-            }
+            Command::Repeat(mode) => match mode {
+                Some(mode) => format!("repeat {}", mode),
+                None => "repeat".to_string(),
+            },
+            Command::Shuffle(on) => match on {
+                Some(b) => format!("shuffle {}", if *b { "on" } else { "off" }),
+                None => "shuffle".to_string(),
+            },
             Command::Share(mode) => format!("share {}", mode),
             Command::Back => "back".to_string(),
             Command::Open(mode) => format!("open {}", mode),
@@ -205,7 +212,7 @@ impl fmt::Display for Command {
             },
             Command::Help => "help".to_string(),
             Command::ReloadConfig => "reload".to_string(),
-            Command::Insert(_) => "insert".to_string(),
+            Command::Insert(source) => format!("insert {}", source).trim().to_string(),
             Command::NewPlaylist(name) => format!("new playlist {}", name),
             Command::Sort(key, direction) => format!("sort {} {}", key, direction),
             Command::Logout => "logout".to_string(),

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::spotify::UriType;
 
 use url::{Host, Url};
@@ -6,6 +8,20 @@ use url::{Host, Url};
 pub struct SpotifyUrl {
     pub id: String,
     pub uri_type: UriType,
+}
+
+impl fmt::Display for SpotifyUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let type_seg = match self.uri_type {
+            UriType::Album => "album",
+            UriType::Artist => "artist",
+            UriType::Episode => "episode",
+            UriType::Playlist => "playlist",
+            UriType::Show => "show",
+            UriType::Track => "track",
+        };
+        write!(f, "https://open.spotify.com/{}/{}", type_seg, self.id)
+    }
 }
 
 impl SpotifyUrl {
