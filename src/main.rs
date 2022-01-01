@@ -295,17 +295,18 @@ async fn main() -> Result<(), String> {
                     data.cmd.handle(s, command);
                 }
             } else {
-                let parsed = command::parse(cmd_without_prefix);
-                if let Some(commands) = parsed {
-                    if let Some(data) = s.user_data::<UserData>().cloned() {
-                        for cmd in commands {
-                            data.cmd.handle(s, cmd);
+                match command::parse(cmd_without_prefix) {
+                    Ok(commands) => {
+                        if let Some(data) = s.user_data::<UserData>().cloned() {
+                            for cmd in commands {
+                                data.cmd.handle(s, cmd);
+                            }
                         }
                     }
-                } else {
-                    let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                    let err_msg = format!("Failed to parse command(s): \"{}\"", cmd_without_prefix);
-                    main.set_result(Err(err_msg));
+                    Err(err) => {
+                        let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
+                        main.set_result(Err(err.to_string()));
+                    }
                 }
             }
             ev.trigger();

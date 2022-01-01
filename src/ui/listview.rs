@@ -10,7 +10,7 @@ use cursive::view::ScrollBase;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
-use crate::command::{Command, GotoMode, JumpMode, MoveAmount, MoveMode, TargetMode};
+use crate::command::{Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::model::album::Album;
@@ -520,19 +520,14 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     }
                 }
             }
-            Command::Insert(url) => {
-                let url = match url.as_ref().map(String::as_str) {
+            Command::Insert(source) => {
+                let url = match source {
+                    InsertSource::Input(url) => Some(url.clone()),
                     #[cfg(feature = "share_clipboard")]
-                    Some("") | None => read_share().unwrap(),
-                    Some(url) => url.to_owned(),
-                    // do nothing if clipboard feature is disabled and there is no url provided
-                    #[allow(unreachable_patterns)]
-                    _ => return Ok(CommandResult::Consumed(None)),
+                    InsertSource::Clipboard => read_share().and_then(SpotifyUrl::from_url),
                 };
 
                 let spotify = self.queue.get_spotify();
-
-                let url = SpotifyUrl::from_url(&url);
 
                 if let Some(url) = url {
                     let target: Option<Box<dyn ListItem>> = match url.uri_type {

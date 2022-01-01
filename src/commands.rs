@@ -3,7 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    parse, Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, SeekDirection,
+    ShiftMode, TargetMode,
 };
 use crate::config::Config;
 use crate::events::EventManager;
@@ -71,11 +72,17 @@ impl CommandManager {
         let custom_bindings: Option<HashMap<String, String>> = config.keybindings.clone();
 
         for (key, commands) in custom_bindings.unwrap_or_default() {
-            if let Some(commands) = parse(&commands) {
-                info!("Custom keybinding: {} -> {:?}", key, commands);
-                kb.insert(key, commands);
-            } else {
-                error!("Invalid command(s) for key {}: {}", key, commands);
+            match parse(&commands) {
+                Ok(cmds) => {
+                    info!("Custom keybinding: {} -> {:?}", key, cmds);
+                    kb.insert(key, cmds);
+                }
+                Err(err) => {
+                    error!(
+                        "Invalid command(s) for key {}-\"{}\": {}",
+                        key, commands, err
+                    );
+                }
             }
         }
 
@@ -260,20 +267,27 @@ impl CommandManager {
                 log::info!("Exit code: {}", result);
                 Ok(None)
             }
-            Command::Jump(_)
-            | Command::Move(_, _)
-            | Command::Shift(_, _)
-            | Command::Play
+
+            Command::Queue
             | Command::PlayNext
-            | Command::Queue
+            | Command::Play
             | Command::Save
+            | Command::SaveQueue
             | Command::Delete
+            | Command::Focus(_)
+            | Command::Share(_)
             | Command::Back
             | Command::Open(_)
-            | Command::ShowRecommendations(_)
+            | Command::Goto(_)
+            | Command::Move(_, _)
+            | Command::Shift(_, _)
+            | Command::Jump(_)
             | Command::Insert(_)
-            | Command::Goto(_) => Ok(None),
-            _ => Err("Unknown Command".into()),
+            | Command::ShowRecommendations(_)
+            | Command::Sort(_, _) => Err(format!(
+                "The command \"{}\" is unsupported in this view",
+                cmd.basename()
+            )),
         }
     }
 
@@ -508,7 +522,12 @@ impl CommandManager {
             "Shift+Down".into(),
             vec![Command::Shift(ShiftMode::Down, None)],
         );
-        kb.insert("Ctrl+v".into(), vec![Command::Insert(None)]);
+
+        #[cfg(feature = "share_clipboard")]
+        kb.insert(
+            "Ctrl+v".into(),
+            vec![Command::Insert(InsertSource::Clipboard)],
+        );
 
         kb
     }
