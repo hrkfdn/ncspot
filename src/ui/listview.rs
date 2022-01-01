@@ -524,7 +524,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let url = match source {
                     InsertSource::Input(url) => Some(url.clone()),
                     #[cfg(feature = "share_clipboard")]
-                    InsertSource::Clipboard => SpotifyUrl::from_url(read_share().unwrap()),
+                    InsertSource::Clipboard => read_share().and_then(SpotifyUrl::from_url),
                 };
 
                 let spotify = self.queue.get_spotify();
