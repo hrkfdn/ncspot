@@ -106,24 +106,24 @@ async fn main() -> Result<(), String> {
         .about("cross-platform ncurses Spotify client")
         .after_help(&*backends)
         .arg(
-            Arg::with_name("debug")
-                .short("d")
+            Arg::new("debug")
+                .short('d')
                 .long("debug")
                 .value_name("FILE")
                 .help("Enable debug logging to the specified file")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("basepath")
-                .short("b")
+            Arg::new("basepath")
+                .short('b')
                 .long("basepath")
                 .value_name("PATH")
                 .help("custom basepath to config/cache files")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("config")
-                .short("c")
+            Arg::new("config")
+                .short('c')
                 .long("config")
                 .value_name("FILE")
                 .help("Filename of config file in basepath")
