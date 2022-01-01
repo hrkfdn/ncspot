@@ -374,11 +374,142 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
             "previous" => Command::Previous,
             "next" => Command::Next,
             "clear" => Command::Clear,
-            "playnext" => Command::PlayNext,
             "queue" => Command::Queue,
+            "playnext" => Command::PlayNext,
             "play" => Command::Play,
             "update" => Command::UpdateLibrary,
+            "save" => match args.get(0).cloned() {
+                Some("queue") => Ok(Command::SaveQueue),
+                Some(arg) => Err(BadEnumArg {
+                    arg: arg.into(),
+                    accept: vec!["**omit**".into(), "queue".into()],
+                }),
+                None => Ok(Command::Save),
+            }?,
             "delete" => Command::Delete,
+            "focus" => {
+                let &target = args.get(0).ok_or(InsufficientArgs {
+                    cmd: command.into(),
+                    hint: Some("queue|search|library".into()),
+                })?;
+                // TODO: this really should be strongly typed
+                Command::Focus(target.into())
+            }
+            "seek" => {
+                let arg = args.join(" ");
+                let first_char = arg.chars().next();
+                let duration_raw = match first_char {
+                    Some('+' | '-') => {
+                        arg.chars().skip(1).collect::<String>().trim().into()
+                        // `trim` is necessary here, otherwise `+1000` -> 1 second, but `+ 1000` -> 1000 seconds
+                        // this behaviour is inconsistent and could cause confusion
+                    }
+                    _ => arg,
+                };
+                let unsigned_millis = match duration_raw.parse() {
+                    // accept raw milliseconds
+                    Ok(millis) => millis,
+                    Err(_) => parse_duration::parse(&duration_raw) // accept fancy duration
+                        .map_err(|err| ArgParseError {
+                            arg: duration_raw.clone(),
+                            err: err.to_string(),
+                        })
+                        .and_then(|dur| {
+                            dur.as_millis().try_into().map_err(|_| ArgParseError {
+                                arg: duration_raw.clone(),
+                                err: "Duration value too large".into(),
+                            })
+                        })?,
+                };
+                let seek_direction = match first_char {
+                    // handle i32::MAX < unsigned_millis < u32::MAX gracefully
+                    Some('+') => {
+                        i32::try_from(unsigned_millis).map(|millis| SeekDirection::Relative(millis))
+                    }
+                    Some('-') => i32::try_from(unsigned_millis)
+                        .map(|millis| SeekDirection::Relative(-millis)),
+                    _ => Ok(SeekDirection::Absolute(unsigned_millis)),
+                }
+                .map_err(|_| ArgParseError {
+                    arg: duration_raw,
+                    err: "Duration value too large".into(),
+                })?;
+                Command::Seek(seek_direction)
+            }
+            "volup" => {
+                let amount = match args.get(0) {
+                    Some(&amount_raw) => {
+                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            arg: amount_raw.into(),
+                            err: err.to_string(),
+                        })?
+                    }
+                    None => 1,
+                };
+                Command::VolumeUp(amount)
+            }
+            "voldown" => {
+                let amount = match args.get(0) {
+                    Some(&amount_raw) => {
+                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            arg: amount_raw.into(),
+                            err: err.to_string(),
+                        })?
+                    }
+                    None => 1,
+                };
+                Command::VolumeDown(amount)
+            }
+            "repeat" => {
+                let mode = match args.get(0).cloned() {
+                    Some("list" | "playlist" | "queue") => Ok(Some(RepeatSetting::RepeatPlaylist)),
+                    Some("track" | "once" | "single") => Ok(Some(RepeatSetting::RepeatTrack)),
+                    Some("none" | "off") => Ok(Some(RepeatSetting::None)),
+                    Some(arg) => Err(BadEnumArg {
+                        arg: arg.into(),
+                        accept: vec![
+                            "**omit**".into(),
+                            "list".into(),
+                            "playlist".into(),
+                            "queue".into(),
+                            "track".into(),
+                            "once".into(),
+                            "single".into(),
+                            "none".into(),
+                            "off".into(),
+                        ],
+                    }),
+                    None => Ok(None),
+                }?;
+                Command::Repeat(mode)
+            }
+            "shuffle" => {
+                let switch = match args.get(0).cloned() {
+                    Some("on") => Ok(Some(true)),
+                    Some("off") => Ok(Some(false)),
+                    Some(arg) => Err(BadEnumArg {
+                        arg: arg.into(),
+                        accept: vec!["**omit**".into(), "on".into(), "off".into()],
+                    }),
+                    None => Ok(None),
+                }?;
+                Command::Shuffle(switch)
+            }
+            "share" => {
+                let &target_mode_raw = args.get(0).ok_or(InsufficientArgs {
+                    cmd: command.into(),
+                    hint: Some("selected|current".into()),
+                })?;
+                let target_mode = match target_mode_raw {
+                    "selected" => Ok(TargetMode::Selected),
+                    "current" => Ok(TargetMode::Current),
+                    _ => Err(BadEnumArg {
+                        arg: target_mode_raw.into(),
+                        accept: vec!["selected".into(), "current".into()],
+                    }),
+                }?;
+                Command::Share(target_mode)
+            }
             "back" => Command::Back,
             "open" => {
                 let &target_mode_raw = args.get(0).ok_or(InsufficientArgs {
@@ -395,34 +526,20 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }?;
                 Command::Open(target_mode)
             }
-            "jump" => Command::Jump(JumpMode::Query(args.join(" "))),
-            "jumpnext" => Command::Jump(JumpMode::Next),
-            "jumpprevious" => Command::Jump(JumpMode::Previous),
-            "search" => Command::Search(args.join(" ")),
-            "shift" => {
-                let &shift_dir_raw = args.get(0).ok_or(InsufficientArgs {
+            "goto" => {
+                let &goto_mode_raw = args.get(0).ok_or(InsufficientArgs {
                     cmd: command.into(),
-                    hint: Some("up|down".into()),
+                    hint: Some("album|artist".into()),
                 })?;
-                let shift_dir = match shift_dir_raw {
-                    "up" => Ok(ShiftMode::Up),
-                    "down" => Ok(ShiftMode::Down),
+                let goto_mode = match goto_mode_raw {
+                    "album" => Ok(GotoMode::Album),
+                    "artist" => Ok(GotoMode::Artist),
                     _ => Err(BadEnumArg {
-                        arg: shift_dir_raw.into(),
-                        accept: vec!["up".into(), "down".into()],
+                        arg: goto_mode_raw.into(),
+                        accept: vec!["album".into(), "artist".into()],
                     }),
                 }?;
-                let amount = match args.get(1) {
-                    Some(&amount_raw) => {
-                        let amount = amount_raw.parse::<i32>().map_err(|err| ArgParseError {
-                            arg: amount_raw.into(),
-                            err: err.to_string(),
-                        })?;
-                        Some(amount)
-                    }
-                    None => None,
-                };
-                Command::Shift(shift_dir, amount)
+                Command::Goto(goto_mode)
             }
             "move" => {
                 let &move_mode_raw = args.get(0).ok_or(InsufficientArgs {
@@ -473,154 +590,38 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }?;
                 Command::Move(move_mode, move_amount)
             }
-            "goto" => {
-                let &goto_mode_raw = args.get(0).ok_or(InsufficientArgs {
+            "shift" => {
+                let &shift_dir_raw = args.get(0).ok_or(InsufficientArgs {
                     cmd: command.into(),
-                    hint: Some("album|artist".into()),
+                    hint: Some("up|down".into()),
                 })?;
-                let goto_mode = match goto_mode_raw {
-                    "album" => Ok(GotoMode::Album),
-                    "artist" => Ok(GotoMode::Artist),
+                let shift_dir = match shift_dir_raw {
+                    "up" => Ok(ShiftMode::Up),
+                    "down" => Ok(ShiftMode::Down),
                     _ => Err(BadEnumArg {
-                        arg: goto_mode_raw.into(),
-                        accept: vec!["album".into(), "artist".into()],
+                        arg: shift_dir_raw.into(),
+                        accept: vec!["up".into(), "down".into()],
                     }),
                 }?;
-                Command::Goto(goto_mode)
-            }
-            "share" => {
-                let &target_mode_raw = args.get(0).ok_or(InsufficientArgs {
-                    cmd: command.into(),
-                    hint: Some("selected|current".into()),
-                })?;
-                let target_mode = match target_mode_raw {
-                    "selected" => Ok(TargetMode::Selected),
-                    "current" => Ok(TargetMode::Current),
-                    _ => Err(BadEnumArg {
-                        arg: target_mode_raw.into(),
-                        accept: vec!["selected".into(), "current".into()],
-                    }),
-                }?;
-                Command::Share(target_mode)
-            }
-            "shuffle" => {
-                let switch = match args.get(0).cloned() {
-                    Some("on") => Ok(Some(true)),
-                    Some("off") => Ok(Some(false)),
-                    Some(arg) => Err(BadEnumArg {
-                        arg: arg.into(),
-                        accept: vec!["**omit**".into(), "on".into(), "off".into()],
-                    }),
-                    None => Ok(None),
-                }?;
-                Command::Shuffle(switch)
-            }
-            "repeat" => {
-                let mode = match args.get(0).cloned() {
-                    Some("list" | "playlist" | "queue") => Ok(Some(RepeatSetting::RepeatPlaylist)),
-                    Some("track" | "once" | "single") => Ok(Some(RepeatSetting::RepeatTrack)),
-                    Some("none" | "off") => Ok(Some(RepeatSetting::None)),
-                    Some(arg) => Err(BadEnumArg {
-                        arg: arg.into(),
-                        accept: vec![
-                            "**omit**".into(),
-                            "list".into(),
-                            "playlist".into(),
-                            "queue".into(),
-                            "track".into(),
-                            "once".into(),
-                            "single".into(),
-                            "none".into(),
-                            "off".into(),
-                        ],
-                    }),
-                    None => Ok(None),
-                }?;
-                Command::Repeat(mode)
-            }
-            "seek" => {
-                let arg = args.join(" ");
-                let first_char = arg.chars().next();
-                let duration_raw = match first_char {
-                    Some('+' | '-') => {
-                        arg.chars().skip(1).collect::<String>().trim().into()
-                        // `trim` is necessary here, otherwise `+1000` -> 1 second, but `+ 1000` -> 1000 seconds
-                        // this behaviour is inconsistent and could cause confusion
-                    }
-                    _ => arg,
-                };
-                let unsigned_millis = match duration_raw.parse() {
-                    // accept raw milliseconds
-                    Ok(millis) => millis,
-                    Err(_) => parse_duration::parse(&duration_raw) // accept fancy duration
-                        .map_err(|err| ArgParseError {
-                            arg: duration_raw.clone(),
-                            err: err.to_string(),
-                        })
-                        .and_then(|dur| {
-                            dur.as_millis().try_into().map_err(|_| ArgParseError {
-                                arg: duration_raw.clone(),
-                                err: "Duration value too large".into(),
-                            })
-                        })?,
-                };
-                let seek_direction = match first_char {
-                    // handle i32::MAX < unsigned_millis < u32::MAX gracefully
-                    Some('+') => {
-                        i32::try_from(unsigned_millis).map(|millis| SeekDirection::Relative(millis))
-                    }
-                    Some('-') => i32::try_from(unsigned_millis)
-                        .map(|millis| SeekDirection::Relative(-millis)),
-                    _ => Ok(SeekDirection::Absolute(unsigned_millis)),
-                }
-                .map_err(|_| ArgParseError {
-                    arg: duration_raw,
-                    err: "Duration value too large".into(),
-                })?;
-                Command::Seek(seek_direction)
-            }
-            "focus" => {
-                let &target = args.get(0).ok_or(InsufficientArgs {
-                    cmd: command.into(),
-                    hint: Some("queue|search|library".into()),
-                })?;
-                // TODO: this really should be strongly typed
-                Command::Focus(target.into())
-            }
-            "save" => match args.get(0).cloned() {
-                Some("queue") => Ok(Command::SaveQueue),
-                Some(arg) => Err(BadEnumArg {
-                    arg: arg.into(),
-                    accept: vec!["**omit**".into(), "queue".into()],
-                }),
-                None => Ok(Command::Save),
-            }?,
-            "volup" => {
-                let amount = match args.get(0) {
+                let amount = match args.get(1) {
                     Some(&amount_raw) => {
-                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                        let amount = amount_raw.parse::<i32>().map_err(|err| ArgParseError {
                             arg: amount_raw.into(),
                             err: err.to_string(),
-                        })?
+                        })?;
+                        Some(amount)
                     }
-                    None => 1,
+                    None => None,
                 };
-                Command::VolumeUp(amount)
+                Command::Shift(shift_dir, amount)
             }
-            "voldown" => {
-                let amount = match args.get(0) {
-                    Some(&amount_raw) => {
-                        amount_raw.parse::<u16>().map_err(|err| ArgParseError {
-                            arg: amount_raw.into(),
-                            err: err.to_string(),
-                        })?
-                    }
-                    None => 1,
-                };
-                Command::VolumeDown(amount)
-            }
+            "search" => Command::Search(args.join(" ")),
+            "jump" => Command::Jump(JumpMode::Query(args.join(" "))),
+            "jumpnext" => Command::Jump(JumpMode::Next),
+            "jumpprevious" => Command::Jump(JumpMode::Previous),
             "help" => Command::Help,
             "reload" => Command::ReloadConfig,
+            "noop" => Command::Noop,
             "insert" => {
                 let insert_source =
                     match args.get(0).cloned() {
@@ -709,7 +710,6 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }?;
                 Command::ShowRecommendations(target_mode)
             }
-            "noop" => Command::Noop,
             "redraw" => Command::Redraw,
             "exec" => Command::Execute(args.join(" ")),
             _ => Err(NoSuchCommand {
