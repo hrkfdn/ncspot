@@ -160,69 +160,110 @@ pub enum Command {
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let repr = match self {
-            Command::Noop => "noop".to_string(),
-            Command::Quit => "quit".to_string(),
-            Command::TogglePlay => "playpause".to_string(),
-            Command::Stop => "stop".to_string(),
-            Command::Previous => "previous".to_string(),
-            Command::Next => "next".to_string(),
-            Command::Clear => "clear".to_string(),
-            Command::Queue => "queue".to_string(),
-            Command::PlayNext => "playnext".to_string(),
-            Command::Play => "play".to_string(),
-            Command::UpdateLibrary => "update".to_string(),
-            Command::Save => "save".to_string(),
-            Command::SaveQueue => "save queue".to_string(),
-            Command::Delete => "delete".to_string(),
-            Command::Focus(tab) => format!("focus {}", tab),
-            Command::Seek(direction) => format!("seek {}", direction),
-            Command::VolumeUp(amount) => format!("volup {}", amount),
-            Command::VolumeDown(amount) => format!("voldown {}", amount),
+        let mut repr_tokens = vec![self.basename().to_owned()];
+        let mut extras_args = match self {
+            Command::Focus(tab) => vec![tab.to_owned()],
+            Command::Seek(direction) => vec![direction.to_string()],
+            Command::VolumeUp(amount) => vec![amount.to_string()],
+            Command::VolumeDown(amount) => vec![amount.to_string()],
             Command::Repeat(mode) => match mode {
-                Some(mode) => format!("repeat {}", mode),
-                None => "repeat".to_string(),
+                Some(mode) => vec![mode.to_string()],
+                None => vec![],
             },
             Command::Shuffle(on) => match on {
-                Some(b) => format!("shuffle {}", if *b { "on" } else { "off" }),
-                None => "shuffle".to_string(),
+                Some(b) => vec![(if *b { "on" } else { "off" }).into()],
+                None => vec![],
             },
-            Command::Share(mode) => format!("share {}", mode),
-            Command::Back => "back".to_string(),
-            Command::Open(mode) => format!("open {}", mode),
-            Command::Goto(mode) => format!("goto {}", mode),
-            Command::Move(mode, MoveAmount::Extreme) => format!(
-                "move {}",
-                match mode {
-                    MoveMode::Up => "top",
-                    MoveMode::Down => "bottom",
-                    MoveMode::Left => "leftmost",
-                    MoveMode::Right => "rightmost",
-                    _ => "",
-                }
-            ),
-            Command::Move(MoveMode::Playing, _) => "move playing".to_string(),
-            Command::Move(mode, MoveAmount::Integer(amount)) => format!("move {} {}", mode, amount),
-            Command::Shift(mode, amount) => format!("shift {} {}", mode, amount.unwrap_or(1)),
-            Command::Search(term) => format!("search {}", term),
+            Command::Share(mode) => vec![mode.to_string()],
+            Command::Open(mode) => vec![mode.to_string()],
+            Command::Goto(mode) => vec![mode.to_string()],
+            Command::Move(mode, amount) => match (mode, amount) {
+                (MoveMode::Playing, _) => vec!["playing".to_string()],
+                (MoveMode::Up, MoveAmount::Extreme) => vec!["top".to_string()],
+                (MoveMode::Down, MoveAmount::Extreme) => vec!["bottom".to_string()],
+                (MoveMode::Left, MoveAmount::Extreme) => vec!["leftmost".to_string()],
+                (MoveMode::Right, MoveAmount::Extreme) => vec!["rightmost".to_string()],
+                (mode, MoveAmount::Integer(amount)) => vec![mode.to_string(), amount.to_string()],
+            },
+            Command::Shift(mode, amount) => vec![mode.to_string(), amount.unwrap_or(1).to_string()],
+            Command::Search(term) => vec![term.to_owned()],
             Command::Jump(mode) => match mode {
-                JumpMode::Previous => "jumpprevious".to_string(),
-                JumpMode::Next => "jumpnext".to_string(),
-                JumpMode::Query(term) => String::from(format!("jump {}", term)),
+                JumpMode::Previous | JumpMode::Next => vec![],
+                JumpMode::Query(term) => vec![term.to_owned()],
             },
-            Command::Help => "help".to_string(),
-            Command::ReloadConfig => "reload".to_string(),
-            Command::Insert(source) => format!("insert {}", source).trim().to_string(),
-            Command::NewPlaylist(name) => format!("new playlist {}", name),
-            Command::Sort(key, direction) => format!("sort {} {}", key, direction),
-            Command::Logout => "logout".to_string(),
-            Command::ShowRecommendations(mode) => format!("similar {}", mode),
-            Command::Redraw => "redraw".to_string(),
-            Command::Execute(cmd) => format!("exec {}", cmd),
+            Command::Insert(source) => vec![source.to_string()],
+            Command::NewPlaylist(name) => vec![name.to_owned()],
+            Command::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
+            Command::ShowRecommendations(mode) => vec![mode.to_string()],
+            Command::Execute(cmd) => vec![cmd.to_owned()],
+            Command::Quit
+            | Command::TogglePlay
+            | Command::Stop
+            | Command::Previous
+            | Command::Next
+            | Command::Clear
+            | Command::Queue
+            | Command::PlayNext
+            | Command::Play
+            | Command::UpdateLibrary
+            | Command::Save
+            | Command::SaveQueue
+            | Command::Delete
+            | Command::Back
+            | Command::Help
+            | Command::ReloadConfig
+            | Command::Noop
+            | Command::Logout
+            | Command::Redraw => vec![],
         };
-        // escape the command separator
-        let repr = repr.replace(";", ";;");
-        write!(f, "{}", repr)
+        repr_tokens.append(&mut extras_args);
+        write!(f, "{}", repr_tokens.join(" "))
+    }
+}
+
+impl Command {
+    pub fn basename(&self) -> &str {
+        match self {
+            Command::Quit => "quit",
+            Command::TogglePlay => "playpause",
+            Command::Stop => "stop",
+            Command::Previous => "previous",
+            Command::Next => "next",
+            Command::Clear => "clear",
+            Command::Queue => "queue",
+            Command::PlayNext => "playnext",
+            Command::Play => "play",
+            Command::UpdateLibrary => "update",
+            Command::Save => "save",
+            Command::SaveQueue => "save queue",
+            Command::Delete => "delete",
+            Command::Focus(_) => "focus",
+            Command::Seek(_) => "seek",
+            Command::VolumeUp(_) => "volup",
+            Command::VolumeDown(_) => "voldown",
+            Command::Repeat(_) => "repeat",
+            Command::Shuffle(_) => "shuffle",
+            Command::Share(_) => "share",
+            Command::Back => "back",
+            Command::Open(_) => "open",
+            Command::Goto(_) => "goto",
+            Command::Move(_, _) => "move",
+            Command::Shift(_, _) => "shift",
+            Command::Search(_) => "search",
+            Command::Jump(JumpMode::Previous) => "jumpprevious",
+            Command::Jump(JumpMode::Next) => "jumpnext",
+            Command::Jump(JumpMode::Query(_)) => "jump",
+            Command::Help => "help",
+            Command::ReloadConfig => "reload",
+            Command::Noop => "noop",
+            Command::Insert(_) => "insert",
+            Command::NewPlaylist(_) => "newplaylist",
+            Command::Sort(_, _) => "sort",
+            Command::Logout => "logout",
+            Command::ShowRecommendations(_) => "similar",
+            Command::Redraw => "redraw",
+            Command::Execute(_) => "exec",
+        }
     }
 }
 
