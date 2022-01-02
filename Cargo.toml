@@ -45,7 +45,7 @@ strum_macros = "0.23.1"
 regex = "1"
 ioctl-rs = { version = "0.2", optional = true }
 serde_cbor = "0.11.2"
-pancurses = { version = "0.17.0", features = ["win32"], optional = true }
+pancurses = { version = "0.16.0", optional = true }
 libc = "0.2.111"
 parse_duration = "2.1.1"
 
@@ -67,7 +67,7 @@ pulseaudio_backend = ["librespot-playback/pulseaudio-backend"]
 rodio_backend = ["librespot-playback/rodio-backend"]
 portaudio_backend = ["librespot-playback/portaudio-backend"]
 termion_backend = ["cursive/termion-backend"]
-pancurses_backend = ["cursive/pancurses-backend"]
+pancurses_backend = ["cursive/pancurses-backend", "pancurses/win32"]
 mpris = ["dbus", "dbus-tree"]
 notify = ["notify-rust"]
 cover = ["ioctl-rs"]
