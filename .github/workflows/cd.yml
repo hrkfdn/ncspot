@@ -15,7 +15,7 @@ jobs:
     container: ${{ matrix.container }}
     strategy:
       matrix:
-        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x68_64, windows-x68_64]
+        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x86_64, windows-x86_64]
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
@@ -39,11 +39,11 @@ jobs:
             dependencies: 'libasound2-dev:armhf libssl-dev:armhf'
             cross_arch: 'armhf'
             pkg_config_path: '/usr/lib/arm-linux-gnueabihf/pkgconfig/'
-          - build_target: macos-x68_64
+          - build_target: macos-x86_64
             os: macos-latest
             target: x86_64-apple-darwin
             features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
-          - build_target: windows-x68_64
+          - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
