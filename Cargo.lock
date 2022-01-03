@@ -604,7 +604,7 @@ dependencies = [
  "libc",
  "log",
  "maplit",
- "pancurses",
+ "pancurses 0.16.1",
  "signal-hook",
  "term_size",
  "termion",
@@ -1752,7 +1752,7 @@ dependencies = [
  "librespot-protocol",
  "log",
  "notify-rust",
- "pancurses",
+ "pancurses 0.17.0",
  "parse_duration",
  "platform-dirs",
  "rand",
@@ -2254,6 +2254,19 @@ name = "pancurses"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3058bc37c433096b2ac7afef1c5cdfae49ede0a4ffec3dfc1df1df0959d0ff0"
+dependencies = [
+ "libc",
+ "log",
+ "ncurses",
+ "pdcurses-sys",
+ "winreg 0.5.1",
+]
+
+[[package]]
+name = "pancurses"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0352975c36cbacb9ee99bfb709b9db818bed43af57751797f8633649759d13db"
 dependencies = [
  "libc",
  "log",
