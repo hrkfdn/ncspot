@@ -396,6 +396,12 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 Command::Focus(target.into())
             }
             "seek" => {
+                if args.is_empty() {
+                    Err(InsufficientArgs {
+                        cmd: command.into(),
+                        hint: Some("a duration".into()),
+                    })?;
+                }
                 let arg = args.join(" ");
                 let first_char = arg.chars().next();
                 let duration_raw = match first_char {
