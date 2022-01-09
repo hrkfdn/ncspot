@@ -410,9 +410,9 @@ impl Queue {
     }
 }
 
-pub fn send_notification(track_name: &str, cover_url: Option<String>) {
+pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
     #[cfg(all(feature = "notify", feature = "cover"))]
-    let res = if let Some(u) = cover_url {
+    let res = if let Some(u) = _cover_url {
         // download album cover image
         let path = ui::cover::cache_path_for_url(u.to_string());
 

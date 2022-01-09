@@ -94,7 +94,7 @@ struct UserDataInner {
 #[tokio::main]
 async fn main() -> Result<(), String> {
     #[cfg(not(windows))]
-    print!("\x1b]2;{}\x07", "ncspot");
+    print!("\x1b]2;ncspot\x07");
 
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
@@ -231,7 +231,7 @@ async fn main() -> Result<(), String> {
         .values()
         .initial_screen
         .clone()
-        .unwrap_or("library".to_string());
+        .unwrap_or_else(|| "library".to_string());
     if layout.has_screen(&initial_screen) {
         layout.set_screen(initial_screen);
     } else {

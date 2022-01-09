@@ -47,7 +47,6 @@ pub struct Spotify {
     pub api: WebApi,
     elapsed: Arc<RwLock<Option<Duration>>>,
     since: Arc<RwLock<Option<SystemTime>>>,
-    token_issued: Arc<RwLock<Option<SystemTime>>>,
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     user: Option<String>,
 }
@@ -66,7 +65,6 @@ impl Spotify {
             api: WebApi::new(),
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
-            token_issued: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
             user: None,
         };
