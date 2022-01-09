@@ -586,7 +586,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(mut target) = target {
-                    let view = target.open_recommendations(queue.clone(), library.clone());
+                    let view = target.open_recommendations(queue, library);
                     return match view {
                         Some(view) => Ok(CommandResult::View(view)),
                         None => Ok(CommandResult::Consumed(None)),

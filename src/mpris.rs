@@ -152,12 +152,10 @@ fn get_metadata(playable: Option<Playable>, spotify: Spotify, library: Arc<Libra
         Variant(Box::new(
             playable
                 .and_then(|p| p.track())
-                .map(
-                    |t| match library.is_saved_track(&Playable::Track(t.clone())) {
-                        true => 1.0,
-                        false => 0.0,
-                    },
-                )
+                .map(|t| match library.is_saved_track(&Playable::Track(t)) {
+                    true => 1.0,
+                    false => 0.0,
+                })
                 .unwrap_or(0.0) as f64,
         )),
     );
@@ -608,7 +606,7 @@ fn run_dbus_server(
                         if let Some(tracks) = &playlist.tracks {
                             let should_shuffle = queue.get_shuffle();
                             queue.clear();
-                            let index = queue.append_next(&tracks.iter().cloned().collect());
+                            let index = queue.append_next(&tracks.to_vec());
                             queue.play(index, should_shuffle, should_shuffle)
                         }
                     }
@@ -735,7 +733,6 @@ pub struct MprisManager {
     tx: mpsc::Sender<MprisState>,
     queue: Arc<Queue>,
     spotify: Spotify,
-    library: Arc<Library>,
 }
 
 impl MprisManager {
@@ -750,18 +747,12 @@ impl MprisManager {
         {
             let spotify = spotify.clone();
             let queue = queue.clone();
-            let library = library.clone();
             std::thread::spawn(move || {
                 run_dbus_server(ev, spotify.clone(), queue.clone(), library.clone(), rx);
             });
         }
 
-        MprisManager {
-            tx,
-            queue,
-            spotify,
-            library,
-        }
+        MprisManager { tx, queue, spotify }
     }
 
     pub fn update(&self) {

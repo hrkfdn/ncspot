@@ -397,10 +397,10 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
             }
             "seek" => {
                 if args.is_empty() {
-                    Err(InsufficientArgs {
+                    return Err(InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("a duration".into()),
-                    })?;
+                    });
                 }
                 let arg = args.join(" ");
                 let first_char = arg.chars().next();
@@ -429,9 +429,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 };
                 let seek_direction = match first_char {
                     // handle i32::MAX < unsigned_millis < u32::MAX gracefully
-                    Some('+') => {
-                        i32::try_from(unsigned_millis).map(|millis| SeekDirection::Relative(millis))
-                    }
+                    Some('+') => i32::try_from(unsigned_millis).map(SeekDirection::Relative),
                     Some('-') => i32::try_from(unsigned_millis)
                         .map(|millis| SeekDirection::Relative(-millis)),
                     _ => Ok(SeekDirection::Absolute(unsigned_millis)),
@@ -718,9 +716,11 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
             }
             "redraw" => Command::Redraw,
             "exec" => Command::Execute(args.join(" ")),
-            _ => Err(NoSuchCommand {
-                cmd: command.into(),
-            })?, // I'm surprised this compiles lol
+            _ => {
+                return Err(NoSuchCommand {
+                    cmd: command.into(),
+                })
+            } // I'm surprised this compiles lol
         };
         commands.push(command);
     }

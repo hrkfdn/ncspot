@@ -63,11 +63,7 @@ pub fn read_share() -> Option<String> {
                 }
             }
         }
-        if let Some(s) = string {
-            Some(s)
-        } else {
-            None
-        }
+        string
     } else {
         //use x11 clipboard
         ClipboardProvider::new()

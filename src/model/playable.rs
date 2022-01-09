@@ -61,13 +61,6 @@ impl Playable {
         }
     }
 
-    pub fn added_at(&self) -> Option<DateTime<Utc>> {
-        match self {
-            Playable::Track(track) => track.added_at,
-            Playable::Episode(episode) => episode.added_at,
-        }
-    }
-
     pub fn set_added_at(&mut self, added_at: Option<DateTime<Utc>>) {
         match self {
             Playable::Track(track) => track.added_at = added_at,

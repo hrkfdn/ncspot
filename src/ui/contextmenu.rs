@@ -39,7 +39,7 @@ enum ContextMenuAction {
     SelectArtist(Vec<Artist>),
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
-    ShowRecommendations(Track),
+    ShowRecommendations(Box<Track>),
     ToggleTrackSavedStatus(Box<Track>),
 }
 
@@ -167,7 +167,7 @@ impl ContextMenu {
             );
             content.add_item(
                 "Similar tracks",
-                ContextMenuAction::ShowRecommendations(t.clone()),
+                ContextMenuAction::ShowRecommendations(Box::new(t.clone())),
             );
             content.add_item(
                 match library.is_saved_track(&Playable::Track(t.clone())) {
