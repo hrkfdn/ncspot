@@ -315,9 +315,9 @@ impl<I: ListItem> View for ListView<I> {
 
     fn important_area(&self, view_size: Vec2) -> Rect {
         if self.content.read().unwrap().len() > 0 {
-            Rect::from((view_size.x, self.selected))
+            Rect::from_point((view_size.x, self.selected))
         } else {
-            Rect::from((0, 0))
+            Rect::from_point((0, 0))
         }
     }
 }

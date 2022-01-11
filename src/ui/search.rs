@@ -2,7 +2,7 @@
 
 use cursive::direction::Orientation;
 use cursive::event::{AnyCb, Event, EventResult, Key};
-use cursive::traits::{Boxable, Finder, Identifiable, View};
+use cursive::traits::{Finder, Nameable, View};
 use cursive::view::{IntoBoxedView, Selector, ViewNotFound, ViewWrapper};
 use cursive::views::{EditView, NamedView, ViewRef};
 use cursive::{Cursive, Printer, Vec2};
@@ -98,10 +98,10 @@ impl View for SearchView {
         self.edit.call_on_any(selector, &mut |v| callback(v));
     }
 
-    fn focus_view(&mut self, selector: &Selector<'_>) -> Result<(), ViewNotFound> {
+    fn focus_view(&mut self, selector: &Selector<'_>) -> Result<EventResult, ViewNotFound> {
         if let Selector::Name(s) = selector {
             self.edit_focused = s == &"search_edit";
-            Ok(())
+            Ok(EventResult::Consumed(None))
         } else {
             Err(ViewNotFound)
         }

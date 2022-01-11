@@ -1,5 +1,5 @@
-use cursive::traits::Boxable;
-use cursive::view::Identifiable;
+use cursive::traits::Resizable;
+use cursive::view::Nameable;
 use cursive::views::*;
 use cursive::{Cursive, CursiveExt};
 

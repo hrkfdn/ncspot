@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 use cursive::event::EventTrigger;
-use cursive::traits::Identifiable;
+use cursive::traits::Nameable;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_playback::audio_backend;
@@ -93,9 +93,6 @@ struct UserDataInner {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    #[cfg(not(windows))]
-    print!("\x1b]2;ncspot\x07");
-
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
@@ -173,6 +170,8 @@ async fn main() -> Result<(), String> {
     }
 
     let mut cursive = cursive::default().into_runner();
+    cursive.set_window_title("ncspot");
+
     let theme = cfg.build_theme();
     cursive.set_theme(theme.clone());
 
