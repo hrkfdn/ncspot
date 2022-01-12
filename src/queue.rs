@@ -410,8 +410,8 @@ impl Queue {
     }
 }
 
+#[cfg(feature = "notify")]
 pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
-    #[cfg(all(feature = "notify", feature = "cover"))]
     let res = if let Some(u) = _cover_url {
         // download album cover image
         let path = crate::utils::cache_path_for_url(u.to_string());
@@ -430,10 +430,6 @@ pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
         Notification::new().summary(track_name).show()
     };
 
-    #[cfg(all(feature = "notify", not(feature = "cover")))]
-    let res = Notification::new().summary(track_name).show();
-
-    #[cfg(feature = "notify")]
     if let Err(e) = res {
         error!("Failed to send notification cover: {}", e);
     }
