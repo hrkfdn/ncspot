@@ -414,10 +414,10 @@ pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
     #[cfg(all(feature = "notify", feature = "cover"))]
     let res = if let Some(u) = _cover_url {
         // download album cover image
-        let path = ui::cover::cache_path_for_url(u.to_string());
+        let path = crate::utils::cache_path_for_url(u.to_string());
 
         if !path.exists() {
-            if let Err(e) = ui::cover::download(u.to_string(), path.clone()) {
+            if let Err(e) = crate::utils::download(u.to_string(), path.clone()) {
                 error!("Failed to download cover: {}", e);
             }
         }
