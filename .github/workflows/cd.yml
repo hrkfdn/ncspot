@@ -46,7 +46,7 @@ jobs:
           - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            features: '--no-default-features --features rodio_backend,pancurses_backend'
+            features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
