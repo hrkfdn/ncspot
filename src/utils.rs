@@ -36,4 +36,3 @@ pub fn download(url: String, path: std::path::PathBuf) -> Result<(), std::io::Er
     std::io::copy(&mut resp, &mut file)?;
     Ok(())
 }
-
