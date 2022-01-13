@@ -1,3 +1,4 @@
+use cursive::view::scroll::Scroller;
 use log::info;
 use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
@@ -6,7 +7,7 @@ use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
-use cursive::view::ScrollBase;
+use cursive::view::scroll;
 use cursive::{Cursive, Printer, Rect, Vec2};
 use unicode_width::UnicodeWidthStr;
 
@@ -38,11 +39,21 @@ pub struct ListView<I: ListItem> {
     search_indexes: Vec<usize>,
     search_selected_index: usize,
     last_size: Vec2,
-    scrollbar: ScrollBase,
+    scroller: scroll::Core,
     queue: Arc<Queue>,
     library: Arc<Library>,
     pagination: Pagination<I>,
     title: String,
+}
+
+impl<I: ListItem> Scroller for ListView<I> {
+    fn get_scroller_mut(&mut self) -> &mut scroll::Core {
+        &mut self.scroller
+    }
+
+    fn get_scroller(&self) -> &scroll::Core {
+        &self.scroller
+    }
 }
 
 impl<I: ListItem> ListView<I> {
@@ -55,7 +66,7 @@ impl<I: ListItem> ListView<I> {
             search_indexes: Vec::new(),
             search_selected_index: 0,
             last_size: Vec2::new(0, 0),
-            scrollbar: ScrollBase::new(),
+            scroller: scroll::Core::new(),
             queue,
             library,
             pagination: Pagination::default(),
@@ -72,13 +83,22 @@ impl<I: ListItem> ListView<I> {
         &self.pagination
     }
 
-    fn can_paginate(&self) -> bool {
-        if let Some(max) = self.get_pagination().max_content() {
-            if max > self.last_content_len {
-                return true;
-            }
+    pub fn content_height_with_paginator(&self) -> usize {
+        let content_len = self.content.read().unwrap().len();
+        log::info!("content len: {content_len}");
+
+        // add 1 more row for paginator if we can paginate
+        if self.can_paginate() {
+            content_len + 1
+        } else {
+            content_len
         }
-        false
+    }
+
+    fn can_paginate(&self) -> bool {
+        let loaded = self.get_pagination().loaded_content();
+        log::info!("can paginate: {loaded}");
+        self.get_pagination().max_content().unwrap_or(0) > self.get_pagination().loaded_content()
     }
 
     pub fn get_selected_index(&self) -> usize {
@@ -102,7 +122,7 @@ impl<I: ListItem> ListView<I> {
     pub fn move_focus_to(&mut self, target: usize) {
         let len = self.content.read().unwrap().len().saturating_sub(1);
         self.selected = min(target, len);
-        self.scrollbar.scroll_to(self.selected);
+        self.scroller.scroll_to_y(self.selected);
     }
 
     pub fn move_focus(&mut self, delta: i32) {
@@ -138,7 +158,7 @@ impl<I: ListItem> View for ListView<I> {
     fn draw(&self, printer: &Printer<'_, '_>) {
         let content = self.content.read().unwrap();
 
-        self.scrollbar.draw(printer, |printer, i| {
+        scroll::draw_lines(self, printer, |_, printer, i| {
             // draw paginator after content
             if i == content.len() && self.can_paginate() {
                 let style = ColorStyle::secondary();
@@ -245,25 +265,26 @@ impl<I: ListItem> View for ListView<I> {
     }
 
     fn layout(&mut self, size: Vec2) {
-        let content_len = self.content.read().unwrap().len();
-
-        // add 1 more row for paginator if we can paginate
-        self.last_content_len = if self.can_paginate() {
-            content_len + 1
-        } else {
-            content_len
-        };
-
         self.last_size = size;
-        self.scrollbar.set_heights(size.y, self.last_content_len);
+        self.last_content_len = self.content_height_with_paginator();
+
+        let relayout_scroller = self.content.read().unwrap().len() != self.last_content_len;
+
+        scroll::layout(
+            self,
+            size,
+            relayout_scroller,
+            |_, _| {},
+            |s, c| Vec2::new(c.x, s.content_height_with_paginator()),
+        );
     }
 
     fn needs_relayout(&self) -> bool {
-        self.content.read().unwrap().len() != self.last_content_len
+        self.scroller.needs_relayout()
     }
 
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
-        Vec2::new(constraint.x, self.content.read().unwrap().len())
+        constraint
     }
 
     fn on_event(&mut self, e: Event) -> EventResult {
@@ -281,12 +302,12 @@ impl<I: ListItem> View for ListView<I> {
                 position,
                 offset,
             } => {
-                if self.scrollbar.scrollable()
+                if self.scroller.get_show_scrollbars()
                     && position.y > 0
                     && position.y <= self.last_size.y
                     && position
                         .checked_sub(offset)
-                        .map(|p| self.scrollbar.start_drag(p, self.last_size.x))
+                        .map(|p| self.scroller.start_drag(p))
                         .unwrap_or(false)
                 {}
             }
@@ -295,15 +316,15 @@ impl<I: ListItem> View for ListView<I> {
                 position,
                 offset,
             } => {
-                if self.scrollbar.scrollable() {
-                    self.scrollbar.drag(position.saturating_sub(offset));
+                if self.scroller.get_show_scrollbars() {
+                    self.scroller.drag(position.saturating_sub(offset));
                 }
             }
             Event::Mouse {
                 event: MouseEvent::Release(MouseButton::Left),
                 ..
             } => {
-                self.scrollbar.release_grab();
+                self.scroller.release_grab();
             }
             _ => {
                 return EventResult::Ignored;

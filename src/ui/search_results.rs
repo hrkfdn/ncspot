@@ -366,7 +366,8 @@ impl SearchResultsView {
 
             // register paginator if the API has more than one page of results
             if let Some(mut paginator) = paginator {
-                if total_items > results.read().unwrap().len() {
+                let loaded_items = results.read().unwrap().len();
+                if total_items > loaded_items {
                     let ev = ev.clone();
 
                     // paginator callback
@@ -375,7 +376,7 @@ impl SearchResultsView {
                         handler(&spotify, &results, &query, offset, true);
                         ev.trigger();
                     };
-                    paginator.set(total_items, Box::new(cb));
+                    paginator.set(loaded_items, total_items, Box::new(cb));
                 } else {
                     paginator.clear()
                 }

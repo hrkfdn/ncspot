@@ -50,7 +50,9 @@ impl<I: ListItem + Clone> ApiResult<I> {
 
     pub fn apply_pagination(self, pagination: &Pagination<I>) {
         let total = self.total as usize;
+        let fetched_items = self.items.read().unwrap().len();
         pagination.set(
+            fetched_items,
             total,
             Box::new(move |_| {
                 self.next();
@@ -79,6 +81,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 
 pub struct Pagination<I: ListItem> {
+    loaded_content: Arc<RwLock<usize>>,
     max_content: Arc<RwLock<Option<usize>>>,
     callback: Arc<RwLock<Option<Paginator<I>>>>,
     busy: Arc<RwLock<bool>>,
@@ -87,6 +90,7 @@ pub struct Pagination<I: ListItem> {
 impl<I: ListItem> Default for Pagination<I> {
     fn default() -> Self {
         Pagination {
+            loaded_content: Arc::new(RwLock::new(0)),
             max_content: Arc::new(RwLock::new(None)),
             callback: Arc::new(RwLock::new(None)),
             busy: Arc::new(RwLock::new(false)),
@@ -98,6 +102,7 @@ impl<I: ListItem> Default for Pagination<I> {
 impl<I: ListItem> Clone for Pagination<I> {
     fn clone(&self) -> Self {
         Pagination {
+            loaded_content: self.loaded_content.clone(),
             max_content: self.max_content.clone(),
             callback: self.callback.clone(),
             busy: self.busy.clone(),
@@ -110,9 +115,14 @@ impl<I: ListItem> Pagination<I> {
         *self.max_content.write().unwrap() = None;
         *self.callback.write().unwrap() = None;
     }
-    pub fn set(&self, max_content: usize, callback: Paginator<I>) {
+    pub fn set(&self, loaded_content: usize, max_content: usize, callback: Paginator<I>) {
+        *self.loaded_content.write().unwrap() = loaded_content;
         *self.max_content.write().unwrap() = Some(max_content);
         *self.callback.write().unwrap() = Some(callback);
+    }
+
+    pub fn loaded_content(&self) -> usize {
+        *self.loaded_content.read().unwrap()
     }
 
     pub fn max_content(&self) -> Option<usize> {
@@ -132,7 +142,8 @@ impl<I: ListItem> Pagination<I> {
                 let cb = pagination.callback.read().unwrap();
                 if let Some(ref cb) = *cb {
                     debug!("calling paginator!");
-                    cb(content);
+                    cb(content.clone());
+                    *pagination.loaded_content.write().unwrap() = content.read().unwrap().len();
                     *pagination.busy.write().unwrap() = false;
                     library.trigger_redraw();
                 }
