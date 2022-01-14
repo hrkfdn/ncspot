@@ -463,22 +463,26 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let last_idx = self.content.read().unwrap().len().saturating_sub(1);
 
                 match mode {
-                    MoveMode::Up if self.selected > 0 => {
-                        match amount {
-                            MoveAmount::Extreme => self.move_focus_to(0),
-                            MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
+                    MoveMode::Up => {
+                        if self.selected > 0 {
+                            match amount {
+                                MoveAmount::Extreme => self.move_focus_to(0),
+                                MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
+                            }
                         }
                         return Ok(CommandResult::Consumed(None));
                     }
-                    MoveMode::Down if self.selected < last_idx => {
-                        match amount {
-                            MoveAmount::Extreme => self.move_focus_to(last_idx),
-                            MoveAmount::Integer(amount) => self.move_focus(*amount),
+                    MoveMode::Down => {
+                        if self.selected < last_idx {
+                            match amount {
+                                MoveAmount::Extreme => self.move_focus_to(last_idx),
+                                MoveAmount::Integer(amount) => self.move_focus(*amount),
+                            }
+                        }
+                        if self.selected == last_idx && self.can_paginate() {
+                            self.pagination.call(&self.content, self.library.clone());
                         }
                         return Ok(CommandResult::Consumed(None));
-                    }
-                    MoveMode::Down if self.selected == last_idx && self.can_paginate() => {
-                        self.pagination.call(&self.content, self.library.clone());
                     }
                     _ => {}
                 }
