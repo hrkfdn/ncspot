@@ -388,6 +388,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 if let Some(item) = item.as_mut() {
                     item.save(self.library.clone());
                 }
+
+                return Ok(CommandResult::Consumed(None));
             }
             Command::Delete => {
                 let mut item = {
@@ -398,6 +400,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 if let Some(item) = item.as_mut() {
                     item.unsave(self.library.clone());
                 }
+
+                return Ok(CommandResult::Consumed(None));
             }
             Command::Share(mode) => {
                 let url = match mode {
