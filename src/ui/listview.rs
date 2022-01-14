@@ -266,9 +266,9 @@ impl<I: ListItem> View for ListView<I> {
 
     fn layout(&mut self, size: Vec2) {
         self.last_size = size;
-        self.last_content_len = self.content_height_with_paginator();
 
         let relayout_scroller = self.content.read().unwrap().len() != self.last_content_len;
+        self.last_content_len = self.content_height_with_paginator();
 
         scroll::layout(
             self,
