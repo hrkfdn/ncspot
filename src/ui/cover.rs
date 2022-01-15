@@ -166,7 +166,7 @@ impl CoverView {
     }
 
     fn cache_path(&self, url: String) -> Option<PathBuf> {
-        let path = cache_path_for_url(url.clone());
+        let path = crate::utils::cache_path_for_url(url.clone());
 
         let mut loading = self.loading.write().unwrap();
         if loading.contains(&url) {
@@ -181,7 +181,7 @@ impl CoverView {
 
         let loading_thread = self.loading.clone();
         std::thread::spawn(move || {
-            if let Err(e) = download(url.clone(), path.clone()) {
+            if let Err(e) = crate::utils::download(url.clone(), path.clone()) {
                 error!("Failed to download cover: {}", e);
             }
             let mut loading = loading_thread.write().unwrap();
@@ -288,21 +288,4 @@ impl ViewExt for CoverView {
 
         Ok(CommandResult::Ignored)
     }
-}
-
-pub fn cache_path_for_url(url: String) -> PathBuf {
-    let mut path = crate::config::cache_path("covers");
-    path.push(url.split('/').last().unwrap());
-    path
-}
-
-pub fn download(url: String, path: PathBuf) -> Result<(), std::io::Error> {
-    let mut resp = reqwest::blocking::get(&url)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-
-    std::fs::create_dir_all(path.parent().unwrap())?;
-    let mut file = File::create(path)?;
-
-    std::io::copy(&mut resp, &mut file)?;
-    Ok(())
 }

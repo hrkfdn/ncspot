@@ -19,3 +19,20 @@ pub fn format_duration(d: &std::time::Duration) -> String {
 
     s.trim_end().to_string()
 }
+
+pub fn cache_path_for_url(url: String) -> std::path::PathBuf {
+    let mut path = crate::config::cache_path("covers");
+    path.push(url.split('/').last().unwrap());
+    path
+}
+
+pub fn download(url: String, path: std::path::PathBuf) -> Result<(), std::io::Error> {
+    let mut resp = reqwest::blocking::get(&url)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    let mut file = std::fs::File::create(path)?;
+
+    std::io::copy(&mut resp, &mut file)?;
+    Ok(())
+}
