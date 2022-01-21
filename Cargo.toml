@@ -26,7 +26,6 @@ librespot-core = "0.3.1"
 librespot-playback = "0.3.1"
 librespot-protocol = "0.3.1"
 log = "0.4.13"
-notify-rust = { version = "4", optional = true }
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
@@ -57,6 +56,13 @@ features = ["client-ureq", "ureq-rustls-tls"]
 [dependencies.cursive]
 version = "0.17.0"
 default-features = false
+
+[dependencies.notify-rust]
+version = "4"
+default-features = false
+# Use dbus, which we already depend on, instead of zbus.
+features = ["d"]
+optional = true
 
 [features]
 share_clipboard = ["clipboard"]
