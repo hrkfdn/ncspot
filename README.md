@@ -260,7 +260,7 @@ When pressing <kbd>O</kbd>:
 You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
 time with <kbd>Escape</kbd>.
 
-The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs).
+The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs#L227-L265).
 
 | Command | Action |
 |---|---|
