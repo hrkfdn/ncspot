@@ -85,7 +85,6 @@ impl<I: ListItem> ListView<I> {
 
     pub fn content_height_with_paginator(&self) -> usize {
         let content_len = self.content.read().unwrap().len();
-        log::info!("content len: {content_len}");
 
         // add 1 more row for paginator if we can paginate
         if self.can_paginate() {
@@ -96,8 +95,6 @@ impl<I: ListItem> ListView<I> {
     }
 
     fn can_paginate(&self) -> bool {
-        let loaded = self.get_pagination().loaded_content();
-        log::info!("can paginate: {loaded}");
         self.get_pagination().max_content().unwrap_or(0) > self.get_pagination().loaded_content()
     }
 
