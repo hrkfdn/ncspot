@@ -95,8 +95,8 @@ impl Playlist {
     }
 
     pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
-        fn compare_artists(a: Vec<String>, b: Vec<String>) -> Ordering {
-            let sanitize_artists_name = |x: Vec<String>| -> Vec<String> {
+        fn compare_artists(a: &Vec<String>, b: &Vec<String>) -> Ordering {
+            let sanitize_artists_name = |x: &Vec<String>| -> Vec<String> {
                 x.iter()
                     .map(|x| {
                         x.to_lowercase()
@@ -113,34 +113,31 @@ impl Playlist {
             a.cmp(&b)
         }
 
+        fn compare_album(a: &Track, b: &Track) -> Ordering {
+            a.album
+                .as_ref()
+                .map(|x| x.to_lowercase())
+                .cmp(&b.album.as_ref().map(|x| x.to_lowercase()))
+                .then_with(|| a.disc_number.cmp(&b.disc_number))
+                .then_with(|| a.track_number.cmp(&b.track_number))
+        }
+
         if let Some(c) = self.tracks.as_mut() {
             c.sort_by(|a, b| match (a.track(), b.track()) {
-                (Some(a), Some(b)) => match (key, direction) {
-                    (SortKey::Title, SortDirection::Ascending) => {
-                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                (Some(a), Some(b)) => {
+                    let (a, b) = match direction {
+                        &SortDirection::Ascending => (a, b),
+                        &SortDirection::Descending => (b, a),
+                    };
+                    match *key {
+                        SortKey::Title => a.title.to_lowercase().cmp(&b.title.to_lowercase()),
+                        SortKey::Duration => a.duration.cmp(&b.duration),
+                        SortKey::Album => compare_album(&a, &b),
+                        SortKey::Added => a.added_at.cmp(&b.added_at),
+                        SortKey::Artist => compare_artists(&a.artists, &b.artists)
+                            .then_with(|| compare_album(&a, &b)),
                     }
-                    (SortKey::Title, SortDirection::Descending) => {
-                        b.title.to_lowercase().cmp(&a.title.to_lowercase())
-                    }
-                    (SortKey::Duration, SortDirection::Ascending) => a.duration.cmp(&b.duration),
-                    (SortKey::Duration, SortDirection::Descending) => b.duration.cmp(&a.duration),
-                    (SortKey::Album, SortDirection::Ascending) => a
-                        .album
-                        .map(|x| x.to_lowercase())
-                        .cmp(&b.album.map(|x| x.to_lowercase())),
-                    (SortKey::Album, SortDirection::Descending) => b
-                        .album
-                        .map(|x| x.to_lowercase())
-                        .cmp(&a.album.map(|x| x.to_lowercase())),
-                    (SortKey::Added, SortDirection::Ascending) => a.added_at.cmp(&b.added_at),
-                    (SortKey::Added, SortDirection::Descending) => b.added_at.cmp(&a.added_at),
-                    (SortKey::Artist, SortDirection::Ascending) => {
-                        compare_artists(a.artists, b.artists)
-                    }
-                    (SortKey::Artist, SortDirection::Descending) => {
-                        compare_artists(b.artists, a.artists)
-                    }
-                },
+                }
                 _ => std::cmp::Ordering::Equal,
             })
         }
