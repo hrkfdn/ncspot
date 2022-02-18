@@ -58,6 +58,7 @@ impl ContextMenu {
             }
         }
 
+        list_select.set_autojump(true);
         list_select.set_on_submit(move |s, selected| {
             let track = track.clone();
             let mut playlist = selected.clone();
