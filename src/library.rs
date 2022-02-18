@@ -411,7 +411,12 @@ impl Library {
         }
 
         albums.sort_unstable_by_key(|album| {
-            format!("{}{}{}", album.artists[0], album.year, album.title)
+            format!(
+                "{}{}{}",
+                album.artists[0].to_lowercase(),
+                album.year,
+                album.title.to_lowercase()
+            )
         });
 
         *(self.albums.write().unwrap()) = albums;
