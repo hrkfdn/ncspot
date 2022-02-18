@@ -95,8 +95,8 @@ impl Playlist {
     }
 
     pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
-        fn compare_artists(a: &Vec<String>, b: &Vec<String>) -> Ordering {
-            let sanitize_artists_name = |x: &Vec<String>| -> Vec<String> {
+        fn compare_artists(a: &[String], b: &[String]) -> Ordering {
+            let sanitize_artists_name = |x: &[String]| -> Vec<String> {
                 x.iter()
                     .map(|x| {
                         x.to_lowercase()
@@ -125,9 +125,9 @@ impl Playlist {
         if let Some(c) = self.tracks.as_mut() {
             c.sort_by(|a, b| match (a.track(), b.track()) {
                 (Some(a), Some(b)) => {
-                    let (a, b) = match direction {
-                        &SortDirection::Ascending => (a, b),
-                        &SortDirection::Descending => (b, a),
+                    let (a, b) = match *direction {
+                        SortDirection::Ascending => (a, b),
+                        SortDirection::Descending => (b, a),
                     };
                     match *key {
                         SortKey::Title => a.title.to_lowercase().cmp(&b.title.to_lowercase()),

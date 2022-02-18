@@ -417,14 +417,14 @@ pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
         let path = crate::utils::cache_path_for_url(u.to_string());
 
         if !path.exists() {
-            if let Err(e) = crate::utils::download(u.to_string(), path.clone()) {
+            if let Err(e) = crate::utils::download(u, path.clone()) {
                 error!("Failed to download cover: {}", e);
             }
         }
 
         Notification::new()
             .summary(track_name)
-            .icon(&path.to_str().unwrap())
+            .icon(path.to_str().unwrap())
             .show()
     } else {
         Notification::new().summary(track_name).show()
