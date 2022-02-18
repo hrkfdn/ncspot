@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use clap::{App, Arg};
+use clap::{Arg, Command as ClapCommand};
 use cursive::event::EventTrigger;
 use cursive::traits::Nameable;
 use librespot_core::authentication::Credentials;
@@ -97,7 +97,7 @@ async fn main() -> Result<(), String> {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
     };
-    let matches = App::new("ncspot")
+    let matches = ClapCommand::new("ncspot")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
         .about("cross-platform ncurses Spotify client")
