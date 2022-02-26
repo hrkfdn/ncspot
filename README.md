@@ -323,7 +323,7 @@ Possible configuration values are:
 | `notify`                 | Enable desktop notifications                | `true`, `false`                                   |   `false`   |
 | `bitrate`                | Audio bitrate to use for streaming          | `96`, `160`, `320`                                |    `320`    |
 | `album_column`           | Show album column for tracks                | `true`, `false`                                   |   `true`    |
-| `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `false`   |
+| `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `true`    |
 | `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
 | `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
