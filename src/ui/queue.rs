@@ -172,6 +172,7 @@ impl ViewExt for QueueView {
                 if let Some(playing) = self.queue.get_current_index() {
                     self.list.move_focus_to(playing);
                 }
+                return Ok(CommandResult::Consumed(None));
             }
             _ => {}
         }
