@@ -485,7 +485,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         }
                         return Ok(CommandResult::Consumed(None));
                     }
-                    _ => {}
+                    _ => return Ok(CommandResult::Consumed(None)),
                 }
             }
             Command::Open(mode) => {
