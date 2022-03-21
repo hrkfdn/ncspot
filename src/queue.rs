@@ -423,11 +423,15 @@ pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
         }
 
         Notification::new()
+            .appname("ncspot")
             .summary(track_name)
             .icon(path.to_str().unwrap())
             .show()
     } else {
-        Notification::new().summary(track_name).show()
+        Notification::new()
+            .appname("ncspot")
+            .summary(track_name)
+            .show()
     };
 
     if let Err(e) = res {
