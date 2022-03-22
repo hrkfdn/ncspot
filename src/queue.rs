@@ -446,13 +446,17 @@ pub fn send_notification(
     };
 
     if let Ok(n) = res {
-        let new_notification_id = n.id();
-        log::debug!(
-            "new notification id: {}, previously: {}",
-            new_notification_id,
-            current_notification_id
-        );
-        notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+        // only available for XDG
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            let new_notification_id = n.id();
+            log::debug!(
+                "new notification id: {}, previously: {}",
+                new_notification_id,
+                current_notification_id
+            );
+            notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+        }
     } else if let Err(e) = res {
         error!("Failed to send notification cover: {}", e);
     }
