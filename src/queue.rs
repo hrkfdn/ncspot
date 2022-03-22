@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
@@ -36,6 +37,7 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
+    notification_id: Arc<AtomicU32>,
 }
 
 impl Queue {
@@ -47,6 +49,7 @@ impl Queue {
             current_track: RwLock::new(state.current_track),
             random_order: RwLock::new(state.random_order),
             cfg,
+            notification_id: Arc::new(AtomicU32::new(0)),
         };
 
         if let Some(playable) = queue.get_current() {
@@ -268,10 +271,11 @@ impl Queue {
 
             #[cfg(feature = "notify")]
             if self.cfg.values().notify.unwrap_or(false) {
+                let notification_id = self.notification_id.clone();
                 std::thread::spawn({
                     let track_name = track.to_string();
                     let cover_url = track.cover_url();
-                    move || send_notification(&track_name, cover_url)
+                    move || send_notification(&track_name, cover_url, notification_id)
                 });
             }
         }
@@ -411,7 +415,12 @@ impl Queue {
 }
 
 #[cfg(feature = "notify")]
-pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
+pub fn send_notification(
+    track_name: &str,
+    _cover_url: Option<String>,
+    notification_id: Arc<AtomicU32>,
+) {
+    let current_notification_id = notification_id.load(std::sync::atomic::Ordering::Relaxed);
     let res = if let Some(u) = _cover_url {
         // download album cover image
         let path = crate::utils::cache_path_for_url(u.to_string());
@@ -424,17 +433,27 @@ pub fn send_notification(track_name: &str, _cover_url: Option<String>) {
 
         Notification::new()
             .appname("ncspot")
+            .id(current_notification_id)
             .summary(track_name)
             .icon(path.to_str().unwrap())
             .show()
     } else {
         Notification::new()
             .appname("ncspot")
+            .id(current_notification_id)
             .summary(track_name)
             .show()
     };
 
-    if let Err(e) = res {
+    if let Ok(n) = res {
+        let new_notification_id = n.id();
+        log::debug!(
+            "new notification id: {}, previously: {}",
+            new_notification_id,
+            current_notification_id
+        );
+        notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+    } else if let Err(e) = res {
         error!("Failed to send notification cover: {}", e);
     }
 }
