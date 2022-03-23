@@ -42,7 +42,7 @@ jobs:
           - build_target: macos-x86_64
             os: macos-latest
             target: x86_64-apple-darwin
-            features: '--no-default-features --features portaudio_backend,pancurses_backend'
+            features: '--no-default-features --features rodio_backend,pancurses_backend'
           - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
