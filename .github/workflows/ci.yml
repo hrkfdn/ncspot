@@ -23,7 +23,7 @@ jobs:
             os: macos-latest
             artifact_suffix: macos-x86_64
             target: x86_64-apple-darwin
-            features: '--no-default-features --features portaudio_backend,cursive/pancurses-backend'
+            features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
           - build_target: windows
             os: windows-latest
             artifact_suffix: windows-x86_64
