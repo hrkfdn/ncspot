@@ -48,7 +48,7 @@ libc = "0.2.121"
 parse_duration = "2.1.1"
 
 [dependencies.rspotify]
-version = "0.11.3"
+version = "0.11.5"
 default-features = false
 features = ["client-ureq", "ureq-rustls-tls"]
 
