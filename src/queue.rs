@@ -274,7 +274,11 @@ impl Queue {
                 let notification_id = self.notification_id.clone();
                 std::thread::spawn({
                     let track_name = track.to_string();
-                    let cover_url = if cfg!(feature = "cover") { track.cover_url() } else { None };
+                    let cover_url = if cfg!(feature = "cover") {
+                        track.cover_url()
+                    } else {
+                        None
+                    };
                     move || send_notification(&track_name, cover_url, notification_id)
                 });
             }
