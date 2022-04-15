@@ -308,7 +308,7 @@ runtime use the command prompt by typing `:reload`.
 Possible configuration values are:
 
 | Name                     | Description                                 | Possible values                                   |   Default   |
-| :----------------------- | :------------------------------------------ | :------------------------------------------------ | :---------: |
+| :----------------------- | :------------------------------------------ |:--------------------------------------------------|:-----------:|
 | `command_key`            | Key to open command line                    | Single character                                  |     `:`     |
 | `initial_screen`         | Screen to show after startup                | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
 | `use_nerdfont`           | Turn nerdfont glyphs on/off                 | `true`, `false`                                   |   `false`   |
@@ -326,6 +326,7 @@ Possible configuration values are:
 | `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `true`    |
 | `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
+| `playback_state`         | Set default playback state                  | `"stopped"`, `"paused"`, `"playing"`, `"default"` | `"paused"`  |
 | `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
 | `[keybindings]`          | Custom keybindings                          | See [custom keybindings](#custom-keybindings)     |             |
 

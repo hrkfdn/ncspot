@@ -42,21 +42,35 @@ pub struct Queue {
 
 impl Queue {
     pub fn new(spotify: Spotify, cfg: Arc<Config>) -> Queue {
-        let state = cfg.state().queuestate.clone();
+        let queue_state = cfg.state().queuestate.clone();
+        let playback_state = cfg.state().playback_state.clone();
         let queue = Queue {
-            queue: Arc::new(RwLock::new(state.queue)),
+            queue: Arc::new(RwLock::new(queue_state.queue)),
             spotify: spotify.clone(),
-            current_track: RwLock::new(state.current_track),
-            random_order: RwLock::new(state.random_order),
+            current_track: RwLock::new(queue_state.current_track),
+            random_order: RwLock::new(queue_state.random_order),
             cfg,
             notification_id: Arc::new(AtomicU32::new(0)),
         };
 
         if let Some(playable) = queue.get_current() {
-            spotify.load(&playable, false, state.track_progress.as_millis() as u32);
+            spotify.load(
+                &playable,
+                playback_state.as_str() == "playing",
+                queue_state.track_progress.as_millis() as u32,
+            );
             spotify.update_track();
-            spotify.pause();
-            spotify.seek(state.track_progress.as_millis() as u32);
+            match playback_state.as_str() {
+                "stopped" => {
+                    spotify.stop();
+                }
+                "playing" => {
+                    spotify.play();
+                }
+                "paused" | "default" | _ => {
+                    spotify.pause();
+                }
+            }
         }
 
         queue
