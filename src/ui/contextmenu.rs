@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::sync::Arc;
 
 use cursive::view::{Margins, ViewWrapper};
@@ -26,6 +27,10 @@ pub struct ContextMenu {
     dialog: Modal<Dialog>,
 }
 
+pub struct PlayTrackMenu {
+    dialog: Modal<Dialog>,
+}
+
 pub struct AddToPlaylistMenu {
     dialog: Modal<Dialog>,
 }
@@ -35,6 +40,7 @@ pub struct SelectArtistMenu {
 }
 
 enum ContextMenuAction {
+    PlayTrack(Box<Track>),
     ShowItem(Box<dyn ListItem>),
     SelectArtist(Vec<Artist>),
     ShareUrl(String),
@@ -44,6 +50,30 @@ enum ContextMenuAction {
 }
 
 impl ContextMenu {
+    pub fn play_track_dialog(queue: Arc<Queue>, track: Track) -> NamedView<PlayTrackMenu> {
+        let track_title = track.title.clone();
+        let mut list_select = SelectView::<bool>::new();
+        list_select.add_item("Play now", true);
+        list_select.add_item("Add to queue", false);
+        list_select.set_on_submit(move |s, selected| {
+            match selected {
+                true => track.borrow().clone().play(queue.clone()),
+                false => track.borrow().clone().queue(queue.clone()),
+            }
+            s.pop_layer();
+        });
+        let dialog = Dialog::new()
+            .title(format!("Play track: {}", track_title))
+            .dismiss_button("Cancel")
+            .padding(Margins::lrtb(1, 1, 1, 0))
+            .content(ScrollView::new(list_select.with_name("playtrack_select")));
+
+        PlayTrackMenu {
+            dialog: Modal::new_ext(dialog),
+        }
+        .with_name("playtrackmenu")
+    }
+
     pub fn add_track_dialog(
         library: Arc<Library>,
         spotify: Spotify,
@@ -162,6 +192,11 @@ impl ContextMenu {
             content.add_item("Share album", ContextMenuAction::ShareUrl(url));
         }
         if let Some(t) = item.track() {
+            content.insert_item(
+                0,
+                "Play track",
+                ContextMenuAction::PlayTrack(Box::new(t.clone())),
+            );
             content.add_item(
                 "Add to playlist",
                 ContextMenuAction::AddToPlaylist(Box::new(t.clone())),
@@ -186,6 +221,10 @@ impl ContextMenu {
             let library = library.clone();
 
             match action {
+                ContextMenuAction::PlayTrack(track) => {
+                    let dialog = Self::play_track_dialog(queue, *track.clone());
+                    s.add_layer(dialog);
+                }
                 ContextMenuAction::ShowItem(item) => {
                     if let Some(view) = item.open(queue, library) {
                         s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
@@ -225,6 +264,13 @@ impl ContextMenu {
             dialog: Modal::new_ext(dialog),
         }
         .with_name("contextmenu")
+    }
+}
+
+impl ViewExt for PlayTrackMenu {
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        log::info!("playtrack command: {:?}", cmd);
+        handle_move_command::<String>(&mut self.dialog, s, cmd, "playtrack_select")
     }
 }
 
@@ -283,6 +329,10 @@ fn handle_move_command<T: 'static>(
             .unwrap_or(Ok(CommandResult::Consumed(None))),
         _ => Ok(CommandResult::Consumed(None)),
     }
+}
+
+impl ViewWrapper for PlayTrackMenu {
+    wrap_impl!(self.dialog: Modal<Dialog>);
 }
 
 impl ViewWrapper for AddToPlaylistMenu {
