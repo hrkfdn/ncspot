@@ -37,7 +37,6 @@ pub struct ConfigValues {
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
-    pub playback_state: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -84,19 +83,17 @@ pub struct UserState {
     pub queuestate: QueueState,
     pub playlist_orders: HashMap<String, SortingOrder>,
     pub cache_version: u16,
-    pub playback_state: String,
 }
 
 impl Default for UserState {
     fn default() -> Self {
         UserState {
-            volume: u16::MAX,
+            volume: u16::max_value(),
             shuffle: false,
             repeat: queue::RepeatSetting::None,
             queuestate: QueueState::default(),
             playlist_orders: HashMap::new(),
             cache_version: 0,
-            playback_state: String::new(),
         }
     }
 }
@@ -130,16 +127,6 @@ impl Config {
 
         if let Some(repeat) = values.repeat {
             userstate.repeat = repeat;
-        }
-
-        if let Some(playback_state) = values.playback_state.clone() {
-            let state = playback_state.to_lowercase();
-            match state.to_lowercase().as_str() {
-                "stopped" => userstate.playback_state = state.to_string(),
-                "playing" => userstate.playback_state = state.to_string(),
-                "paused" => userstate.playback_state = state.to_string(),
-                "default" | _ => userstate.playback_state = String::from("default"),
-            }
         }
 
         Self {
