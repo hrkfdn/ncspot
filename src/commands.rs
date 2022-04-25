@@ -12,7 +12,7 @@ use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
 use crate::traits::{IntoBoxedViewExt, ViewExt};
-use crate::ui::contextmenu::{AddToPlaylistMenu, ContextMenu, SelectArtistMenu};
+use crate::ui::contextmenu::{AddToPlaylistMenu, ContextMenu, PlayTrackMenu, SelectArtistMenu};
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
@@ -298,6 +298,8 @@ impl CommandManager {
             add_track_menu.on_command(s, cmd)?
         } else if let Some(mut select_artist) = s.find_name::<SelectArtistMenu>("selectartist") {
             select_artist.on_command(s, cmd)?
+        } else if let Some(mut play_track) = s.find_name::<PlayTrackMenu>("playtrackmenu") {
+            play_track.on_command(s, cmd)?
         } else {
             let mut main = s
                 .find_name::<Layout>("main")

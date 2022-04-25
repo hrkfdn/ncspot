@@ -270,7 +270,7 @@ impl ContextMenu {
 impl ViewExt for PlayTrackMenu {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         log::info!("playtrack command: {:?}", cmd);
-        handle_move_command::<String>(&mut self.dialog, s, cmd, "playtrack_select")
+        handle_move_command::<bool>(&mut self.dialog, s, cmd, "playtrack_select")
     }
 }
 
