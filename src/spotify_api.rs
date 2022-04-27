@@ -282,40 +282,33 @@ impl WebApi {
     }
 
     pub fn album(&self, album_id: &str) -> Option<FullAlbum> {
-        self.api_with_retry(|api| api.album(&AlbumId::from_id(album_id).unwrap()))
+        let aid = AlbumId::from_id(album_id).ok()?;
+        self.api_with_retry(|api| api.album(&aid))
     }
 
     pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
-        self.api_with_retry(|api| api.artist(&ArtistId::from_id(artist_id).unwrap()))
+        let aid = ArtistId::from_id(artist_id).ok()?;
+        self.api_with_retry(|api| api.artist(&aid))
     }
 
     pub fn playlist(&self, playlist_id: &str) -> Option<FullPlaylist> {
-        self.api_with_retry(|api| {
-            api.playlist(
-                &PlaylistId::from_id(playlist_id).unwrap(),
-                None,
-                Some(&Market::FromToken),
-            )
-        })
+        let pid = PlaylistId::from_id(playlist_id).ok()?;
+        self.api_with_retry(|api| api.playlist(&pid, None, Some(&Market::FromToken)))
     }
 
     pub fn track(&self, track_id: &str) -> Option<FullTrack> {
-        self.api_with_retry(|api| api.track(&TrackId::from_id(track_id).unwrap()))
+        let tid = TrackId::from_id(track_id).ok()?;
+        self.api_with_retry(|api| api.track(&tid))
     }
 
     pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
-        self.api_with_retry(|api| {
-            api.get_a_show(&ShowId::from_id(show_id).unwrap(), Some(&Market::FromToken))
-        })
+        let sid = ShowId::from_id(show_id).ok()?;
+        self.api_with_retry(|api| api.get_a_show(&sid, Some(&Market::FromToken)))
     }
 
     pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
-        self.api_with_retry(|api| {
-            api.get_an_episode(
-                &EpisodeId::from_id(episode_id).unwrap(),
-                Some(&Market::FromToken),
-            )
-        })
+        let eid = EpisodeId::from_id(episode_id).ok()?;
+        self.api_with_retry(|api| api.get_an_episode(&eid, Some(&Market::FromToken)))
     }
 
     pub fn recommendations(
