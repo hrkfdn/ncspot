@@ -136,7 +136,7 @@ impl<I: ListItem> ListView<I> {
                 .map(|t| Playable::Track(t.clone()))
                 .collect::<Vec<Playable>>()
         });
-        if let Some(tracks) = playables.or_else(|| tracks.as_ref()) {
+        if let Some(tracks) = playables.or(tracks.as_ref()) {
             let index = self.queue.append_next(tracks);
             self.queue.play(index + self.selected, true, false);
             true

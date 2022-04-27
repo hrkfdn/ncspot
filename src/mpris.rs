@@ -606,7 +606,7 @@ fn run_dbus_server(
                         if let Some(tracks) = &playlist.tracks {
                             let should_shuffle = queue.get_shuffle();
                             queue.clear();
-                            let index = queue.append_next(&tracks.to_vec());
+                            let index = queue.append_next(tracks);
                             queue.play(index, should_shuffle, should_shuffle)
                         }
                     }

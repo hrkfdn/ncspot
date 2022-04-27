@@ -287,8 +287,7 @@ impl ListItem for Playlist {
             .tracks
             .as_ref()?
             .iter()
-            .map(|t| t.id())
-            .flatten()
+            .filter_map(|t| t.id())
             // only select unique tracks
             .collect::<HashSet<_>>()
             .into_iter()

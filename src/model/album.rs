@@ -250,8 +250,7 @@ impl ListItem for Album {
             .tracks
             .as_ref()?
             .iter()
-            .map(|t| t.id.as_deref())
-            .flatten()
+            .filter_map(|t| t.id.as_deref())
             // spotify allows at max 5 seed items, so choose 4 random tracks...
             .choose_multiple(&mut thread_rng(), MAX_SEEDS - 1);
 
