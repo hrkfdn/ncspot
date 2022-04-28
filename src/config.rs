@@ -15,6 +15,14 @@ use crate::serialization::{Serializer, CBOR, TOML};
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 pub const CACHE_VERSION: u16 = 1;
 
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum PlaybackState {
+    Playing,
+    Paused,
+    Stopped,
+    Default,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -37,7 +45,7 @@ pub struct ConfigValues {
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
-    pub playback_state: Option<String>,
+    pub playback_state: Option<PlaybackState>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -84,7 +92,7 @@ pub struct UserState {
     pub queuestate: QueueState,
     pub playlist_orders: HashMap<String, SortingOrder>,
     pub cache_version: u16,
-    pub playback_state: String,
+    pub playback_state: PlaybackState,
 }
 
 impl Default for UserState {
@@ -96,7 +104,7 @@ impl Default for UserState {
             queuestate: QueueState::default(),
             playlist_orders: HashMap::new(),
             cache_version: 0,
-            playback_state: String::new(),
+            playback_state: PlaybackState::Default,
         }
     }
 }
@@ -133,13 +141,7 @@ impl Config {
         }
 
         if let Some(playback_state) = values.playback_state.clone() {
-            let state = playback_state.to_lowercase();
-            match state.to_lowercase().as_str() {
-                "stopped" => userstate.playback_state = state.to_string(),
-                "playing" => userstate.playback_state = state.to_string(),
-                "paused" => userstate.playback_state = state.to_string(),
-                "default" | _ => userstate.playback_state = String::from("default"),
-            }
+            userstate.playback_state = playback_state;
         }
 
         Self {

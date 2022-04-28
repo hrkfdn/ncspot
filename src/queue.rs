@@ -9,6 +9,7 @@ use notify_rust::Notification;
 use rand::prelude::*;
 use strum_macros::Display;
 
+use crate::config::PlaybackState;
 use crate::model::playable::Playable;
 use crate::spotify::Spotify;
 use crate::{config::Config, spotify::PlayerEvent};
@@ -56,18 +57,15 @@ impl Queue {
         if let Some(playable) = queue.get_current() {
             spotify.load(
                 &playable,
-                playback_state.as_str() == "playing",
+                playback_state == PlaybackState::Playing,
                 queue_state.track_progress.as_millis() as u32,
             );
             spotify.update_track();
-            match playback_state.as_str() {
-                "stopped" => {
+            match playback_state {
+                PlaybackState::Stopped => {
                     spotify.stop();
                 }
-                "playing" => {
-                    spotify.play();
-                }
-                "paused" | "default" | _ => {
+                PlaybackState::Paused | PlaybackState::Default | _ => {
                     spotify.pause();
                 }
             }

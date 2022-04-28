@@ -326,7 +326,7 @@ Possible configuration values are:
 | `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `true`    |
 | `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
-| `playback_state`         | Set default playback state                  | `"stopped"`, `"paused"`, `"playing"`, `"default"` | `"paused"`  |
+| `playback_state`         | Set default playback state                  | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"` | `"Paused"`  |
 | `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
 | `[keybindings]`          | Custom keybindings                          | See [custom keybindings](#custom-keybindings)     |             |
 
