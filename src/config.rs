@@ -15,6 +15,14 @@ use crate::serialization::{Serializer, CBOR, TOML};
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 pub const CACHE_VERSION: u16 = 1;
 
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum PlaybackState {
+    Playing,
+    Paused,
+    Stopped,
+    Default,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -37,6 +45,7 @@ pub struct ConfigValues {
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
+    pub playback_state: Option<PlaybackState>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -83,17 +92,19 @@ pub struct UserState {
     pub queuestate: QueueState,
     pub playlist_orders: HashMap<String, SortingOrder>,
     pub cache_version: u16,
+    pub playback_state: PlaybackState,
 }
 
 impl Default for UserState {
     fn default() -> Self {
         UserState {
-            volume: u16::max_value(),
+            volume: u16::MAX,
             shuffle: false,
             repeat: queue::RepeatSetting::None,
             queuestate: QueueState::default(),
             playlist_orders: HashMap::new(),
             cache_version: 0,
+            playback_state: PlaybackState::Default,
         }
     }
 }
@@ -127,6 +138,10 @@ impl Config {
 
         if let Some(repeat) = values.repeat {
             userstate.repeat = repeat;
+        }
+
+        if let Some(playback_state) = values.playback_state.clone() {
+            userstate.playback_state = playback_state;
         }
 
         Self {
