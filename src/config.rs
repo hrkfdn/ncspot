@@ -57,6 +57,7 @@ pub struct ConfigValues {
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
     pub library_tabs: Option<Vec<LibraryTab>>,
+    pub track_name_first: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -122,6 +123,7 @@ impl Default for UserState {
 
 lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
+    pub static ref TRACK_NAME_FIRST: RwLock<bool> = RwLock::new(false);
 }
 
 pub struct Config {
@@ -153,6 +155,11 @@ impl Config {
 
         if let Some(playback_state) = values.playback_state.clone() {
             userstate.playback_state = playback_state;
+        }
+
+        if let Some(track_name_first) = values.track_name_first {
+            let mut t = TRACK_NAME_FIRST.write().unwrap();
+            *t = track_name_first;
         }
 
         Self {

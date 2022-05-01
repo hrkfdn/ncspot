@@ -1,6 +1,7 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+use crate::config;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
@@ -159,19 +160,35 @@ impl From<&SavedTrack> for Track {
 
 impl fmt::Display for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} - {}", self.artists.join(", "), self.title)
+        let track_name_first = config::TRACK_NAME_FIRST.read().unwrap();
+        if *track_name_first {
+            write!(f, "{} - {}", self.title, self.artists.join(", "))
+        } else {
+            write!(f, "{} - {}", self.artists.join(", "), self.title)
+        }
     }
 }
 
 impl fmt::Debug for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({} - {} ({:?}))",
-            self.artists.join(", "),
-            self.title,
-            self.id
-        )
+        let track_name_first = config::TRACK_NAME_FIRST.read().unwrap();
+        if *track_name_first {
+            write!(
+                f,
+                "({} - {} ({:?}))",
+                self.title,
+                self.artists.join(", "),
+                self.id
+            )
+        } else {
+            write!(
+                f,
+                "({} - {} ({:?}))",
+                self.artists.join(", "),
+                self.title,
+                self.id
+            )
+        }
     }
 }
 

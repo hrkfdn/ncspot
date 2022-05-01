@@ -328,6 +328,7 @@ Possible configuration values are:
 | `repeat`                 | Set default repeat mode                           | `off`, `track`, `playlist`                                      | `off`       |
 | `playback_state`         | Set default playback state                        | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
 | `library_tabs`           | Tabs to show in library screen                    | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
+| `track_name_first`       | Show track name before artist                     | `true`, `false`                                                 | `false`     |
 | `[theme]`                | Custom theme                                      | See [custom theme](#theming)                                    |             |
 | `[keybindings]`          | Custom keybindings                                | See [custom keybindings](#custom-keybindings)                   |             |
 
