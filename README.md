@@ -46,6 +46,7 @@ as the \*BSDs.
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
     - [Theming](#theming)
+    - [Active Fields](#active-fields)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
 
@@ -326,7 +327,7 @@ Possible configuration values are:
 | `shuffle`                | Set default shuffle state                      | `true`, `false`                                   |   `false`   |
 | `repeat`                 | Set default repeat mode                        | `off`, `track`, `playlist`                        |    `off`    |
 | `playback_state`         | Set default playback state                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"` | `"Paused"`  |
-| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active_fields](#active-fields)               |  `["All"]`  |
+| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active fields](#active-fields)               |  `["All"]`  |
 | `[theme]`                | Custom theme                                   | See [custom theme](#theming)                      |             |
 | `[keybindings]`          | Custom keybindings                             | See [custom keybindings](#custom-keybindings)     |             |
 
@@ -405,7 +406,8 @@ center = ["Album"]
 right = true
 ```
 
-<details><summary>Examples: (Click to show)</summary>
+<details><summary>Examples: (Click to show/hide)</summary>
+
 
 Example 1 - Show only album name and track name after it:
 
