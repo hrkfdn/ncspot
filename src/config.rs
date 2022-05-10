@@ -23,6 +23,16 @@ pub enum PlaybackState {
     Default,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Hash, strum::EnumIter)]
+#[serde(rename_all = "lowercase")]
+pub enum LibraryTab {
+    Tracks,
+    Albums,
+    Artists,
+    Playlists,
+    Podcasts,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -46,6 +56,7 @@ pub struct ConfigValues {
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
+    pub library_tabs: Option<Vec<LibraryTab>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
