@@ -23,6 +23,30 @@ pub enum PlaybackState {
     Default,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum ActiveField {
+    Title,
+    Artists,
+    Album,
+    Default,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct ActiveFields {
+    pub left: Option<Vec<ActiveField>>,
+    pub center: Option<Vec<ActiveField>>,
+    pub right: Option<bool>,
+}
+impl ActiveFields {
+    fn default() -> Self {
+        ActiveFields {
+            left: Some(vec![ActiveField::Artists, ActiveField::Title]),
+            center: Some(vec![ActiveField::Album]),
+            right: Some(true),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -40,13 +64,12 @@ pub struct ConfigValues {
     pub volnorm_pregain: Option<f64>,
     pub notify: Option<bool>,
     pub bitrate: Option<u32>,
-    pub album_column: Option<bool>,
     pub gapless: Option<bool>,
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
-    pub track_name_first: Option<bool>,
+    pub active_fields: Option<ActiveFields>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -112,7 +135,7 @@ impl Default for UserState {
 
 lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
-    pub static ref TRACK_NAME_FIRST: RwLock<bool> = RwLock::new(false);
+    pub static ref ACTIVE_FIELDS: RwLock<ActiveFields> = RwLock::new(ActiveFields::default());
 }
 
 pub struct Config {
@@ -146,9 +169,9 @@ impl Config {
             userstate.playback_state = playback_state;
         }
 
-        if let Some(track_name_first) = values.track_name_first {
-            let mut t = TRACK_NAME_FIRST.write().unwrap();
-            *t = track_name_first;
+        if let Some(active_fields) = values.active_fields.clone() {
+            let mut a = ACTIVE_FIELDS.write().unwrap();
+            *a = active_fields;
         }
 
         Self {

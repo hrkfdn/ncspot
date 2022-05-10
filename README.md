@@ -307,29 +307,28 @@ runtime use the command prompt by typing `:reload`.
 
 Possible configuration values are:
 
-| Name                     | Description                                 | Possible values                                   |   Default   |
-| :----------------------- | :------------------------------------------ |:--------------------------------------------------|:-----------:|
-| `command_key`            | Key to open command line                    | Single character                                  |     `:`     |
-| `initial_screen`         | Screen to show after startup                | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
-| `use_nerdfont`           | Turn nerdfont glyphs on/off                 | `true`, `false`                                   |   `false`   |
-| `flip_status_indicators` | Reverse play/pause icon meaning[^1]         | `true`, `false`                                   |   `false`   |
-| `backend`                | Audio backend to use                        | String [^3]                                       |             |
-| `backend_device`         | Audio device to configure the backend       | String                                            |             |
-| `audio_cache`            | Enable caching of audio files               | `true`, `false`                                   |   `true`    |
-| `audio_cache_size`       | Maximum size of audio cache in MiB          | Number                                            |             |
-| `volnorm`                | Enable volume normalization                 | `true`, `false`                                   |   `false`   |
-| `volnorm_pregain`        | Normalization pregain to apply (if enabled) | Number                                            |      0      |
-| `default_keybindings`    | Enable default keybindings                  | `true`, `false`                                   |   `false`   |
-| `notify`                 | Enable desktop notifications                | `true`, `false`                                   |   `false`   |
-| `bitrate`                | Audio bitrate to use for streaming          | `96`, `160`, `320`                                |    `320`    |
-| `album_column`           | Show album column for tracks                | `true`, `false`                                   |   `true`    |
-| `gapless`                | Enable gapless playback                     | `true`, `false`                                   |   `true`    |
-| `shuffle`                | Set default shuffle state                   | `true`, `false`                                   |   `false`   |
-| `repeat`                 | Set default repeat mode                     | `off`, `track`, `playlist`                        |    `off`    |
-| `playback_state`         | Set default playback state                  | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"` | `"Paused"`  |
-| `track_name_first`       | Show track name before artist               | `true`, `false`                                   |   `false`   |
-| `[theme]`                | Custom theme                                | See [custom theme](#theming)                      |             |
-| `[keybindings]`          | Custom keybindings                          | See [custom keybindings](#custom-keybindings)     |             |
+| Name                     | Description                                    | Possible values                                   |   Default   |
+|:-------------------------|:-----------------------------------------------|:--------------------------------------------------|:-----------:|
+| `command_key`            | Key to open command line                       | Single character                                  |     `:`     |
+| `initial_screen`         | Screen to show after startup                   | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
+| `use_nerdfont`           | Turn nerdfont glyphs on/off                    | `true`, `false`                                   |   `false`   |
+| `flip_status_indicators` | Reverse play/pause icon meaning[^1]            | `true`, `false`                                   |   `false`   |
+| `backend`                | Audio backend to use                           | String [^3]                                       |             |
+| `backend_device`         | Audio device to configure the backend          | String                                            |             |
+| `audio_cache`            | Enable caching of audio files                  | `true`, `false`                                   |   `true`    |
+| `audio_cache_size`       | Maximum size of audio cache in MiB             | Number                                            |             |
+| `volnorm`                | Enable volume normalization                    | `true`, `false`                                   |   `false`   |
+| `volnorm_pregain`        | Normalization pregain to apply (if enabled)    | Number                                            |      0      |
+| `default_keybindings`    | Enable default keybindings                     | `true`, `false`                                   |   `false`   |
+| `notify`                 | Enable desktop notifications                   | `true`, `false`                                   |   `false`   |
+| `bitrate`                | Audio bitrate to use for streaming             | `96`, `160`, `320`                                |    `320`    |
+| `gapless`                | Enable gapless playback                        | `true`, `false`                                   |   `true`    |
+| `shuffle`                | Set default shuffle state                      | `true`, `false`                                   |   `false`   |
+| `repeat`                 | Set default repeat mode                        | `off`, `track`, `playlist`                        |    `off`    |
+| `playback_state`         | Set default playback state                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"` | `"Paused"`  |
+| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active_fields](#active-fields)               |  `["All"]`  |
+| `[theme]`                | Custom theme                                   | See [custom theme](#theming)                      |             |
+| `[keybindings]`          | Custom keybindings                             | See [custom keybindings](#custom-keybindings)     |             |
 
 [^1]:
     By default the statusbar will show a play icon when a track is playing and
@@ -384,6 +383,64 @@ search_match = "light red"
 ```
 
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
+
+### Active Fields
+It's possible to customize which fields are shown in Queue/Library views.
+The order in which you place fields will be reflected in app.
+The left and center columns can be used to show either track title and artists or the album name.
+The right colum can be used to show track's saved status and length. This can be either enabled or disabled.
+if you don't define e.g. `left = something`, the default values will be used for that column.
+Available options:
+left: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
+center: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
+right: `true`, `false`
+
+Note, that `"Artists"` and `"Title"` can be used together in the same field, while `"Album"` can't.
+Default configuration:
+
+```toml
+[active_fields]
+left = ["Artists", "Title"]
+center = ["Album"]
+right = true
+```
+
+<details><summary>Examples: (Click to show)</summary>
+
+Example 1 - Show only album name and track name after it:
+
+```toml
+[active_fields]
+left = ["Album"]
+center = ["Title"]
+right = false
+```
+
+Example 2 - Show track title before artists, and don't show album at all:
+
+```toml
+[active_fields]
+left = ["Title", "Artists"]
+center = []
+```
+
+Example 3 - Show artists, track name and album, but no saved status and track length:
+
+```toml
+[active_fields]
+left = ["Artists", "Title"]
+center = ["Album"]
+right = false
+```
+
+Example 4 - Show everything as default, except show title before artists:
+
+```toml
+[active_fields]
+left = ["Title", "Artists"]
+```
+
+</details>
 
 ## Cover Drawing
 
