@@ -328,7 +328,7 @@ Possible configuration values are:
 | `repeat`                 | Set default repeat mode                           | `off`, `track`, `playlist`                                      | `off`       |
 | `playback_state`         | Set default playback state                        | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
 | `library_tabs`           | Tabs to show in library screen                    | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
-| `track_name_first`       | Show track name before artist                     | `true`, `false`                                                 | `false`     |
+| `[active_fields]`        | Set active fields shown in Library/Queue views    | See [active_fields](#active-fields)                             | `["All"]`   |
 | `[theme]`                | Custom theme                                      | See [custom theme](#theming)                                    |             |
 | `[keybindings]`          | Custom keybindings                                | See [custom keybindings](#custom-keybindings)                   |             |
 
@@ -385,6 +385,64 @@ search_match = "light red"
 ```
 
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
+
+### Active Fields
+It's possible to customize which fields are shown in Queue/Library views.
+The order in which you place fields will be reflected in app.
+The left and center columns can be used to show either track title and artists or the album name.
+The right colum can be used to show track's saved status and length. This can be either enabled or disabled.
+if you don't define e.g. `left = something`, the default values will be used for that column.
+Available options:
+left: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
+center: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
+right: `true`, `false`
+
+Note, that `"Artists"` and `"Title"` can be used together in the same field, while `"Album"` can't.
+Default configuration:
+
+```toml
+[active_fields]
+left = ["Artists", "Title"]
+center = ["Album"]
+right = true
+```
+
+<details><summary>Examples: (Click to show)</summary>
+
+Example 1 - Show only album name and track name after it:
+
+```toml
+[active_fields]
+left = ["Album"]
+center = ["Title"]
+right = false
+```
+
+Example 2 - Show track title before artists, and don't show album at all:
+
+```toml
+[active_fields]
+left = ["Title", "Artists"]
+center = []
+```
+
+Example 3 - Show artists, track name and album, but no saved status and track length:
+
+```toml
+[active_fields]
+left = ["Artists", "Title"]
+center = ["Album"]
+right = false
+```
+
+Example 4 - Show everything as default, except show title before artists:
+
+```toml
+[active_fields]
+left = ["Title", "Artists"]
+```
+
+</details>
 
 ## Cover Drawing
 
