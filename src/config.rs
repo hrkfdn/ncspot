@@ -23,6 +23,16 @@ pub enum PlaybackState {
     Default,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Hash, strum::EnumIter)]
+#[serde(rename_all = "lowercase")]
+pub enum LibraryTab {
+    Tracks,
+    Albums,
+    Artists,
+    Playlists,
+    Podcasts,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum ActiveField {
     Title,
@@ -70,6 +80,7 @@ pub struct ConfigValues {
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
     pub active_fields: Option<ActiveFields>,
+    pub library_tabs: Option<Vec<LibraryTab>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

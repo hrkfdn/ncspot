@@ -308,28 +308,29 @@ runtime use the command prompt by typing `:reload`.
 
 Possible configuration values are:
 
-| Name                     | Description                                    | Possible values                                   |   Default   |
-|:-------------------------|:-----------------------------------------------|:--------------------------------------------------|:-----------:|
-| `command_key`            | Key to open command line                       | Single character                                  |     `:`     |
-| `initial_screen`         | Screen to show after startup                   | `"library"`, `"search"`, `"queue"`, `"cover"`[^2] | `"library"` |
-| `use_nerdfont`           | Turn nerdfont glyphs on/off                    | `true`, `false`                                   |   `false`   |
-| `flip_status_indicators` | Reverse play/pause icon meaning[^1]            | `true`, `false`                                   |   `false`   |
-| `backend`                | Audio backend to use                           | String [^3]                                       |             |
-| `backend_device`         | Audio device to configure the backend          | String                                            |             |
-| `audio_cache`            | Enable caching of audio files                  | `true`, `false`                                   |   `true`    |
-| `audio_cache_size`       | Maximum size of audio cache in MiB             | Number                                            |             |
-| `volnorm`                | Enable volume normalization                    | `true`, `false`                                   |   `false`   |
-| `volnorm_pregain`        | Normalization pregain to apply (if enabled)    | Number                                            |      0      |
-| `default_keybindings`    | Enable default keybindings                     | `true`, `false`                                   |   `false`   |
-| `notify`                 | Enable desktop notifications                   | `true`, `false`                                   |   `false`   |
-| `bitrate`                | Audio bitrate to use for streaming             | `96`, `160`, `320`                                |    `320`    |
-| `gapless`                | Enable gapless playback                        | `true`, `false`                                   |   `true`    |
-| `shuffle`                | Set default shuffle state                      | `true`, `false`                                   |   `false`   |
-| `repeat`                 | Set default repeat mode                        | `off`, `track`, `playlist`                        |    `off`    |
-| `playback_state`         | Set default playback state                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"` | `"Paused"`  |
-| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active fields](#active-fields)               |  `["All"]`  |
-| `[theme]`                | Custom theme                                   | See [custom theme](#theming)                      |             |
-| `[keybindings]`          | Custom keybindings                             | See [custom keybindings](#custom-keybindings)     |             |
+| Name                     | Description                                    | Possible values                                                 |   Default   |
+|:-------------------------|:-----------------------------------------------|:----------------------------------------------------------------|:-----------:|
+| `command_key`            | Key to open command line                       | Single character                                                |     `:`     |
+| `initial_screen`         | Screen to show after startup                   | `"library"`, `"search"`, `"queue"`, `"cover"`[^2]               | `"library"` |
+| `use_nerdfont`           | Turn nerdfont glyphs on/off                    | `true`, `false`                                                 |   `false`   |
+| `flip_status_indicators` | Reverse play/pause icon meaning[^1]            | `true`, `false`                                                 |   `false`   |
+| `backend`                | Audio backend to use                           | String [^3]                                                     |             |
+| `backend_device`         | Audio device to configure the backend          | String                                                          |             |
+| `audio_cache`            | Enable caching of audio files                  | `true`, `false`                                                 |   `true`    |
+| `audio_cache_size`       | Maximum size of audio cache in MiB             | Number                                                          |             |
+| `volnorm`                | Enable volume normalization                    | `true`, `false`                                                 |   `false`   |
+| `volnorm_pregain`        | Normalization pregain to apply (if enabled)    | Number                                                          |      0      |
+| `default_keybindings`    | Enable default keybindings                     | `true`, `false`                                                 |   `false`   |
+| `notify`                 | Enable desktop notifications                   | `true`, `false`                                                 |   `false`   |
+| `bitrate`                | Audio bitrate to use for streaming             | `96`, `160`, `320`                                              |    `320`    |
+| `gapless`                | Enable gapless playback                        | `true`, `false`                                                 |   `true`    |
+| `shuffle`                | Set default shuffle state                      | `true`, `false`                                                 |   `false`   |
+| `repeat`                 | Set default repeat mode                        | `off`, `track`, `playlist`                                      |    `off`    |
+| `playback_state`         | Set default playback state                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
+| `library_tabs`           | Tabs to show in library screen                 | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
+| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active fields](#active-fields)                             |  `["All"]`  |
+| `[theme]`                | Custom theme                                   | See [custom theme](#theming)                                    |             |
+| `[keybindings]`          | Custom keybindings                             | See [custom keybindings](#custom-keybindings)                   |             |
 
 [^1]:
     By default the statusbar will show a play icon when a track is playing and
