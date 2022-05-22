@@ -65,7 +65,7 @@ impl Queue {
                 PlaybackState::Stopped => {
                     spotify.stop();
                 }
-                PlaybackState::Paused | PlaybackState::Default | _ => {
+                PlaybackState::Paused | PlaybackState::Playing | PlaybackState::Default => {
                     spotify.pause();
                 }
             }
