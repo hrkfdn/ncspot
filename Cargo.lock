@@ -1483,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "librespot-protocol"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f63b8be57019728b0f452d1c4f61736e783cd7be5cd32437cdadf60cae6bfd0"
+checksum = "2e21de16aa66ab2a7b3c40a5a847a659b1b3cb66a67da6a63731d28d4788535d"
 dependencies = [
  "glob",
  "protobuf",
