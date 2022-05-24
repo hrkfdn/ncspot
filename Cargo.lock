@@ -1022,7 +1022,7 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio",
- "tokio-util 0.7.2",
+ "tokio-util",
  "tracing",
 ]
 
@@ -1398,9 +1398,9 @@ dependencies = [
 
 [[package]]
 name = "librespot-core"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32884e2a4d6f2b533d2dbc02564068d9975a1a546680062ebac75e5d8af2a9cb"
+checksum = "998986b329ebeb586b93c9d27e3d90c42756cdd7c7cc75812fd2f0ddb999b8c8"
 dependencies = [
  "aes",
  "base64",
@@ -1431,7 +1431,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "tokio-util 0.6.10",
+ "tokio-util",
  "url",
  "uuid",
  "vergen",
@@ -1483,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "librespot-protocol"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f63b8be57019728b0f452d1c4f61736e783cd7be5cd32437cdadf60cae6bfd0"
+checksum = "2e21de16aa66ab2a7b3c40a5a847a659b1b3cb66a67da6a63731d28d4788535d"
 dependencies = [
  "glob",
  "protobuf",
@@ -3343,20 +3343,6 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.6.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
-dependencies = [
- "bytes",
- "futures-core",
- "futures-sink",
- "log",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
-name = "tokio-util"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f988a1a1adc2fb21f9c12aa96441da33a1728193ae0b95d2be22dbd17fcb4e5c"
@@ -3521,9 +3507,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "0.8.2"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+checksum = "8cfcd319456c4d6ea10087ed423473267e1a071f3bc0aa89f80d60997843c6f0"
 dependencies = [
  "getrandom",
 ]
