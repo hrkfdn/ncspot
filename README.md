@@ -1,5 +1,5 @@
 <p align="center" style="text-align:center">
-	<img src="images/logo.svg" width="128px" alt="logo"/>
+    <img src="images/logo.svg" width="128px" alt="logo"/>
 </p>
 
 # ncspot

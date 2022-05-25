@@ -27,7 +27,7 @@ impl LibraryView {
             .values()
             .library_tabs
             .clone()
-            .unwrap_or(Vec::from_iter(LibraryTab::iter()));
+            .unwrap_or_else(|| Vec::from_iter(LibraryTab::iter()));
 
         for tab in selected_tabs {
             match tab {

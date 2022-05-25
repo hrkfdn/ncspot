@@ -126,29 +126,33 @@ impl Spotify {
     pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
         let config = Self::session_config();
         let handle = tokio::runtime::Handle::current();
-        let jh = handle.spawn(async { Session::connect(config, credentials, None).await });
-        futures::executor::block_on(jh).unwrap()
+        let jh = handle.spawn(async { Session::connect(config, credentials, None, true).await });
+        futures::executor::block_on(jh).unwrap().map(|r| r.0)
     }
 
     async fn create_session(
         cfg: &config::Config,
         credentials: Credentials,
     ) -> Result<Session, SessionError> {
-        let session_config = Self::session_config();
+        let librespot_cache_path = config::cache_path("librespot");
         let audio_cache_path = match cfg.values().audio_cache.unwrap_or(true) {
-            true => Some(config::cache_path("librespot").join("files")),
+            true => Some(librespot_cache_path.join("files")),
             false => None,
         };
         let cache = Cache::new(
-            Some(config::cache_path("librespot")),
+            Some(librespot_cache_path.clone()),
             audio_cache_path,
+            Some(librespot_cache_path.join("volume")),
             cfg.values()
                 .audio_cache_size
                 .map(|size| (size * 1048576) as u64),
         )
         .expect("Could not create cache");
         debug!("opening spotify session");
-        Session::connect(session_config, credentials, Some(cache)).await
+        let session_config = Self::session_config();
+        Session::connect(session_config, credentials, Some(cache), true)
+            .await
+            .map(|r| r.0)
     }
 
     async fn worker(
@@ -170,7 +174,7 @@ impl Spotify {
             gapless: cfg.values().gapless.unwrap_or(true),
             bitrate: bitrate.unwrap_or(Bitrate::Bitrate320),
             normalisation: cfg.values().volnorm.unwrap_or(false),
-            normalisation_pregain: cfg.values().volnorm_pregain.unwrap_or(0.0),
+            normalisation_pregain_db: cfg.values().volnorm_pregain.unwrap_or(0.0),
             ..Default::default()
         };
 
@@ -189,7 +193,7 @@ impl Spotify {
         let (player, player_events) = Player::new(
             player_config,
             session.clone(),
-            mixer.get_audio_filter(),
+            mixer.get_soft_volume(),
             move || (backend)(cfg.values().backend_device.clone(), audio_format),
         );
 

@@ -146,14 +146,9 @@ async fn main() -> Result<(), String> {
     let cfg: Arc<crate::config::Config> = Arc::new(Config::new(
         matches.value_of("config").unwrap_or("config.toml"),
     ));
-
-    let cache = Cache::new(
-        Some(config::cache_path("librespot")),
-        Some(config::cache_path("librespot").join("files")),
-        None,
-    )
-    .expect("Could not create librespot cache");
     let mut credentials = {
+        let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)
+            .expect("Could not create librespot cache");
         let cached_credentials = cache.credentials();
         match cached_credentials {
             Some(c) => {
