@@ -191,11 +191,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn as_listitem(&self) -> Box<dyn ListItem> {
-        Box::new(self.clone())
-    }
-
-    fn display_left(&self) -> String {
+    fn display_left(&self, _library: Option<Arc<Library>>) -> String {
         match self.owner_name.as_ref() {
             Some(owner) => format!("{} • {}", self.name, owner),
             None => self.name.clone(),
@@ -251,14 +247,6 @@ impl ListItem for Playlist {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.follow_playlist(self);
-    }
-
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.delete_playlist(&self.id);
-    }
-
     fn toggle_saved(&mut self, library: Arc<Library>) {
         // Don't allow users to unsave their own playlists with one keypress
         if !library.is_followed_playlist(self) {
@@ -270,6 +258,14 @@ impl ListItem for Playlist {
         } else {
             library.follow_playlist(self);
         }
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        library.follow_playlist(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.delete_playlist(&self.id);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
@@ -325,5 +321,9 @@ impl ListItem for Playlist {
             "https://open.spotify.com/user/{}/playlist/{}",
             self.owner_id, self.id
         ))
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        Box::new(self.clone())
     }
 }

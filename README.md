@@ -46,7 +46,7 @@ as the \*BSDs.
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
     - [Theming](#theming)
-    - [Active Fields](#active-fields)
+    - [Tracklist Formatting](#tracklist-formatting)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
 
@@ -327,8 +327,8 @@ Possible configuration values are:
 | `shuffle`                | Set default shuffle state                      | `true`, `false`                                                 |   `false`   |
 | `repeat`                 | Set default repeat mode                        | `off`, `track`, `playlist`                                      |    `off`    |
 | `playback_state`         | Set default playback state                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
-| `library_tabs`           | Tabs to show in library screen                 | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
-| `[active_fields]`        | Set active fields shown in Library/Queue views | See [active fields](#active-fields)                             |  `["All"]`  |
+| `library_tabs`           | Tabs to show in library screen                 | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` |  All tabs   |
+| `[tracklist_formatting]` | Set active fields shown in Library/Queue views | See [tracklist formatting](#tracklist-formatting)               |             |
 | `[theme]`                | Custom theme                                   | See [custom theme](#theming)                                    |             |
 | `[keybindings]`          | Custom keybindings                             | See [custom keybindings](#custom-keybindings)                   |             |
 
@@ -386,25 +386,18 @@ search_match = "light red"
 
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
-### Active Fields
+### Tracklist Formatting
 It's possible to customize which fields are shown in Queue/Library views.
-The order in which you place fields will be reflected in app.
-The left and center columns can be used to show either track title and artists or the album name.
-The right colum can be used to show track's saved status and length. This can be either enabled or disabled.
-if you don't define e.g. `left = something`, the default values will be used for that column.
+If you don't define `format_center` for example, the default value will be used.
 Available options:
-left: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
-center: `"Artists"`, `"Title"` or `"Album"` or `"Default"`
-right: `true`, `false`
-
-Note, that `"Artists"` and `"Title"` can be used together in the same field, while `"Album"` can't.
+`%artists`, `%title`, `%album`, `%saved`, `%duration`
 Default configuration:
 
 ```toml
-[active_fields]
-left = ["Artists", "Title"]
-center = ["Album"]
-right = true
+[tracklist_formatting]
+format_left = "%artists - %title"
+format_center = "%album"
+format_right = "%saved %duration"
 ```
 
 <details><summary>Examples: (Click to show/hide)</summary>
@@ -413,34 +406,41 @@ right = true
 Example 1 - Show only album name and track name after it:
 
 ```toml
-[active_fields]
-left = ["Album"]
-center = ["Title"]
-right = false
+[tracklist_formatting]
+format_left = "%album"
+format_center = "%title"
+format_right = ""
 ```
 
 Example 2 - Show track title before artists, and don't show album at all:
 
 ```toml
-[active_fields]
-left = ["Title", "Artists"]
-center = []
+[tracklist_formatting]
+format_left = "%title - %artists"
+format_center = ""
 ```
 
-Example 3 - Show artists, track name and album, but no saved status and track length:
+Example 3 - Show everything as default, but hide saved status and track length:
 
 ```toml
-[active_fields]
-left = ["Artists", "Title"]
-center = ["Album"]
-right = false
+[tracklist_formatting]
+format_right = ""
 ```
 
 Example 4 - Show everything as default, except show title before artists:
 
 ```toml
-[active_fields]
-left = ["Title", "Artists"]
+[tracklist_formatting]
+format_left = "%title - %artists"
+```
+
+Example 5 - Show saved status and duration first, followed by track title and artists, with the album last:
+
+```toml
+[tracklist_formatting]
+format_left = "|%saved| %duration | %title - %artists"
+format_center = ""
+format_right = "%album"
 ```
 
 </details>

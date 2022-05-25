@@ -94,11 +94,7 @@ impl ListItem for Artist {
         }
     }
 
-    fn as_listitem(&self) -> Box<dyn ListItem> {
-        Box::new(self.clone())
-    }
-
-    fn display_left(&self) -> String {
+    fn display_left(&self, _library: Option<Arc<Library>>) -> String {
         format!("{}", self)
     }
 
@@ -155,20 +151,20 @@ impl ListItem for Artist {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.follow_artist(self);
-    }
-
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unfollow_artist(self);
-    }
-
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_followed_artist(self) {
             library.unfollow_artist(self);
         } else {
             library.follow_artist(self);
         }
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        library.follow_artist(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unfollow_artist(self);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
@@ -204,5 +200,9 @@ impl ListItem for Artist {
         self.id
             .clone()
             .map(|id| format!("https://open.spotify.com/artist/{}", id))
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        Box::new(self.clone())
     }
 }
