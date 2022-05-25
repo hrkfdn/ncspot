@@ -256,7 +256,7 @@ impl ContextMenu {
         });
 
         let dialog = Dialog::new()
-            .title(item.display_left())
+            .title(item.display_left(None))
             .dismiss_button("Cancel")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));

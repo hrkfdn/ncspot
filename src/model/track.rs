@@ -2,7 +2,6 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use crate::config;
-use crate::config::ActiveField;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
@@ -161,106 +160,44 @@ impl From<&SavedTrack> for Track {
 
 impl fmt::Display for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let active_fields = config::ACTIVE_FIELDS.read().unwrap().clone();
-        let mut fields: Vec<ActiveField> = Vec::new();
-        fields.append(
-            &mut active_fields
-                .left
-                .unwrap_or(vec![ActiveField::Artists, ActiveField::Title])
-                .clone(),
-        );
-        fields.append(
-            &mut active_fields
-                .center
-                .unwrap_or(vec![ActiveField::Album])
-                .clone(),
-        );
-        if fields.contains(&ActiveField::Title) && !fields.contains(&ActiveField::Artists) {
-            write!(f, "{}", self.title)
-        } else if fields.contains(&ActiveField::Artists) && !fields.contains(&ActiveField::Title) {
-            write!(f, "{}", self.artists.join(", "))
-        } else if !fields.contains(&ActiveField::Default)
-            && !fields.contains(&ActiveField::Title)
-            && !fields.contains(&ActiveField::Artists)
-        {
-            write!(f, "")
-        } else {
-            let mut title_index = 1;
-            let mut artists_index = 0;
-            for (i, field) in fields.iter().enumerate() {
-                match field {
-                    config::ActiveField::Title => title_index = i,
-                    config::ActiveField::Artists => artists_index = i,
-                    _ => {}
-                }
-            }
-            if title_index < artists_index {
-                write!(f, "{} - {}", self.title, self.artists.join(", "))
-            } else {
-                write!(f, "{} - {}", self.artists.join(", "), self.title)
-            }
-        }
+        write!(f, "{} - {}", self.artists.join(", "), self.title)
     }
 }
 
 impl fmt::Debug for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let active_fields = config::ACTIVE_FIELDS.read().unwrap().clone();
-        let mut fields: Vec<config::ActiveField> = Vec::new();
-        fields.append(
-            &mut active_fields
-                .left
-                .unwrap_or(vec![ActiveField::Artists, ActiveField::Title])
-                .clone(),
-        );
-        fields.append(
-            &mut active_fields
-                .center
-                .unwrap_or(vec![ActiveField::Album])
-                .clone(),
-        );
-        if fields.contains(&config::ActiveField::Title)
-            && !fields.contains(&config::ActiveField::Artists)
-        {
-            write!(f, "({} ({:?}))", self.title, self.id)
-        } else if fields.contains(&config::ActiveField::Artists)
-            && !fields.contains(&config::ActiveField::Title)
-        {
-            write!(f, "({} ({:?}))", self.artists.join(", "), self.id)
-        } else if !fields.contains(&config::ActiveField::Default)
-            && !fields.contains(&config::ActiveField::Title)
-            && !fields.contains(&config::ActiveField::Artists)
-        {
-            write!(f, "")
-        } else {
-            let mut title_index = 0;
-            let mut artists_index = 1;
-            for (i, field) in fields.iter().enumerate() {
-                match field {
-                    config::ActiveField::Title => title_index = i,
-                    config::ActiveField::Artists => artists_index = i,
-                    _ => {}
-                }
-            }
-            if title_index < artists_index {
-                write!(
-                    f,
-                    "({} - {} ({:?}))",
-                    self.title,
-                    self.artists.join(", "),
-                    self.id
-                )
-            } else {
-                write!(
-                    f,
-                    "({} - {} ({:?}))",
-                    self.artists.join(", "),
-                    self.title,
-                    self.id
-                )
-            }
-        }
+        write!(
+            f,
+            "({} - {} ({:?}))",
+            self.artists.join(", "),
+            self.title,
+            self.id
+        )
     }
+}
+
+fn format(track: &Track, formatting: String, library: Option<Arc<Library>>) -> String {
+    formatting
+        .replace("%artists", track.artists.join(", ").as_str())
+        .replace("%title", track.title.as_str())
+        .replace("%album", track.album.clone().unwrap_or_default().as_str())
+        .replace(
+            "%saved",
+            if let Some(lib) = library {
+                if lib.is_saved_track(&Playable::Track(track.clone())) {
+                    if lib.cfg.values().use_nerdfont.unwrap_or(false) {
+                        "\u{f62b}"
+                    } else {
+                        "✓"
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            },
+        )
+        .replace("%duration", track.duration_str().as_str())
 }
 
 impl ListItem for Track {
@@ -269,67 +206,47 @@ impl ListItem for Track {
         current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
-    fn as_listitem(&self) -> Box<dyn ListItem> {
-        Box::new(self.clone())
-    }
-
-    fn display_left(&self) -> String {
-        let active_fields = config::ACTIVE_FIELDS.read().unwrap().clone();
-        let left = active_fields
-            .left
-            .unwrap_or(vec![config::ActiveField::Default]);
-        if !left.is_empty() {
-            if !left.contains(&config::ActiveField::Album)
-                && (left.contains(&config::ActiveField::Default)
-                    || left.contains(&config::ActiveField::Title)
-                    || left.contains(&config::ActiveField::Artists))
-            {
-                format!("{}", self)
-            } else {
-                format!("{}", self.album.clone().unwrap_or_default())
-            }
+    fn display_left(&self, library: Option<Arc<Library>>) -> String {
+        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+        let default = config::TracklistFormatting::default().format_left.unwrap();
+        let left = formatting.format_left.unwrap_or(default.clone());
+        if left != default {
+            format(self, left, library)
         } else {
-            String::new()
+            format!("{}", self)
         }
     }
 
-    fn display_center(&self) -> String {
-        let active_fields = config::ACTIVE_FIELDS.read().unwrap().clone();
-        let center = active_fields
-            .center
-            .unwrap_or(vec![config::ActiveField::Default]);
-        if !center.is_empty() {
-            if center.contains(&config::ActiveField::Default)
-                || center.contains(&config::ActiveField::Album)
-            {
-                self.album.clone().unwrap_or_default()
-            } else if center.contains(&config::ActiveField::Title)
-                || center.contains(&config::ActiveField::Artists)
-            {
-                format!("{}", self)
-            } else {
-                String::new()
-            }
+    fn display_center(&self, library: Arc<Library>) -> String {
+        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+        let default = config::TracklistFormatting::default()
+            .format_center
+            .unwrap();
+        let center = formatting.format_center.unwrap_or(default.clone());
+        if center != default {
+            format(self, center, Some(library))
         } else {
-            String::new()
+            self.album.clone().unwrap_or_default()
         }
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let active_fields = config::ACTIVE_FIELDS.read().unwrap().clone();
-        if active_fields.right.unwrap_or(true) {
+        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+        let default = config::TracklistFormatting::default().format_right.unwrap();
+        let right = formatting.format_right.unwrap_or(default.clone());
+        if right != default {
+            format(self, right, Some(library))
+        } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                    "\u{f62b} "
+                    "\u{f62b}"
                 } else {
-                    "✓ "
+                    "✓"
                 }
             } else {
                 ""
             };
-            format!("{}{}", saved, self.duration_str())
-        } else {
-            String::new()
+            format!("{} {}", saved, self.duration_str())
         }
     }
 
@@ -346,20 +263,20 @@ impl ListItem for Track {
         queue.append(Playable::Track(self.clone()));
     }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_tracks(vec![self], true);
-    }
-
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_tracks(vec![self], true);
-    }
-
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_saved_track(&Playable::Track(self.clone())) {
             library.unsave_tracks(vec![self], true);
         } else {
             library.save_tracks(vec![self], true);
         }
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        library.save_tracks(vec![self], true);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unsave_tracks(vec![self], true);
     }
 
     fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
@@ -425,5 +342,9 @@ impl ListItem for Track {
 
     fn track(&self) -> Option<Track> {
         Some(self.clone())
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        Box::new(self.clone())
     }
 }

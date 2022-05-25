@@ -33,26 +33,18 @@ pub enum LibraryTab {
     Podcasts,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-pub enum ActiveField {
-    Title,
-    Artists,
-    Album,
-    Default,
-}
-
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct ActiveFields {
-    pub left: Option<Vec<ActiveField>>,
-    pub center: Option<Vec<ActiveField>>,
-    pub right: Option<bool>,
+pub struct TracklistFormatting {
+    pub format_left: Option<String>,
+    pub format_center: Option<String>,
+    pub format_right: Option<String>,
 }
-impl ActiveFields {
-    fn default() -> Self {
-        ActiveFields {
-            left: Some(vec![ActiveField::Artists, ActiveField::Title]),
-            center: Some(vec![ActiveField::Album]),
-            right: Some(true),
+impl TracklistFormatting {
+    pub fn default() -> Self {
+        TracklistFormatting {
+            format_left: Some(String::from("%artists - %title")),
+            format_center: Some(String::from("%album")),
+            format_right: Some(String::from("%saved %duration")),
         }
     }
 }
@@ -79,8 +71,8 @@ pub struct ConfigValues {
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
+    pub tracklist_formatting: Option<TracklistFormatting>,
     pub library_tabs: Option<Vec<LibraryTab>>,
-    pub active_fields: Option<ActiveFields>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -146,7 +138,8 @@ impl Default for UserState {
 
 lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
-    pub static ref ACTIVE_FIELDS: RwLock<ActiveFields> = RwLock::new(ActiveFields::default());
+    pub static ref TRACKLIST_FORMATTING: RwLock<TracklistFormatting> =
+        RwLock::new(TracklistFormatting::default());
 }
 
 pub struct Config {
@@ -180,9 +173,9 @@ impl Config {
             userstate.playback_state = playback_state;
         }
 
-        if let Some(active_fields) = values.active_fields.clone() {
-            let mut a = ACTIVE_FIELDS.write().unwrap();
-            *a = active_fields;
+        if let Some(tracklist_formatting) = values.tracklist_formatting.clone() {
+            let mut t = TRACKLIST_FORMATTING.write().unwrap();
+            *t = tracklist_formatting;
         }
 
         Self {

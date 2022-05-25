@@ -165,11 +165,7 @@ impl ListItem for Album {
         }
     }
 
-    fn as_listitem(&self) -> Box<dyn ListItem> {
-        Box::new(self.clone())
-    }
-
-    fn display_left(&self) -> String {
+    fn display_left(&self, _library: Option<Arc<Library>>) -> String {
         format!("{}", self)
     }
 
@@ -219,20 +215,20 @@ impl ListItem for Album {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_album(self);
-    }
-
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_album(self);
-    }
-
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_saved_album(self) {
             library.unsave_album(self);
         } else {
             library.save_album(self);
         }
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        library.save_album(self);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unsave_album(self);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
@@ -300,5 +296,9 @@ impl ListItem for Album {
                 .map(|(id, name)| Artist::new(id.clone(), name.clone()))
                 .collect(),
         )
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        Box::new(self.clone())
     }
 }
