@@ -191,7 +191,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn display_left(&self, _library: Option<Arc<Library>>) -> String {
+    fn display_left(&self, _library: Arc<Library>) -> String {
         match self.owner_name.as_ref() {
             Some(owner) => format!("{} • {}", self.name, owner),
             None => self.name.clone(),
