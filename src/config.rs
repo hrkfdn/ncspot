@@ -39,6 +39,7 @@ pub struct TracklistFormatting {
     pub format_center: Option<String>,
     pub format_right: Option<String>,
 }
+
 impl TracklistFormatting {
     pub fn default() -> Self {
         TracklistFormatting {
@@ -138,8 +139,6 @@ impl Default for UserState {
 
 lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
-    pub static ref TRACKLIST_FORMATTING: RwLock<TracklistFormatting> =
-        RwLock::new(TracklistFormatting::default());
 }
 
 pub struct Config {
@@ -171,11 +170,6 @@ impl Config {
 
         if let Some(playback_state) = values.playback_state.clone() {
             userstate.playback_state = playback_state;
-        }
-
-        if let Some(tracklist_formatting) = values.tracklist_formatting.clone() {
-            let mut t = TRACKLIST_FORMATTING.write().unwrap();
-            *t = tracklist_formatting;
         }
 
         Self {

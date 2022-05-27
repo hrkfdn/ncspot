@@ -76,7 +76,7 @@ impl ListItem for Show {
         false
     }
 
-    fn display_left(&self, _library: Option<Arc<Library>>) -> String {
+    fn display_left(&self, _library: Arc<Library>) -> String {
         format!("{}", self)
     }
 

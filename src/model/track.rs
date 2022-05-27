@@ -176,22 +176,18 @@ impl fmt::Debug for Track {
     }
 }
 
-fn format(track: &Track, formatting: String, library: Option<Arc<Library>>) -> String {
+fn format(track: &Track, formatting: String, library: Arc<Library>) -> String {
     formatting
         .replace("%artists", track.artists.join(", ").as_str())
         .replace("%title", track.title.as_str())
         .replace("%album", track.album.clone().unwrap_or_default().as_str())
         .replace(
             "%saved",
-            if let Some(lib) = library {
-                if lib.is_saved_track(&Playable::Track(track.clone())) {
-                    if lib.cfg.values().use_nerdfont.unwrap_or(false) {
-                        "\u{f62b}"
-                    } else {
-                        "✓"
-                    }
+            if library.is_saved_track(&Playable::Track(track.clone())) {
+                if library.cfg.values().use_nerdfont.unwrap_or(false) {
+                    "\u{f62b}"
                 } else {
-                    ""
+                    "✓"
                 }
             } else {
                 ""
@@ -206,10 +202,15 @@ impl ListItem for Track {
         current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
-    fn display_left(&self, library: Option<Arc<Library>>) -> String {
-        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+    fn display_left(&self, library: Arc<Library>) -> String {
+        let formatting = library
+            .cfg
+            .values()
+            .tracklist_formatting
+            .clone()
+            .unwrap_or_default();
         let default = config::TracklistFormatting::default().format_left.unwrap();
-        let left = formatting.format_left.unwrap_or(default.clone());
+        let left = formatting.format_left.unwrap_or_else(|| default.clone());
         if left != default {
             format(self, left, library)
         } else {
@@ -218,24 +219,34 @@ impl ListItem for Track {
     }
 
     fn display_center(&self, library: Arc<Library>) -> String {
-        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+        let formatting = library
+            .cfg
+            .values()
+            .tracklist_formatting
+            .clone()
+            .unwrap_or_default();
         let default = config::TracklistFormatting::default()
             .format_center
             .unwrap();
-        let center = formatting.format_center.unwrap_or(default.clone());
+        let center = formatting.format_center.unwrap_or_else(|| default.clone());
         if center != default {
-            format(self, center, Some(library))
+            format(self, center, library)
         } else {
             self.album.clone().unwrap_or_default()
         }
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let formatting = config::TRACKLIST_FORMATTING.read().unwrap().clone();
+        let formatting = library
+            .cfg
+            .values()
+            .tracklist_formatting
+            .clone()
+            .unwrap_or_default();
         let default = config::TracklistFormatting::default().format_right.unwrap();
-        let right = formatting.format_right.unwrap_or(default.clone());
+        let right = formatting.format_right.unwrap_or_else(|| default.clone());
         if right != default {
-            format(self, right, Some(library))
+            format(self, right, library)
         } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {

@@ -215,48 +215,51 @@ impl ContextMenu {
         }
 
         // open detail view of artist/album
-        content.set_on_submit(move |s: &mut Cursive, action: &ContextMenuAction| {
-            s.pop_layer();
-            let queue = queue.clone();
+        {
             let library = library.clone();
+            content.set_on_submit(move |s: &mut Cursive, action: &ContextMenuAction| {
+                let queue = queue.clone();
+                let library = library.clone();
+                s.pop_layer();
 
-            match action {
-                ContextMenuAction::PlayTrack(track) => {
-                    let dialog = Self::play_track_dialog(queue, *track.clone());
-                    s.add_layer(dialog);
-                }
-                ContextMenuAction::ShowItem(item) => {
-                    if let Some(view) = item.open(queue, library) {
-                        s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                match action {
+                    ContextMenuAction::PlayTrack(track) => {
+                        let dialog = Self::play_track_dialog(queue, *track.clone());
+                        s.add_layer(dialog);
+                    }
+                    ContextMenuAction::ShowItem(item) => {
+                        if let Some(view) = item.open(queue, library) {
+                            s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                        }
+                    }
+                    ContextMenuAction::ShareUrl(url) => {
+                        #[cfg(feature = "share_clipboard")]
+                        write_share(url.to_string());
+                    }
+                    ContextMenuAction::AddToPlaylist(track) => {
+                        let dialog =
+                            Self::add_track_dialog(library, queue.get_spotify(), *track.clone());
+                        s.add_layer(dialog);
+                    }
+                    ContextMenuAction::ShowRecommendations(item) => {
+                        if let Some(view) = item.to_owned().open_recommendations(queue, library) {
+                            s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                        }
+                    }
+                    ContextMenuAction::ToggleTrackSavedStatus(track) => {
+                        let mut track: Track = *track.clone();
+                        track.toggle_saved(library);
+                    }
+                    ContextMenuAction::SelectArtist(artists) => {
+                        let dialog = Self::select_artist_dialog(library, queue, artists.clone());
+                        s.add_layer(dialog);
                     }
                 }
-                ContextMenuAction::ShareUrl(url) => {
-                    #[cfg(feature = "share_clipboard")]
-                    write_share(url.to_string());
-                }
-                ContextMenuAction::AddToPlaylist(track) => {
-                    let dialog =
-                        Self::add_track_dialog(library, queue.get_spotify(), *track.clone());
-                    s.add_layer(dialog);
-                }
-                ContextMenuAction::ShowRecommendations(item) => {
-                    if let Some(view) = item.to_owned().open_recommendations(queue, library) {
-                        s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
-                    }
-                }
-                ContextMenuAction::ToggleTrackSavedStatus(track) => {
-                    let mut track: Track = *track.clone();
-                    track.toggle_saved(library);
-                }
-                ContextMenuAction::SelectArtist(artists) => {
-                    let dialog = Self::select_artist_dialog(library, queue, artists.clone());
-                    s.add_layer(dialog);
-                }
-            }
-        });
+            });
+        }
 
         let dialog = Dialog::new()
-            .title(item.display_left(None))
+            .title(item.display_left(library))
             .dismiss_button("Cancel")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));

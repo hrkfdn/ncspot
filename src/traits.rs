@@ -14,7 +14,7 @@ use crate::queue::Queue;
 
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
-    fn display_left(&self, library: Option<Arc<Library>>) -> String;
+    fn display_left(&self, library: Arc<Library>) -> String;
     fn display_center(&self, _library: Arc<Library>) -> String {
         "".to_string()
     }

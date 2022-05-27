@@ -106,7 +106,7 @@ impl ListItem for Playable {
         self.as_listitem().is_playing(queue)
     }
 
-    fn display_left(&self, library: Option<Arc<Library>>) -> String {
+    fn display_left(&self, library: Arc<Library>) -> String {
         self.as_listitem().display_left(library)
     }
 
