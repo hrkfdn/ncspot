@@ -1,6 +1,7 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+use crate::config;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
@@ -181,33 +182,61 @@ impl ListItem for Track {
         current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
-    fn as_listitem(&self) -> Box<dyn ListItem> {
-        Box::new(self.clone())
-    }
-
-    fn display_left(&self) -> String {
-        format!("{}", self)
+    fn display_left(&self, library: Arc<Library>) -> String {
+        let formatting = library
+            .cfg
+            .values()
+            .track_format
+            .clone()
+            .unwrap_or_default();
+        let default = config::TrackFormat::default().left.unwrap();
+        let left = formatting.left.unwrap_or_else(|| default.clone());
+        if left != default {
+            Playable::format(Playable::Track(self.clone()), left, library)
+        } else {
+            format!("{}", self)
+        }
     }
 
     fn display_center(&self, library: Arc<Library>) -> String {
-        if library.cfg.values().album_column.unwrap_or(true) {
-            self.album.clone().unwrap_or_default()
+        let formatting = library
+            .cfg
+            .values()
+            .track_format
+            .clone()
+            .unwrap_or_default();
+        let default = config::TrackFormat::default().center.unwrap();
+        let center = formatting.center.unwrap_or_else(|| default.clone());
+        if center != default {
+            Playable::format(Playable::Track(self.clone()), center, library)
         } else {
-            "".to_string()
+            self.album.clone().unwrap_or_default()
         }
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
-            if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                "\u{f62b} "
-            } else {
-                "✓ "
-            }
+        let formatting = library
+            .cfg
+            .values()
+            .track_format
+            .clone()
+            .unwrap_or_default();
+        let default = config::TrackFormat::default().right.unwrap();
+        let right = formatting.right.unwrap_or_else(|| default.clone());
+        if right != default {
+            Playable::format(Playable::Track(self.clone()), right, library)
         } else {
-            ""
-        };
-        format!("{}{}", saved, self.duration_str())
+            let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
+                if library.cfg.values().use_nerdfont.unwrap_or(false) {
+                    "\u{f62b}"
+                } else {
+                    "✓"
+                }
+            } else {
+                ""
+            };
+            format!("{} {}", saved, self.duration_str())
+        }
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -223,20 +252,20 @@ impl ListItem for Track {
         queue.append(Playable::Track(self.clone()));
     }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_tracks(vec![self], true);
-    }
-
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_tracks(vec![self], true);
-    }
-
     fn toggle_saved(&mut self, library: Arc<Library>) {
         if library.is_saved_track(&Playable::Track(self.clone())) {
             library.unsave_tracks(vec![self], true);
         } else {
             library.save_tracks(vec![self], true);
         }
+    }
+
+    fn save(&mut self, library: Arc<Library>) {
+        library.save_tracks(vec![self], true);
+    }
+
+    fn unsave(&mut self, library: Arc<Library>) {
+        library.unsave_tracks(vec![self], true);
     }
 
     fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
@@ -302,5 +331,9 @@ impl ListItem for Track {
 
     fn track(&self) -> Option<Track> {
         Some(self.clone())
+    }
+
+    fn as_listitem(&self) -> Box<dyn ListItem> {
+        Box::new(self.clone())
     }
 }

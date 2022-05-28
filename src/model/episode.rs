@@ -75,7 +75,7 @@ impl ListItem for Episode {
             .unwrap_or(false)
     }
 
-    fn display_left(&self) -> String {
+    fn display_left(&self, _library: Arc<Library>) -> String {
         self.name.clone()
     }
 

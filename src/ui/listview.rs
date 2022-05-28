@@ -108,7 +108,7 @@ impl<I: ListItem> ListView<I> {
             .iter()
             .enumerate()
             .filter(|(_, i)| {
-                i.display_left()
+                i.display_left(self.library.clone())
                     .to_lowercase()
                     .contains(&query[..].to_lowercase())
             })
@@ -189,7 +189,7 @@ impl<I: ListItem> View for ListView<I> {
                     ColorStyle::primary()
                 };
 
-                let left = item.display_left();
+                let left = item.display_left(self.library.clone());
                 let center = item.display_center(self.library.clone());
                 let right = item.display_right(self.library.clone());
                 let draw_center = !center.is_empty();

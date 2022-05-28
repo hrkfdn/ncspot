@@ -46,6 +46,7 @@ as the \*BSDs.
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
     - [Theming](#theming)
+    - [Track Formatting](#track-formatting)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
 
@@ -328,6 +329,7 @@ Possible configuration values are:
 | `repeat`                 | Set default repeat mode                           | `off`, `track`, `playlist`                                      | `off`       |
 | `playback_state`         | Set default playback state                        | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
 | `library_tabs`           | Tabs to show in library screen                    | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
+| `[track_format]`         | Set active fields shown in Library/Queue views    | See [track formatting](#track-formatting)                       |             |
 | `[theme]`                | Custom theme                                      | See [custom theme](#theming)                                    |             |
 | `[keybindings]`          | Custom keybindings                                | See [custom keybindings](#custom-keybindings)                   |             |
 
@@ -384,6 +386,65 @@ search_match = "light red"
 ```
 
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
+
+### Track Formatting
+It's possible to customize which fields are shown in Queue/Library views.
+If you don't define `center` for example, the default value will be used.
+Available options for tracks:
+`%artists`, `%title`, `%album`, `%saved`, `%duration`
+Default configuration:
+
+```toml
+[track_format]
+left = "%artists - %title"
+center = "%album"
+right = "%saved %duration"
+```
+
+<details><summary>Examples: (Click to show/hide)</summary>
+
+
+Example 1 - Show only album name and track name after it:
+
+```toml
+[track_format]
+left = "%album"
+center = "%title"
+right = ""
+```
+
+Example 2 - Show track title before artists, and don't show album at all:
+
+```toml
+[track_format]
+left = "%title - %artists"
+center = ""
+```
+
+Example 3 - Show everything as default, but hide saved status and track length:
+
+```toml
+[track_format]
+right = ""
+```
+
+Example 4 - Show everything as default, except show title before artists:
+
+```toml
+[track_format]
+left = "%title - %artists"
+```
+
+Example 5 - Show saved status and duration first, followed by track title and artists, with the album last:
+
+```toml
+[track_format]
+left = "|%saved| %duration | %title - %artists"
+center = ""
+right = "%album"
+```
+
+</details>
 
 ## Cover Drawing
 

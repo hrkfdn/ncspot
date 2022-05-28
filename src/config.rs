@@ -33,6 +33,23 @@ pub enum LibraryTab {
     Podcasts,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct TrackFormat {
+    pub left: Option<String>,
+    pub center: Option<String>,
+    pub right: Option<String>,
+}
+
+impl TrackFormat {
+    pub fn default() -> Self {
+        TrackFormat {
+            left: Some(String::from("%artists - %title")),
+            center: Some(String::from("%album")),
+            right: Some(String::from("%saved %duration")),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -50,12 +67,12 @@ pub struct ConfigValues {
     pub volnorm_pregain: Option<f64>,
     pub notify: Option<bool>,
     pub bitrate: Option<u32>,
-    pub album_column: Option<bool>,
     pub gapless: Option<bool>,
     pub shuffle: Option<bool>,
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
+    pub track_format: Option<TrackFormat>,
     pub library_tabs: Option<Vec<LibraryTab>>,
 }
 
