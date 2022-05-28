@@ -176,26 +176,6 @@ impl fmt::Debug for Track {
     }
 }
 
-fn format(track: &Track, formatting: String, library: Arc<Library>) -> String {
-    formatting
-        .replace("%artists", track.artists.join(", ").as_str())
-        .replace("%title", track.title.as_str())
-        .replace("%album", track.album.clone().unwrap_or_default().as_str())
-        .replace(
-            "%saved",
-            if library.is_saved_track(&Playable::Track(track.clone())) {
-                if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                    "\u{f62b}"
-                } else {
-                    "✓"
-                }
-            } else {
-                ""
-            },
-        )
-        .replace("%duration", track.duration_str().as_str())
-}
-
 impl ListItem for Track {
     fn is_playing(&self, queue: Arc<Queue>) -> bool {
         let current = queue.get_current();
@@ -212,7 +192,7 @@ impl ListItem for Track {
         let default = config::TracklistFormatting::default().format_left.unwrap();
         let left = formatting.format_left.unwrap_or_else(|| default.clone());
         if left != default {
-            format(self, left, library)
+            Playable::format(Playable::Track(self.clone()), left, library)
         } else {
             format!("{}", self)
         }
@@ -230,7 +210,7 @@ impl ListItem for Track {
             .unwrap();
         let center = formatting.format_center.unwrap_or_else(|| default.clone());
         if center != default {
-            format(self, center, library)
+            Playable::format(Playable::Track(self.clone()), center, library)
         } else {
             self.album.clone().unwrap_or_default()
         }
@@ -246,7 +226,7 @@ impl ListItem for Track {
         let default = config::TracklistFormatting::default().format_right.unwrap();
         let right = formatting.format_right.unwrap_or_else(|| default.clone());
         if right != default {
-            format(self, right, library)
+            Playable::format(Playable::Track(self.clone()), right, library)
         } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {

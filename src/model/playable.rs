@@ -19,6 +19,55 @@ pub enum Playable {
 }
 
 impl Playable {
+    pub fn format(playable: Playable, formatting: String, library: Arc<Library>) -> String {
+        formatting
+            .replace(
+                "%artists",
+                if let Some(artists) = playable.artists() {
+                    artists
+                        .iter()
+                        .map(|artist| artist.clone().name)
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                } else {
+                    String::new()
+                }
+                .as_str(),
+            )
+            .replace(
+                "%title",
+                match playable.clone() {
+                    Playable::Episode(episode) => episode.name,
+                    Playable::Track(track) => track.title,
+                }
+                .as_str(),
+            )
+            .replace(
+                "%album",
+                match playable.clone() {
+                    Playable::Track(track) => track.album.unwrap_or_default(),
+                    _ => String::new(),
+                }
+                .as_str(),
+            )
+            .replace(
+                "%saved",
+                if library.is_saved_track(&match playable.clone() {
+                    Playable::Episode(episode) => Playable::Episode(episode),
+                    Playable::Track(track) => Playable::Track(track),
+                }) {
+                    if library.cfg.values().use_nerdfont.unwrap_or_default() {
+                        "\u{f62b}"
+                    } else {
+                        "✓"
+                    }
+                } else {
+                    ""
+                },
+            )
+            .replace("%duration", playable.duration_str().as_str())
+    }
+
     pub fn id(&self) -> Option<String> {
         match self {
             Playable::Track(track) => track.id.clone(),
