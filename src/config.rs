@@ -34,18 +34,18 @@ pub enum LibraryTab {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct TracklistFormatting {
-    pub format_left: Option<String>,
-    pub format_center: Option<String>,
-    pub format_right: Option<String>,
+pub struct TrackFormat {
+    pub left: Option<String>,
+    pub center: Option<String>,
+    pub right: Option<String>,
 }
 
-impl TracklistFormatting {
+impl TrackFormat {
     pub fn default() -> Self {
-        TracklistFormatting {
-            format_left: Some(String::from("%artists - %title")),
-            format_center: Some(String::from("%album")),
-            format_right: Some(String::from("%saved %duration")),
+        TrackFormat {
+            left: Some(String::from("%artists - %title")),
+            center: Some(String::from("%album")),
+            right: Some(String::from("%saved %duration")),
         }
     }
 }
@@ -72,7 +72,7 @@ pub struct ConfigValues {
     pub repeat: Option<queue::RepeatSetting>,
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
-    pub tracklist_formatting: Option<TracklistFormatting>,
+    pub track_format: Option<TrackFormat>,
     pub library_tabs: Option<Vec<LibraryTab>>,
 }
 

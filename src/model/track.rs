@@ -186,11 +186,11 @@ impl ListItem for Track {
         let formatting = library
             .cfg
             .values()
-            .tracklist_formatting
+            .track_format
             .clone()
             .unwrap_or_default();
-        let default = config::TracklistFormatting::default().format_left.unwrap();
-        let left = formatting.format_left.unwrap_or_else(|| default.clone());
+        let default = config::TrackFormat::default().left.unwrap();
+        let left = formatting.left.unwrap_or_else(|| default.clone());
         if left != default {
             Playable::format(Playable::Track(self.clone()), left, library)
         } else {
@@ -202,13 +202,11 @@ impl ListItem for Track {
         let formatting = library
             .cfg
             .values()
-            .tracklist_formatting
+            .track_format
             .clone()
             .unwrap_or_default();
-        let default = config::TracklistFormatting::default()
-            .format_center
-            .unwrap();
-        let center = formatting.format_center.unwrap_or_else(|| default.clone());
+        let default = config::TrackFormat::default().center.unwrap();
+        let center = formatting.center.unwrap_or_else(|| default.clone());
         if center != default {
             Playable::format(Playable::Track(self.clone()), center, library)
         } else {
@@ -220,11 +218,11 @@ impl ListItem for Track {
         let formatting = library
             .cfg
             .values()
-            .tracklist_formatting
+            .track_format
             .clone()
             .unwrap_or_default();
-        let default = config::TracklistFormatting::default().format_right.unwrap();
-        let right = formatting.format_right.unwrap_or_else(|| default.clone());
+        let default = config::TrackFormat::default().right.unwrap();
+        let right = formatting.right.unwrap_or_else(|| default.clone());
         if right != default {
             Playable::format(Playable::Track(self.clone()), right, library)
         } else {
