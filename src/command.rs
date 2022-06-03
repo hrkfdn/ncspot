@@ -138,6 +138,7 @@ pub enum Command {
     VolumeDown(u16),
     Repeat(Option<RepeatSetting>),
     Shuffle(Option<bool>),
+    #[cfg(feature = "share_clipboard")]
     Share(TargetMode),
     Back,
     Open(TargetMode),
@@ -174,6 +175,7 @@ impl fmt::Display for Command {
                 Some(b) => vec![(if *b { "on" } else { "off" }).into()],
                 None => vec![],
             },
+            #[cfg(feature = "share_clipboard")]
             Command::Share(mode) => vec![mode.to_string()],
             Command::Open(mode) => vec![mode.to_string()],
             Command::Goto(mode) => vec![mode.to_string()],
@@ -243,6 +245,7 @@ impl Command {
             Command::VolumeDown(_) => "voldown",
             Command::Repeat(_) => "repeat",
             Command::Shuffle(_) => "shuffle",
+            #[cfg(feature = "share_clipboard")]
             Command::Share(_) => "share",
             Command::Back => "back",
             Command::Open(_) => "open",
@@ -499,6 +502,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }?;
                 Command::Shuffle(switch)
             }
+            #[cfg(feature = "share_clipboard")]
             "share" => {
                 let &target_mode_raw = args.get(0).ok_or(InsufficientArgs {
                     cmd: command.into(),
@@ -631,18 +635,18 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     match args.get(0).cloned() {
                         #[cfg(feature = "share_clipboard")]
                         Some("") | None => Ok(InsertSource::Clipboard),
+                        // if clipboard feature is disabled and args is empty
+                        #[cfg(not(feature = "share_clipboard"))]
+                        None => Err(InsufficientArgs {
+                            cmd: command.into(),
+                            hint: Some("a Spotify URL".into()),
+                        }),
                         Some(url) => SpotifyUrl::from_url(url).map(InsertSource::Input).ok_or(
                             ArgParseError {
                                 arg: url.into(),
                                 err: "Invalid Spotify URL".into(),
                             },
                         ),
-                        // if clipboard feature is disabled and args is empty
-                        #[allow(unreachable_patterns)]
-                        None => Err(InsufficientArgs {
-                            cmd: command.into(),
-                            hint: Some("a Spotify URL".into()),
-                        }),
                     }?;
                 Command::Insert(insert_source)
             }

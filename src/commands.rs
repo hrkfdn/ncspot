@@ -3,8 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::command::{
-    parse, Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, SeekDirection,
-    ShiftMode, TargetMode,
+    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
 use crate::config::Config;
 use crate::events::EventManager;
@@ -275,7 +274,6 @@ impl CommandManager {
             | Command::SaveQueue
             | Command::Delete
             | Command::Focus(_)
-            | Command::Share(_)
             | Command::Back
             | Command::Open(_)
             | Command::Goto(_)
@@ -285,6 +283,11 @@ impl CommandManager {
             | Command::Insert(_)
             | Command::ShowRecommendations(_)
             | Command::Sort(_, _) => Err(format!(
+                "The command \"{}\" is unsupported in this view",
+                cmd.basename()
+            )),
+            #[cfg(feature = "share_clipboard")]
+            Command::Share(_) => Err(format!(
                 "The command \"{}\" is unsupported in this view",
                 cmd.basename()
             )),
@@ -424,8 +427,12 @@ impl CommandManager {
 
         kb.insert("r".into(), vec![Command::Repeat(None)]);
         kb.insert("z".into(), vec![Command::Shuffle(None)]);
-        kb.insert("x".into(), vec![Command::Share(TargetMode::Selected)]);
-        kb.insert("Shift+x".into(), vec![Command::Share(TargetMode::Current)]);
+
+        #[cfg(feature = "share_clipboard")]
+        {
+            kb.insert("x".into(), vec![Command::Share(TargetMode::Selected)]);
+            kb.insert("Shift+x".into(), vec![Command::Share(TargetMode::Current)]);
+        }
 
         kb.insert("F1".into(), vec![Command::Focus("queue".into())]);
         kb.insert("F2".into(), vec![Command::Focus("search".into())]);
@@ -528,7 +535,7 @@ impl CommandManager {
         #[cfg(feature = "share_clipboard")]
         kb.insert(
             "Ctrl+v".into(),
-            vec![Command::Insert(InsertSource::Clipboard)],
+            vec![Command::Insert(crate::command::InsertSource::Clipboard)],
         );
 
         kb

@@ -239,6 +239,7 @@ impl ViewExt for CoverView {
                     track.unsave(self.library.clone());
                 }
             }
+            #[cfg(feature = "share_clipboard")]
             Command::Share(_mode) => {
                 let url = self
                     .queue
@@ -246,7 +247,6 @@ impl ViewExt for CoverView {
                     .and_then(|t| t.as_listitem().share_url());
 
                 if let Some(url) = url {
-                    #[cfg(feature = "share_clipboard")]
                     crate::sharing::write_share(url);
                 }
 

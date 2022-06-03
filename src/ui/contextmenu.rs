@@ -43,6 +43,7 @@ enum ContextMenuAction {
     PlayTrack(Box<Track>),
     ShowItem(Box<dyn ListItem>),
     SelectArtist(Vec<Artist>),
+    #[cfg(feature = "share_clipboard")]
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
     ShowRecommendations(Box<Track>),
@@ -183,13 +184,14 @@ impl ContextMenu {
         if let Some(a) = item.album(queue.clone()) {
             content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
         }
-        if let Some(url) = item.share_url() {
-            #[cfg(feature = "share_clipboard")]
-            content.add_item("Share", ContextMenuAction::ShareUrl(url));
-        }
-        if let Some(url) = item.album(queue.clone()).and_then(|a| a.share_url()) {
-            #[cfg(feature = "share_clipboard")]
-            content.add_item("Share album", ContextMenuAction::ShareUrl(url));
+        #[cfg(feature = "share_clipboard")]
+        {
+            if let Some(url) = item.share_url() {
+                content.add_item("Share", ContextMenuAction::ShareUrl(url));
+            }
+            if let Some(url) = item.album(queue.clone()).and_then(|a| a.share_url()) {
+                content.add_item("Share album", ContextMenuAction::ShareUrl(url));
+            }
         }
         if let Some(t) = item.track() {
             content.insert_item(
@@ -232,8 +234,8 @@ impl ContextMenu {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                         }
                     }
+                    #[cfg(feature = "share_clipboard")]
                     ContextMenuAction::ShareUrl(url) => {
-                        #[cfg(feature = "share_clipboard")]
                         write_share(url.to_string());
                     }
                     ContextMenuAction::AddToPlaylist(track) => {
