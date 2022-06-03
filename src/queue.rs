@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+#[cfg(feature = "notify")]
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
@@ -35,6 +36,7 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
+    #[cfg(feature = "notify")]
     notification_id: Arc<AtomicU32>,
 }
 
@@ -48,6 +50,7 @@ impl Queue {
             current_track: RwLock::new(queue_state.current_track),
             random_order: RwLock::new(queue_state.random_order),
             cfg,
+            #[cfg(feature = "notify")]
             notification_id: Arc::new(AtomicU32::new(0)),
         };
 

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// Returns a human readable String of a Duration
 ///
 /// Example: `3h 12m 53s`
