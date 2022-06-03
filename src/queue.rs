@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
 #[cfg(feature = "notify")]
-use notify_rust::Notification;
+use notify_rust::{Hint, Notification};
 
 use rand::prelude::*;
 use strum_macros::Display;
@@ -449,6 +449,7 @@ pub fn send_notification(
 
         Notification::new()
             .appname("ncspot")
+            .hint(Hint::DesktopEntry("ncspot".into()))
             .id(current_notification_id)
             .summary(track_name)
             .icon(path.to_str().unwrap())
@@ -456,6 +457,7 @@ pub fn send_notification(
     } else {
         Notification::new()
             .appname("ncspot")
+            .hint(Hint::DesktopEntry("ncspot".into()))
             .id(current_notification_id)
             .summary(track_name)
             .show()
