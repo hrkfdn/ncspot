@@ -14,7 +14,7 @@ use {
 
 #[cfg(feature = "share_selection")]
 use clipboard::{x11_clipboard, x11_clipboard::X11ClipboardContext};
-#[cfg(feature = "share_selection")]
+#[cfg(all(feature = "share_selection", feature = "wayland_clipboard"))]
 use wl_clipboard_rs::utils::{is_primary_selection_supported, PrimarySelectionCheckError};
 
 #[cfg(not(feature = "share_selection"))]
@@ -80,8 +80,8 @@ pub fn read_share() -> Option<String> {
         #[cfg(feature = "wayland_clipboard")]
         {
             //use wayland clipboard
-            match is_primary_selection_supported() {
-                Ok(supported) => {
+            string = match is_primary_selection_supported() {
+                Ok(_supported) => {
                     let result = get_contents(
                         paste::ClipboardType::Primary,
                         Seat::Unspecified,
@@ -124,11 +124,7 @@ pub fn read_share() -> Option<String> {
                 }
             }
         }
-        if let Some(s) = string {
-            Some(s)
-        } else {
-            None
-        }
+        string
     } else {
         //use x11 clipboard
         ClipboardProvider::new()

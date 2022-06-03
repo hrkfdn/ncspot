@@ -14,9 +14,6 @@ use crate::model::playable::Playable;
 use crate::spotify::Spotify;
 use crate::{config::Config, spotify::PlayerEvent};
 
-#[cfg(feature = "cover")]
-use crate::ui;
-
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     #[serde(rename = "off")]
