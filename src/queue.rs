@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
 #[cfg(feature = "notify")]
-use notify_rust::{Hint, Notification};
+use notify_rust::{Hint, Notification, Urgency};
 
 use rand::prelude::*;
 use strum_macros::Display;
@@ -454,9 +454,11 @@ pub fn send_notification(
         n.icon(path.to_str().unwrap());
     }
 
-    // XDG desktop entry hint
+    // XDG desktop entry hints
     #[cfg(all(unix, not(target_os = "macos")))]
-    n.hint(Hint::DesktopEntry("ncspot".into()));
+    n.urgency(Urgency::Low)
+        .hint(Hint::Transient(true))
+        .hint(Hint::DesktopEntry("ncspot".into()));
 
     match n.show() {
         Ok(_handle) => {
