@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
 #[cfg(feature = "notify")]
-use notify_rust::Notification;
+use notify_rust::{Hint, Notification, Urgency};
 
 use rand::prelude::*;
 use strum_macros::Display;
@@ -433,47 +433,47 @@ impl Queue {
 #[cfg(feature = "notify")]
 pub fn send_notification(
     track_name: &str,
-    _cover_url: Option<String>,
+    cover_url: Option<String>,
     notification_id: Arc<AtomicU32>,
 ) {
     let current_notification_id = notification_id.load(std::sync::atomic::Ordering::Relaxed);
-    let res = if let Some(u) = _cover_url {
-        // download album cover image
-        let path = crate::utils::cache_path_for_url(u.to_string());
 
+    let mut n = Notification::new();
+    n.appname("ncspot")
+        .id(current_notification_id)
+        .summary(track_name);
+
+    // album cover image
+    if let Some(u) = cover_url {
+        let path = crate::utils::cache_path_for_url(u.to_string());
         if !path.exists() {
             if let Err(e) = crate::utils::download(u, path.clone()) {
                 error!("Failed to download cover: {}", e);
             }
         }
+        n.icon(path.to_str().unwrap());
+    }
 
-        Notification::new()
-            .appname("ncspot")
-            .id(current_notification_id)
-            .summary(track_name)
-            .icon(path.to_str().unwrap())
-            .show()
-    } else {
-        Notification::new()
-            .appname("ncspot")
-            .id(current_notification_id)
-            .summary(track_name)
-            .show()
-    };
+    // XDG desktop entry hints
+    #[cfg(all(unix, not(target_os = "macos")))]
+    n.urgency(Urgency::Low)
+        .hint(Hint::Transient(true))
+        .hint(Hint::DesktopEntry("ncspot".into()));
 
-    if let Ok(n) = res {
-        // only available for XDG
-        #[cfg(all(unix, not(target_os = "macos")))]
-        {
-            let new_notification_id = n.id();
-            log::debug!(
-                "new notification id: {}, previously: {}",
-                new_notification_id,
-                current_notification_id
-            );
-            notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+    match n.show() {
+        Ok(_handle) => {
+            // only available for XDG
+            #[cfg(all(unix, not(target_os = "macos")))]
+            {
+                let new_notification_id = _handle.id();
+                log::debug!(
+                    "new notification id: {}, previously: {}",
+                    new_notification_id,
+                    current_notification_id
+                );
+                notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+            }
         }
-    } else if let Err(e) = res {
-        error!("Failed to send notification cover: {}", e);
+        Err(e) => error!("Failed to send notification cover: {}", e),
     }
 }

@@ -88,5 +88,6 @@ It is heavily inspired by ncurses MPD clients, such as ncmpc."""
 license-file = ["LICENSE"]
 assets = [
     ["target/release/ncspot", "usr/bin/", "755"],
+    ["misc/ncspot.desktop", "usr/share/applications/", "644"],
     ["README.md", "usr/share/doc/ncspot/README.md", "644"],
 ]
