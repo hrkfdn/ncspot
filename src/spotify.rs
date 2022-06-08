@@ -145,7 +145,7 @@ impl Spotify {
             Some(librespot_cache_path.join("volume")),
             cfg.values()
                 .audio_cache_size
-                .map(|size| (size * 1048576) as u64),
+                .map(|size| (size as u64 * 1048576)),
         )
         .expect("Could not create cache");
         debug!("opening spotify session");
