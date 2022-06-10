@@ -428,7 +428,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                             self.move_focus_to(index);
                             return Ok(CommandResult::Consumed(None));
                         }
-                        None => return Ok(CommandResult::Ignored),
+                        None => return Ok(CommandResult::Consumed(None)),
                     }
                 }
                 JumpMode::Next => {
