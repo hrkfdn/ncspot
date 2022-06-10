@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+#[cfg(feature = "notify")]
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
@@ -13,9 +14,6 @@ use crate::config::PlaybackState;
 use crate::model::playable::Playable;
 use crate::spotify::Spotify;
 use crate::{config::Config, spotify::PlayerEvent};
-
-#[cfg(feature = "cover")]
-use crate::ui;
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -38,6 +36,7 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
+    #[cfg(feature = "notify")]
     notification_id: Arc<AtomicU32>,
 }
 
@@ -51,6 +50,7 @@ impl Queue {
             current_track: RwLock::new(queue_state.current_track),
             random_order: RwLock::new(queue_state.random_order),
             cfg,
+            #[cfg(feature = "notify")]
             notification_id: Arc::new(AtomicU32::new(0)),
         };
 

@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
@@ -240,6 +239,7 @@ impl ViewExt for CoverView {
                     track.unsave(self.library.clone());
                 }
             }
+            #[cfg(feature = "share_clipboard")]
             Command::Share(_mode) => {
                 let url = self
                     .queue
@@ -247,7 +247,6 @@ impl ViewExt for CoverView {
                     .and_then(|t| t.as_listitem().share_url());
 
                 if let Some(url) = url {
-                    #[cfg(feature = "share_clipboard")]
                     crate::sharing::write_share(url);
                 }
 
