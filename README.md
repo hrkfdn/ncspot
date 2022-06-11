@@ -282,6 +282,7 @@ The following is an abridged list of commonly-used commands. For the full list, 
 | `newplaylist <name>` | Create new playlist with name `name`. |
 | `sort <sort_key> [sort_direction]` | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
 | `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
+| `noop` | Does nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings). |
 
 - Supported `repeat_mode` are:
   - `list` | `playlist` | `queue`
@@ -349,6 +350,15 @@ e.g. as such:
 ```toml
 [keybindings]
 "Shift+i" = "seek +10000"
+```
+
+To disable a default keybinding, set its command to `noop`:
+
+```toml
+# Use "Shift+q" to quit instead of the default "q"
+[keybindings]
+"Shift+q" = "quit"
+"q" = "noop"
 ```
 
 ### Proxy
