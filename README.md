@@ -261,7 +261,9 @@ When pressing <kbd>O</kbd>:
 You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
 time with <kbd>Escape</kbd>.
 
-The following is an abridged list of commonly-used commands. For the full list, see [source code](/src/command.rs).
+The following is an abridged list of the more useful commands. For the full list, see [source code](/src/command.rs).
+
+Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 
 | Command | Action |
 |---|---|
@@ -270,36 +272,19 @@ The following is an abridged list of commonly-used commands. For the full list, 
 | `logout` | Remove any cached credentials from disk and quit `ncspot`. |
 | `playpause`<br/>Aliases: `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
 | `stop` | Stop playback. |
-| `seek [+\|-]<time>` | Seek to the specified position, or seek relative to current position by prepending `+`/`-`. Supports mixing time units (e.g. `seek 1m42s`). Default unit is `millisecond`. |
-| `repeat [repeat_mode]`<br/>Aliases: `loop` | Set repeat mode. Omit `repeat_mode` argument to step through the available modes. |
-| `shuffle [on\|off]` | Enable or disable shuffle. Omit argument to toggle. |
-| `previous` | Play previous track. |
-| `next` | Play next track. |
-| `focus <queue\|search\|library>` | Switch to a screen. |
-| `search <keyword>` | Search a song. |
-| `clear` | Clear playlist. |
-| `share <item>` | Copies a shareable URL of the item to the system clipboard. |
-| `newplaylist <name>` | Create new playlist with name `name`. |
-| `sort <sort_key> [sort_direction]` | Sort a playlist by `sort_key` in direction `sort_direction`. Default direction is ascending. |
-| `exec <cmd>` | Executes a command in the system shell. Be aware that command output is printed to the terminal, so redirection to `/dev/null` e.g. by appending `2> /dev/null` may be necessary. |
-| `noop` | Does nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings). |
-
-- Supported `repeat_mode` are:
-  - `list` | `playlist` | `queue`
-  - `track` | `once` | `single`
-  - `none` | `off`
-- Supported `item` are:
-  - `selected`: Selected item.
-  - `current`: Current song.
-- Supported `sort_key` are:
-  - `title`
-  - `album`
-  - `artist`
-  - `duration`
-  - `added`
-- Supported `sort_direction` are:
-  - `a` | `asc` | `ascending`
-  - `d` | `desc` | `descending`
+| `seek` [`+`\|`-`]\<TIME\> | Seek to the specified position, or seek relative to current position by prepending `+`/`-`.<br/>\* TIME is anything accepted by [parse_duration](https://docs.rs/parse_duration/latest/parse_duration/)<br/>\* Default unit is `ms` for backward compatibility. |
+| `repeat` [REPEAT_MODE]<br/>Alias: `loop` | Set repeat mode. Omit argument to step through the available modes.<br/>\* Valid values for REPEAT_MODE: `list` (aliases: `playlist`, `queue`), `track` (aliases: `once`, `single`), `none` (alias: `off`) |
+| `shuffle` [`on`\|`off`] | Enable or disable shuffle. Omit argument to toggle. |
+| `previous` | Play the previous track. |
+| `next` | Play the next track. |
+| `focus` \<SCREEN\> | Switch to a different view.<br/>\* Valid values for SCREEN: `queue`, `search`, `library`, `cover` (if built with the `cover` feature) |
+| `search` \<SEARCH\> | Search for a song/artist/album/etc. |
+| `clear` | Clear the queue. |
+| `share` \<ITEM\> | Copy a shareable URL of the item to the system clipboard. Requires the `share_clipboard` feature.<br/>\* Valid values for ITEM: `selected`, `current` |
+| `newplaylist` \<NAME\> | Create a new playlist. |
+| `sort` \<SORT_KEY\> [SORT_DIRECTION] | Sort a playlist.<br/>\* Valid values for SORT_KEY: `title`, `album`, `artist`, `duration`, `added`<br/>\* Valid values for SORT_DIRECTION: `ascending` (default; aliases: `a`, `asc`), `descending` (aliases: `d`, `desc`) |
+| `exec` \<CMD\> | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary. |
+| `noop` | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings). |
 
 ## Configuration
 
@@ -349,7 +334,7 @@ e.g. as such:
 
 ```toml
 [keybindings]
-"Shift+i" = "seek +10000"
+"Shift+i" = "seek +10s"
 ```
 
 To disable a default keybinding, set its command to `noop`:
