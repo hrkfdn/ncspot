@@ -55,7 +55,7 @@ as the \*BSDs.
 Measured using `ps_mem` on Linux during playback:
 
 | Client  | Private Memory | Shared Memory | Total      |
-| ------- | -------------- | ------------- | ---------- |
+|---------|----------------|---------------|------------|
 | ncspot  | 22.1 MiB       | 24.1 MiB      | 46.2 MiB   |
 | Spotify | 407.3 MiB      | 592.7 MiB     | 1000.0 MiB |
 
@@ -168,7 +168,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Navigation
 
 | Key               | Command                                                                       |
-| :---------------- | :---------------------------------------------------------------------------- |
+|:------------------|:------------------------------------------------------------------------------|
 | <kbd>?</kbd>      | Show help screen.                                                             |
 | <kbd>F1</kbd>     | Queue (See [specific commands](#queue)).                                      |
 | <kbd>F2</kbd>     | Search.                                                                       |
@@ -182,7 +182,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Playback
 
 | Key                           | Command                                                        |
-| :---------------------------- | :------------------------------------------------------------- |
+|:------------------------------|:---------------------------------------------------------------|
 | <kbd>Return</kbd>             | Play track or playlist.                                        |
 | <kbd>Space</kbd>              | Queue track or playlist.                                       |
 | <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
@@ -208,7 +208,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Context Menus
 
 | Key                           | Command                                                                |
-| :---------------------------- | :--------------------------------------------------------------------- |
+|:------------------------------|:-----------------------------------------------------------------------|
 | <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.               |
 | <kbd>Shift</kbd>+<kbd>O</kbd> | Open a context menu for the **currently playing track**.               |
 | <kbd>A</kbd>                  | Open the **album view** for the selected item.                         |
@@ -230,15 +230,15 @@ When pressing <kbd>O</kbd>:
 
 ### Sharing
 
-| Key                           | Command                                                                         |
-| :---------------------------- | :------------------------------------------------------------------------------ |
+| Key                           | Command                                                                          |
+|:------------------------------|:---------------------------------------------------------------------------------|
 | <kbd>X</kbd>                  | Copy a shareable URL of the **currently selected item** to the system clipboard. |
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy a shareable URL of the **currently playing track** to the system clipboard. |
 
 ### Queue
 
 | Key                          | Command                              |
-| :--------------------------- | :----------------------------------- |
+|:-----------------------------|:-------------------------------------|
 | <kbd>C</kbd>                 | Clear the entire queue.              |
 | <kbd>D</kbd>                 | Delete the currently selected track. |
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
@@ -246,13 +246,13 @@ When pressing <kbd>O</kbd>:
 ### Library
 
 | Key          | Command                                 |
-| :----------- | :-------------------------------------- |
+|:-------------|:----------------------------------------|
 | <kbd>D</kbd> | Delete the currently selected playlist. |
 
 ### Vim-Like Search Bar
 
-| Key          | Command                    |
-| :----------- | :------------------------- |
+| Key          | Command                     |
+|:-------------|:----------------------------|
 | <kbd>n</kbd> | Previous search occurrence. |
 | <kbd>N</kbd> | Next search occurrence.     |
 
@@ -265,26 +265,26 @@ The following is an abridged list of the more useful commands. For the full list
 
 Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 
-| Command | Action |
-|---|---|
-| `help` | Show current key bindings. |
-| `quit`<br/>Aliases: `q`, `x` | Quit `ncspot`. |
-| `logout` | Remove any cached credentials from disk and quit `ncspot`. |
-| `playpause`<br/>Aliases: `pause`, `toggleplay`, `toggleplayback` | Toggle playback. |
-| `stop` | Stop playback. |
-| `seek` [`+`\|`-`]\<TIME\> | Seek to the specified position, or seek relative to current position by prepending `+`/`-`.<br/>\* TIME is anything accepted by [parse_duration](https://docs.rs/parse_duration/latest/parse_duration/)<br/>\* Default unit is `ms` for backward compatibility. |
-| `repeat` [REPEAT_MODE]<br/>Alias: `loop` | Set repeat mode. Omit argument to step through the available modes.<br/>\* Valid values for REPEAT_MODE: `list` (aliases: `playlist`, `queue`), `track` (aliases: `once`, `single`), `none` (alias: `off`) |
-| `shuffle` [`on`\|`off`] | Enable or disable shuffle. Omit argument to toggle. |
-| `previous` | Play the previous track. |
-| `next` | Play the next track. |
-| `focus` \<SCREEN\> | Switch to a different view.<br/>\* Valid values for SCREEN: `queue`, `search`, `library`, `cover` (if built with the `cover` feature) |
-| `search` \<SEARCH\> | Search for a song/artist/album/etc. |
-| `clear` | Clear the queue. |
-| `share` \<ITEM\> | Copy a shareable URL of the item to the system clipboard. Requires the `share_clipboard` feature.<br/>\* Valid values for ITEM: `selected`, `current` |
-| `newplaylist` \<NAME\> | Create a new playlist. |
-| `sort` \<SORT_KEY\> [SORT_DIRECTION] | Sort a playlist.<br/>\* Valid values for SORT_KEY: `title`, `album`, `artist`, `duration`, `added`<br/>\* Valid values for SORT_DIRECTION: `ascending` (default; aliases: `a`, `asc`), `descending` (aliases: `d`, `desc`) |
-| `exec` \<CMD\> | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary. |
-| `noop` | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings). |
+| Command                                                          | Action                                                                                                                                                                                                                                                          |
+|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `help`                                                           | Show current key bindings.                                                                                                                                                                                                                                      |
+| `quit`<br/>Aliases: `q`, `x`                                     | Quit `ncspot`.                                                                                                                                                                                                                                                  |
+| `logout`                                                         | Remove any cached credentials from disk and quit `ncspot`.                                                                                                                                                                                                      |
+| `playpause`<br/>Aliases: `pause`, `toggleplay`, `toggleplayback` | Toggle playback.                                                                                                                                                                                                                                                |
+| `stop`                                                           | Stop playback.                                                                                                                                                                                                                                                  |
+| `seek` [`+`\|`-`]\<TIME\>                                        | Seek to the specified position, or seek relative to current position by prepending `+`/`-`.<br/>\* TIME is anything accepted by [parse_duration](https://docs.rs/parse_duration/latest/parse_duration/)<br/>\* Default unit is `ms` for backward compatibility. |
+| `repeat` [REPEAT_MODE]<br/>Alias: `loop`                         | Set repeat mode. Omit argument to step through the available modes.<br/>\* Valid values for REPEAT_MODE: `list` (aliases: `playlist`, `queue`), `track` (aliases: `once`, `single`), `none` (alias: `off`)                                                      |
+| `shuffle` [`on`\|`off`]                                          | Enable or disable shuffle. Omit argument to toggle.                                                                                                                                                                                                             |
+| `previous`                                                       | Play the previous track.                                                                                                                                                                                                                                        |
+| `next`                                                           | Play the next track.                                                                                                                                                                                                                                            |
+| `focus` \<SCREEN\>                                               | Switch to a different view.<br/>\* Valid values for SCREEN: `queue`, `search`, `library`, `cover` (if built with the `cover` feature)                                                                                                                           |
+| `search` \<SEARCH\>                                              | Search for a song/artist/album/etc.                                                                                                                                                                                                                             |
+| `clear`                                                          | Clear the queue.                                                                                                                                                                                                                                                |
+| `share` \<ITEM\>                                                 | Copy a shareable URL of the item to the system clipboard. Requires the `share_clipboard` feature.<br/>\* Valid values for ITEM: `selected`, `current`                                                                                                           |
+| `newplaylist` \<NAME\>                                           | Create a new playlist.                                                                                                                                                                                                                                          |
+| `sort` \<SORT_KEY\> [SORT_DIRECTION]                             | Sort a playlist.<br/>\* Valid values for SORT_KEY: `title`, `album`, `artist`, `duration`, `added`<br/>\* Valid values for SORT_DIRECTION: `ascending` (default; aliases: `a`, `asc`), `descending` (aliases: `d`, `desc`)                                      |
+| `exec` \<CMD\>                                                   | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary.                                                                                                                      |
+| `noop`                                                           | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings).                                                                                                                                                            |
 
 ## Configuration
 
