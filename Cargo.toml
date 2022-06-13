@@ -64,7 +64,7 @@ features = ["d"]
 optional = true
 
 [features]
-share_clipboard = ["clipboard"]
+share_clipboard = ["clipboard"] # Share a link to the system clipboard
 wayland_clipboard = ["wl-clipboard-rs"] # Support wayland clipboard - linux only
 share_selection = ["clipboard", "wl-clipboard-rs"] # Use the primary selection for sharing - linux only
 alsa_backend = ["librespot-playback/alsa-backend"]
@@ -73,9 +73,9 @@ rodio_backend = ["librespot-playback/rodio-backend"]
 portaudio_backend = ["librespot-playback/portaudio-backend"]
 termion_backend = ["cursive/termion-backend"]
 pancurses_backend = ["cursive/pancurses-backend", "pancurses/win32"]
-mpris = ["dbus", "dbus-tree"]
-notify = ["notify-rust"]
-cover = ["ioctl-rs"]
+mpris = ["dbus", "dbus-tree"] # Allow ncspot to be controlled via MPRIS API
+notify = ["notify-rust"] # Show what's playing via a notification
+cover = ["ioctl-rs"] # Support displaying the album cover
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "pancurses_backend"]
 
 [package.metadata.deb]
