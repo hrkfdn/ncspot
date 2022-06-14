@@ -30,9 +30,12 @@ as the \*BSDs.
     - [On macOS](#on-macos)
     - [On Windows](#on-windows)
     - [On Linux](#on-linux)
-      - [Building a Debian Package](#building-a-debian-package)
   - [Build](#build)
+    - [Prerequisites](#prerequisites)
+    - [Compiling](#compiling)
+      - [Building a Debian Package](#building-a-debian-package)
     - [Audio Backends](#audio-backends)
+    - [Other Features](#other-features)
   - [Key Bindings](#key-bindings)
     - [Navigation](#navigation)
     - [Playback](#playback)
@@ -79,84 +82,104 @@ scoop install ncspot
 
 ### On Linux
 
-Requirements:
+Your distribution may have packaged `ncspot` in its package repository.
+If so, simply install using your distribution's package manager - it
+is by far the easiest way. If not, you can build from source instead.
+See [Build](#build).
 
-- Rust
+In case your package manager does not perform dependency resolution,
+here are the runtime dependencies:
+
+- `dbus`, `libncurses`, `libssl`
+- `libpulse` (or `portaudio`, if built using the PortAudio backend)
+- `libxcb` (if built with the `clipboard` feature)
+- `ueberzug` (if built with the `cover` feature)
+
+## Build
+
+### Prerequisites
+
+- A working [Rust installation](https://www.rust-lang.org/tools/install)
 - Python 3 (needed for building `rust-xcb` dependency)
-- `libpulse-dev` (or `portaudio-dev`, if you want to use the PortAudio backend)
-- `libncurses-dev` and `libssl-dev`
-- `libdbus-1-dev`
-- `libxcb` + development headers (for clipboard access)
-- `pkg-config`
-- A Spotify premium account
 
-On Debian based systems you need following packages for development headers:
+On Linux, you also need:
+- `pkgconf` (or `pkg-config`)
+- Development headers for the [aforementioned runtime dependencies](#on-linux)
+  - Debian and derivatives:
+    ```sh
+    sudo apt install libdbus-1-dev libncursesw5-dev libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+    ```
+  - Fedora:
+    ```sh
+    sudo dnf install dbus-devel libxcb-devel ncurses-devel openssl-devel pulseaudio-libs-devel
+    ```
+  - Arch and derivatives:
+    ```sh
+    # headers are included in the base packages
+    sudo pacman -S dbus libpulse libxcb ncurses openssl
+    ```
 
-```bash
-sudo apt install libncursesw5-dev libdbus-1-dev libpulse-dev libssl-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+### Compiling
+
+Compile and install the latest release with `cargo-install`:
+
+```sh
+cargo install ncspot
 ```
 
-For Fedora, these dependencies are required:
+Or clone and build locally:
 
-```bash
-dnf install pulseaudio-libs-devel libxcb-devel openssl-devel ncurses-devel dbus-devel
+```sh
+git clone https://github.com/hrkfdn/ncspot
+cargo build --release
+```
+
+**You may need to manually set the audio backend on non-Linux OSes.** See
+[Audio Backends](#audio-backends).
+
+For debugging, you can pass a debug log filename and pipe `stderr` to a file:
+
+```sh
+RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log
 ```
 
 #### Building a Debian Package
 
-You can use `cargo-deb` create in order to build a Debian package from source.
-Install it with:
+You can also use `cargo-deb` to build a Debian package
 
-```bash
+```sh
 cargo install cargo-deb
-```
-
-Then you can build a Debian package with:
-
-```bash
 cargo deb
 ```
 
-You can find it under `target/debian`.
-
-## Build
-
-Install the latest `ncspot` release using:
-
-```bash
-cargo install ncspot
-```
-
-Or build it yourself using:
-
-```bash
-cargo build --release
-
-# NB: add these flags on Windows
-cargo build --release --no-default-features --features rodio_backend,cursive/pancurses-backend
-```
-
-- Both approaches require a working [Rust installation](https://www.rust-lang.org/tools/install).
-- For debugging, you can pass a debug log filename and log stderr to a file,
-  e.g. :
-
-  ```bash
-  RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log
-  ```
+You can find the package under `target/debian`.
 
 ### Audio Backends
 
 By default `ncspot` is built using the PulseAudio backend. To make it use the
 PortAudio backend (e.g. for \*BSD or macOS) or Rodio backend (e.g. for
-Windows), you need to recompile `ncspot` with the respective features:
+Windows), you need to compile `ncspot` with the respective features:
 
-```bash
+```sh
 # PortAudio (BSD/macOS)
-cargo run --no-default-features --features portaudio_backend,cursive/pancurses-backend
+cargo build --release --no-default-features --features portaudio_backend,pancurses-backend
 
 # Rodio (Windows)
-cargo run --no-default-features --features rodio_backend,cursive/pancurses-backend
+cargo build --release --no-default-features --features rodio_backend,pancurses-backend
 ```
+
+### Other Features
+
+Here are some auxiliary features you may wish to enable:
+
+| Feature           | Default | Description                                                                                |
+|-------------------|---------|--------------------------------------------------------------------------------------------|
+| `cover`           | off     | Add a screen to show the album art. See [Cover Drawing](#cover-drawing).                   |
+| `mpris`           | on      | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
+| `notify`          | on      | Send a notification to show what's playing.                                                |
+| `share_clipboard` | on      | Ability to copy the URL of a song/playlist/etc. to system clipboard.                       |
+
+Consult [Cargo.toml](Cargo.toml) for the full list of supported features.
 
 ## Key Bindings
 
