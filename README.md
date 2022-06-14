@@ -352,11 +352,32 @@ Possible configuration values are:
 
 ### Custom Keybindings
 
-Keybindings can be configured in `[keybindings]` section in `config.toml`,
-e.g. as such:
+Keybindings can be configured in `[keybindings]` section in `config.toml`.
+
+Each key-value pair specifies one keybinding, where the key is a string in the
+format of:
+
+```
+[MODIFIER+]<CHAR|NAMED_KEY>
+where:
+  MODIFIER: Shift|Alt|Ctrl
+  CHAR: Any printable character
+  NAMED_KEY: Enter|Space|Tab|Backspace|Esc|Left|Right|Up|Down
+    |Ins|Del|Home|End|PageUp|PageDown|PauseBreak|NumpadCenter
+    |F0|F1|F2|F3|F4|F5|F6|F7|F8|F9|F10|F11|F12
+```
+
+For implementation see [commands::CommandManager::parse_key](/src/commands.rs).
+
+Its value is a string that can be parsed as a command. See
+[Vim-Like Commands](#vim-like-commands).
+
+<details>
+  <sueemmary>Examples: (Click to show/hide)</summary>
 
 ```toml
 [keybindings]
+# Bind "Shift+i" to "Seek forward 10 seconds"
 "Shift+i" = "seek +10s"
 ```
 
@@ -368,6 +389,8 @@ To disable a default keybinding, set its command to `noop`:
 "Shift+q" = "quit"
 "q" = "noop"
 ```
+
+</details>
 
 ### Proxy
 
