@@ -346,7 +346,7 @@ Possible configuration values are:
 | `repeat`                        | Set default repeat mode                           | `off`, `track`, `playlist`                                      | `off`       |
 | `playback_state`                | Set default playback state                        | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`               | `"Paused"`  |
 | `library_tabs`                  | Tabs to show in library screen                    | Array of `tracks`, `albums`, `artists`, `playlists`, `podcasts` | All tabs    |
-| `cover_max_scale`<sup>[5]</sup> | Set maximum scaling ratio for cover art           | Number                                                          | `1.0`       |
+| `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art           | Number                                                          | `1.0`       |
 | `[track_format]`                | Set active fields shown in Library/Queue views    | See [track formatting](#track-formatting)                       |             |
 | `[theme]`                       | Custom theme                                      | See [custom theme](#theming)                                    |             |
 | `[keybindings]`                 | Custom keybindings                                | See [custom keybindings](#custom-keybindings)                   |             |
@@ -357,7 +357,6 @@ Possible configuration values are:
    is reversed.
 3. Run `ncspot -h` for a list of devices.
 4. If built with the `notify` feature.
-5. If built with the `cover` feature.
 
 ### Custom Keybindings
 
