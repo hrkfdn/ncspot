@@ -196,7 +196,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Navigation
 
 | Key               | Command                                                                       |
-|:------------------|:------------------------------------------------------------------------------|
+|-------------------|-------------------------------------------------------------------------------|
 | <kbd>?</kbd>      | Show help screen.                                                             |
 | <kbd>F1</kbd>     | Queue (See [specific commands](#queue)).                                      |
 | <kbd>F2</kbd>     | Search.                                                                       |
@@ -210,7 +210,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Playback
 
 | Key                           | Command                                                        |
-|:------------------------------|:---------------------------------------------------------------|
+|-------------------------------|----------------------------------------------------------------|
 | <kbd>Return</kbd>             | Play track or playlist.                                        |
 | <kbd>Space</kbd>              | Queue track or playlist.                                       |
 | <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
@@ -236,7 +236,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Context Menus
 
 | Key                           | Command                                                                                                   |
-|:------------------------------|:----------------------------------------------------------------------------------------------------------|
+|-------------------------------|-----------------------------------------------------------------------------------------------------------|
 | <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.                                                  |
 | <kbd>Shift</kbd>+<kbd>O</kbd> | Open a context menu for the **currently playing track**.                                                  |
 | <kbd>A</kbd>                  | Open the **album view** for the selected item.                                                            |
@@ -261,14 +261,14 @@ When pressing <kbd>O</kbd>:
 (if built with the `share_clipboard` feature)
 
 | Key                           | Command                                                                  |
-|:------------------------------|:-------------------------------------------------------------------------|
+|-------------------------------|--------------------------------------------------------------------------|
 | <kbd>X</kbd>                  | Copy the URL to the **currently selected item** to the system clipboard. |
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy the URL to the **currently playing track** to the system clipboard. |
 
 ### Queue
 
 | Key                          | Command                              |
-|:-----------------------------|:-------------------------------------|
+|------------------------------|--------------------------------------|
 | <kbd>C</kbd>                 | Clear the entire queue.              |
 | <kbd>D</kbd>                 | Delete the currently selected track. |
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
@@ -276,13 +276,13 @@ When pressing <kbd>O</kbd>:
 ### Library
 
 | Key          | Command                                 |
-|:-------------|:----------------------------------------|
+|--------------|-----------------------------------------|
 | <kbd>D</kbd> | Delete the currently selected playlist. |
 
 ### Vim-Like Search Bar
 
 | Key          | Command                     |
-|:-------------|:----------------------------|
+|--------------|-----------------------------|
 | <kbd>n</kbd> | Previous search occurrence. |
 | <kbd>N</kbd> | Next search occurrence.     |
 
