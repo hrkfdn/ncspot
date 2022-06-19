@@ -82,6 +82,7 @@ wayland_clipboard = ["wl-clipboard-rs"] # Support wayland clipboard - linux only
 assets = [
   ["target/release/ncspot", "usr/bin/", "755"],
   ["misc/ncspot.desktop", "usr/share/applications/", "644"],
+  ["images/logo.svg", "usr/share/icons/hicolor/scalable/apps/ncspot.svg", "644"],
   ["README.md", "usr/share/doc/ncspot/README.md", "644"],
 ]
 depends = "$auto, pulseaudio"
