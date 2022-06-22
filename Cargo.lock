@@ -303,9 +303,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.5"
+version = "3.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d53da17d37dba964b9b3ecb5c5a1f193a2762c700e6829201e645b9381c99dc7"
+checksum = "9f1fe12880bae935d142c8702d500c63a4e8634b6c3c57ad72bf978fc7b6249a"
 dependencies = [
  "atty",
  "bitflags",
