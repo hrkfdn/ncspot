@@ -191,10 +191,11 @@ impl ListItem for Playlist {
         }
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
-        match self.owner_name.as_ref() {
-            Some(owner) => format!("{} • {}", self.name, owner),
-            None => self.name.clone(),
+    fn display_left(&self, library: Arc<Library>) -> String {
+        let hide_owners = library.cfg.values().hide_display_names.unwrap_or(false);
+        match (self.owner_name.as_ref(), hide_owners) {
+            (Some(owner), false) => format!("{} • {}", self.name, owner),
+            _ => self.name.clone(),
         }
     }
 

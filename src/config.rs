@@ -74,6 +74,7 @@ pub struct ConfigValues {
     pub playback_state: Option<PlaybackState>,
     pub track_format: Option<TrackFormat>,
     pub library_tabs: Option<Vec<LibraryTab>>,
+    pub hide_display_names: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
