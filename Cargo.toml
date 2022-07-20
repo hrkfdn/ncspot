@@ -45,6 +45,7 @@ tokio-stream = "0.1.9"
 toml = "0.5"
 unicode-width = "0.1.9"
 url = "2.2"
+[target.'cfg(all(target_family = "unix", not(any(target_os = "macos", target_os = "ios"))))'.dependencies]
 wl-clipboard-rs = {version = "0.6", optional = true}
 
 [dependencies.rspotify]
@@ -73,10 +74,10 @@ pancurses_backend = ["cursive/pancurses-backend", "pancurses/win32"]
 portaudio_backend = ["librespot-playback/portaudio-backend"]
 pulseaudio_backend = ["librespot-playback/pulseaudio-backend"]
 rodio_backend = ["librespot-playback/rodio-backend"]
-share_clipboard = ["clipboard"] # Share a link to the system clipboard
-share_selection = ["clipboard", "wl-clipboard-rs"] # Use the primary selection for sharing - linux only
+share_clipboard = ["clipboard", "wayland_clipboard"] # Share a link to the system clipboard
+share_selection = ["clipboard", "wayland_clipboard"] # Use the primary selection for sharing - linux and bsd only
 termion_backend = ["cursive/termion-backend"]
-wayland_clipboard = ["wl-clipboard-rs"] # Support wayland clipboard - linux only
+wayland_clipboard = ["wl-clipboard-rs"] # Support for wayland clipboard - linux and bsd only
 
 [package.metadata.deb]
 assets = [
