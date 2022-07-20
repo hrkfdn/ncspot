@@ -1,7 +1,7 @@
 #![cfg(feature = "share_clipboard")]
 use std::env;
 
-#[cfg(feature = "wayland_clipboard")]
+#[cfg(feature = "wl-clipboard-rs")]
 use {
     std::io::Read,
     wl_clipboard_rs::{
@@ -14,7 +14,7 @@ use {
 
 #[cfg(feature = "share_selection")]
 use clipboard::{x11_clipboard, x11_clipboard::X11ClipboardContext};
-#[cfg(all(feature = "share_selection", feature = "wayland_clipboard"))]
+#[cfg(all(feature = "share_selection", feature = "wl-clipboard-rs"))]
 use wl_clipboard_rs::utils::{is_primary_selection_supported, PrimarySelectionCheckError};
 
 #[cfg(not(feature = "share_selection"))]
@@ -39,7 +39,7 @@ pub fn read_share() -> Option<String> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut string = None;
-        #[cfg(feature = "wayland_clipboard")]
+        #[cfg(feature = "wl-clipboard-rs")]
         {
             //use wayland clipboard
             let result = get_contents(
@@ -77,7 +77,7 @@ pub fn read_share() -> Option<String> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut string = None;
-        #[cfg(feature = "wayland_clipboard")]
+        #[cfg(feature = "wl-clipboard-rs")]
         {
             //use wayland clipboard
             string = match is_primary_selection_supported() {
@@ -138,7 +138,7 @@ pub fn write_share(url: String) -> Option<()> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut option = None;
-        #[cfg(feature = "wayland_clipboard")]
+        #[cfg(feature = "wl-clipboard-rs")]
         {
             //use wayland clipboard
             let opts = Options::new();
@@ -167,7 +167,7 @@ pub fn write_share(url: String) -> Option<()> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut option = None;
-        #[cfg(feature = "wayland_clipboard")]
+        #[cfg(feature = "wl-clipboard-rs")]
         {
             //use wayland clipboard
             let mut opts = Options::new();
