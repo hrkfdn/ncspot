@@ -72,7 +72,9 @@ impl ContextMenu {
             .title(format!("Play track: {}", track_title))
             .dismiss_button("Cancel")
             .padding(Margins::lrtb(1, 1, 1, 0))
-            .content(ScrollView::new(track_action_select.with_name("playtrack_select")));
+            .content(ScrollView::new(
+                track_action_select.with_name("playtrack_select"),
+            ));
 
         PlayTrackMenu {
             dialog: Modal::new_ext(dialog),
