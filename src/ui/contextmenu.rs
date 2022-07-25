@@ -232,15 +232,18 @@ impl ContextMenu {
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
-        if let Some(a) = item.artists() {
-            let action = match a.len() {
+        if let Some(artists) = item.artists() {
+            let action = match artists.len() {
                 0 => None,
-                1 => Some(ContextMenuAction::SelectArtistAction(a[0].clone())),
-                _ => Some(ContextMenuAction::SelectArtist(a)),
+                1 => Some(ContextMenuAction::SelectArtistAction(artists[0].clone())),
+                _ => Some(ContextMenuAction::SelectArtist(artists.clone())),
             };
 
             if let Some(a) = action {
-                content.add_item("Show artist", a)
+                content.add_item(
+                    format!("Artist{}", if artists.len() > 1 { "s" } else { "" }),
+                    a,
+                )
             }
         }
         if let Some(a) = item.album(queue.clone()) {
