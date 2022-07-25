@@ -1,11 +1,7 @@
 #![cfg(feature = "share_clipboard")]
 use std::env;
 
-#[cfg(all(
-    feature = "wl-clipboard-rs",
-    target_family = "unix",
-    not(any(target_os = "macos", target_os = "ios"))
-))]
+#[cfg(all(feature = "wl-clipboard-rs", target_os = "linux"))]
 use {
     std::io::Read,
     wl_clipboard_rs::{
@@ -20,11 +16,7 @@ use {
 use clipboard::{x11_clipboard, x11_clipboard::X11ClipboardContext};
 #[cfg(all(
     feature = "share_selection",
-    all(
-        feature = "wl-clipboard-rs",
-        target_family = "unix",
-        not(any(target_os = "macos", target_os = "ios"))
-    )
+    all(feature = "wl-clipboard-rs", target_os = "linux")
 ))]
 use wl_clipboard_rs::utils::{is_primary_selection_supported, PrimarySelectionCheckError};
 
@@ -50,11 +42,7 @@ pub fn read_share() -> Option<String> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut string = None;
-        #[cfg(all(
-            feature = "wl-clipboard-rs",
-            target_family = "unix",
-            not(any(target_os = "macos", target_os = "ios"))
-        ))]
+        #[cfg(all(feature = "wl-clipboard-rs", target_os = "linux"))]
         {
             //use wayland clipboard
             let result = get_contents(
@@ -92,11 +80,7 @@ pub fn read_share() -> Option<String> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut string = None;
-        #[cfg(all(
-            feature = "wl-clipboard-rs",
-            target_family = "unix",
-            not(any(target_os = "macos", target_os = "ios"))
-        ))]
+        #[cfg(all(feature = "wl-clipboard-rs", target_os = "linux"))]
         {
             //use wayland clipboard
             string = match is_primary_selection_supported() {
@@ -157,11 +141,7 @@ pub fn write_share(url: String) -> Option<()> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut option = None;
-        #[cfg(all(
-            feature = "wl-clipboard-rs",
-            target_family = "unix",
-            not(any(target_os = "macos", target_os = "ios"))
-        ))]
+        #[cfg(all(feature = "wl-clipboard-rs", target_os = "linux"))]
         {
             //use wayland clipboard
             let opts = Options::new();
@@ -190,11 +170,7 @@ pub fn write_share(url: String) -> Option<()> {
     if is_wayland() {
         #[allow(unused_mut, unused_assignments)]
         let mut option = None;
-        #[cfg(all(
-            feature = "wl-clipboard-rs",
-            target_family = "unix",
-            not(any(target_os = "macos", target_os = "ios"))
-        ))]
+        #[cfg(all(feature = "wl-clipboard-rs", target_os = "linux"))]
         {
             //use wayland clipboard
             let mut opts = Options::new();

@@ -45,7 +45,7 @@ tokio-stream = "0.1.9"
 toml = "0.5"
 unicode-width = "0.1.9"
 url = "2.2"
-[target.'cfg(all(target_family = "unix", not(any(target_os = "macos", target_os = "ios"))))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 wl-clipboard-rs = {version = "0.6", optional = true}
 
 [dependencies.rspotify]
