@@ -3,6 +3,7 @@ use librespot_core::cache::Cache;
 use librespot_core::config::SessionConfig;
 use librespot_core::session::Session;
 use librespot_core::session::SessionError;
+use librespot_playback::audio_backend::SinkBuilder;
 use librespot_playback::config::PlayerConfig;
 use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::mixer::MixerConfig;
@@ -155,6 +156,27 @@ impl Spotify {
             .map(|r| r.0)
     }
 
+    fn init_backend(desired_backend: Option<String>) -> Option<SinkBuilder> {
+        let backend = if let Some(name) = desired_backend {
+            audio_backend::BACKENDS
+                .iter()
+                .find(|backend| name == backend.0)
+        } else {
+            audio_backend::BACKENDS.first()
+        }?;
+
+        let backend_name = backend.0;
+
+        info!("Initializing audio backend {}", backend_name);
+        if backend_name == "pulseaudio" {
+            env::set_var("PULSE_PROP_application.name", "ncspot");
+            env::set_var("PULSE_PROP_stream.description", "ncurses Spotify client");
+            env::set_var("PULSE_PROP_media.role", "music");
+        }
+
+        Some(backend.1)
+    }
+
     async fn worker(
         worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
         events: EventManager,
@@ -188,7 +210,9 @@ impl Spotify {
         let mixer = create_mixer(MixerConfig::default());
         mixer.set_volume(volume);
 
-        let backend = audio_backend::find(cfg.values().backend.clone()).unwrap();
+        let backend_name = cfg.values().backend.clone();
+        let backend =
+            Self::init_backend(backend_name).expect("Could not find an audio playback backend");
         let audio_format: librespot_playback::config::AudioFormat = Default::default();
         let (player, player_events) = Player::new(
             player_config,
