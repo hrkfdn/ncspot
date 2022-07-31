@@ -62,12 +62,7 @@ impl LibraryView {
         Self {
             tabs: tabview,
             display_name: {
-                let hide_username = library
-                    .cfg
-                    .values()
-                    .hide_display_names
-                    .clone()
-                    .unwrap_or(false);
+                let hide_username = library.cfg.values().hide_display_names.unwrap_or(false);
                 if hide_username {
                     None
                 } else {

@@ -152,11 +152,7 @@ pub fn write_share(url: String) -> Option<()> {
                 )
                 .ok()
         }
-        if let Some(o) = option {
-            Some(o)
-        } else {
-            None
-        }
+        option
     } else {
         //use x11 clipboard
         ClipboardProvider::new()
@@ -182,11 +178,7 @@ pub fn write_share(url: String) -> Option<()> {
                 )
                 .ok()
         }
-        if let Some(o) = option {
-            Some(o)
-        } else {
-            None
-        }
+        option
     } else {
         //use x11 clipboard
         ClipboardProvider::new()

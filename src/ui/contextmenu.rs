@@ -210,7 +210,7 @@ impl ContextMenu {
         let dialog = Dialog::new()
             .title(format!(
                 "Select action for artist: {}",
-                artist.clone().name.as_str()
+                artist.name.as_str()
             ))
             .dismiss_button("Cancel")
             .padding(Margins::lrtb(1, 1, 1, 0))
