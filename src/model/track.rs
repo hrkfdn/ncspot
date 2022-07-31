@@ -192,7 +192,7 @@ impl ListItem for Track {
         let default = config::TrackFormat::default().left.unwrap();
         let left = formatting.left.unwrap_or_else(|| default.clone());
         if left != default {
-            Playable::format(Playable::Track(self.clone()), left, library)
+            Playable::format(&Playable::Track(self.clone()), &left, library)
         } else {
             format!("{}", self)
         }
@@ -208,7 +208,7 @@ impl ListItem for Track {
         let default = config::TrackFormat::default().center.unwrap();
         let center = formatting.center.unwrap_or_else(|| default.clone());
         if center != default {
-            Playable::format(Playable::Track(self.clone()), center, library)
+            Playable::format(&Playable::Track(self.clone()), &center, library)
         } else {
             self.album.clone().unwrap_or_default()
         }
@@ -224,7 +224,7 @@ impl ListItem for Track {
         let default = config::TrackFormat::default().right.unwrap();
         let right = formatting.right.unwrap_or_else(|| default.clone());
         if right != default {
-            Playable::format(Playable::Track(self.clone()), right, library)
+            Playable::format(&Playable::Track(self.clone()), &right, library)
         } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {

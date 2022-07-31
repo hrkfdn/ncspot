@@ -9,6 +9,7 @@ use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;
+use crate::model::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 
@@ -67,6 +68,17 @@ impl StatusBar {
             " [{}%]",
             (self.spotify.volume() as f64 / 65535_f64 * 100.0).round() as u16
         )
+    }
+
+    fn format_track(&self, t: &Playable) -> String {
+        let format = self
+            .library
+            .cfg
+            .values()
+            .statusbar_format
+            .clone()
+            .unwrap_or_else(|| "%artists - %title".to_string());
+        Playable::format(t, &format, self.library.clone())
     }
 }
 
@@ -174,7 +186,7 @@ impl View for StatusBar {
 
         printer.with_color(style, |printer| {
             if let Some(ref t) = self.queue.get_current() {
-                printer.print((4, 1), &t.to_string());
+                printer.print((4, 1), &self.format_track(t));
             }
             printer.print((offset, 1), &right);
         });

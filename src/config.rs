@@ -73,6 +73,7 @@ pub struct ConfigValues {
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
     pub track_format: Option<TrackFormat>,
+    pub statusbar_format: Option<String>,
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
 }

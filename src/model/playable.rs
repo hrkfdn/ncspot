@@ -19,7 +19,7 @@ pub enum Playable {
 }
 
 impl Playable {
-    pub fn format(playable: Playable, formatting: String, library: Arc<Library>) -> String {
+    pub fn format(playable: &Playable, formatting: &str, library: Arc<Library>) -> String {
         formatting
             .replace(
                 "%artists",

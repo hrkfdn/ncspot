@@ -325,34 +325,35 @@ runtime use the `reload` command.
 
 Possible configuration values are:
 
-| Name                            | Description                                                    | Possible values                                                           | Default     |
-|---------------------------------|----------------------------------------------------------------|---------------------------------------------------------------------------|-------------|
-| `command_key`                   | Key to open command line                                       | Single character                                                          | `:`         |
-| `initial_screen`                | Screen to show after startup                                   | `"library"`, `"search"`, `"queue"`, `"cover"`<sup>[1]</sup>               | `"library"` |
-| `use_nerdfont`                  | Turn nerdfont glyphs on/off                                    | `true`, `false`                                                           | `false`     |
-| `flip_status_indicators`        | Reverse play/pause icon meaning<sup>[2]</sup>                  | `true`, `false`                                                           | `false`     |
-| `backend`                       | Audio backend to use                                           | String<sup>[3]</sup>                                                      |             |
-| `backend_device`                | Audio device to configure the backend                          | String                                                                    |             |
-| `audio_cache`                   | Enable caching of audio files                                  | `true`, `false`                                                           | `true`      |
-| `audio_cache_size`              | Maximum size of audio cache in MiB                             | Number                                                                    |             |
-| `volnorm`                       | Enable volume normalization                                    | `true`, `false`                                                           | `false`     |
-| `volnorm_pregain`               | Normalization pregain to apply in dB (if enabled)              | Number                                                                    | `0.0`       |
-| `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                           | `false`     |
-| `notify`<sup>[4]</sup>          | Enable desktop notifications                                   | `true`, `false`                                                           | `false`     |
-| `bitrate`                       | Audio bitrate to use for streaming                             | `96`, `160`, `320`                                                        | `320`       |
-| `gapless`                       | Enable gapless playback                                        | `true`, `false`                                                           | `true`      |
-| `shuffle`                       | Set default shuffle state                                      | `true`, `false`                                                           | `false`     |
-| `repeat`                        | Set default repeat mode                                        | `off`, `track`, `playlist`                                                | `off`       |
-| `playback_state`                | Set default playback state                                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`                         | `"Paused"`  |
-| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"Playlists"`, `"podcasts"` | All tabs    |
-| `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                    | `1.0`       |
-| `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                           | `false`     |
-| `[track_format]`                | Set active fields shown in Library/Queue views                 | See [track formatting](#track-formatting)                                 |             |
-| `[theme]`                       | Custom theme                                                   | See [custom theme](#theming)                                              |             |
-| `[keybindings]`                 | Custom keybindings                                             | See [custom keybindings](#custom-keybindings)                             |             |
+| Name                            | Description                                                    | Possible values                                                           | Default             |
+|---------------------------------|----------------------------------------------------------------|---------------------------------------------------------------------------|---------------------|
+| `command_key`                   | Key to open command line                                       | Single character                                                          | `:`                 |
+| `initial_screen`                | Screen to show after startup                                   | `"library"`, `"search"`, `"queue"`, `"cover"`<sup>[1]</sup>               | `"library"`         |
+| `use_nerdfont`                  | Turn nerdfont glyphs on/off                                    | `true`, `false`                                                           | `false`             |
+| `flip_status_indicators`        | Reverse play/pause icon meaning<sup>[2]</sup>                  | `true`, `false`                                                           | `false`             |
+| `backend`                       | Audio backend to use                                           | String<sup>[3]</sup>                                                      |                     |
+| `backend_device`                | Audio device to configure the backend                          | String                                                                    |                     |
+| `audio_cache`                   | Enable caching of audio files                                  | `true`, `false`                                                           | `true`              |
+| `audio_cache_size`              | Maximum size of audio cache in MiB                             | Number                                                                    |                     |
+| `volnorm`                       | Enable volume normalization                                    | `true`, `false`                                                           | `false`             |
+| `volnorm_pregain`               | Normalization pregain to apply in dB (if enabled)              | Number                                                                    | `0.0`               |
+| `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                           | `false`             |
+| `notify`<sup>[4]</sup>          | Enable desktop notifications                                   | `true`, `false`                                                           | `false`             |
+| `bitrate`                       | Audio bitrate to use for streaming                             | `96`, `160`, `320`                                                        | `320`               |
+| `gapless`                       | Enable gapless playback                                        | `true`, `false`                                                           | `true`              |
+| `shuffle`                       | Set default shuffle state                                      | `true`, `false`                                                           | `false`             |
+| `repeat`                        | Set default repeat mode                                        | `off`, `track`, `playlist`                                                | `off`               |
+| `playback_state`                | Set default playback state                                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`                         | `"Paused"`          |
+| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"Playlists"`, `"podcasts"` | All tabs            |
+| `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                    | `1.0`               |
+| `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                           | `false`             |
+| `statusbar_format`              | Formatting for tracks in the statusbar                         | See [track_formatting](#track-formatting)                                 | `%artists - %track` |
+| `[track_format]`                | Set active fields shown in Library/Queue views                 | See [track formatting](#track-formatting)                                 |                     |
+| `[theme]`                       | Custom theme                                                   | See [custom theme](#theming)                                              |                     |
+| `[keybindings]`                 | Custom keybindings                                             | See [custom keybindings](#custom-keybindings)                             |                     |
 
 1. If built with the `cover` feature.
-2. By default the statusbar will show a play icon when a track is playing and 
+2. By default the statusbar will show a play icon when a track is playing and
    a pause icon when playback is stopped. If this setting is enabled, the behavior
    is reversed.
 3. Run `ncspot -h` for a list of devices.
@@ -442,14 +443,18 @@ search_match = "light red"
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
 ### Track Formatting
-It's possible to customize which fields are shown in Queue/Library views.
+It's possible to customize how tracks are shown in Queue/Library views and the
+statusbar, whereas `statusbar_format` will hold the statusbar formatting and
+`[track_format]` the formatting for tracks in list views.
 If you don't define `center` for example, the default value will be used.
-Available options for tracks:
-`%artists`, `%title`, `%album`, `%saved`, `%duration`
+Available options for tracks: `%artists`, `%title`, `%album`, `%saved`,
+`%duration`
 
 Default configuration:
 
 ```toml
+statusbar_format = "%artists - %title"
+
 [track_format]
 left = "%artists - %title"
 center = "%album"
