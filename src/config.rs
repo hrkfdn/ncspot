@@ -50,6 +50,21 @@ impl TrackFormat {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct NotificationFormat {
+    pub title: Option<String>,
+    pub body: Option<String>
+}
+
+impl NotificationFormat {
+    pub fn default() -> Self {
+        NotificationFormat {
+            title: Some(String::from("%title")),
+            body: Some(String::from("%artists")),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct ConfigValues {
     pub command_key: Option<char>,
@@ -73,6 +88,7 @@ pub struct ConfigValues {
     pub cover_max_scale: Option<f32>,
     pub playback_state: Option<PlaybackState>,
     pub track_format: Option<TrackFormat>,
+    pub notification_format: Option<NotificationFormat>,
     pub statusbar_format: Option<String>,
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,

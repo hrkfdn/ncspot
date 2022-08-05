@@ -13,7 +13,9 @@ use strum_macros::Display;
 use crate::config::PlaybackState;
 use crate::model::playable::Playable;
 use crate::spotify::Spotify;
-use crate::{config::Config, spotify::PlayerEvent};
+use crate::library::Library;
+use crate::config::{Config, NotificationFormat};
+use crate::spotify::PlayerEvent;
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -38,10 +40,11 @@ pub struct Queue {
     cfg: Arc<Config>,
     #[cfg(feature = "notify")]
     notification_id: Arc<AtomicU32>,
+    library: Arc<Library>,
 }
 
 impl Queue {
-    pub fn new(spotify: Spotify, cfg: Arc<Config>) -> Queue {
+    pub fn new(spotify: Spotify, cfg: Arc<Config>, library: Arc<Library>) -> Queue {
         let queue_state = cfg.state().queuestate.clone();
         let playback_state = cfg.state().playback_state.clone();
         let queue = Queue {
@@ -52,6 +55,7 @@ impl Queue {
             cfg,
             #[cfg(feature = "notify")]
             notification_id: Arc::new(AtomicU32::new(0)),
+            library,
         };
 
         if let Some(playable) = queue.get_current() {
@@ -285,13 +289,22 @@ impl Queue {
             if self.cfg.values().notify.unwrap_or(false) {
                 let notification_id = self.notification_id.clone();
                 std::thread::spawn({
-                    let track_name = track.to_string();
+                    // use same parser as track_format, Playable::format
+                    let format = self.cfg.values().notification_format.clone().unwrap_or_default();
+                    let default_title = NotificationFormat::default().title.unwrap();
+                    let title = format.title.unwrap_or_else(|| default_title.clone());
+
+                    let default_body = NotificationFormat::default().body.unwrap();
+                    let body = format.body.unwrap_or_else(|| default_body.clone());
+
+                    let summary_txt = Playable::format(track, &title, self.library.clone());
+                    let body_txt = Playable::format(track, &body, self.library.clone());
                     let cover_url = if cfg!(feature = "cover") {
                         track.cover_url()
                     } else {
                         None
                     };
-                    move || send_notification(&track_name, cover_url, notification_id)
+                    move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
                 });
             }
         }
@@ -432,7 +445,8 @@ impl Queue {
 
 #[cfg(feature = "notify")]
 pub fn send_notification(
-    track_name: &str,
+    summary_txt: &str,
+    body_txt: &str,
     cover_url: Option<String>,
     notification_id: Arc<AtomicU32>,
 ) {
@@ -441,7 +455,8 @@ pub fn send_notification(
     let mut n = Notification::new();
     n.appname("ncspot")
         .id(current_notification_id)
-        .summary(track_name);
+        .summary(summary_txt)
+        .body(body_txt);
 
     // album cover image
     if let Some(u) = cover_url {
