@@ -53,7 +53,7 @@ impl TrackFormat {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct NotificationFormat {
     pub title: Option<String>,
-    pub body: Option<String>
+    pub body: Option<String>,
 }
 
 impl NotificationFormat {

@@ -10,12 +10,11 @@ use notify_rust::{Hint, Notification, Urgency};
 use rand::prelude::*;
 use strum_macros::Display;
 
-use crate::config::PlaybackState;
-use crate::model::playable::Playable;
-use crate::spotify::Spotify;
+use crate::config::{Config, NotificationFormat, PlaybackState};
 use crate::library::Library;
-use crate::config::{Config, NotificationFormat};
+use crate::model::playable::Playable;
 use crate::spotify::PlayerEvent;
+use crate::spotify::Spotify;
 
 #[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
@@ -290,7 +289,12 @@ impl Queue {
                 let notification_id = self.notification_id.clone();
                 std::thread::spawn({
                     // use same parser as track_format, Playable::format
-                    let format = self.cfg.values().notification_format.clone().unwrap_or_default();
+                    let format = self
+                        .cfg
+                        .values()
+                        .notification_format
+                        .clone()
+                        .unwrap_or_default();
                     let default_title = NotificationFormat::default().title.unwrap();
                     let title = format.title.unwrap_or_else(|| default_title.clone());
 

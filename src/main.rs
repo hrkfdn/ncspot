@@ -177,7 +177,11 @@ async fn main() -> Result<(), String> {
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
 
-    let queue = Arc::new(queue::Queue::new(spotify.clone(), cfg.clone(), library.clone()));
+    let queue = Arc::new(queue::Queue::new(
+        spotify.clone(),
+        cfg.clone(),
+        library.clone(),
+    ));
 
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(
