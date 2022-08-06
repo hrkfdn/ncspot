@@ -167,10 +167,10 @@ Windows), you need to compile `ncspot` with the respective features:
 
 ```sh
 # PortAudio (BSD/macOS)
-cargo build --release --no-default-features --features portaudio_backend,pancurses-backend
+cargo build --release --no-default-features --features portaudio_backend,pancurses_backend
 
 # Rodio (Windows)
-cargo build --release --no-default-features --features rodio_backend,pancurses-backend
+cargo build --release --no-default-features --features rodio_backend,pancurses_backend
 ```
 
 ### Other Features
