@@ -514,7 +514,7 @@ right = "%album"
 The title and body of the notification can be set, with `title` and `body`, or the default will be used.
 The formatting options are the same as those for [track formatting](#track-formatting) (`%artists`, `%title`, etc)
 
-Defualt configuration:
+Default configuration:
 ```toml
 [notification_format]
 title = "%title"
