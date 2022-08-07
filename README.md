@@ -55,6 +55,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Proxy](#proxy)
     - [Theming](#theming)
     - [Track Formatting](#track-formatting)
+    - [Notification Formatting](#notification-formatting)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
 
@@ -349,6 +350,7 @@ Possible configuration values are:
 | `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                           | `false`             |
 | `statusbar_format`              | Formatting for tracks in the statusbar                         | See [track_formatting](#track-formatting)                                 | `%artists - %track` |
 | `[track_format]`                | Set active fields shown in Library/Queue views                 | See [track formatting](#track-formatting)                                 |                     |
+| `[notification_format]`         | Set the text displayed in notifications<sup>[4]</sup>          | See [notification formatting](#notification-formatting)                   |                     |
 | `[theme]`                       | Custom theme                                                   | See [custom theme](#theming)                                              |                     |
 | `[keybindings]`                 | Custom keybindings                                             | See [custom keybindings](#custom-keybindings)                             |                     |
 
@@ -505,6 +507,19 @@ right = "%album"
 ```
 
 </details>
+
+### Notification Formatting
+`ncspot` also supports customizing the way notifications are displayed
+(which appear when compiled with the `notify` feature and `notify = true`).
+The title and body of the notification can be set, with `title` and `body`, or the default will be used.
+The formatting options are the same as those for [track formatting](#track-formatting) (`%artists`, `%title`, etc)
+
+Default configuration:
+```toml
+[notification_format]
+title = "%title"
+body = "%artists"
+```
 
 ## Cover Drawing
 

@@ -175,9 +175,13 @@ async fn main() -> Result<(), String> {
     println!("Connecting to Spotify..");
     let spotify = spotify::Spotify::new(event_manager.clone(), credentials, cfg.clone());
 
-    let queue = Arc::new(queue::Queue::new(spotify.clone(), cfg.clone()));
-
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
+
+    let queue = Arc::new(queue::Queue::new(
+        spotify.clone(),
+        cfg.clone(),
+        library.clone(),
+    ));
 
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(
