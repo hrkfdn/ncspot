@@ -64,7 +64,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
 Measured using `ps_mem` on Linux during playback:
 
 | Client  | Private Memory | Shared Memory | Total      |
-|---------|----------------|---------------|------------|
+| ------- | -------------- | ------------- | ---------- |
 | ncspot  | 22.1 MiB       | 24.1 MiB      | 46.2 MiB   |
 | Spotify | 407.3 MiB      | 592.7 MiB     | 1000.0 MiB |
 
@@ -109,6 +109,7 @@ here are the runtime dependencies:
 - Python 3 (needed for building `rust-xcb` dependency)
 
 On Linux, you also need:
+
 - `pkgconf` (or `pkg-config`)
 - Development headers for the [aforementioned runtime dependencies](#on-linux)
   - Debian and derivatives:
@@ -179,7 +180,7 @@ cargo build --release --no-default-features --features rodio_backend,pancurses_b
 Here are some auxiliary features you may wish to enable:
 
 | Feature           | Default | Description                                                                                |
-|-------------------|---------|--------------------------------------------------------------------------------------------|
+| ----------------- | ------- | ------------------------------------------------------------------------------------------ |
 | `cover`           | off     | Add a screen to show the album art. See [Cover Drawing](#cover-drawing).                   |
 | `mpris`           | on      | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
 | `notify`          | on      | Send a notification to show what's playing.                                                |
@@ -197,7 +198,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Navigation
 
 | Key               | Command                                                                       |
-|-------------------|-------------------------------------------------------------------------------|
+| ----------------- | ----------------------------------------------------------------------------- |
 | <kbd>?</kbd>      | Show help screen.                                                             |
 | <kbd>F1</kbd>     | Queue (See [specific commands](#queue)).                                      |
 | <kbd>F2</kbd>     | Search.                                                                       |
@@ -211,7 +212,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Playback
 
 | Key                           | Command                                                        |
-|-------------------------------|----------------------------------------------------------------|
+| ----------------------------- | -------------------------------------------------------------- |
 | <kbd>Return</kbd>             | Play track or playlist.                                        |
 | <kbd>Space</kbd>              | Queue track or playlist.                                       |
 | <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
@@ -237,7 +238,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Context Menus
 
 | Key                           | Command                                                                                                   |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------|
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
 | <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.                                                  |
 | <kbd>Shift</kbd>+<kbd>O</kbd> | Open a context menu for the **currently playing track**.                                                  |
 | <kbd>A</kbd>                  | Open the **album view** for the selected item.                                                            |
@@ -262,14 +263,14 @@ When pressing <kbd>O</kbd>:
 (if built with the `share_clipboard` feature)
 
 | Key                           | Command                                                                  |
-|-------------------------------|--------------------------------------------------------------------------|
+| ----------------------------- | ------------------------------------------------------------------------ |
 | <kbd>X</kbd>                  | Copy the URL to the **currently selected item** to the system clipboard. |
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy the URL to the **currently playing track** to the system clipboard. |
 
 ### Queue
 
 | Key                          | Command                              |
-|------------------------------|--------------------------------------|
+| ---------------------------- | ------------------------------------ |
 | <kbd>C</kbd>                 | Clear the entire queue.              |
 | <kbd>D</kbd>                 | Delete the currently selected track. |
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
@@ -277,13 +278,13 @@ When pressing <kbd>O</kbd>:
 ### Library
 
 | Key          | Command                                 |
-|--------------|-----------------------------------------|
+| ------------ | --------------------------------------- |
 | <kbd>D</kbd> | Delete the currently selected playlist. |
 
 ### Vim-Like Search Bar
 
 | Key          | Command                     |
-|--------------|-----------------------------|
+| ------------ | --------------------------- |
 | <kbd>n</kbd> | Previous search occurrence. |
 | <kbd>N</kbd> | Next search occurrence.     |
 
@@ -297,7 +298,7 @@ The following is an abridged list of the more useful commands. For the full list
 Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 
 | Command                                                          | Action                                                                                                                                                                                                                                                          |
-|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `help`                                                           | Show current key bindings.                                                                                                                                                                                                                                      |
 | `quit`<br/>Aliases: `q`, `x`                                     | Quit `ncspot`.                                                                                                                                                                                                                                                  |
 | `logout`                                                         | Remove any cached credentials from disk and quit `ncspot`.                                                                                                                                                                                                      |
@@ -327,7 +328,7 @@ runtime use the `reload` command.
 Possible configuration values are:
 
 | Name                            | Description                                                    | Possible values                                                           | Default             |
-|---------------------------------|----------------------------------------------------------------|---------------------------------------------------------------------------|---------------------|
+| ------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------- |
 | `command_key`                   | Key to open command line                                       | Single character                                                          | `:`                 |
 | `initial_screen`                | Screen to show after startup                                   | `"library"`, `"search"`, `"queue"`, `"cover"`<sup>[1]</sup>               | `"library"`         |
 | `use_nerdfont`                  | Turn nerdfont glyphs on/off                                    | `true`, `false`                                                           | `false`             |
@@ -345,7 +346,7 @@ Possible configuration values are:
 | `shuffle`                       | Set default shuffle state                                      | `true`, `false`                                                           | `false`             |
 | `repeat`                        | Set default repeat mode                                        | `off`, `track`, `playlist`                                                | `off`               |
 | `playback_state`                | Set default playback state                                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`                         | `"Paused"`          |
-| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"Playlists"`, `"podcasts"` | All tabs            |
+| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"playlists"`, `"podcasts"` | All tabs            |
 | `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                    | `1.0`               |
 | `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                           | `false`             |
 | `statusbar_format`              | Formatting for tracks in the statusbar                         | See [track_formatting](#track-formatting)                                 | `%artists - %track` |
@@ -445,6 +446,7 @@ search_match = "light red"
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
 ### Track Formatting
+
 It's possible to customize how tracks are shown in Queue/Library views and the
 statusbar, whereas `statusbar_format` will hold the statusbar formatting and
 `[track_format]` the formatting for tracks in list views.
@@ -509,12 +511,14 @@ right = "%album"
 </details>
 
 ### Notification Formatting
+
 `ncspot` also supports customizing the way notifications are displayed
 (which appear when compiled with the `notify` feature and `notify = true`).
 The title and body of the notification can be set, with `title` and `body`, or the default will be used.
 The formatting options are the same as those for [track formatting](#track-formatting) (`%artists`, `%title`, etc)
 
 Default configuration:
+
 ```toml
 [notification_format]
 title = "%title"
