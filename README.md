@@ -109,6 +109,7 @@ here are the runtime dependencies:
 - Python 3 (needed for building `rust-xcb` dependency)
 
 On Linux, you also need:
+
 - `pkgconf` (or `pkg-config`)
 - Development headers for the [aforementioned runtime dependencies](#on-linux)
   - Debian and derivatives:
@@ -345,7 +346,7 @@ Possible configuration values are:
 | `shuffle`                       | Set default shuffle state                                      | `true`, `false`                                                           | `false`             |
 | `repeat`                        | Set default repeat mode                                        | `off`, `track`, `playlist`                                                | `off`               |
 | `playback_state`                | Set default playback state                                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`                         | `"Paused"`          |
-| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"Playlists"`, `"podcasts"` | All tabs            |
+| `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"playlists"`, `"podcasts"` | All tabs            |
 | `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                    | `1.0`               |
 | `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                           | `false`             |
 | `statusbar_format`              | Formatting for tracks in the statusbar                         | See [track_formatting](#track-formatting)                                 | `%artists - %track` |
@@ -445,6 +446,7 @@ search_match = "light red"
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
 ### Track Formatting
+
 It's possible to customize how tracks are shown in Queue/Library views and the
 statusbar, whereas `statusbar_format` will hold the statusbar formatting and
 `[track_format]` the formatting for tracks in list views.
@@ -509,12 +511,14 @@ right = "%album"
 </details>
 
 ### Notification Formatting
+
 `ncspot` also supports customizing the way notifications are displayed
 (which appear when compiled with the `notify` feature and `notify = true`).
 The title and body of the notification can be set, with `title` and `body`, or the default will be used.
 The formatting options are the same as those for [track formatting](#track-formatting) (`%artists`, `%title`, etc)
 
 Default configuration:
+
 ```toml
 [notification_format]
 title = "%title"
