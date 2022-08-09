@@ -64,7 +64,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
 Measured using `ps_mem` on Linux during playback:
 
 | Client  | Private Memory | Shared Memory | Total      |
-| ------- | -------------- | ------------- | ---------- |
+|---------|----------------|---------------|------------|
 | ncspot  | 22.1 MiB       | 24.1 MiB      | 46.2 MiB   |
 | Spotify | 407.3 MiB      | 592.7 MiB     | 1000.0 MiB |
 
@@ -180,7 +180,7 @@ cargo build --release --no-default-features --features rodio_backend,pancurses_b
 Here are some auxiliary features you may wish to enable:
 
 | Feature           | Default | Description                                                                                |
-| ----------------- | ------- | ------------------------------------------------------------------------------------------ |
+|-------------------|---------|--------------------------------------------------------------------------------------------|
 | `cover`           | off     | Add a screen to show the album art. See [Cover Drawing](#cover-drawing).                   |
 | `mpris`           | on      | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
 | `notify`          | on      | Send a notification to show what's playing.                                                |
@@ -198,7 +198,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Navigation
 
 | Key               | Command                                                                       |
-| ----------------- | ----------------------------------------------------------------------------- |
+|-------------------|-------------------------------------------------------------------------------|
 | <kbd>?</kbd>      | Show help screen.                                                             |
 | <kbd>F1</kbd>     | Queue (See [specific commands](#queue)).                                      |
 | <kbd>F2</kbd>     | Search.                                                                       |
@@ -212,7 +212,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Playback
 
 | Key                           | Command                                                        |
-| ----------------------------- | -------------------------------------------------------------- |
+|-------------------------------|----------------------------------------------------------------|
 | <kbd>Return</kbd>             | Play track or playlist.                                        |
 | <kbd>Space</kbd>              | Queue track or playlist.                                       |
 | <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
@@ -238,7 +238,7 @@ playback depending on your desktop environment settings. Have a look at the
 ### Context Menus
 
 | Key                           | Command                                                                                                   |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------|
 | <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.                                                  |
 | <kbd>Shift</kbd>+<kbd>O</kbd> | Open a context menu for the **currently playing track**.                                                  |
 | <kbd>A</kbd>                  | Open the **album view** for the selected item.                                                            |
@@ -263,14 +263,14 @@ When pressing <kbd>O</kbd>:
 (if built with the `share_clipboard` feature)
 
 | Key                           | Command                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------ |
+|-------------------------------|--------------------------------------------------------------------------|
 | <kbd>X</kbd>                  | Copy the URL to the **currently selected item** to the system clipboard. |
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy the URL to the **currently playing track** to the system clipboard. |
 
 ### Queue
 
 | Key                          | Command                              |
-| ---------------------------- | ------------------------------------ |
+|------------------------------|--------------------------------------|
 | <kbd>C</kbd>                 | Clear the entire queue.              |
 | <kbd>D</kbd>                 | Delete the currently selected track. |
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
@@ -278,13 +278,13 @@ When pressing <kbd>O</kbd>:
 ### Library
 
 | Key          | Command                                 |
-| ------------ | --------------------------------------- |
+|--------------|-----------------------------------------|
 | <kbd>D</kbd> | Delete the currently selected playlist. |
 
 ### Vim-Like Search Bar
 
 | Key          | Command                     |
-| ------------ | --------------------------- |
+|--------------|-----------------------------|
 | <kbd>n</kbd> | Previous search occurrence. |
 | <kbd>N</kbd> | Next search occurrence.     |
 
@@ -298,7 +298,7 @@ The following is an abridged list of the more useful commands. For the full list
 Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 
 | Command                                                          | Action                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `help`                                                           | Show current key bindings.                                                                                                                                                                                                                                      |
 | `quit`<br/>Aliases: `q`, `x`                                     | Quit `ncspot`.                                                                                                                                                                                                                                                  |
 | `logout`                                                         | Remove any cached credentials from disk and quit `ncspot`.                                                                                                                                                                                                      |
@@ -328,7 +328,7 @@ runtime use the `reload` command.
 Possible configuration values are:
 
 | Name                            | Description                                                    | Possible values                                                           | Default             |
-| ------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------- |
+|---------------------------------|----------------------------------------------------------------|---------------------------------------------------------------------------|---------------------|
 | `command_key`                   | Key to open command line                                       | Single character                                                          | `:`                 |
 | `initial_screen`                | Screen to show after startup                                   | `"library"`, `"search"`, `"queue"`, `"cover"`<sup>[1]</sup>               | `"library"`         |
 | `use_nerdfont`                  | Turn nerdfont glyphs on/off                                    | `true`, `false`                                                           | `false`             |
