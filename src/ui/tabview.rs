@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 
 use cursive::align::HAlign;
-use cursive::event::{Event, EventResult};
+use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
@@ -21,6 +21,7 @@ pub struct TabView {
     tabs: Vec<Tab>,
     ids: HashMap<String, usize>,
     selected: usize,
+    size: Vec2,
 }
 
 impl TabView {
@@ -29,6 +30,7 @@ impl TabView {
             tabs: Vec::new(),
             ids: HashMap::new(),
             selected: 0,
+            size: Vec2::default(),
         }
     }
 
@@ -97,13 +99,36 @@ impl View for TabView {
     }
 
     fn layout(&mut self, size: Vec2) {
+        self.size = size;
         if let Some(tab) = self.tabs.get_mut(self.selected) {
             tab.view.layout(Vec2::new(size.x, size.y - 1));
         }
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        if let Some(tab) = self.tabs.get_mut(self.selected) {
+        // mouse event in tab header
+        if event.mouse_position().map(|m| m.y) == Some(1) {
+            match event {
+                Event::Mouse {
+                    offset: _,
+                    position,
+                    event,
+                } => {
+                    match event {
+                        MouseEvent::WheelUp => self.move_focus(-1),
+                        MouseEvent::WheelDown => self.move_focus(1),
+                        MouseEvent::Press(MouseButton::Left) => {
+                            let tabwidth = self.size.x / self.tabs.len();
+                            let selected_tab = position.x.saturating_div(tabwidth);
+                            self.move_focus_to(selected_tab);
+                        }
+                        _ => {}
+                    };
+                    EventResult::consumed()
+                }
+                _ => EventResult::Ignored,
+            }
+        } else if let Some(tab) = self.tabs.get_mut(self.selected) {
             tab.view.on_event(event)
         } else {
             EventResult::Ignored
