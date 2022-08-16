@@ -4,7 +4,7 @@ use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
-use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
+use cursive::event::{Callback, Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::view::scroll;
@@ -307,6 +307,28 @@ impl<I: ListItem> View for ListView<I> {
                         .map(|p| self.scroller.start_drag(p))
                         .unwrap_or(false)
                 {}
+            }
+            Event::Mouse {
+                event: MouseEvent::Press(MouseButton::Right),
+                position,
+                offset,
+            } => {
+                let viewport = self.scroller.content_viewport().top_left();
+                if let Some(y) = position.checked_sub(offset).map(|p| p.y + viewport.y) {
+                    self.move_focus_to(y);
+
+                    let queue = self.queue.clone();
+                    let library = self.library.clone();
+                    if let Some(target) = {
+                        let content = self.content.read().unwrap();
+                        content.get(self.selected).map(|t| t.as_listitem())
+                    } {
+                        let contextmenu = ContextMenu::new(&*target, queue, library);
+                        return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                            s.add_layer(contextmenu)
+                        })));
+                    }
+                }
             }
             Event::Mouse {
                 event: MouseEvent::Hold(MouseButton::Left),
