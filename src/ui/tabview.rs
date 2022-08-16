@@ -106,30 +106,32 @@ impl View for TabView {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        // mouse event in tab header
-        if event.mouse_position().map(|m| m.y) == Some(1) {
-            match event {
-                Event::Mouse {
-                    offset: _,
-                    position,
-                    event,
-                } => {
-                    match event {
-                        MouseEvent::WheelUp => self.move_focus(-1),
-                        MouseEvent::WheelDown => self.move_focus(1),
-                        MouseEvent::Press(MouseButton::Left) => {
-                            let tabwidth = self.size.x / self.tabs.len();
-                            let selected_tab = position.x.saturating_div(tabwidth);
+        if let Event::Mouse {
+            offset,
+            position,
+            event,
+        } = event
+        {
+            let position = position.checked_sub(offset);
+            if let Some(0) = position.map(|p| p.y) {
+                match event {
+                    MouseEvent::WheelUp => self.move_focus(-1),
+                    MouseEvent::WheelDown => self.move_focus(1),
+                    MouseEvent::Press(MouseButton::Left) => {
+                        let tabwidth = self.size.x / self.tabs.len();
+                        if let Some(selected_tab) = position.and_then(|p| p.x.checked_div(tabwidth))
+                        {
                             self.move_focus_to(selected_tab);
                         }
-                        _ => {}
-                    };
-                    EventResult::consumed()
-                }
-                _ => EventResult::Ignored,
+                    }
+                    _ => {}
+                };
+                return EventResult::consumed();
             }
-        } else if let Some(tab) = self.tabs.get_mut(self.selected) {
-            tab.view.on_event(event)
+        }
+
+        if let Some(tab) = self.tabs.get_mut(self.selected) {
+            tab.view.on_event(event.relativized((0, 1)))
         } else {
             EventResult::Ignored
         }

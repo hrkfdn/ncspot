@@ -288,7 +288,12 @@ impl View for Layout {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
+        // handle mouse events in cmdline/statusbar area
         if let Event::Mouse { position, .. } = event {
+            if position.y == 0 {
+                return EventResult::consumed();
+            }
+
             let result = self.get_result();
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
@@ -297,17 +302,14 @@ impl View for Layout {
                 cmdline_height += 1;
             }
 
-            if position.y < self.last_size.y.saturating_sub(2 + cmdline_height) {
-                if let Some(view) = self.get_current_view_mut() {
-                    view.on_event(event);
-                }
-            } else if position.y < self.last_size.y - cmdline_height {
+            if position.y >= self.last_size.y.saturating_sub(2 + cmdline_height)
+                && position.y < self.last_size.y - cmdline_height
+            {
                 self.statusbar.on_event(
                     event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
                 );
+                return EventResult::Consumed(None);
             }
-
-            return EventResult::Consumed(None);
         }
 
         if self.cmdline_focus {
@@ -316,7 +318,7 @@ impl View for Layout {
         }
 
         if let Some(view) = self.get_current_view_mut() {
-            view.on_event(event)
+            view.on_event(event.relativized((0, 1)))
         } else {
             EventResult::Ignored
         }
