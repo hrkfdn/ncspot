@@ -445,7 +445,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     self.search_query = query.to_lowercase();
                     self.search_indexes = self.get_indexes_of(query);
                     self.search_selected_index = 0;
-                    match self.search_indexes.get(0) {
+                    match self.search_indexes.first() {
                         Some(&index) => {
                             self.move_focus_to(index);
                             return Ok(CommandResult::Consumed(None));

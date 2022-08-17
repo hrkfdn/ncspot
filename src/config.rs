@@ -15,7 +15,7 @@ use crate::serialization::{Serializer, CBOR, TOML};
 pub const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 pub const CACHE_VERSION: u16 = 1;
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum PlaybackState {
     Playing,
     Paused,

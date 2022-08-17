@@ -16,7 +16,7 @@ use crate::model::playable::Playable;
 use crate::spotify::PlayerEvent;
 use crate::spotify::Spotify;
 
-#[derive(Display, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Display, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     #[serde(rename = "off")]
     None,
@@ -26,7 +26,7 @@ pub enum RepeatSetting {
     RepeatTrack,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueueEvent {
     PreloadTrackRequest,
 }
