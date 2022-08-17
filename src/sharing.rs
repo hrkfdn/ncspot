@@ -34,7 +34,13 @@ fn is_wayland() -> bool {
     fn gdk_backend() -> String {
         env::var("GDK_BACKEND").unwrap_or_default()
     }
-    session_type().as_str() == "wayland" || !wl_display().is_empty() || gdk_backend() == "wayland"
+    fn current_desktop() -> String {
+        env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()
+    }
+    current_desktop() != "GNOME"
+        && (session_type().as_str() == "wayland"
+            || !wl_display().is_empty()
+            || gdk_backend() == "wayland")
 }
 
 #[cfg(not(feature = "share_selection"))]
