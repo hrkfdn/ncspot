@@ -7,6 +7,7 @@ use crate::command::{
 };
 use crate::config::Config;
 use crate::events::EventManager;
+use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
@@ -310,10 +311,7 @@ impl CommandManager {
         } else if let Some(mut play_track) = s.find_name::<PlayTrackMenu>("playtrackmenu") {
             play_track.on_command(s, cmd)?
         } else {
-            let mut main = s
-                .find_name::<Layout>("main")
-                .expect("could not find layout");
-            main.on_command(s, cmd)?
+            s.on_layout(|siv, mut l| l.on_command(siv, cmd))?
         };
 
         if let CommandResult::Consumed(output) = local {

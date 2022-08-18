@@ -23,6 +23,7 @@ mod command;
 mod commands;
 mod config;
 mod events;
+mod ext_traits;
 mod library;
 mod model;
 mod queue;
@@ -44,6 +45,7 @@ use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
 use crate::config::Config;
 use crate::events::{Event, EventManager};
+use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::spotify::PlayerEvent;
 use crate::ui::contextmenu::ContextMenu;
@@ -282,10 +284,7 @@ async fn main() -> Result<(), String> {
     {
         let ev = event_manager.clone();
         layout.cmdline.set_on_submit(move |s, cmd| {
-            {
-                let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                main.clear_cmdline();
-            }
+            s.on_layout(|_, mut layout| layout.clear_cmdline());
             let cmd_without_prefix = &cmd[1..];
             if cmd.strip_prefix('/').is_some() {
                 let command = Command::Jump(JumpMode::Query(cmd_without_prefix.to_string()));
@@ -302,8 +301,7 @@ async fn main() -> Result<(), String> {
                         }
                     }
                     Err(err) => {
-                        let mut main = s.find_name::<ui::layout::Layout>("main").unwrap();
-                        main.set_result(Err(err.to_string()));
+                        s.on_layout(|_, mut layout| layout.set_result(Err(err.to_string())));
                     }
                 }
             }
