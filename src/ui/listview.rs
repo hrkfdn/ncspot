@@ -84,11 +84,15 @@ impl<I: ListItem> ListView<I> {
         &self.pagination
     }
 
-    pub fn content_height_with_paginator(&self) -> usize {
+    /// Return the current amount of items in `content`
+    ///
+    /// If `include_paginator` is `true`, the pagination entry will be included
+    /// in the count.
+    pub fn content_len(&self, include_paginator: bool) -> usize {
         let content_len = self.content.read().unwrap().len();
 
         // add 1 more row for paginator if we can paginate
-        if self.can_paginate() {
+        if self.can_paginate() && include_paginator {
             content_len + 1
         } else {
             content_len
@@ -118,7 +122,7 @@ impl<I: ListItem> ListView<I> {
     }
 
     pub fn move_focus_to(&mut self, target: usize) {
-        let len = self.content.read().unwrap().len().saturating_sub(1);
+        let len = self.content_len(false).saturating_sub(1);
         self.selected = min(target, len);
         self.scroller.scroll_to_y(self.selected);
     }
@@ -265,15 +269,15 @@ impl<I: ListItem> View for ListView<I> {
     fn layout(&mut self, size: Vec2) {
         self.last_size = size;
 
-        let relayout_scroller = self.content.read().unwrap().len() != self.last_content_len;
-        self.last_content_len = self.content_height_with_paginator();
+        let relayout_scroller = self.content_len(false) != self.last_content_len;
+        self.last_content_len = self.content_len(true);
 
         scroll::layout(
             self,
             size,
             relayout_scroller,
             |_, _| {},
-            |s, c| Vec2::new(c.x, s.content_height_with_paginator()),
+            |s, c| Vec2::new(c.x, s.content_len(true)),
         );
     }
 
@@ -377,7 +381,7 @@ impl<I: ListItem> View for ListView<I> {
     }
 
     fn important_area(&self, view_size: Vec2) -> Rect {
-        if self.content.read().unwrap().len() > 0 {
+        if self.content_len(false) > 0 {
             Rect::from_point((view_size.x, self.selected))
         } else {
             Rect::from_point((0, 0))
