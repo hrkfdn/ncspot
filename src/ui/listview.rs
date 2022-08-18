@@ -13,6 +13,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::command::{Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
+use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
@@ -306,7 +307,29 @@ impl<I: ListItem> View for ListView<I> {
                         .checked_sub(offset)
                         .map(|p| self.scroller.start_drag(p))
                         .unwrap_or(false)
-                {}
+                {
+                    log::debug!("grabbing scroller");
+                } else {
+                    let viewport = self.scroller.content_viewport().top_left();
+                    if let Some(y) = position.checked_sub(offset).map(|p| p.y + viewport.y) {
+                        self.move_focus_to(y);
+
+                        let queue = self.queue.clone();
+                        let library = self.library.clone();
+                        if let Some(target) = {
+                            let content = self.content.read().unwrap();
+                            content.get(self.selected).map(|t| t.as_listitem())
+                        } {
+                            if let Some(view) = target.open(queue, library) {
+                                return EventResult::Consumed(Some(Callback::from_fn_once(
+                                    move |s| {
+                                        s.on_layout(|_, mut l| l.push_view(view));
+                                    },
+                                )));
+                            }
+                        }
+                    }
+                }
             }
             Event::Mouse {
                 event: MouseEvent::Press(MouseButton::Right),
