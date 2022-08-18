@@ -315,7 +315,8 @@ impl<I: ListItem> View for ListView<I> {
                     log::debug!("grabbing scroller");
                 } else {
                     let viewport = self.scroller.content_viewport().top_left();
-                    if let Some(y) = position.checked_sub(offset).map(|p| p.y + viewport.y) {
+                    let selected_row = position.checked_sub(offset).map(|p| p.y + viewport.y);
+                    if let Some(y) = selected_row.filter(|row| row < &self.content_len(false)) {
                         self.move_focus_to(y);
 
                         let queue = self.queue.clone();
@@ -341,7 +342,8 @@ impl<I: ListItem> View for ListView<I> {
                 offset,
             } => {
                 let viewport = self.scroller.content_viewport().top_left();
-                if let Some(y) = position.checked_sub(offset).map(|p| p.y + viewport.y) {
+                let selected_row = position.checked_sub(offset).map(|p| p.y + viewport.y);
+                if let Some(y) = selected_row.filter(|row| row < &self.content_len(false)) {
                     self.move_focus_to(y);
 
                     let queue = self.queue.clone();
