@@ -305,8 +305,6 @@ impl<I: ListItem> View for ListView<I> {
                 offset,
             } => {
                 if self.scroller.get_show_scrollbars()
-                    && position.y > 0
-                    && position.y <= self.last_size.y
                     && position
                         .checked_sub(offset)
                         .map(|p| self.scroller.start_drag(p))
@@ -372,6 +370,7 @@ impl<I: ListItem> View for ListView<I> {
                 event: MouseEvent::Release(MouseButton::Left),
                 ..
             } => {
+                log::debug!("releasing scroller");
                 self.scroller.release_grab();
             }
             _ => {
