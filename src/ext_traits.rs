@@ -1,5 +1,7 @@
 use cursive::views::ViewRef;
 
+use crate::command::{Command, MoveAmount, MoveMode};
+use crate::commands::CommandResult;
 use crate::ui::layout::Layout;
 
 pub trait CursiveExt {
@@ -17,5 +19,39 @@ impl CursiveExt for cursive::Cursive {
             .find_name::<Layout>("main")
             .expect("Could not find Layout");
         cb(self, layout)
+    }
+}
+
+pub trait SelectViewExt {
+    /// Translates ncspot commands (i.e. navigating in lists) to Cursive
+    /// `SelectView` actions.
+    fn handle_command(&mut self, cmd: &Command) -> Result<CommandResult, String>;
+}
+
+impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
+    fn handle_command(&mut self, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Move(mode, amount) => {
+                let items = self.len();
+                match mode {
+                    MoveMode::Up => {
+                        match amount {
+                            MoveAmount::Extreme => self.set_selection(0),
+                            MoveAmount::Integer(amount) => self.select_up(*amount as usize),
+                        };
+                        Ok(CommandResult::Consumed(None))
+                    }
+                    MoveMode::Down => {
+                        match amount {
+                            MoveAmount::Extreme => self.set_selection(items),
+                            MoveAmount::Integer(amount) => self.select_down(*amount as usize),
+                        };
+                        Ok(CommandResult::Consumed(None))
+                    }
+                    _ => Ok(CommandResult::Consumed(None)),
+                }
+            }
+            _ => Ok(CommandResult::Ignored),
+        }
     }
 }

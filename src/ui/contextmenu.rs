@@ -6,6 +6,7 @@ use cursive::views::{Dialog, NamedView, ScrollView, SelectView};
 use cursive::Cursive;
 
 use crate::commands::CommandResult;
+use crate::ext_traits::SelectViewExt;
 use crate::library::Library;
 use crate::model::artist::Artist;
 use crate::model::playable::Playable;
@@ -386,26 +387,9 @@ fn handle_move_command<T: 'static>(
             s.pop_layer();
             Ok(CommandResult::Consumed(None))
         }
-        Command::Move(mode, amount) => sel
+        Command::Move(_, _) => sel
             .call_on_name(name, |select: &mut SelectView<T>| {
-                let items = select.len();
-                match mode {
-                    MoveMode::Up => {
-                        match amount {
-                            MoveAmount::Extreme => select.set_selection(0),
-                            MoveAmount::Integer(amount) => select.select_up(*amount as usize),
-                        };
-                        Ok(CommandResult::Consumed(None))
-                    }
-                    MoveMode::Down => {
-                        match amount {
-                            MoveAmount::Extreme => select.set_selection(items),
-                            MoveAmount::Integer(amount) => select.select_down(*amount as usize),
-                        };
-                        Ok(CommandResult::Consumed(None))
-                    }
-                    _ => Ok(CommandResult::Consumed(None)),
-                }
+                select.handle_command(cmd)
             })
             .unwrap_or(Ok(CommandResult::Consumed(None))),
         _ => Ok(CommandResult::Consumed(None)),
