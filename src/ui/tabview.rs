@@ -13,7 +13,6 @@ use crate::commands::CommandResult;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
 
 pub struct Tab {
-    title: String,
     view: Box<dyn ViewExt>,
 }
 
@@ -34,17 +33,16 @@ impl TabView {
         }
     }
 
-    pub fn add_tab<S: Into<String>, V: IntoBoxedViewExt>(&mut self, id: S, title: S, view: V) {
+    pub fn add_tab<S: Into<String>, V: IntoBoxedViewExt>(&mut self, id: S, view: V) {
         let tab = Tab {
-            title: title.into(),
             view: view.into_boxed_view_ext(),
         };
         self.tabs.push(tab);
         self.ids.insert(id.into(), self.tabs.len() - 1);
     }
 
-    pub fn tab<S: Into<String>, V: IntoBoxedViewExt>(mut self, id: S, title: S, view: V) -> Self {
-        self.add_tab(id, title, view);
+    pub fn tab<S: Into<String>, V: IntoBoxedViewExt>(mut self, id: S, view: V) -> Self {
+        self.add_tab(id, view);
         self
     }
 
@@ -81,11 +79,12 @@ impl View for TabView {
                 width += printer.size.x % self.tabs.len();
             }
 
-            let offset = HAlign::Center.get_offset(tab.title.width(), width);
+            let title = tab.view.title();
+            let offset = HAlign::Center.get_offset(title.width(), width);
 
             printer.with_color(style, |printer| {
                 printer.print_hline((i * tabwidth, 0), width, " ");
-                printer.print((i * tabwidth + offset, 0), &tab.title);
+                printer.print((i * tabwidth + offset, 0), &title);
             });
         }
 

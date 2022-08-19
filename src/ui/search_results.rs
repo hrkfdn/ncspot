@@ -72,12 +72,12 @@ impl SearchResultsView {
         let pagination_episodes = list_episodes.get_pagination().clone();
 
         let tabs = TabView::new()
-            .tab("tracks", "Tracks", list_tracks)
-            .tab("albums", "Albums", list_albums)
-            .tab("artists", "Artists", list_artists)
-            .tab("playlists", "Playlists", list_playlists)
-            .tab("shows", "Podcasts", list_shows)
-            .tab("episodes", "Podcast Episodes", list_episodes);
+            .tab("tracks", list_tracks.with_title("Tracks"))
+            .tab("albums", list_albums.with_title("Albums"))
+            .tab("artists", list_artists.with_title("Artists"))
+            .tab("playlists", list_playlists.with_title("Playlists"))
+            .tab("shows", list_shows.with_title("Podcasts"))
+            .tab("episodes", list_episodes.with_title("Podcast Episodes"));
 
         let mut view = SearchResultsView {
             search_term,

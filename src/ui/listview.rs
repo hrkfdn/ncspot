@@ -75,8 +75,8 @@ impl<I: ListItem> ListView<I> {
         }
     }
 
-    pub fn set_title(mut self, title: String) -> Self {
-        self.title = title;
+    pub fn with_title(mut self, title: &str) -> Self {
+        self.title = title.to_string();
         self
     }
 

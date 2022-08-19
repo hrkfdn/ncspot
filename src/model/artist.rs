@@ -191,7 +191,7 @@ impl ListItem for Artist {
                 queue.clone(),
                 library.clone(),
             )
-            .set_title(format!("Similar to Artist \"{}\"", self.name,))
+            .with_title(&format!("Similar to Artist \"{}\"", self.name))
             .into_boxed_view_ext()
         })
     }

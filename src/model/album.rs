@@ -277,7 +277,7 @@ impl ListItem for Album {
                 queue.clone(),
                 library.clone(),
             )
-            .set_title(format!("Similar to Album \"{}\"", self.title))
+            .with_title(&format!("Similar to Album \"{}\"", self.title))
             .into_boxed_view_ext()
         })
     }

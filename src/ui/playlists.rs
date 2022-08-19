@@ -53,6 +53,10 @@ impl ViewWrapper for PlaylistsView {
 }
 
 impl ViewExt for PlaylistsView {
+    fn title(&self) -> String {
+        "Playlists".to_string()
+    }
+
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Delete = cmd {
             if let Some(dialog) = self.delete_dialog() {

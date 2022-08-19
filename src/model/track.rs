@@ -295,7 +295,7 @@ impl ListItem for Track {
                 queue.clone(),
                 library.clone(),
             )
-            .set_title(format!(
+            .with_title(&format!(
                 "Similar to \"{} - {}\"",
                 self.artists.join(", "),
                 self.title

@@ -68,28 +68,26 @@ impl ArtistView {
 
             tabs.add_tab(
                 "tracks",
-                "Saved Tracks",
                 ListView::new(
                     Arc::new(RwLock::new(tracks)),
                     queue.clone(),
                     library.clone(),
-                ),
+                )
+                .with_title("Saved Tracks"),
             );
         }
 
         tabs.add_tab(
             "top_tracks",
-            "Top 10",
-            ListView::new(top_tracks, queue.clone(), library.clone()),
+            ListView::new(top_tracks, queue.clone(), library.clone()).with_title("Top 10"),
         );
 
-        tabs.add_tab("albums", "Albums", albums_view);
-        tabs.add_tab("singles", "Singles", singles_view);
+        tabs.add_tab("albums", albums_view.with_title("Albums"));
+        tabs.add_tab("singles", singles_view.with_title("Singles"));
 
         tabs.add_tab(
             "related",
-            "Related Artists",
-            ListView::new(related, queue, library),
+            ListView::new(related, queue, library).with_title("Related Artists"),
         );
 
         Self {

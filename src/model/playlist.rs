@@ -312,7 +312,7 @@ impl ListItem for Playlist {
                 queue.clone(),
                 library.clone(),
             )
-            .set_title(format!("Similar to Tracks in \"{}\"", self.name,))
+            .with_title(&format!("Similar to Tracks in \"{}\"", self.name))
             .into_boxed_view_ext()
         })
     }

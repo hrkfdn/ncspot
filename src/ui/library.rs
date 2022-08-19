@@ -33,28 +33,27 @@ impl LibraryView {
             match tab {
                 LibraryTab::Tracks => tabview.add_tab(
                     "tracks",
-                    "Tracks",
-                    ListView::new(library.tracks.clone(), queue.clone(), library.clone()),
+                    ListView::new(library.tracks.clone(), queue.clone(), library.clone())
+                        .with_title("Tracks"),
                 ),
                 LibraryTab::Albums => tabview.add_tab(
                     "albums",
-                    "Albums",
-                    ListView::new(library.albums.clone(), queue.clone(), library.clone()),
+                    ListView::new(library.albums.clone(), queue.clone(), library.clone())
+                        .with_title("Albums"),
                 ),
                 LibraryTab::Artists => tabview.add_tab(
                     "artists",
-                    "Artists",
-                    ListView::new(library.artists.clone(), queue.clone(), library.clone()),
+                    ListView::new(library.artists.clone(), queue.clone(), library.clone())
+                        .with_title("Artists"),
                 ),
                 LibraryTab::Playlists => tabview.add_tab(
                     "playlists",
-                    "Playlists",
                     PlaylistsView::new(queue.clone(), library.clone()),
                 ),
                 LibraryTab::Podcasts => tabview.add_tab(
                     "podcasts",
-                    "Podcasts",
-                    ListView::new(library.shows.clone(), queue.clone(), library.clone()),
+                    ListView::new(library.shows.clone(), queue.clone(), library.clone())
+                        .with_title("Podcasts"),
                 ),
             }
         }
