@@ -176,15 +176,14 @@ impl<I: ListItem> View for ListView<I> {
                     && self.queue.get_current_index() == Some(i);
 
                 let style = if self.selected == i {
-                    let fg = if currently_playing {
-                        *printer.theme.palette.custom("playing_selected").unwrap()
+                    if currently_playing {
+                        ColorStyle::new(
+                            *printer.theme.palette.custom("playing_selected").unwrap(),
+                            ColorType::Palette(PaletteColor::Highlight),
+                        )
                     } else {
-                        PaletteColor::Tertiary.resolve(&printer.theme.palette)
-                    };
-                    ColorStyle::new(
-                        ColorType::Color(fg),
-                        ColorType::Palette(PaletteColor::Highlight),
-                    )
+                        ColorStyle::highlight()
+                    }
                 } else if currently_playing {
                     ColorStyle::new(
                         ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),

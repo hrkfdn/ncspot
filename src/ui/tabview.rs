@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
-use cursive::theme::{ColorStyle, ColorType, PaletteColor};
+use cursive::theme::ColorStyle;
 use cursive::traits::View;
 use cursive::{Cursive, Printer, Vec2};
 use unicode_width::UnicodeWidthStr;
@@ -66,10 +66,7 @@ impl View for TabView {
         let tabwidth = printer.size.x / self.tabs.len();
         for (i, tab) in self.tabs.iter().enumerate() {
             let style = if self.selected == i {
-                ColorStyle::new(
-                    ColorType::Palette(PaletteColor::Tertiary),
-                    ColorType::Palette(PaletteColor::Highlight),
-                )
+                ColorStyle::highlight()
             } else {
                 ColorStyle::primary()
             };

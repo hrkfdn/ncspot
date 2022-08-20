@@ -31,7 +31,7 @@ pub fn load(theme_cfg: &Option<ConfigTheme>) -> Theme {
     palette[Primary] = load_color!(theme_cfg, primary, TerminalDefault);
     palette[Secondary] = load_color!(theme_cfg, secondary, Dark(Blue));
     palette[TitlePrimary] = load_color!(theme_cfg, title, Dark(Red));
-    palette[Tertiary] = load_color!(theme_cfg, highlight, TerminalDefault);
+    palette[HighlightText] = load_color!(theme_cfg, highlight, Dark(White));
     palette[Highlight] = load_color!(theme_cfg, highlight_bg, Dark(Red));
     palette.set_color("playing", load_color!(theme_cfg, playing, Dark(Blue)));
     palette.set_color(
