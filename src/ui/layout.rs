@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
 use cursive::direction::Direction;
-use cursive::event::{AnyCb, Event, EventResult};
+use cursive::event::{AnyCb, Event, EventResult, MouseButton};
 use cursive::theme::{ColorStyle, ColorType, Theme};
 use cursive::traits::View;
 use cursive::vec::Vec2;
@@ -162,6 +162,12 @@ impl Layout {
         self.focus.as_ref().and_then(|focus| self.stack.get(focus))
     }
 
+    fn is_current_stack_empty(&self) -> bool {
+        self.get_focussed_stack()
+            .map(|s| s.is_empty())
+            .unwrap_or(false)
+    }
+
     fn get_top_view(&self) -> Option<&Box<dyn ViewExt>> {
         let focussed_stack = self.get_focussed_stack();
         if focussed_stack.map(|s| s.len()).unwrap_or_default() > 0 {
@@ -208,11 +214,7 @@ impl View for Layout {
 
         if let Some(view) = self.get_top_view() {
             // back button + title
-            if !self
-                .get_focussed_stack()
-                .map(|s| s.is_empty())
-                .unwrap_or(false)
-            {
+            if !self.is_current_stack_empty() {
                 printer.with_color(ColorStyle::title_secondary(), |printer| {
                     printer.print((1, 0), &format!("< {}", screen_title));
                 });
@@ -289,8 +291,21 @@ impl View for Layout {
 
     fn on_event(&mut self, event: Event) -> EventResult {
         // handle mouse events in cmdline/statusbar area
-        if let Event::Mouse { position, .. } = event {
+        if let Event::Mouse {
+            position,
+            event: mouseevent,
+            ..
+        } = event
+        {
             if position.y == 0 {
+                // if user clicks within first third of first line, treat it as
+                // a click on the back button
+                if mouseevent.button() == Some(MouseButton::Left)
+                    && !self.is_current_stack_empty()
+                    && position.x <= self.last_size.x.saturating_div(3)
+                {
+                    self.pop_view();
+                }
                 return EventResult::consumed();
             }
 
