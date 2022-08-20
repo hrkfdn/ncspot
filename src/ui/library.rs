@@ -10,6 +10,7 @@ use crate::config::LibraryTab;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
+use crate::ui::browse::BrowseView;
 use crate::ui::listview::ListView;
 use crate::ui::playlists::PlaylistsView;
 use crate::ui::tabview::TabView;
@@ -55,6 +56,9 @@ impl LibraryView {
                     ListView::new(library.shows.clone(), queue.clone(), library.clone())
                         .with_title("Podcasts"),
                 ),
+                LibraryTab::Browse => {
+                    tabview.add_tab("browse", BrowseView::new(queue.clone(), library.clone()))
+                }
             }
         }
 

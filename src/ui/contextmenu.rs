@@ -18,10 +18,7 @@ use crate::sharing::write_share;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
-use crate::{
-    command::{Command, MoveAmount, MoveMode},
-    spotify::Spotify,
-};
+use crate::{command::Command, spotify::Spotify};
 use cursive::traits::{Finder, Nameable};
 
 pub struct ContextMenu {

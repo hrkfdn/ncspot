@@ -21,6 +21,11 @@ impl<I: ListItem + Clone> ApiResult<I> {
     pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> ApiResult<I> {
         let items = Arc::new(RwLock::new(Vec::new()));
         if let Some(first_page) = fetch_page(0) {
+            debug!(
+                "fetched first page, items: {}, total: {}",
+                first_page.items.len(),
+                first_page.total
+            );
             items.write().unwrap().extend(first_page.items);
             ApiResult {
                 offset: Arc::new(RwLock::new(first_page.offset)),

@@ -1,5 +1,6 @@
 pub mod album;
 pub mod artist;
+pub mod browse;
 pub mod contextmenu;
 pub mod help;
 pub mod layout;

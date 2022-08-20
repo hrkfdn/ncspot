@@ -1,5 +1,6 @@
 use crate::model::album::Album;
 use crate::model::artist::Artist;
+use crate::model::category::Category;
 use crate::model::episode::Episode;
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
@@ -623,6 +624,55 @@ impl WebApi {
     pub fn artist_related_artists(&self, id: &str) -> Option<Vec<Artist>> {
         self.api_with_retry(|api| api.artist_related_artists(&ArtistId::from_id(id).unwrap()))
             .map(|fa| fa.iter().map(|a| a.into()).collect())
+    }
+
+    pub fn categories(&self) -> ApiResult<Category> {
+        const MAX_LIMIT: u32 = 50;
+        let spotify = self.clone();
+        let fetch_page = move |offset: u32| {
+            debug!("fetching categories, offset: {}", offset);
+            spotify.api_with_retry(|api| {
+                match api.categories_manual(
+                    None,
+                    Some(&Market::FromToken),
+                    Some(MAX_LIMIT),
+                    Some(offset),
+                ) {
+                    Ok(page) => Ok(ApiPage {
+                        offset: page.offset,
+                        total: page.total,
+                        items: page.items.iter().map(|cat| cat.into()).collect(),
+                    }),
+                    Err(e) => Err(e),
+                }
+            })
+        };
+        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
+    }
+
+    pub fn category_playlists(&self, category_id: &str) -> ApiResult<Playlist> {
+        const MAX_LIMIT: u32 = 50;
+        let spotify = self.clone();
+        let category_id = category_id.to_string();
+        let fetch_page = move |offset: u32| {
+            debug!("fetching category playlists, offset: {}", offset);
+            spotify.api_with_retry(|api| {
+                match api.category_playlists_manual(
+                    &category_id,
+                    Some(&Market::FromToken),
+                    Some(MAX_LIMIT),
+                    Some(offset),
+                ) {
+                    Ok(page) => Ok(ApiPage {
+                        offset: page.offset,
+                        total: page.total,
+                        items: page.items.iter().map(|sp| sp.into()).collect(),
+                    }),
+                    Err(e) => Err(e),
+                }
+            })
+        };
+        ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
     }
 
     pub fn current_user(&self) -> Option<PrivateUser> {

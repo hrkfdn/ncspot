@@ -31,6 +31,7 @@ pub enum LibraryTab {
     Artists,
     Playlists,
     Podcasts,
+    Browse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
