@@ -298,11 +298,15 @@ impl View for Layout {
         } = event
         {
             if position.y == 0 {
-                // if user clicks within first third of first line, treat it as
-                // a click on the back button
                 if mouseevent == MouseEvent::Press(MouseButton::Left)
                     && !self.is_current_stack_empty()
-                    && position.x <= self.last_size.x.saturating_div(3)
+                    && position.x
+                        < self
+                            .get_current_screen()
+                            .map(|screen| screen.title())
+                            .unwrap_or_default()
+                            .len()
+                            + 3
                 {
                     self.pop_view();
                 }
