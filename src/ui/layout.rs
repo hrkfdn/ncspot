@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
 use cursive::direction::Direction;
-use cursive::event::{AnyCb, Event, EventResult, MouseButton};
+use cursive::event::{AnyCb, Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, Theme};
 use cursive::traits::View;
 use cursive::vec::Vec2;
@@ -298,11 +298,15 @@ impl View for Layout {
         } = event
         {
             if position.y == 0 {
-                // if user clicks within first third of first line, treat it as
-                // a click on the back button
-                if mouseevent.button() == Some(MouseButton::Left)
+                if mouseevent == MouseEvent::Press(MouseButton::Left)
                     && !self.is_current_stack_empty()
-                    && position.x <= self.last_size.x.saturating_div(3)
+                    && position.x
+                        < self
+                            .get_current_screen()
+                            .map(|screen| screen.title())
+                            .unwrap_or_default()
+                            .len()
+                            + 3
                 {
                     self.pop_view();
                 }
