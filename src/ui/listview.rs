@@ -293,11 +293,11 @@ impl<I: ListItem> View for ListView<I> {
             Event::Mouse {
                 event: MouseEvent::WheelUp,
                 ..
-            } => self.move_focus(-3),
+            } => self.scroller.scroll_up(3),
             Event::Mouse {
                 event: MouseEvent::WheelDown,
                 ..
-            } => self.move_focus(3),
+            } => self.scroller.scroll_down(3),
             Event::Mouse {
                 event: MouseEvent::Press(MouseButton::Left),
                 position,
