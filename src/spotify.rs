@@ -142,8 +142,8 @@ impl Spotify {
         };
         let cache = Cache::new(
             Some(librespot_cache_path.clone()),
-            audio_cache_path,
             Some(librespot_cache_path.join("volume")),
+            audio_cache_path,
             cfg.values()
                 .audio_cache_size
                 .map(|size| (size as u64 * 1048576)),
