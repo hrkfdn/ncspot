@@ -298,6 +298,10 @@ impl ListItem for Album {
         )
     }
 
+    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+        Some(library.is_saved_album(self))
+    }
+
     fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }

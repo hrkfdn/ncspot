@@ -50,7 +50,7 @@ enum ContextMenuAction {
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
     ShowRecommendations(Box<Track>),
-    ToggleTrackSavedStatus(Box<Track>),
+    ToggleSavedStatus(Box<dyn ListItem>),
 }
 
 impl ContextMenu {
@@ -269,14 +269,17 @@ impl ContextMenu {
             content.add_item(
                 "Similar tracks",
                 ContextMenuAction::ShowRecommendations(Box::new(t.clone())),
-            );
-            content.add_item(
-                match library.is_saved_track(&Playable::Track(t.clone())) {
-                    true => "Unsave track",
-                    false => "Save track",
-                },
-                ContextMenuAction::ToggleTrackSavedStatus(Box::new(t)),
             )
+        }
+        // If the item is saveable, its save state will be set
+        if let Some(savestatus) = item.is_saved(library.clone()) {
+            content.add_item(
+                match savestatus {
+                    true => "Unsave",
+                    false => "Save",
+                },
+                ContextMenuAction::ToggleSavedStatus(item.clone().as_listitem()),
+            );
         }
 
         // open detail view of artist/album
@@ -311,10 +314,6 @@ impl ContextMenu {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                         }
                     }
-                    ContextMenuAction::ToggleTrackSavedStatus(track) => {
-                        let mut track: Track = *track.clone();
-                        track.toggle_saved(library);
-                    }
                     ContextMenuAction::SelectArtist(artists) => {
                         let dialog = Self::select_artist_dialog(library, queue, artists.clone());
                         s.add_layer(dialog);
@@ -323,6 +322,9 @@ impl ContextMenu {
                         let dialog =
                             Self::select_artist_action_dialog(library, queue, artist.clone());
                         s.add_layer(dialog);
+                    }
+                    ContextMenuAction::ToggleSavedStatus(item) => {
+                        item.as_listitem().toggle_saved(library)
                     }
                 }
             });
