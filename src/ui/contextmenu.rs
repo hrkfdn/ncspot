@@ -15,6 +15,7 @@ use crate::model::track::Track;
 use crate::queue::Queue;
 #[cfg(feature = "share_clipboard")]
 use crate::sharing::write_share;
+use crate::spotify::PlayerEvent;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
@@ -52,6 +53,7 @@ enum ContextMenuAction {
     ToggleSavedStatus(Box<dyn ListItem>),
     Play(Box<dyn ListItem>),
     PlayNext(Box<dyn ListItem>),
+    TogglePlayback,
 }
 
 impl ContextMenu {
@@ -231,11 +233,24 @@ impl ContextMenu {
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
-        content.insert_item(
-            0,
-            "Play",
-            ContextMenuAction::Play(item.clone().as_listitem()),
-        );
+
+        if item.is_playing(queue.clone())
+            && queue.get_spotify().get_current_status()
+                == PlayerEvent::Paused(queue.get_spotify().get_current_progress())
+        {
+            // the item is the current track, but paused
+            content.insert_item(0, "Resume", ContextMenuAction::TogglePlayback);
+        } else if !item.is_playing(queue.clone()) {
+            // the item is not the current track
+            content.insert_item(
+                0,
+                "Play",
+                ContextMenuAction::Play(item.clone().as_listitem()),
+            );
+        } else {
+            // the item is the current track and playing
+            content.insert_item(0, "Pause", ContextMenuAction::TogglePlayback);
+        }
         content.insert_item(
             1,
             "Play next",
@@ -334,6 +349,7 @@ impl ContextMenu {
                     }
                     ContextMenuAction::Play(item) => item.as_listitem().play(queue),
                     ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(queue),
+                    ContextMenuAction::TogglePlayback => queue.toggleplayback(),
                 }
             });
         }
