@@ -42,7 +42,6 @@ pub struct SelectArtistActionMenu {
 }
 
 enum ContextMenuAction {
-    PlayTrack(Box<Track>),
     ShowItem(Box<dyn ListItem>),
     SelectArtist(Vec<Artist>),
     SelectArtistAction(Artist),
@@ -51,6 +50,8 @@ enum ContextMenuAction {
     AddToPlaylist(Box<Track>),
     ShowRecommendations(Box<Track>),
     ToggleSavedStatus(Box<dyn ListItem>),
+    Play(Box<dyn ListItem>),
+    PlayNext(Box<dyn ListItem>),
 }
 
 impl ContextMenu {
@@ -68,7 +69,7 @@ impl ContextMenu {
         });
         let dialog = Dialog::new()
             .title(format!("Play track: {}", track_title))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(
                 track_action_select.with_name("playtrack_select"),
@@ -126,7 +127,7 @@ impl ContextMenu {
 
         let dialog = Dialog::new()
             .title("Add track to playlist")
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(list_select.with_name("addplaylist_select")));
 
@@ -159,7 +160,7 @@ impl ContextMenu {
 
         let dialog = Dialog::new()
             .title("Select artist")
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(artist_select.with_name("artist_select")));
 
@@ -210,7 +211,7 @@ impl ContextMenu {
                 "Select action for artist: {}",
                 artist.name.as_str()
             ))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(
                 artist_action_select.with_name("artist_action_select"),
@@ -225,11 +226,22 @@ impl ContextMenu {
         Dialog::text("This track is already in your playlist")
             .title("Track already exists")
             .padding(Margins::lrtb(1, 1, 1, 0))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
     }
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
+        content.insert_item(
+            0,
+            "Play",
+            ContextMenuAction::Play(item.clone().as_listitem()),
+        );
+        content.insert_item(
+            1,
+            "Play next",
+            ContextMenuAction::PlayNext(item.clone().as_listitem()),
+        );
+
         if let Some(artists) = item.artists() {
             let action = match artists.len() {
                 0 => None,
@@ -244,9 +256,11 @@ impl ContextMenu {
                 )
             }
         }
+
         if let Some(a) = item.album(queue.clone()) {
             content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
         }
+
         #[cfg(feature = "share_clipboard")]
         {
             if let Some(url) = item.share_url() {
@@ -256,12 +270,8 @@ impl ContextMenu {
                 content.add_item("Share album", ContextMenuAction::ShareUrl(url));
             }
         }
+
         if let Some(t) = item.track() {
-            content.insert_item(
-                0,
-                "Play track",
-                ContextMenuAction::PlayTrack(Box::new(t.clone())),
-            );
             content.add_item(
                 "Add to playlist",
                 ContextMenuAction::AddToPlaylist(Box::new(t.clone())),
@@ -291,10 +301,6 @@ impl ContextMenu {
                 s.pop_layer();
 
                 match action {
-                    ContextMenuAction::PlayTrack(track) => {
-                        let dialog = Self::play_track_dialog(queue, *track.clone());
-                        s.add_layer(dialog);
-                    }
                     ContextMenuAction::ShowItem(item) => {
                         if let Some(view) = item.open(queue, library) {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
@@ -326,13 +332,15 @@ impl ContextMenu {
                     ContextMenuAction::ToggleSavedStatus(item) => {
                         item.as_listitem().toggle_saved(library)
                     }
+                    ContextMenuAction::Play(item) => item.as_listitem().play(queue),
+                    ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(queue),
                 }
             });
         }
 
         let dialog = Dialog::new()
             .title(item.display_left(library))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));
         Self {
