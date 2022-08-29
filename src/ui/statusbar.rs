@@ -227,9 +227,7 @@ impl View for StatusBar {
                     self.spotify.seek_relative(500);
                 }
 
-                if event == MouseEvent::Press(MouseButton::Left)
-                    || event == MouseEvent::Hold(MouseButton::Left)
-                {
+                if event == MouseEvent::Press(MouseButton::Left) {
                     if let Some(playable) = self.queue.get_current() {
                         let f: f32 = position.x as f32 / self.last_size.x as f32;
                         let new = playable.duration() as f32 * f;
