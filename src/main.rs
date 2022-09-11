@@ -166,7 +166,10 @@ async fn main() -> Result<(), String> {
         credentials = credentials_prompt(Some(error_msg))?;
     }
 
-    let mut cursive = cursive::default().into_runner();
+    let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
+    let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
+
+    let mut cursive = cursive::CursiveRunner::new(cursive::Cursive::new(), buffered_backend);
     cursive.set_window_title("ncspot");
 
     let theme = cfg.build_theme();

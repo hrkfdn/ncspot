@@ -538,6 +538,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cursive_buffered_backend"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e902dfdc09ca6729606f45a5ce6ce4ef9637fc257e8b11ca7806fc9aabd03cf7"
+dependencies = [
+ "cursive_core",
+ "enumset",
+ "log",
+ "smallvec",
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "cursive_core"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1575,6 +1589,7 @@ dependencies = [
  "clipboard",
  "crossbeam-channel",
  "cursive",
+ "cursive_buffered_backend",
  "dbus",
  "dbus-tree",
  "fern",

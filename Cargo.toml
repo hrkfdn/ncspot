@@ -45,6 +45,7 @@ tokio-stream = "0.1.9"
 toml = "0.5"
 unicode-width = "0.1.9"
 url = "2.2"
+cursive_buffered_backend = "0.6.1"
 [target.'cfg(target_os = "linux")'.dependencies]
 wl-clipboard-rs = {version = "0.6", optional = true}
 
