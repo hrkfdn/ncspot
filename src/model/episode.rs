@@ -110,6 +110,11 @@ impl ListItem for Episode {
         Some(format!("https://open.spotify.com/episode/{}", self.id))
     }
 
+    #[inline]
+    fn is_playable(&self) -> bool {
+        true
+    }
+
     fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }

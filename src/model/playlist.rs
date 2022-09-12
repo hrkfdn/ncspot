@@ -333,6 +333,11 @@ impl ListItem for Playlist {
         Some(library.is_saved_playlist(self))
     }
 
+    #[inline]
+    fn is_playable(&self) -> bool {
+        true
+    }
+
     fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }

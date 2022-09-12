@@ -202,8 +202,14 @@ impl ListItem for Artist {
             .map(|id| format!("https://open.spotify.com/artist/{}", id))
     }
 
+    #[inline]
     fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
         Some(library.is_followed_artist(self))
+    }
+
+    #[inline]
+    fn is_playable(&self) -> bool {
+        true
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {

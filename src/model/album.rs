@@ -298,8 +298,14 @@ impl ListItem for Album {
         )
     }
 
+    #[inline]
     fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
         Some(library.is_saved_album(self))
+    }
+
+    #[inline]
+    fn is_playable(&self) -> bool {
+        true
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {

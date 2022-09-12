@@ -48,10 +48,12 @@ pub trait ListItem: Sync + Send + 'static {
     }
 
     #[allow(unused_variables)]
+    #[inline]
     fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
         None
     }
 
+    #[inline]
     fn is_playable(&self) -> bool {
         false
     }
