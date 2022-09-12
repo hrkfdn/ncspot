@@ -27,11 +27,12 @@ pub struct Album {
     pub url: Option<String>,
     pub tracks: Option<Vec<Track>>,
     pub added_at: Option<DateTime<Utc>>,
+    total_tracks: Option<usize>,
 }
 
 impl Album {
     pub fn load_all_tracks(&mut self, spotify: Spotify) {
-        if self.tracks.is_some() {
+        if self.tracks.is_some() && self.tracks.as_ref().map(|t| t.len()) == self.total_tracks {
             return;
         }
 
@@ -61,7 +62,8 @@ impl Album {
                 }
             }
 
-            self.tracks = Some(collected_tracks)
+            self.total_tracks = Some(collected_tracks.len());
+            self.tracks = Some(collected_tracks);
         }
     }
 }
@@ -89,6 +91,7 @@ impl From<&SimplifiedAlbum> for Album {
             url: sa.id.as_ref().map(|id| id.url()),
             tracks: None,
             added_at: None,
+            total_tracks: None,
         }
     }
 }
@@ -117,6 +120,7 @@ impl From<&FullAlbum> for Album {
             url: Some(fa.id.uri()),
             tracks,
             added_at: None,
+            total_tracks: Some(fa.tracks.total as usize),
         }
     }
 }
