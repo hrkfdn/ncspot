@@ -85,6 +85,13 @@ impl<I: ListItem + Clone> ApiResult<I> {
 
 pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 
+/// Manages the loading of ListItems, to increase performance and decrease
+/// memory usage.
+///
+/// `loaded_content`: The amount of currently loaded items
+/// `max_content`: The maximum amount of items
+/// `callback`: TODO: document
+/// `busy`: TODO: document
 pub struct Pagination<I: ListItem> {
     loaded_content: Arc<RwLock<usize>>,
     max_content: Arc<RwLock<Option<usize>>>,

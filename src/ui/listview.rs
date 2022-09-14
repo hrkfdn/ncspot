@@ -59,7 +59,7 @@ impl<I: ListItem> Scroller for ListView<I> {
 
 impl<I: ListItem> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
-        Self {
+        let result = Self {
             content,
             last_content_len: 0,
             selected: 0,
@@ -72,7 +72,9 @@ impl<I: ListItem> ListView<I> {
             library,
             pagination: Pagination::default(),
             title: "".to_string(),
-        }
+        };
+        result.try_paginate();
+        result
     }
 
     pub fn with_title(mut self, title: &str) -> Self {
@@ -99,8 +101,28 @@ impl<I: ListItem> ListView<I> {
         }
     }
 
+    /// Return wether there are still items that aren't shown in the listview.
+    ///
+    /// `true` if there are unloaded items
+    /// `false` if all items are loaded
     fn can_paginate(&self) -> bool {
         self.get_pagination().max_content().unwrap_or(0) > self.get_pagination().loaded_content()
+    }
+
+    /// Try to load more items into the list if neccessary.
+    #[inline]
+    fn try_paginate(&self) {
+        // Paginate if there are more items
+        //  AND
+        //   The selected item is the current last item (keyboard scrolling)
+        //    OR
+        //   The scroller can't scroll further down (mouse scrolling)
+        if self.can_paginate()
+            && (self.selected == self.content.read().unwrap().len().saturating_sub(1)
+                || !self.scroller.can_scroll_down())
+        {
+            self.pagination.call(&self.content, self.library.clone());
+        }
     }
 
     pub fn get_selected_index(&self) -> usize {
@@ -297,7 +319,10 @@ impl<I: ListItem> View for ListView<I> {
             Event::Mouse {
                 event: MouseEvent::WheelDown,
                 ..
-            } => self.scroller.scroll_down(3),
+            } => {
+                self.scroller.scroll_down(3);
+                self.try_paginate();
+            }
             Event::Mouse {
                 event: MouseEvent::Press(MouseButton::Left),
                 position,
@@ -529,9 +554,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                 MoveAmount::Integer(amount) => self.move_focus(*amount),
                             }
                         }
-                        if self.selected == last_idx && self.can_paginate() {
-                            self.pagination.call(&self.content, self.library.clone());
-                        }
+                        self.try_paginate();
                         return Ok(CommandResult::Consumed(None));
                     }
                     _ => return Ok(CommandResult::Consumed(None)),
