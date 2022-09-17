@@ -379,30 +379,15 @@ impl Library {
                 .api
                 .current_user_saved_albums(albums.len() as u32);
             debug!("albums page: {}", i);
+
             i += 1;
+
             if page.is_none() {
                 error!("Failed to fetch albums.");
                 return;
             }
+
             let page = page.unwrap();
-
-            if page.offset == 0 {
-                // If first page matches the first items in store and total is
-                // identical, assume list is unchanged.
-
-                let store = self.albums.read().unwrap();
-
-                if page.total as usize == store.len()
-                    && !page
-                        .items
-                        .iter()
-                        .enumerate()
-                        .any(|(i, a)| a.album.id.id() != store[i].id.clone().unwrap_or_default())
-                {
-                    return;
-                }
-            }
-
             albums.extend(page.items.iter().map(|a| a.into()));
 
             if page.next.is_none() {

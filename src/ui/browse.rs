@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
@@ -18,24 +18,9 @@ pub struct BrowseView {
 
 impl BrowseView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
-        let items = Arc::new(RwLock::new(Vec::new()));
-        let list = ListView::new(items.clone(), queue.clone(), library);
-
-        let pagination = list.get_pagination().clone();
-        std::thread::spawn(move || {
-            let categories = queue.get_spotify().api.categories();
-            items
-                .write()
-                .expect("could not writelock category items")
-                .extend(
-                    categories
-                        .items
-                        .read()
-                        .expect("could not readlock fetched categories")
-                        .clone(),
-                );
-            categories.apply_pagination(&pagination);
-        });
+        let categories = queue.get_spotify().api.categories();
+        let list = ListView::new(categories.items.clone(), queue, library);
+        categories.apply_pagination(list.get_pagination());
 
         Self { list }
     }
