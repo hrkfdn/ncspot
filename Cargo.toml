@@ -41,7 +41,7 @@ serde_json = "1.0"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 tokio = {version = "1", features = ["rt-multi-thread", "sync", "time"]}
-tokio-stream = "0.1.9"
+tokio-stream = "0.1.10"
 toml = "0.5"
 unicode-width = "0.1.9"
 url = "2.2"
