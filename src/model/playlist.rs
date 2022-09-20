@@ -324,6 +324,20 @@ impl ListItem for Playlist {
         ))
     }
 
+    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+        // save status of personal playlists can't be toggled for safety
+        if !library.is_followed_playlist(self) {
+            return None;
+        }
+
+        Some(library.is_saved_playlist(self))
+    }
+
+    #[inline]
+    fn is_playable(&self) -> bool {
+        true
+    }
+
     fn as_listitem(&self) -> Box<dyn ListItem> {
         Box::new(self.clone())
     }

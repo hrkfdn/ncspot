@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::sync::Arc;
 
 use cursive::view::{Margins, ViewWrapper};
@@ -15,6 +14,7 @@ use crate::model::track::Track;
 use crate::queue::Queue;
 #[cfg(feature = "share_clipboard")]
 use crate::sharing::write_share;
+use crate::spotify::PlayerEvent;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
@@ -42,7 +42,6 @@ pub struct SelectArtistActionMenu {
 }
 
 enum ContextMenuAction {
-    PlayTrack(Box<Track>),
     ShowItem(Box<dyn ListItem>),
     SelectArtist(Vec<Artist>),
     SelectArtistAction(Artist),
@@ -50,36 +49,14 @@ enum ContextMenuAction {
     ShareUrl(String),
     AddToPlaylist(Box<Track>),
     ShowRecommendations(Box<Track>),
-    ToggleTrackSavedStatus(Box<Track>),
+    ToggleSavedStatus(Box<dyn ListItem>),
+    Play(Box<dyn ListItem>),
+    PlayNext(Box<dyn ListItem>),
+    TogglePlayback,
+    Queue(Box<dyn ListItem>),
 }
 
 impl ContextMenu {
-    pub fn play_track_dialog(queue: Arc<Queue>, track: Track) -> NamedView<PlayTrackMenu> {
-        let track_title = track.title.clone();
-        let mut track_action_select = SelectView::<bool>::new();
-        track_action_select.add_item("Play now", true);
-        track_action_select.add_item("Add to queue", false);
-        track_action_select.set_on_submit(move |s, selected| {
-            match selected {
-                true => track.borrow().clone().play(queue.clone()),
-                false => track.borrow().clone().queue(queue.clone()),
-            }
-            s.pop_layer();
-        });
-        let dialog = Dialog::new()
-            .title(format!("Play track: {}", track_title))
-            .dismiss_button("Cancel")
-            .padding(Margins::lrtb(1, 1, 1, 0))
-            .content(ScrollView::new(
-                track_action_select.with_name("playtrack_select"),
-            ));
-
-        PlayTrackMenu {
-            dialog: Modal::new_ext(dialog),
-        }
-        .with_name("playtrackmenu")
-    }
-
     pub fn add_track_dialog(
         library: Arc<Library>,
         spotify: Spotify,
@@ -126,7 +103,7 @@ impl ContextMenu {
 
         let dialog = Dialog::new()
             .title("Add track to playlist")
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(list_select.with_name("addplaylist_select")));
 
@@ -159,7 +136,7 @@ impl ContextMenu {
 
         let dialog = Dialog::new()
             .title("Select artist")
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(artist_select.with_name("artist_select")));
 
@@ -210,7 +187,7 @@ impl ContextMenu {
                 "Select action for artist: {}",
                 artist.name.as_str()
             ))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(ScrollView::new(
                 artist_action_select.with_name("artist_action_select"),
@@ -225,11 +202,34 @@ impl ContextMenu {
         Dialog::text("This track is already in your playlist")
             .title("Track already exists")
             .padding(Margins::lrtb(1, 1, 1, 0))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
     }
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
+
+        if item.is_playable() {
+            if item.is_playing(queue.clone())
+                && queue.get_spotify().get_current_status()
+                    == PlayerEvent::Paused(queue.get_spotify().get_current_progress())
+            {
+                // the item is the current track, but paused
+                content.insert_item(0, "Resume", ContextMenuAction::TogglePlayback);
+            } else if !item.is_playing(queue.clone()) {
+                // the item is not the current track
+                content.insert_item(0, "Play", ContextMenuAction::Play(item.as_listitem()));
+            } else {
+                // the item is the current track and playing
+                content.insert_item(0, "Pause", ContextMenuAction::TogglePlayback);
+            }
+            content.insert_item(
+                1,
+                "Play next",
+                ContextMenuAction::PlayNext(item.as_listitem()),
+            );
+            content.insert_item(2, "Queue", ContextMenuAction::Queue(item.as_listitem()));
+        }
+
         if let Some(artists) = item.artists() {
             let action = match artists.len() {
                 0 => None,
@@ -244,9 +244,11 @@ impl ContextMenu {
                 )
             }
         }
+
         if let Some(a) = item.album(queue.clone()) {
             content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
         }
+
         #[cfg(feature = "share_clipboard")]
         {
             if let Some(url) = item.share_url() {
@@ -256,27 +258,26 @@ impl ContextMenu {
                 content.add_item("Share album", ContextMenuAction::ShareUrl(url));
             }
         }
+
         if let Some(t) = item.track() {
-            content.insert_item(
-                0,
-                "Play track",
-                ContextMenuAction::PlayTrack(Box::new(t.clone())),
-            );
             content.add_item(
                 "Add to playlist",
                 ContextMenuAction::AddToPlaylist(Box::new(t.clone())),
             );
             content.add_item(
                 "Similar tracks",
-                ContextMenuAction::ShowRecommendations(Box::new(t.clone())),
-            );
-            content.add_item(
-                match library.is_saved_track(&Playable::Track(t.clone())) {
-                    true => "Unsave track",
-                    false => "Save track",
-                },
-                ContextMenuAction::ToggleTrackSavedStatus(Box::new(t)),
+                ContextMenuAction::ShowRecommendations(Box::new(t)),
             )
+        }
+        // If the item is saveable, its save state will be set
+        if let Some(savestatus) = item.is_saved(library.clone()) {
+            content.add_item(
+                match savestatus {
+                    true => "Unsave",
+                    false => "Save",
+                },
+                ContextMenuAction::ToggleSavedStatus(item.as_listitem()),
+            );
         }
 
         // open detail view of artist/album
@@ -288,10 +289,6 @@ impl ContextMenu {
                 s.pop_layer();
 
                 match action {
-                    ContextMenuAction::PlayTrack(track) => {
-                        let dialog = Self::play_track_dialog(queue, *track.clone());
-                        s.add_layer(dialog);
-                    }
                     ContextMenuAction::ShowItem(item) => {
                         if let Some(view) = item.open(queue, library) {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
@@ -311,10 +308,6 @@ impl ContextMenu {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                         }
                     }
-                    ContextMenuAction::ToggleTrackSavedStatus(track) => {
-                        let mut track: Track = *track.clone();
-                        track.toggle_saved(library);
-                    }
                     ContextMenuAction::SelectArtist(artists) => {
                         let dialog = Self::select_artist_dialog(library, queue, artists.clone());
                         s.add_layer(dialog);
@@ -324,13 +317,20 @@ impl ContextMenu {
                             Self::select_artist_action_dialog(library, queue, artist.clone());
                         s.add_layer(dialog);
                     }
+                    ContextMenuAction::ToggleSavedStatus(item) => {
+                        item.as_listitem().toggle_saved(library)
+                    }
+                    ContextMenuAction::Play(item) => item.as_listitem().play(queue),
+                    ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(queue),
+                    ContextMenuAction::TogglePlayback => queue.toggleplayback(),
+                    ContextMenuAction::Queue(item) => item.as_listitem().queue(queue),
                 }
             });
         }
 
         let dialog = Dialog::new()
             .title(item.display_left(library))
-            .dismiss_button("Cancel")
+            .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));
         Self {
