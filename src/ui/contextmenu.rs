@@ -25,10 +25,6 @@ pub struct ContextMenu {
     dialog: Modal<Dialog>,
 }
 
-pub struct PlayTrackMenu {
-    dialog: Modal<Dialog>,
-}
-
 pub struct AddToPlaylistMenu {
     dialog: Modal<Dialog>,
 }
@@ -340,13 +336,6 @@ impl ContextMenu {
     }
 }
 
-impl ViewExt for PlayTrackMenu {
-    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
-        log::info!("playtrack command: {:?}", cmd);
-        handle_move_command::<bool>(&mut self.dialog, s, cmd, "playtrack_select")
-    }
-}
-
 impl ViewExt for AddToPlaylistMenu {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         log::info!("playlist command: {:?}", cmd);
@@ -391,10 +380,6 @@ fn handle_move_command<T: 'static>(
             .unwrap_or(Ok(CommandResult::Consumed(None))),
         _ => Ok(CommandResult::Consumed(None)),
     }
-}
-
-impl ViewWrapper for PlayTrackMenu {
-    wrap_impl!(self.dialog: Modal<Dialog>);
 }
 
 impl ViewWrapper for AddToPlaylistMenu {
