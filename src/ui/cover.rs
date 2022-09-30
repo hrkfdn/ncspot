@@ -204,7 +204,7 @@ impl View for CoverView {
             }
         });
 
-        let cover_url = self.queue.get_current().map(|t| t.cover_url()).flatten();
+        let cover_url = self.queue.get_current().and_then(|t| t.cover_url());
 
         if let Some(url) = cover_url {
             self.draw_cover(url, printer.offset, printer.size);
