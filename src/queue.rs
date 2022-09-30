@@ -273,9 +273,11 @@ impl Queue {
     }
 
     pub fn play(&self, mut index: usize, reshuffle: bool, shuffle_index: bool) {
-        if shuffle_index && self.get_shuffle() {
+        let queue_length = self.queue.read().unwrap().len();
+        // The length of the queue must be bigger than 0 or gen_range panics!
+        if queue_length > 0 && shuffle_index && self.get_shuffle() {
             let mut rng = rand::thread_rng();
-            index = rng.gen_range(0..self.queue.read().unwrap().len());
+            index = rng.gen_range(0..queue_length);
         }
 
         if let Some(track) = &self.queue.read().unwrap().get(index) {

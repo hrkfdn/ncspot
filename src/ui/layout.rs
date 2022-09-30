@@ -143,6 +143,7 @@ impl Layout {
         self.get_focussed_stack_mut().map(|stack| stack.pop());
     }
 
+    #[allow(clippy::borrowed_box)]
     fn get_current_screen(&self) -> Option<&Box<dyn ViewExt>> {
         self.focus
             .as_ref()
@@ -168,6 +169,7 @@ impl Layout {
             .unwrap_or(false)
     }
 
+    #[allow(clippy::borrowed_box)]
     fn get_top_view(&self) -> Option<&Box<dyn ViewExt>> {
         let focussed_stack = self.get_focussed_stack();
         if focussed_stack.map(|s| s.len()).unwrap_or_default() > 0 {
