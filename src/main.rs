@@ -103,22 +103,20 @@ async fn main() -> Result<(), String> {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
         .about("cross-platform ncurses Spotify client")
-        .after_help(&*backends)
+        .after_help(backends)
         .arg(
             Arg::new("debug")
                 .short('d')
                 .long("debug")
                 .value_name("FILE")
-                .help("Enable debug logging to the specified file")
-                .takes_value(true),
+                .help("Enable debug logging to the specified file"),
         )
         .arg(
             Arg::new("basepath")
                 .short('b')
                 .long("basepath")
                 .value_name("PATH")
-                .help("custom basepath to config/cache files")
-                .takes_value(true),
+                .help("custom basepath to config/cache files"),
         )
         .arg(
             Arg::new("config")
@@ -126,16 +124,15 @@ async fn main() -> Result<(), String> {
                 .long("config")
                 .value_name("FILE")
                 .help("Filename of config file in basepath")
-                .takes_value(true)
                 .default_value("config.toml"),
         )
         .get_matches();
 
-    if let Some(filename) = matches.value_of("debug") {
+    if let Some(filename) = matches.get_one::<String>("debug") {
         setup_logging(filename).expect("can't setup logging");
     }
 
-    if let Some(basepath) = matches.value_of("basepath") {
+    if let Some(basepath) = matches.get_one::<String>("basepath") {
         let path = PathBuf::from_str(basepath).expect("invalid path");
         if !path.exists() {
             fs::create_dir_all(&path).expect("could not create basepath directory");
@@ -146,7 +143,9 @@ async fn main() -> Result<(), String> {
     // Things here may cause the process to abort; we must do them before creating curses windows
     // otherwise the error message will not be seen by a user
     let cfg: Arc<crate::config::Config> = Arc::new(Config::new(
-        matches.value_of("config").unwrap_or("config.toml"),
+        matches
+            .get_one::<String>("config")
+            .unwrap_or(&"config.toml".to_string()),
     ));
     let mut credentials = {
         let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)
