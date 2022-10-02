@@ -17,8 +17,9 @@ use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_playback::audio_backend;
 use log::{error, info, trace};
-use signal_hook::consts::SIGTERM;
-use signal_hook::iterator::Signals;
+
+#[cfg(unix)]
+use signal_hook::{consts::SIGTERM, iterator::Signals};
 
 mod authentication;
 mod command;
@@ -316,11 +317,13 @@ async fn main() -> Result<(), String> {
     cursive.add_fullscreen_layer(layout.with_name("main"));
 
     // catch SIGTERM to save current state
+    #[cfg(unix)]
     let mut signals = Signals::new(&[SIGTERM]).expect("could not register SIGTERM handler");
 
     // cursive event loop
     while cursive.is_running() {
         cursive.step();
+        #[cfg(unix)]
         for signal in signals.pending() {
             if signal == SIGTERM {
                 info!("Caught SIGTERM, cleaning up and closing");
