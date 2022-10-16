@@ -168,6 +168,7 @@ async fn main() -> Result<(), String> {
         credentials = credentials_prompt(Some(error_msg))?;
     }
 
+    println!("Connecting to Spotify..");
     let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
     let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
 
@@ -179,7 +180,6 @@ async fn main() -> Result<(), String> {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    println!("Connecting to Spotify..");
     let spotify = spotify::Spotify::new(event_manager.clone(), credentials, cfg.clone());
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
