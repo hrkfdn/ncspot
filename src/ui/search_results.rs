@@ -348,7 +348,7 @@ impl SearchResultsView {
         0
     }
 
-    fn perform_search<I: ListItem>(
+    fn perform_search<I: ListItem + Clone>(
         &self,
         handler: SearchHandler<I>,
         results: &Arc<RwLock<Vec<I>>>,

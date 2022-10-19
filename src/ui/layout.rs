@@ -82,7 +82,7 @@ impl Layout {
     }
 
     pub fn screen<S: Into<String>, T: IntoBoxedViewExt>(mut self, id: S, view: T) -> Self {
-        (&mut self).add_screen(id, view);
+        self.add_screen(id, view);
         self
     }
 
