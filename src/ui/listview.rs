@@ -57,7 +57,7 @@ impl<I: ListItem> Scroller for ListView<I> {
     }
 }
 
-impl<I: ListItem> ListView<I> {
+impl<I: ListItem + Clone> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let result = Self {
             content,
@@ -178,7 +178,7 @@ impl<I: ListItem> ListView<I> {
     }
 }
 
-impl<I: ListItem> View for ListView<I> {
+impl<I: ListItem + Clone> View for ListView<I> {
     fn draw(&self, printer: &Printer<'_, '_>) {
         let content = self.content.read().unwrap();
 

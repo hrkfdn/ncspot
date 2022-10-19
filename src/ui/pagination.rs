@@ -92,6 +92,7 @@ pub type Paginator<I> = Box<dyn Fn(Arc<RwLock<Vec<I>>>) + Send + Sync>;
 /// `max_content`: The maximum amount of items
 /// `callback`: TODO: document
 /// `busy`: TODO: document
+#[derive(Clone)]
 pub struct Pagination<I: ListItem> {
     loaded_content: Arc<RwLock<usize>>,
     max_content: Arc<RwLock<Option<usize>>>,
@@ -110,19 +111,7 @@ impl<I: ListItem> Default for Pagination<I> {
     }
 }
 
-// TODO: figure out why deriving Clone doesn't work
-impl<I: ListItem> Clone for Pagination<I> {
-    fn clone(&self) -> Self {
-        Pagination {
-            loaded_content: self.loaded_content.clone(),
-            max_content: self.max_content.clone(),
-            callback: self.callback.clone(),
-            busy: self.busy.clone(),
-        }
-    }
-}
-
-impl<I: ListItem> Pagination<I> {
+impl<I: ListItem + Clone> Pagination<I> {
     pub fn clear(&mut self) {
         *self.max_content.write().unwrap() = None;
         *self.callback.write().unwrap() = None;
