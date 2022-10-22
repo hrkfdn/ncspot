@@ -217,8 +217,8 @@ playback depending on your desktop environment settings. Have a look at the
 | <kbd>Space</kbd>              | Queue track or playlist.                                       |
 | <kbd>.</kbd>                  | Play the selected item after the currently playing track.      |
 | <kbd>P</kbd>                  | Move to the currently playing track in the queue.              |
-| <kbd>S</kbd>                  | Save the currently playing track to your library.              |
-| <kbd>D</kbd>                  | Remove the currently playing track from your library.          |
+| <kbd>S</kbd>                  | Save the currently playing item to your library.               |
+| <kbd>D</kbd>                  | Remove the currently playing item from your library.           |
 | <kbd>Shift</kbd>+<kbd>P</kbd> | Toggle playback (i.e. Play/Pause).                             |
 | <kbd>Shift</kbd>+<kbd>S</kbd> | Stop playback.                                                 |
 | <kbd>Shift</kbd>+<kbd>U</kbd> | Update the library cache (tracks, artists, albums, playlists). |
