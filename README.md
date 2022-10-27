@@ -150,6 +150,29 @@ For debugging, you can pass a debug log filename and pipe `stderr` to a file:
 RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log
 ```
 
+#### Cargo profiles
+
+- release:
+Used for final releases. Creates the most optimized binaries.
+
+```
+cargo build --release
+```
+
+- optimized:
+Used for optimized test builds, when optimizing for size isn't neccesary.
+
+```
+cargo build --profile optimized
+```
+
+- dev:
+Used for development and debugging.
+
+```
+cargo build
+```
+
 #### Building a Debian Package
 
 You can also use `cargo-deb` to build a Debian package

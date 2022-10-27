@@ -10,6 +10,20 @@ readme = "README.md"
 repository = "https://github.com/hrkfdn/ncspot"
 version = "0.11.2"
 
+# Used only when releasing final builds of ncspot.
+# Build time is very slow, but binaries are smaller.
+[profile.release]
+lto = true
+strip = true
+
+# Used when creating optimized builds for testing.
+# Build time is much faster than release, but performance should be about the
+# same.
+[profile.optimized]
+inherits = "release"
+lto = false
+strip = false
+
 [badges]
 maintenance = {status = "actively-developed"}
 
