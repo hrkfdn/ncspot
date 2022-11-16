@@ -14,7 +14,6 @@ version = "0.11.2"
 # Build time is very slow, but binaries are smaller.
 [profile.release]
 lto = true
-strip = true
 codegen-units = 1
 
 # Used when creating optimized builds for testing.
@@ -23,7 +22,7 @@ codegen-units = 1
 [profile.optimized]
 inherits = "release"
 lto = false
-strip = false
+codegen-units = 16
 
 [badges]
 maintenance = {status = "actively-developed"}
