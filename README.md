@@ -37,6 +37,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [On Linux](#on-linux)
   - [Build](#build)
     - [Prerequisites](#prerequisites)
+    - [Debugging](#debugging)
     - [Compiling](#compiling)
       - [Building a Debian Package](#building-a-debian-package)
     - [Audio Backends](#audio-backends)
@@ -126,6 +127,16 @@ On Linux, you also need:
     sudo pacman -S dbus libpulse libxcb ncurses openssl
     ```
 
+### Debugging
+
+For debugging, you can pass a debug log filename:
+
+```sh
+RUST_BACKTRACE=full cargo run -- -d debug.log
+```
+
+If ncspot has crashed you can find the latest backtrace at `~/.cache/ncspot/backtrace.log`.
+
 ### Compiling
 
 Compile and install the latest release with `cargo-install`:
@@ -143,12 +154,6 @@ cargo build --release
 
 **You may need to manually set the audio backend on non-Linux OSes.** See
 [Audio Backends](#audio-backends).
-
-For debugging, you can pass a debug log filename and pipe `stderr` to a file:
-
-```sh
-RUST_BACKTRACE=full cargo run -- -d debug.log 2> stderr.log
-```
 
 #### Building a Debian Package
 
