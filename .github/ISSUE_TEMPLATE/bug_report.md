@@ -30,9 +30,14 @@ If applicable, add screenshots to help explain your problem.
  - Installed from: [e.g. AUR, brew, cargo]
 
 **Backtrace/Debug log**
-Instructions on how to capture debug logs: https://github.com/hrkfdn/ncspot#usage
+Please attach a debug log and backtrace if ncspot has crashed.
 
-To debug crashes a backtrace is very helpful. Make sure you run a debug build of ncspot, e.g. by running the command mentioned in the link above.
+Instructions on how to capture debug logs: https://github.com/hrkfdn/ncspot#debugging
+
+For backtraces, make sure you run a debug build of ncspot, e.g. by running the
+command mentioned in the [compilation
+instructions](https://github.com/hrkfdn/ncspot#compiling).  You can find the
+latest backtrace at `~/.cache/ncspot/backtrace.log`.
 
 **Additional context**
 Add any other context about the problem here.

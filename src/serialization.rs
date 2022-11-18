@@ -18,13 +18,13 @@ pub trait Serializer {
         // Nothing exists so just write the default and return it
         if !path.exists() {
             let value = default()?;
-            return self.write(&path, value);
+            return self.write(path, value);
         }
 
-        let result = self.load(&path);
+        let result = self.load(path);
         if default_on_parse_failure && result.is_err() {
             let value = default()?;
-            return self.write(&path, value);
+            return self.write(path, value);
         }
         result.map_err(|e| format!("Unable to parse {}: {}", path.to_string_lossy(), e))
     }

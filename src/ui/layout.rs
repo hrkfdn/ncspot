@@ -204,7 +204,7 @@ impl View for Layout {
         let result = self.get_result();
 
         let cmdline_visible = self.cmdline.get_content().len() > 0;
-        let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
+        let mut cmdline_height = usize::from(cmdline_visible);
         if result.as_ref().map(Option::is_some).unwrap_or(true) {
             cmdline_height += 1;
         }
@@ -318,7 +318,7 @@ impl View for Layout {
             let result = self.get_result();
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
-            let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
+            let mut cmdline_height = usize::from(cmdline_visible);
             if result.as_ref().map(Option::is_some).unwrap_or(true) {
                 cmdline_height += 1;
             }

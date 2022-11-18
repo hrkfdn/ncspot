@@ -5,7 +5,9 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde;
 
-use std::fs;
+use std::backtrace;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -91,6 +93,25 @@ fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, Stri
     authentication::create_credentials()
 }
 
+#[inline]
+fn register_backtrace_panic_handler() {
+    // During most of the program, Cursive is responsible for drawing to the
+    // tty. Since stdout probably doesn't work as expected during a panic, the
+    // backtrace is written to a file at $USER_CACHE_DIR/ncspot/backtrace.log.
+    std::panic::set_hook(Box::new(|_panic_info| {
+        // A panic hook will prevent the default panic handler from being
+        // called. An unwrap in this part would cause a hard crash of ncspot.
+        // Don't unwrap/expect/panic in here!
+        if let Ok(backtrace_log) = config::try_proj_dirs() {
+            let mut path = backtrace_log.cache_dir;
+            path.push("backtrace.log");
+            if let Ok(mut file) = File::create(path) {
+                writeln!(file, "{}", backtrace::Backtrace::force_capture()).unwrap_or_default();
+            }
+        }
+    }));
+}
+
 type UserData = Arc<UserDataInner>;
 struct UserDataInner {
     pub cmd: CommandManager,
@@ -98,6 +119,8 @@ struct UserDataInner {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
+    register_backtrace_panic_handler();
+
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
@@ -168,6 +191,7 @@ async fn main() -> Result<(), String> {
         credentials = credentials_prompt(Some(error_msg))?;
     }
 
+    // DON'T USE STDOUT AFTER THIS CALL!
     let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
     let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
 
@@ -179,7 +203,6 @@ async fn main() -> Result<(), String> {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    println!("Connecting to Spotify..");
     let spotify = spotify::Spotify::new(event_manager.clone(), credentials, cfg.clone());
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
@@ -317,7 +340,7 @@ async fn main() -> Result<(), String> {
     cursive.add_fullscreen_layer(layout.with_name("main"));
 
     #[cfg(unix)]
-    let mut signals = Signals::new(&[SIGTERM, SIGHUP]).expect("could not register signal handler");
+    let mut signals = Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
 
     // cursive event loop
     while cursive.is_running() {

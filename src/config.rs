@@ -242,14 +242,24 @@ fn load(filename: &str) -> Result<ConfigValues, String> {
 }
 
 fn proj_dirs() -> AppDirs {
-    match *BASE_PATH.read().expect("can't readlock BASE_PATH") {
-        Some(ref basepath) => AppDirs {
+    try_proj_dirs().unwrap()
+}
+
+/// Returns the plaform app directories for ncspot if they could be determined,
+/// or an error otherwise.
+pub fn try_proj_dirs() -> Result<AppDirs, String> {
+    match *BASE_PATH
+        .read()
+        .map_err(|_| String::from("Poisoned RWLock"))?
+    {
+        Some(ref basepath) => Ok(AppDirs {
             cache_dir: basepath.join(".cache"),
             config_dir: basepath.join(".config"),
             data_dir: basepath.join(".local/share"),
             state_dir: basepath.join(".local/state"),
-        },
-        None => AppDirs::new(Some("ncspot"), true).expect("can't determine project paths"),
+        }),
+        None => AppDirs::new(Some("ncspot"), true)
+            .ok_or_else(|| String::from("Couldn't determine platform standard directories")),
     }
 }
 
