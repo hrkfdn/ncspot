@@ -132,7 +132,7 @@ On Linux, you also need:
 For debugging, you can pass a debug log filename:
 
 ```sh
-RUST_BACKTRACE=full cargo run -- -d debug.log
+cargo run -- -d debug.log
 ```
 
 If ncspot has crashed you can find the latest backtrace at `~/.cache/ncspot/backtrace.log`.
