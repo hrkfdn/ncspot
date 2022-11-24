@@ -276,6 +276,18 @@ impl ContextMenu {
             );
         }
 
+        if let Some(album) = item.album(queue.clone()) {
+            if let Some(savestatus) = album.is_saved(library.clone()) {
+                content.add_item(
+                    match savestatus {
+                        true => "Unsave album",
+                        false => "Save album",
+                    },
+                    ContextMenuAction::ToggleSavedStatus(album.as_listitem()),
+                );
+            }
+        }
+
         // open detail view of artist/album
         {
             let library = library.clone();
