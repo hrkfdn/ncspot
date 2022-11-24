@@ -191,6 +191,8 @@ async fn main() -> Result<(), String> {
         credentials = credentials_prompt(Some(error_msg))?;
     }
 
+    println!("Connecting to Spotify..");
+
     // DON'T USE STDOUT AFTER THIS CALL!
     let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
     let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
