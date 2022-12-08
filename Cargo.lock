@@ -1735,6 +1735,7 @@ dependencies = [
  "librespot-protocol",
  "log",
  "notify-rust",
+ "once_cell",
  "pancurses",
  "parse_duration",
  "platform-dirs",

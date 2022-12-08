@@ -20,6 +20,8 @@ use librespot_core::cache::Cache;
 use librespot_playback::audio_backend;
 use log::{error, info, trace};
 
+use once_cell::sync::OnceCell;
+use queue::Queue;
 #[cfg(unix)]
 use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
@@ -117,6 +119,11 @@ struct UserDataInner {
     pub cmd: CommandManager,
 }
 
+// There will only ever be one Queue and Library in ncspot. Accessing them is
+// easier when they are globally accessible.
+static QUEUE: OnceCell<Arc<Queue>> = OnceCell::new();
+static LIBRARY: OnceCell<Arc<Library>> = OnceCell::new();
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
     register_backtrace_panic_handler();
@@ -209,11 +216,15 @@ async fn main() -> Result<(), String> {
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
 
+    LIBRARY.set(library.clone()).unwrap();
+
     let queue = Arc::new(queue::Queue::new(
         spotify.clone(),
         cfg.clone(),
         library.clone(),
     ));
+
+    QUEUE.set(queue.clone()).unwrap();
 
     #[cfg(feature = "mpris")]
     let mpris_manager = Arc::new(mpris::MprisManager::new(

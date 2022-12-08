@@ -160,6 +160,7 @@ lazy_static! {
     pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
 }
 
+#[derive(Debug)]
 pub struct Config {
     filename: String,
     values: RwLock<ConfigValues>,

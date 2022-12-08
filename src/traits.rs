@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cursive::view::{View, ViewWrapper};
-use cursive::views::NamedView;
+use cursive::views::{NamedView, ScrollView};
 use cursive::Cursive;
 
 use crate::command::Command;
@@ -92,6 +92,24 @@ impl<V: ViewExt> ViewExt for NamedView<V> {
 
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         self.with_view_mut(move |v| v.on_command(s, cmd)).unwrap()
+    }
+}
+
+impl<T: ViewExt> ViewExt for ScrollView<T> {
+    fn title(&self) -> String {
+        self.get_inner().title()
+    }
+
+    fn title_sub(&self) -> String {
+        self.get_inner().title_sub()
+    }
+
+    fn on_leave(&self) {
+        self.get_inner().on_leave()
+    }
+
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.get_inner_mut().on_command(s, cmd)
     }
 }
 

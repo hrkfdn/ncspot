@@ -12,7 +12,7 @@ pub enum Event {
 
 pub type EventSender = Sender<Event>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EventManager {
     tx: EventSender,
     rx: Receiver<Event>,

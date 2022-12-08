@@ -10,7 +10,7 @@ use rspotify::model::Id;
 use std::fmt;
 use std::sync::Arc;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Show {
     pub id: String,
     pub uri: String,

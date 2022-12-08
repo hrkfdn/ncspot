@@ -31,6 +31,7 @@ pub enum QueueEvent {
     PreloadTrackRequest,
 }
 
+#[derive(Debug)]
 pub struct Queue {
     pub queue: Arc<RwLock<Vec<Playable>>>,
     random_order: RwLock<Option<Vec<usize>>>,

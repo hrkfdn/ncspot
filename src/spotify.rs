@@ -39,7 +39,7 @@ pub enum PlayerEvent {
     FinishedTrack,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Spotify {
     events: EventManager,
     credentials: Credentials,

@@ -26,7 +26,7 @@ use std::thread;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WebApi {
     api: AuthCodeSpotify,
     user: Option<String>,

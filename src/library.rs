@@ -15,6 +15,7 @@ use crate::config::{self, CACHE_VERSION};
 use crate::events::EventManager;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
+use crate::model::episode::Episode;
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::show::Show;
@@ -26,7 +27,7 @@ const CACHE_ALBUMS: &str = "albums.db";
 const CACHE_ARTISTS: &str = "artists.db";
 const CACHE_PLAYLISTS: &str = "playlists.db";
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Library {
     pub tracks: Arc<RwLock<Vec<Track>>>,
     pub albums: Arc<RwLock<Vec<Album>>>,
@@ -819,5 +820,92 @@ impl Library {
 
     pub fn trigger_redraw(&self) {
         self.ev.trigger();
+    }
+}
+
+pub trait Saveable {
+    /// Check if an item is saved in the user library.
+    fn is_saved(&self, library: &Library) -> bool;
+
+    /// Toggle the saved status of the item in the given library.
+    fn toggle_save(&self, _library: Arc<Library>) {
+        // TODO: Remove this default implementation.
+    }
+}
+
+impl Saveable for Album {
+    fn is_saved(&self, library: &Library) -> bool {
+        if !*library.is_done.read().unwrap() {
+            return false;
+        }
+
+        let albums = library.albums.read().unwrap();
+        albums.iter().any(|a| a.id == self.id)
+    }
+}
+
+impl Saveable for Artist {
+    fn is_saved(&self, library: &Library) -> bool {
+        if !*library.is_done.read().unwrap() {
+            return false;
+        }
+
+        let artists = library.artists.read().unwrap();
+        artists.iter().any(|a| a.id == self.id && a.is_followed)
+    }
+}
+
+impl Saveable for Playlist {
+    fn is_saved(&self, library: &Library) -> bool {
+        if !*library.is_done.read().unwrap() {
+            return false;
+        }
+
+        let playlists = library.playlists.read().unwrap();
+        playlists.iter().any(|p| p.id == self.id)
+    }
+}
+
+impl Saveable for Track {
+    fn is_saved(&self, library: &Library) -> bool {
+        if !*library.is_done.read().unwrap() {
+            return false;
+        }
+
+        let tracks = library.tracks.read().unwrap();
+        tracks
+            .iter()
+            .any(|t| t.id == Playable::Track(self.clone()).id())
+    }
+
+    // TODO: actually toggle!
+    fn toggle_save(&self, library: Arc<Library>) {
+        library.save_tracks(vec![self], true);
+    }
+}
+
+impl Saveable for Episode {
+    fn is_saved(&self, _library: &Library) -> bool {
+        todo!()
+    }
+}
+
+impl Saveable for Playable {
+    fn is_saved(&self, library: &Library) -> bool {
+        match self {
+            Playable::Track(track) => Saveable::is_saved(track, library),
+            Playable::Episode(_) => false,
+        }
+    }
+
+    fn toggle_save(&self, library: Arc<Library>) {
+        match self {
+            Playable::Track(track) => {
+                track.toggle_save(library);
+            }
+            Playable::Episode(episode) => {
+                episode.toggle_save(library);
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use cursive::view::ViewWrapper;
+use cursive::view::{Nameable, ViewWrapper};
+use cursive::views::ScrollView;
 use cursive::Cursive;
 use strum::IntoEnumIterator;
 
@@ -11,9 +12,10 @@ use crate::library::Library;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 use crate::ui::browse::BrowseView;
-use crate::ui::listview::ListView;
 use crate::ui::playlists::PlaylistsView;
 use crate::ui::tabview::TabView;
+
+use super::list::List;
 
 pub struct LibraryView {
     tabs: TabView,
@@ -34,18 +36,15 @@ impl LibraryView {
             match tab {
                 LibraryTab::Tracks => tabview.add_tab(
                     "tracks",
-                    ListView::new(library.tracks.clone(), queue.clone(), library.clone())
-                        .with_title("Tracks"),
+                    ScrollView::new(List::new(library.tracks.clone())).with_name("Tracks"),
                 ),
                 LibraryTab::Albums => tabview.add_tab(
                     "albums",
-                    ListView::new(library.albums.clone(), queue.clone(), library.clone())
-                        .with_title("Albums"),
+                    ScrollView::new(List::new(library.albums.clone())).with_name("Albums"),
                 ),
                 LibraryTab::Artists => tabview.add_tab(
                     "artists",
-                    ListView::new(library.artists.clone(), queue.clone(), library.clone())
-                        .with_title("Artists"),
+                    ScrollView::new(List::new(library.artists.clone())).with_name("Artists"),
                 ),
                 LibraryTab::Playlists => tabview.add_tab(
                     "playlists",
@@ -53,8 +52,7 @@ impl LibraryView {
                 ),
                 LibraryTab::Podcasts => tabview.add_tab(
                     "podcasts",
-                    ListView::new(library.shows.clone(), queue.clone(), library.clone())
-                        .with_title("Podcasts"),
+                    ScrollView::new(List::new(library.shows.clone())),
                 ),
                 LibraryTab::Browse => {
                     tabview.add_tab("browse", BrowseView::new(queue.clone(), library.clone()))

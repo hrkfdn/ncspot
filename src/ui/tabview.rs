@@ -13,6 +13,7 @@ use crate::commands::CommandResult;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
 
 pub struct Tab {
+    title: String,
     view: Box<dyn ViewExt>,
 }
 
@@ -33,15 +34,24 @@ impl TabView {
         }
     }
 
-    pub fn add_tab<S: Into<String>, V: IntoBoxedViewExt>(&mut self, id: S, view: V) {
+    pub fn add_tab<S: Into<String> + Clone, V: IntoBoxedViewExt>(&mut self, id: S, view: V) {
+        // Make the first letter uppercase.
+        let id_str: String = id.clone().into();
+        let mut c = id_str.chars();
+        let c = match c.next() {
+            None => String::new(),
+            Some(char) => char.to_uppercase().collect::<String>() + c.as_str(),
+        };
+
         let tab = Tab {
+            title: c,
             view: view.into_boxed_view_ext(),
         };
         self.tabs.push(tab);
         self.ids.insert(id.into(), self.tabs.len() - 1);
     }
 
-    pub fn tab<S: Into<String>, V: IntoBoxedViewExt>(mut self, id: S, view: V) -> Self {
+    pub fn tab<S: Into<String> + Clone, V: IntoBoxedViewExt>(mut self, id: S, view: V) -> Self {
         self.add_tab(id, view);
         self
     }
@@ -76,7 +86,7 @@ impl View for TabView {
                 width += printer.size.x % self.tabs.len();
             }
 
-            let title = tab.view.title();
+            let title = &tab.title;
             let offset = HAlign::Center.get_offset(title.width(), width);
 
             printer.with_color(style, |printer| {
