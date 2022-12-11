@@ -73,7 +73,7 @@ impl Spotify {
 
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx));
-        spotify.user = futures::executor::block_on(user_rx).ok();
+        spotify.user = ASYNC_RUNTIME.block_on(user_rx).ok();
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
