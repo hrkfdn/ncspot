@@ -101,7 +101,7 @@ impl Spotify {
                 worker_channel,
                 events,
                 rx,
-                cfg.clone(),
+                cfg,
                 credentials,
                 user_tx,
                 volume,
