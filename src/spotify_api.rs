@@ -7,6 +7,7 @@ use crate::model::playlist::Playlist;
 use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
+use crate::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use futures::channel::oneshot;
 use log::{debug, error, info};
@@ -78,7 +79,7 @@ impl WebApi {
             .as_ref()
         {
             channel.send(cmd).expect("can't send message to worker");
-            let token_option = futures::executor::block_on(token_rx).unwrap();
+            let token_option = ASYNC_RUNTIME.block_on(token_rx).unwrap();
             if let Some(token) = token_option {
                 *self.api.token.lock().expect("can't writelock api token") = Some(Token {
                     access_token: token.access_token,

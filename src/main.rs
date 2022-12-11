@@ -117,8 +117,15 @@ struct UserDataInner {
     pub cmd: CommandManager,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), String> {
+lazy_static!(
+    /// The global Tokio runtime for running asynchronous tasks.
+    static ref ASYNC_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+);
+
+fn main() -> Result<(), String> {
     register_backtrace_panic_handler();
 
     let backends = {

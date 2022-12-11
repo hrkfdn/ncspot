@@ -28,6 +28,7 @@ use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
+use crate::ASYNC_RUNTIME;
 
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
@@ -72,7 +73,7 @@ impl Spotify {
 
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx));
-        spotify.user = futures::executor::block_on(user_rx).ok();
+        spotify.user = ASYNC_RUNTIME.block_on(user_rx).ok();
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
@@ -96,19 +97,15 @@ impl Spotify {
             let events = self.events.clone();
             let volume = self.volume();
             let credentials = self.credentials.clone();
-            let handle = tokio::runtime::Handle::current();
-            handle.spawn(async move {
-                Self::worker(
-                    worker_channel,
-                    events,
-                    rx,
-                    cfg.clone(),
-                    credentials,
-                    user_tx,
-                    volume,
-                )
-                .await
-            });
+            ASYNC_RUNTIME.spawn(Self::worker(
+                worker_channel,
+                events,
+                rx,
+                cfg,
+                credentials,
+                user_tx,
+                volume,
+            ));
         }
     }
 
@@ -126,9 +123,9 @@ impl Spotify {
 
     pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
         let config = Self::session_config();
-        let handle = tokio::runtime::Handle::current();
-        let jh = handle.spawn(async { Session::connect(config, credentials, None, true).await });
-        futures::executor::block_on(jh).unwrap().map(|r| r.0)
+        ASYNC_RUNTIME
+            .block_on(Session::connect(config, credentials, None, true))
+            .map(|r| r.0)
     }
 
     async fn create_session(
