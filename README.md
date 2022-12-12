@@ -6,12 +6,13 @@
 
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Build](https://github.com/hrkfdn/ncspot/workflows/Build/badge.svg)](https://github.com/hrkfdn/ncspot/actions?query=workflow%3ABuild)
+[![CI](https://github.com/hrkfdn/ncspot/actions/workflows/ci.yml/badge.svg)](https://github.com/hrkfdn/ncspot/actions/workflows/ci.yml)
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
 
+<a href='https://flathub.org/apps/details/io.github.hrkfdn.ncspot'><img width='130' alt='Download on Flathub' src='https://flathub.org/assets/badges/flathub-badge-en.png'/></a>
+
 [![ncspot](https://snapcraft.io//ncspot/badge.svg)](https://snapcraft.io/ncspot)
-[![ncspot](https://snapcraft.io//ncspot/trending.svg?name=0)](https://snapcraft.io/ncspot)
 
 `ncspot` is a ncurses Spotify client written in Rust using `librespot`. It is
 heavily inspired by ncurses MPD clients, such as ncmpc. My motivation was to
