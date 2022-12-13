@@ -1,6 +1,6 @@
 //! Representation of a [Track](crate::model::track::Track) in a [List].
 
-use cursive::View;
+use cursive::{View, event::EventResult};
 
 use crate::{
     command::Command,
@@ -35,8 +35,8 @@ impl View for TrackListItem {
         printer.print_at_percent_absolute(50, self.0.album.as_ref().unwrap_or(&"".to_string()));
     }
 
-    // fn on_event(&mut self, event: cursive::event::Event) -> EventResult {
-    //     match event {
+    fn on_event(&mut self, event: cursive::event::Event) -> EventResult {
+        match event {
     //         cursive::event::Event::Key(key) => {
     //             // HACK: To allow QueueAll, isn't very easy to do otherwise.
     //             if key == Key::Enter {
@@ -52,9 +52,9 @@ impl View for TrackListItem {
     //                 EventResult::Ignored
     //             }
     //         }
-    //         _ => EventResult::Ignored,
-    //     }
-    // }
+            _ => EventResult::Ignored,
+        }
+    }
 }
 
 impl ViewExt for TrackListItem {

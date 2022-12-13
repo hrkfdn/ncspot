@@ -3,9 +3,11 @@
 
 use std::{sync::{RwLock, Arc}, cmp};
 
-use cursive::{theme::{ColorStyle, self}, Rect, View, event::EventResult};
+use cursive::{theme::{ColorStyle, self}, Rect, View, event::{EventResult, Event, MouseEvent, MouseButton}};
 
 use crate::{command::{MoveMode, MoveAmount}, commands::CommandResult, traits::ViewExt};
+
+use super::mouse_coordinates_to_view;
 
 pub mod album;
 pub mod artist;
@@ -244,6 +246,20 @@ where
 
     fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
         match event {
+            Event::Mouse { offset, position, event: mouse_event } => {
+                if let MouseEvent::Press(MouseButton::Left) = mouse_event {
+                    let relative_mouse_coordinates = mouse_coordinates_to_view(position, offset);
+                    self.move_focus_to(relative_mouse_coordinates.y);
+                    let child = self.items.write().unwrap().get_mut(relative_mouse_coordinates.y).cloned();
+                    if let Some(child) = child {
+                        child.into().on_event(event)
+                    } else {
+                        EventResult::Ignored
+                    }
+                } else {
+                    EventResult::Ignored
+                }
+            }
             cursive::event::Event::Char(char) => match char {
                 // Very important to handle the events here, and not in
                 // ViewExt::on_command! Otherwise View::important_area doesn't

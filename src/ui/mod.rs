@@ -1,3 +1,5 @@
+use cursive::XY;
+
 pub mod album;
 pub mod artist;
 pub mod browse;
@@ -21,3 +23,9 @@ pub mod tabview;
 
 #[cfg(feature = "cover")]
 pub mod cover;
+
+/// Convert absolute mouse coordinates to coordinates relative to the view
+/// origin.
+fn mouse_coordinates_to_view(absolute: XY<usize>, offset: XY<usize>) -> XY<usize> {
+    absolute - offset
+}
