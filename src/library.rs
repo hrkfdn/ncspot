@@ -168,6 +168,7 @@ impl Library {
         }
     }
 
+    /// Synchronize the library using the API.
     pub fn update_library(&self) {
         *self.is_done.write().unwrap() = false;
 

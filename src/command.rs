@@ -119,44 +119,57 @@ impl fmt::Display for InsertSource {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Command {
-    Quit,
-    TogglePlay,
-    Stop,
-    Previous,
-    Next,
-    Clear,
-    Queue,
-    PlayNext,
+    // Queueing (+ playing).
     Play,
-    UpdateLibrary,
-    Save,
-    SaveQueue,
-    Delete,
-    Focus(String),
-    Seek(SeekDirection),
-    VolumeUp(u16),
-    VolumeDown(u16),
+    PlayNext,
+    Queue,
+
+    // Queue control.
+    Clear,
     Repeat(Option<RepeatSetting>),
+    SaveQueue,
+    Shift(ShiftMode, Option<i32>),
     Shuffle(Option<bool>),
+
+    // Library manipulation.
+    Delete,
+    NewPlaylist(String),
+    Save,
+
+    // Player/playback control.
+    Next,
+    Previous,
+    Seek(SeekDirection),
+    Stop,
+    TogglePlay,
+    VolumeDown(u16),
+    VolumeUp(u16),
+
+    // Application control.
+    Execute(String),
+    Logout,
+    Quit,
+    ReloadConfig,
+    UpdateLibrary,
+
+    // UI.
+    Back,
+    Focus(String),                  // Focus a general, named UI part (library, search...)
+    Goto(GotoMode),
+    Help,                           // Open the help page.
+    Jump(JumpMode),                 // Jump between search results in a list.
+    Move(MoveMode, MoveAmount),
+    Open(TargetMode),
+    Redraw,
+    Search(String),                 // Perform an online search for the item.
+    ShowRecommendations(TargetMode),
+    Sort(SortKey, SortDirection),
+
+    // Other.
+    Insert(InsertSource),
+    Noop,                           // Don't do anything.
     #[cfg(feature = "share_clipboard")]
     Share(TargetMode),
-    Back,
-    Open(TargetMode),
-    Goto(GotoMode),
-    Move(MoveMode, MoveAmount),
-    Shift(ShiftMode, Option<i32>),
-    Search(String),
-    Jump(JumpMode),
-    Help,
-    ReloadConfig,
-    Noop,
-    Insert(InsertSource),
-    NewPlaylist(String),
-    Sort(SortKey, SortDirection),
-    Logout,
-    ShowRecommendations(TargetMode),
-    Redraw,
-    Execute(String),
 }
 
 impl fmt::Display for Command {
