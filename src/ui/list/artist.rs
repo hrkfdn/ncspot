@@ -49,7 +49,7 @@ impl ViewExt for ArtistListItem {
                 self.0.load_top_tracks(queue.get_spotify());
 
                 if let Some(ref tracks) = self.0.tracks {
-                    let index = queue.append_next(&tracks);
+                    let index = queue.append_next(tracks);
                     queue.play(index, true, true);
                 }
                 Ok(CommandResult::Consumed(None))

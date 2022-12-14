@@ -34,14 +34,20 @@ pub struct WebApi {
     token_expiration: Arc<RwLock<DateTime<Utc>>>,
 }
 
-impl WebApi {
-    pub fn new() -> WebApi {
-        WebApi {
+impl Default for WebApi {
+    fn default() -> Self {
+        Self {
             api: AuthCodeSpotify::default(),
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
             token_expiration: Arc::new(RwLock::new(Utc::now())),
         }
+    }
+}
+
+impl WebApi {
+    pub fn new() -> WebApi {
+        Self::default()
     }
 
     pub fn set_user(&mut self, user: Option<String>) {

@@ -32,6 +32,7 @@ impl View for TrackListItem {
     }
 
     fn on_event(&mut self, event: cursive::event::Event) -> EventResult {
+        #[allow(clippy::match_single_binding)]
         match event {
             //         cursive::event::Event::Key(key) => {
             //             // HACK: To allow QueueAll, isn't very easy to do otherwise.

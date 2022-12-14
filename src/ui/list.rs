@@ -13,7 +13,7 @@ use cursive::{
 };
 
 use crate::{
-    command::{MoveAmount, MoveMode},
+    command::{Command, JumpMode, MoveAmount, MoveMode},
     commands::CommandResult,
     traits::ViewExt,
 };
@@ -280,7 +280,7 @@ where
                     EventResult::Ignored
                 }
             }
-            cursive::event::Event::Char(char) => match char {
+            Event::Char(char) => match char {
                 // Very important to handle the events here, and not in
                 // ViewExt::on_command! Otherwise View::important_area doesn't
                 // work!
@@ -330,8 +330,8 @@ where
     fn on_command(
         &mut self,
         s: &mut cursive::Cursive,
-        cmd: &crate::command::Command,
-    ) -> Result<crate::commands::CommandResult, String> {
+        cmd: &Command,
+    ) -> Result<CommandResult, String> {
         match cmd {
             // crate::command::Command::QueueAll => {
             //     for (index, item) in self.items.read().unwrap()[self.selected..]
@@ -345,15 +345,15 @@ where
             //     }
             //     Ok(CommandResult::Consumed(None))
             // }
-            crate::command::Command::Jump(mode) => {
+            Command::Jump(mode) => {
                 match mode {
-                    crate::command::JumpMode::Previous => self.previous_search_result(),
-                    crate::command::JumpMode::Next => self.next_search_result(),
-                    crate::command::JumpMode::Query(query) => self.search_and_go(query),
+                    JumpMode::Previous => self.previous_search_result(),
+                    JumpMode::Next => self.next_search_result(),
+                    JumpMode::Query(query) => self.search_and_go(query),
                 }
                 Ok(CommandResult::Consumed(None))
             }
-            crate::command::Command::Move(mode, amount) => match mode {
+            Command::Move(mode, amount) => match mode {
                 MoveMode::Up => match amount {
                     MoveAmount::Integer(amount) => {
                         self.selected = self.selected.saturating_sub(*amount as usize);

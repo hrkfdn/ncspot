@@ -91,7 +91,7 @@ impl View for TabView {
 
             printer.with_color(style, |printer| {
                 printer.print_hline((i * tabwidth, 0), width, " ");
-                printer.print((i * tabwidth + offset, 0), &title);
+                printer.print((i * tabwidth + offset, 0), title);
             });
         }
 

@@ -41,7 +41,7 @@ impl ViewExt for ShowListItem {
                 self.0.load_all_episodes(queue.get_spotify());
 
                 if let Some(ref episodes) = self.0.episodes {
-                    let index = queue.append_next(&episodes);
+                    let index = queue.append_next(episodes);
                     queue.play(index, true, true);
                 }
                 Ok(CommandResult::Consumed(None))
