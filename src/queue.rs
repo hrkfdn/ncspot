@@ -153,7 +153,7 @@ impl Queue {
 
     /// Insert `track` as the item that should logically follow the currently
     /// playing item, taking into account shuffle status.
-    pub fn insert_after_current(&self, track: Playable) {
+    pub fn insert_after_current<T: Into<Playable>>(&self, item: T) {
         if let Some(index) = self.get_current_index() {
             let mut random_order = self.random_order.write().unwrap();
             if let Some(order) = random_order.as_mut() {
@@ -168,9 +168,9 @@ impl Queue {
                 order.insert(next_i + 1, index + 1);
             }
             let mut q = self.queue.write().unwrap();
-            q.insert(index + 1, track);
+            q.insert(index + 1, item.into());
         } else {
-            self.append(track);
+            self.append(item.into());
         }
     }
 
@@ -188,7 +188,7 @@ impl Queue {
 
     /// Append `tracks` after the currently playing item, taking into account
     /// shuffle status. Returns the amount of added items.
-    pub fn append_next(&self, tracks: &Vec<Playable>) -> usize {
+    pub fn append_next(&self, tracks: &[Playable]) -> usize {
         let mut q = self.queue.write().unwrap();
 
         {

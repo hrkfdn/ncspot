@@ -102,7 +102,7 @@ impl ListItem for Show {
             .unwrap_or(&Vec::new())
             .iter()
             .map(|ep| Playable::Episode(ep.clone()))
-            .collect();
+            .collect::<Vec<_>>();
 
         let index = queue.append_next(&playables);
         queue.play(index, true, true);

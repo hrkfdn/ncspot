@@ -18,6 +18,18 @@ pub enum Playable {
     Episode(Episode),
 }
 
+impl From<Track> for Playable {
+    fn from(track: Track) -> Self {
+        Self::Track(track)
+    }
+}
+
+impl From<Episode> for Playable {
+    fn from(episode: Episode) -> Self {
+        Self::Episode(episode)
+    }
+}
+
 impl Playable {
     pub fn format(playable: &Playable, formatting: &str, library: Arc<Library>) -> String {
         formatting

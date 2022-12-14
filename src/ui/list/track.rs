@@ -5,7 +5,7 @@ use cursive::{View, event::EventResult};
 use crate::{
     command::Command,
     commands::CommandResult,
-    model::{playable::Playable, track::Track},
+    model::track::Track,
     traits::ViewExt,
     ui::printer::PrinterExt,
     LIBRARY, QUEUE, library::Saveable,
@@ -64,8 +64,17 @@ impl ViewExt for TrackListItem {
         cmd: &Command,
     ) -> Result<CommandResult, String> {
         match cmd {
+            Command::Play => {
+                let index = QUEUE.get().unwrap().append_next(&[self.0.clone().into()]);
+                QUEUE.get().unwrap().play(index, true, false);
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::PlayNext => {
+                QUEUE.get().unwrap().insert_after_current(self.0.clone());
+                Ok(CommandResult::Consumed(None))
+            }
             Command::Queue => {
-                QUEUE.get().unwrap().append(Playable::Track(self.0.clone()));
+                QUEUE.get().unwrap().append(self.0.clone().into());
                 Ok(CommandResult::Consumed(None))
             }
             _ => Ok(CommandResult::Ignored),

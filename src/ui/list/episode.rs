@@ -2,7 +2,7 @@
 
 use cursive::View;
 
-use crate::{model::episode::Episode, traits::ViewExt};
+use crate::{model::episode::Episode, traits::ViewExt, command::Command, QUEUE, commands::CommandResult};
 
 use super::ListItem;
 
@@ -21,7 +21,26 @@ impl View for EpisodeListItem {
     }
 }
 
-impl ViewExt for EpisodeListItem {}
+impl ViewExt for EpisodeListItem {
+    fn on_command(&mut self, _s: &mut cursive::Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        match cmd {
+            Command::Play => {
+                let index = QUEUE.get().unwrap().append_next(&[self.0.clone().into()]);
+                QUEUE.get().unwrap().play(index, true, false);
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::PlayNext => {
+                QUEUE.get().unwrap().insert_after_current(self.0.clone());
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Queue => {
+                QUEUE.get().unwrap().append(self.0.clone().into());
+                Ok(CommandResult::Consumed(None))
+            }
+            _ => Ok(CommandResult::Ignored)
+        }
+    }
+}
 
 impl ListItem for EpisodeListItem {
     fn contains(&self, text: &str) -> bool {
