@@ -8,10 +8,11 @@ use cursive::{views::ScrollView, View};
 use crate::{
     command::{Command, TargetMode},
     commands::CommandResult,
+    library::Saveable,
     model::playlist::Playlist,
-    traits::{ViewExt, ListItem as OtherListItem},
+    traits::ViewExt,
     ui::printer::PrinterExt,
-    LIBRARY, QUEUE, library::Saveable,
+    LIBRARY, QUEUE,
 };
 
 use super::{List, ListItem};
@@ -50,14 +51,44 @@ impl ViewExt for PlaylistListItem {
         cmd: &Command,
     ) -> Result<CommandResult, String> {
         match cmd {
+            Command::Play => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    let index = queue.append_next(tracks);
+                    queue.play(index, true, true);
+                }
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::PlayNext => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    for track in tracks.iter().rev() {
+                        queue.insert_after_current(track.clone());
+                    }
+                }
+
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Queue => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    for track in tracks {
+                        queue.append(track.clone());
+                    }
+                }
+
+                Ok(CommandResult::Consumed(None))
+            }
             Command::Open(TargetMode::Selected) => {
                 Ok(CommandResult::View(Box::new(ScrollView::new(List::new(
                     Arc::new(RwLock::new(self.0.tracks.clone().unwrap_or_default())),
                 )))))
-            }
-            Command::Play => {
-                self.0.play(QUEUE.get().unwrap().clone());
-                Ok(CommandResult::Consumed(None))
             }
             _ => Ok(CommandResult::Ignored),
         }
@@ -69,4 +100,3 @@ impl ListItem for PlaylistListItem {
         self.0.name.to_lowercase().contains(&text.to_lowercase())
     }
 }
-

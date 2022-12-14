@@ -37,10 +37,22 @@ impl View for CategoryListItem {
 impl ViewExt for CategoryListItem {
     fn on_command(
         &mut self,
-        s: &mut cursive::Cursive,
+        _s: &mut cursive::Cursive,
         cmd: &crate::command::Command,
     ) -> Result<crate::commands::CommandResult, String> {
         match cmd {
+            Command::Play => {
+                // TODO: Implement play for categories.
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::PlayNext => {
+                // TODO: Implement play next for categories.
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Queue => {
+                // TODO: Implement queue for categories.
+                Ok(CommandResult::Consumed(None))
+            }
             Command::Open(TargetMode::Selected) => {
                 Ok(CommandResult::View(Box::new(ScrollView::new(List::new(
                     QUEUE
@@ -62,4 +74,3 @@ impl ListItem for CategoryListItem {
         self.0.name.to_lowercase().contains(&text.to_lowercase())
     }
 }
-

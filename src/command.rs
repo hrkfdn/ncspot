@@ -154,20 +154,20 @@ pub enum Command {
 
     // UI.
     Back,
-    Focus(String),                  // Focus a general, named UI part (library, search...)
+    Focus(String), // Focus a general, named UI part (library, search...)
     Goto(GotoMode),
-    Help,                           // Open the help page.
-    Jump(JumpMode),                 // Jump between search results in a list.
+    Help,           // Open the help page.
+    Jump(JumpMode), // Jump between search results in a list.
     Move(MoveMode, MoveAmount),
     Open(TargetMode),
     Redraw,
-    Search(String),                 // Perform an online search for the item.
+    Search(String), // Perform an online search for the item.
     ShowRecommendations(TargetMode),
     Sort(SortKey, SortDirection),
 
     // Other.
     Insert(InsertSource),
-    Noop,                           // Don't do anything.
+    Noop, // Don't do anything.
     #[cfg(feature = "share_clipboard")]
     Share(TargetMode),
 }

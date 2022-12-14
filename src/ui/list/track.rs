@@ -1,14 +1,10 @@
 //! Representation of a [Track](crate::model::track::Track) in a [List].
 
-use cursive::{View, event::EventResult};
+use cursive::{event::EventResult, View};
 
 use crate::{
-    command::Command,
-    commands::CommandResult,
-    model::track::Track,
-    traits::ViewExt,
-    ui::printer::PrinterExt,
-    LIBRARY, QUEUE, library::Saveable,
+    command::Command, commands::CommandResult, library::Saveable, model::track::Track,
+    traits::ViewExt, ui::printer::PrinterExt, LIBRARY, QUEUE,
 };
 
 use super::ListItem;
@@ -37,21 +33,21 @@ impl View for TrackListItem {
 
     fn on_event(&mut self, event: cursive::event::Event) -> EventResult {
         match event {
-    //         cursive::event::Event::Key(key) => {
-    //             // HACK: To allow QueueAll, isn't very easy to do otherwise.
-    //             if key == Key::Enter {
-    //                 // Start playing the track, but also queue all the other
-    //                 // songs in the collection.
-    //                 QUEUE.get().unwrap().clear();
-    //                 self.0.play(QUEUE.get().unwrap().clone());
-    //                 EventResult::Consumed(Some(Callback::from_fn_once(|s| {
-    //                     let mut layout: ViewRef<Layout> = s.find_name("main").unwrap();
-    //                     layout.on_command(s, &Command::QueueAll).unwrap();
-    //                 })))
-    //             } else {
-    //                 EventResult::Ignored
-    //             }
-    //         }
+            //         cursive::event::Event::Key(key) => {
+            //             // HACK: To allow QueueAll, isn't very easy to do otherwise.
+            //             if key == Key::Enter {
+            //                 // Start playing the track, but also queue all the other
+            //                 // songs in the collection.
+            //                 QUEUE.get().unwrap().clear();
+            //                 self.0.play(QUEUE.get().unwrap().clone());
+            //                 EventResult::Consumed(Some(Callback::from_fn_once(|s| {
+            //                     let mut layout: ViewRef<Layout> = s.find_name("main").unwrap();
+            //                     layout.on_command(s, &Command::QueueAll).unwrap();
+            //                 })))
+            //             } else {
+            //                 EventResult::Ignored
+            //             }
+            //         }
             _ => EventResult::Ignored,
         }
     }
@@ -65,7 +61,7 @@ impl ViewExt for TrackListItem {
     ) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
-                let index = QUEUE.get().unwrap().append_next(&[self.0.clone().into()]);
+                let index = QUEUE.get().unwrap().append_next(&[self.0.clone()]);
                 QUEUE.get().unwrap().play(index, true, false);
                 Ok(CommandResult::Consumed(None))
             }
@@ -74,7 +70,7 @@ impl ViewExt for TrackListItem {
                 Ok(CommandResult::Consumed(None))
             }
             Command::Queue => {
-                QUEUE.get().unwrap().append(self.0.clone().into());
+                QUEUE.get().unwrap().append(self.0.clone());
                 Ok(CommandResult::Consumed(None))
             }
             _ => Ok(CommandResult::Ignored),
@@ -97,4 +93,3 @@ impl ListItem for TrackListItem {
         self.0.title.to_lowercase().contains(&text.to_lowercase())
     }
 }
-

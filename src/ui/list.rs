@@ -1,22 +1,33 @@
 //! This module offers an abstract list to represent items in a Cursive TUI. The
 //! items of the list need to implement [NewListItem].
 
-use std::{sync::{RwLock, Arc}, cmp};
+use std::{
+    cmp,
+    sync::{Arc, RwLock},
+};
 
-use cursive::{theme::{ColorStyle, self}, Rect, View, event::{EventResult, Event, MouseEvent, MouseButton}};
+use cursive::{
+    event::{Event, EventResult, MouseButton, MouseEvent},
+    theme::{self, ColorStyle},
+    Rect, View,
+};
 
-use crate::{command::{MoveMode, MoveAmount}, commands::CommandResult, traits::ViewExt};
+use crate::{
+    command::{MoveAmount, MoveMode},
+    commands::CommandResult,
+    traits::ViewExt,
+};
 
 use super::mouse_coordinates_to_view;
 
 pub mod album;
 pub mod artist;
-pub mod show;
-pub mod track;
+pub mod category;
 pub mod episode;
 pub mod playable;
-pub mod category;
 pub mod playlist;
+pub mod show;
+pub mod track;
 
 // static lifetime needed for AsRef and AsMut impls.
 pub trait ListItem: ViewExt {
@@ -246,11 +257,20 @@ where
 
     fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
         match event {
-            Event::Mouse { offset, position, event: mouse_event } => {
+            Event::Mouse {
+                offset,
+                position,
+                event: mouse_event,
+            } => {
                 if let MouseEvent::Press(MouseButton::Left) = mouse_event {
                     let relative_mouse_coordinates = mouse_coordinates_to_view(position, offset);
                     self.move_focus_to(relative_mouse_coordinates.y);
-                    let child = self.items.write().unwrap().get_mut(relative_mouse_coordinates.y).cloned();
+                    let child = self
+                        .items
+                        .write()
+                        .unwrap()
+                        .get_mut(relative_mouse_coordinates.y)
+                        .cloned();
                     if let Some(child) = child {
                         child.into().on_event(event)
                     } else {

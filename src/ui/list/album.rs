@@ -6,7 +6,13 @@ use cursive::{views::ScrollView, View};
 
 use super::{List, ListItem};
 use crate::{
-    commands::CommandResult, model::album::Album, traits::ViewExt, ui::printer::PrinterExt, LIBRARY, library::Saveable,
+    command::{Command, TargetMode},
+    commands::CommandResult,
+    library::Saveable,
+    model::album::Album,
+    traits::ViewExt,
+    ui::printer::PrinterExt,
+    LIBRARY, QUEUE,
 };
 
 #[derive(Clone)]
@@ -44,11 +50,43 @@ impl View for AlbumListItem {
 impl ViewExt for AlbumListItem {
     fn on_command(
         &mut self,
-        s: &mut cursive::Cursive,
+        _s: &mut cursive::Cursive,
         cmd: &crate::command::Command,
-    ) -> Result<crate::commands::CommandResult, String> {
+    ) -> Result<CommandResult, String> {
         match cmd {
-            crate::command::Command::Open(crate::command::TargetMode::Selected) => {
+            Command::Play => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_all_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    let index = queue.append_next(&tracks);
+                    queue.play(index, true, true);
+                }
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::PlayNext => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_all_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    for t in tracks.iter().rev() {
+                        queue.insert_after_current(t.clone());
+                    }
+                }
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Queue => {
+                let queue = QUEUE.get().unwrap();
+                self.0.load_all_tracks(queue.get_spotify());
+
+                if let Some(ref tracks) = self.0.tracks {
+                    for t in tracks {
+                        queue.append(t.clone());
+                    }
+                }
+                Ok(CommandResult::Consumed(None))
+            }
+            Command::Open(TargetMode::Selected) => {
                 Ok(CommandResult::View(Box::new(ScrollView::new(List::new(
                     Arc::new(RwLock::new(self.0.tracks.clone().unwrap_or_default())),
                 )))))

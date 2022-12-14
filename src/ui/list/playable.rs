@@ -22,7 +22,9 @@ impl View for PlayableListItem {
     fn draw(&self, printer: &cursive::Printer) {
         match self.0 {
             Playable::Track(ref track) => <Box<dyn ListItem>>::from(track.clone()).draw(printer),
-            Playable::Episode(ref episode) => <Box<dyn ListItem>>::from(episode.clone()).draw(printer),
+            Playable::Episode(ref episode) => {
+                <Box<dyn ListItem>>::from(episode.clone()).draw(printer)
+            }
         }
     }
 
@@ -51,8 +53,9 @@ impl ListItem for PlayableListItem {
     fn contains(&self, text: &str) -> bool {
         match self.0 {
             Playable::Track(ref track) => <Box<dyn ListItem>>::from(track.clone()).contains(text),
-            Playable::Episode(ref episode) => <Box<dyn ListItem>>::from(episode.clone()).contains(text),
+            Playable::Episode(ref episode) => {
+                <Box<dyn ListItem>>::from(episode.clone()).contains(text)
+            }
         }
     }
 }
-
