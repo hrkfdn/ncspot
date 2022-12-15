@@ -2,14 +2,17 @@
 
 use std::sync::{Arc, RwLock};
 
-use cursive::View;
+use cursive::{
+    event::{Event, EventResult, MouseButton, MouseEvent, Callback},
+    View,
+};
 
 use crate::{
     command::{Command, TargetMode},
     commands::CommandResult,
     model::show::Show,
     traits::ViewExt,
-    QUEUE,
+    QUEUE, ui::contextmenu::ContextMenu, LIBRARY,
 };
 
 use super::{List, ListItem};
@@ -26,6 +29,22 @@ impl From<Show> for Box<dyn ListItem> {
 impl View for ShowListItem {
     fn draw(&self, printer: &cursive::Printer) {
         printer.print((0, 0), &self.0.name);
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        match event {
+            Event::Mouse {
+                offset: _,
+                position: _,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                    s.add_layer(contextmenu)
+                })));
+            }
+            _ => EventResult::Ignored,
+        }
     }
 }
 

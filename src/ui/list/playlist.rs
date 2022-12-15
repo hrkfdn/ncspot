@@ -3,7 +3,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use cursive::{views::ScrollView, View};
+use cursive::{views::ScrollView, View, event::{Event, MouseEvent, MouseButton, EventResult, Callback}};
 
 use crate::{
     command::{Command, TargetMode},
@@ -11,7 +11,7 @@ use crate::{
     library::Saveable,
     model::playlist::Playlist,
     traits::ViewExt,
-    ui::printer::PrinterExt,
+    ui::{printer::PrinterExt, contextmenu::ContextMenu},
     LIBRARY, QUEUE,
 };
 
@@ -41,6 +41,22 @@ impl View for PlaylistListItem {
         let amount = self.0.num_tracks;
         printer.print_at_start(&format!("{title} - {author}"));
         printer.print_at_end(&format!("[{saved}] {amount:>4} tracks"));
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        match event {
+            Event::Mouse {
+                offset: _,
+                position: _,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                    s.add_layer(contextmenu)
+                })));
+            }
+            _ => EventResult::Ignored,
+        }
     }
 }
 

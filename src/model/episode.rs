@@ -6,7 +6,7 @@ use rspotify::model::Id;
 use std::fmt;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Episode {
     pub id: String,
     pub uri: String,

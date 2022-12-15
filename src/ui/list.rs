@@ -1,5 +1,5 @@
 //! This module offers an abstract list to represent items in a Cursive TUI. The
-//! items of the list need to implement [NewListItem].
+//! items of the list need to implement [ListItem].
 
 use std::{
     cmp,
@@ -29,7 +29,6 @@ pub mod playlist;
 pub mod show;
 pub mod track;
 
-// static lifetime needed for AsRef and AsMut impls.
 pub trait ListItem: ViewExt {
     /// In order to filter ListItems, a List must be able to check if any of its
     /// items contain a given string.
@@ -47,8 +46,7 @@ type ColorstyleCallback<T> = Option<Box<dyn Fn(&T) -> Option<ColorStyle>>>;
 
 /// An abstract list that can display any view. It keeps its contents as shared
 /// reference to the actual content. This way, when the content is updated, the
-/// list will also show the updated content on the next draw. bla bla bal bal
-/// qmlkjf qmlkdsfj
+/// list will also show the updated content on the next draw.
 pub struct List<T> {
     /// The collection that is represented by this list.
     pub items: Arc<RwLock<Vec<T>>>,
@@ -164,6 +162,22 @@ where
             }
         }
     }
+
+    /// Propagate the [cursive::event::Event] to the currently selected item.
+    fn propagate_event_to_selected(&mut self, event: Event) -> EventResult {
+        if !self.items.read().unwrap().is_empty() {
+            self.propagate_event_to(event, self.selected_index()).unwrap()
+        } else {
+            EventResult::Ignored
+        }
+    }
+
+    /// Propagate the event to the item at `index`.
+    fn propagate_event_to(&mut self, event: Event, index: usize) -> Result<EventResult, ()> {
+        let mut item = self.items.write().unwrap();
+        let value = item.get_mut(index).ok_or(())?;
+        Ok(value.clone().into().on_event(event))
+    }
 }
 
 impl<T> From<Arc<RwLock<Vec<T>>>> for List<T> {
@@ -174,6 +188,12 @@ impl<T> From<Arc<RwLock<Vec<T>>>> for List<T> {
             search: None,
             colorstyle: None,
         }
+    }
+}
+
+impl<T> From<Vec<T>> for List<T> {
+    fn from(items: Vec<T>) -> Self {
+        Self::from(Arc::new(RwLock::new(items)))
     }
 }
 
@@ -260,25 +280,20 @@ where
             Event::Mouse {
                 offset,
                 position,
-                event: mouse_event,
+                event: MouseEvent::Press(MouseButton::Left),
             } => {
-                if let MouseEvent::Press(MouseButton::Left) = mouse_event {
-                    let relative_mouse_coordinates = mouse_coordinates_to_view(position, offset);
-                    self.move_focus_to(relative_mouse_coordinates.y);
-                    let child = self
-                        .items
-                        .write()
-                        .unwrap()
-                        .get_mut(relative_mouse_coordinates.y)
-                        .cloned();
-                    if let Some(child) = child {
-                        child.into().on_event(event)
-                    } else {
-                        EventResult::Ignored
-                    }
-                } else {
-                    EventResult::Ignored
-                }
+                let relative_mouse_coordinates = mouse_coordinates_to_view(position, offset);
+                self.move_focus_to(relative_mouse_coordinates.y);
+                self.propagate_event_to_selected(event)
+            }
+            Event::Mouse {
+                offset,
+                position,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let relative_mouse_coordinates = mouse_coordinates_to_view(position, offset);
+                self.move_focus_to(relative_mouse_coordinates.y);
+                self.propagate_event_to_selected(event)
             }
             Event::Char(char) => match char {
                 // Very important to handle the events here, and not in
@@ -295,25 +310,11 @@ where
                     EventResult::Consumed(None)
                 }
                 _ => {
-                    if !self.items.read().unwrap().clone().len() == 0 {
-                        self.items.read().unwrap()[self.selected]
-                            .clone()
-                            .into()
-                            .on_event(event)
-                    } else {
-                        EventResult::Ignored
-                    }
+                    self.propagate_event_to_selected(event)
                 }
             },
             _ => {
-                if !self.items.read().unwrap().is_empty() {
-                    self.items.read().unwrap()[self.selected]
-                        .clone()
-                        .into()
-                        .on_event(event)
-                } else {
-                    EventResult::Ignored
-                }
+                self.propagate_event_to_selected(event)
             }
         }
     }

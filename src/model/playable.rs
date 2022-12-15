@@ -11,7 +11,7 @@ use crate::traits::ListItem;
 use std::fmt;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Playable {
     Track(Track),

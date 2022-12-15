@@ -2,7 +2,11 @@
 
 use std::sync::{Arc, RwLock};
 
-use cursive::{views::ScrollView, View};
+use cursive::{
+    event::{Event, EventResult, MouseButton, MouseEvent, Callback},
+    views::ScrollView,
+    View,
+};
 
 use super::{List, ListItem};
 use crate::{
@@ -11,7 +15,7 @@ use crate::{
     library::Saveable,
     model::album::Album,
     traits::ViewExt,
-    ui::printer::PrinterExt,
+    ui::{printer::PrinterExt, contextmenu::ContextMenu},
     LIBRARY, QUEUE,
 };
 
@@ -44,6 +48,22 @@ impl View for AlbumListItem {
         .to_string();
         end_text.push_str(&self.0.year);
         printer.print_at_end(&end_text);
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        match event {
+            Event::Mouse {
+                offset: _,
+                position: _,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                    s.add_layer(contextmenu)
+                })));
+            }
+            _ => EventResult::Ignored,
+        }
     }
 }
 

@@ -1,14 +1,14 @@
 //! Representation of a [Category](crate::model::category::Category) in a
 //! [List].
 
-use cursive::{views::ScrollView, View};
+use cursive::{views::ScrollView, View, event::{Event, MouseEvent, MouseButton, EventResult, Callback}};
 
 use crate::{
     command::{Command, TargetMode},
     commands::CommandResult,
     model::category::Category,
     traits::ViewExt,
-    QUEUE,
+    QUEUE, ui::contextmenu::ContextMenu, LIBRARY,
 };
 
 use super::{List, ListItem};
@@ -22,21 +22,25 @@ impl From<Category> for Box<dyn ListItem> {
     }
 }
 
-impl AsRef<dyn ListItem> for CategoryListItem {
-    fn as_ref(&self) -> &dyn ListItem {
-        self
-    }
-}
-
-impl AsMut<dyn ListItem> for CategoryListItem {
-    fn as_mut(&mut self) -> &mut dyn ListItem {
-        self
-    }
-}
-
 impl View for CategoryListItem {
     fn draw(&self, printer: &cursive::Printer) {
         printer.print((0, 0), &self.0.name);
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        match event {
+            Event::Mouse {
+                offset: _,
+                position: _,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                    s.add_layer(contextmenu)
+                })));
+            }
+            _ => EventResult::Ignored,
+        }
     }
 }
 

@@ -75,7 +75,7 @@ impl ArtistView {
 
             tabs.add_tab(
                 "tracks",
-                ScrollView::new(List::new(Arc::new(RwLock::new(tracks)))),
+                ScrollView::new(List::from(tracks)),
             );
         }
 

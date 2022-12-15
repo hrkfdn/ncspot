@@ -1,10 +1,10 @@
 //! Representation of a [Track](crate::model::track::Track) in a [List].
 
-use cursive::{event::EventResult, View};
+use cursive::{event::{EventResult, Event, MouseEvent, MouseButton, Callback}, View};
 
 use crate::{
-    command::Command, commands::CommandResult, library::Saveable, model::track::Track,
-    traits::ViewExt, ui::printer::PrinterExt, LIBRARY, QUEUE,
+    command::{Command, TargetMode}, commands::CommandResult, library::Saveable, model::track::Track,
+    traits::ViewExt, ui::{printer::PrinterExt, contextmenu::ContextMenu}, LIBRARY, QUEUE,
 };
 
 use super::ListItem;
@@ -34,6 +34,19 @@ impl View for TrackListItem {
     fn on_event(&mut self, event: cursive::event::Event) -> EventResult {
         #[allow(clippy::match_single_binding)]
         match event {
+            Event::Mouse { offset, position, event } => {
+                match event {
+                    MouseEvent::Press(MouseButton::Right) => {
+                        let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                        return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                            s.add_layer(contextmenu)
+                        })));
+                    }
+                    _ => {
+                        EventResult::Ignored
+                    }
+                }
+            }
             //         cursive::event::Event::Key(key) => {
             //             // HACK: To allow QueueAll, isn't very easy to do otherwise.
             //             if key == Key::Enter {
@@ -73,6 +86,10 @@ impl ViewExt for TrackListItem {
             Command::Queue => {
                 QUEUE.get().unwrap().append(self.0.clone());
                 Ok(CommandResult::Consumed(None))
+            }
+            Command::Open(TargetMode::Selected) => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                Ok(CommandResult::Modal(Box::new(contextmenu)))
             }
             _ => Ok(CommandResult::Ignored),
         }

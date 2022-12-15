@@ -1,6 +1,6 @@
 //! Representation of an [Artist](crate::model::artist::Artist) in a [List].
 
-use cursive::View;
+use cursive::{View, event::{Callback, EventResult, MouseButton, MouseEvent, Event}};
 
 use crate::{
     command::Command,
@@ -8,7 +8,7 @@ use crate::{
     library::Saveable,
     model::artist::Artist,
     traits::ViewExt,
-    ui::{artist::ArtistView, printer::PrinterExt},
+    ui::{artist::ArtistView, printer::PrinterExt, contextmenu::ContextMenu},
     LIBRARY, QUEUE,
 };
 
@@ -34,6 +34,22 @@ impl View for ArtistListItem {
             },
             &self.0.tracks.as_ref().unwrap_or(&Vec::new()).len()
         ));
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        match event {
+            Event::Mouse {
+                offset: _,
+                position: _,
+                event: MouseEvent::Press(MouseButton::Right),
+            } => {
+                let contextmenu = ContextMenu::new(&self.0, QUEUE.get().unwrap().clone(), LIBRARY.get().unwrap().clone());
+                return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
+                    s.add_layer(contextmenu)
+                })));
+            }
+            _ => EventResult::Ignored,
+        }
     }
 }
 
@@ -75,7 +91,7 @@ impl ViewExt for ArtistListItem {
                 }
                 Ok(CommandResult::Consumed(None))
             }
-            crate::command::Command::Open(crate::command::TargetMode::Selected) => {
+            Command::Open(crate::command::TargetMode::Selected) => {
                 Ok(CommandResult::View(Box::new(ArtistView::new(
                     QUEUE.get().unwrap().clone(),
                     LIBRARY.get().unwrap().clone(),
