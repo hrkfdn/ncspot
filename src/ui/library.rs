@@ -46,17 +46,14 @@ impl LibraryView {
                     "artists",
                     ScrollView::new(List::new(library.artists.clone())).with_name("Artists"),
                 ),
-                LibraryTab::Playlists => tabview.add_tab(
-                    "playlists",
-                    PlaylistsView::new(queue.clone(), library.clone()),
-                ),
+                LibraryTab::Playlists => {
+                    tabview.add_tab("playlists", PlaylistsView::new(library.clone()))
+                }
                 LibraryTab::Podcasts => tabview.add_tab(
                     "podcasts",
                     ScrollView::new(List::new(library.shows.clone())),
                 ),
-                LibraryTab::Browse => {
-                    tabview.add_tab("browse", BrowseView::new(queue.clone(), library.clone()))
-                }
+                LibraryTab::Browse => tabview.add_tab("browse", BrowseView::new(queue.clone())),
             }
         }
 

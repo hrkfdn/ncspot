@@ -1,10 +1,7 @@
-use crate::library::Library;
 use crate::model::episode::Episode;
-use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::show::ShowView;
+use crate::traits::ListItem;
 use rspotify::model::show::{FullShow, SimplifiedShow};
 use rspotify::model::Id;
 use std::fmt;
@@ -76,84 +73,84 @@ impl ListItem for Show {
         false
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
-        format!("{}", self)
-    }
+    // fn display_left(&self, _library: Arc<Library>) -> String {
+    //     format!("{}", self)
+    // }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_show(self) {
-            if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                "\u{f62b} "
-            } else {
-                "✓ "
-            }
-        } else {
-            ""
-        };
-        saved.to_owned()
-    }
+    //     fn display_right(&self, library: Arc<Library>) -> String {
+    //         let saved = if library.is_saved_show(self) {
+    //             if library.cfg.values().use_nerdfont.unwrap_or(false) {
+    //                 "\u{f62b} "
+    //             } else {
+    //                 "✓ "
+    //             }
+    //         } else {
+    //             ""
+    //         };
+    //         saved.to_owned()
+    //     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
-        self.load_all_episodes(queue.get_spotify());
+    // fn play(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_episodes(queue.get_spotify());
 
-        let playables = self
-            .episodes
-            .as_ref()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .map(|ep| Playable::Episode(ep.clone()))
-            .collect::<Vec<_>>();
+    //     let playables = self
+    //         .episodes
+    //         .as_ref()
+    //         .unwrap_or(&Vec::new())
+    //         .iter()
+    //         .map(|ep| Playable::Episode(ep.clone()))
+    //         .collect::<Vec<_>>();
 
-        let index = queue.append_next(&playables);
-        queue.play(index, true, true);
-    }
+    //     let index = queue.append_next(&playables);
+    //     queue.play(index, true, true);
+    // }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        self.load_all_episodes(queue.get_spotify());
+    // fn play_next(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_episodes(queue.get_spotify());
 
-        if let Some(episodes) = self.episodes.as_ref() {
-            for ep in episodes.iter().rev() {
-                queue.insert_after_current(Playable::Episode(ep.clone()));
-            }
-        }
-    }
+    //     if let Some(episodes) = self.episodes.as_ref() {
+    //         for ep in episodes.iter().rev() {
+    //             queue.insert_after_current(Playable::Episode(ep.clone()));
+    //         }
+    //     }
+    // }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
-        self.load_all_episodes(queue.get_spotify());
+    // fn queue(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_episodes(queue.get_spotify());
 
-        for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
-            queue.append(Playable::Episode(ep.clone()));
-        }
-    }
+    //     for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
+    //         queue.append(Playable::Episode(ep.clone()));
+    //     }
+    // }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        if library.is_saved_show(self) {
-            self.unsave(library);
-        } else {
-            self.save(library);
-        }
-    }
+    // fn toggle_saved(&mut self, library: Arc<Library>) {
+    //     if library.is_saved_show(self) {
+    //         self.unsave(library);
+    //     } else {
+    //         self.save(library);
+    //     }
+    // }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_show(self);
-    }
+    // fn save(&mut self, library: Arc<Library>) {
+    //     library.save_show(self);
+    // }
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_show(self);
-    }
+    // fn unsave(&mut self, library: Arc<Library>) {
+    //     library.unsave_show(self);
+    // }
 
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        Some(ShowView::new(queue, library, self).into_boxed_view_ext())
-    }
+    // fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    //     Some(ShowView::new(queue, library, self).into_boxed_view_ext())
+    // }
 
     fn share_url(&self) -> Option<String> {
         Some(format!("https://open.spotify.com/show/{}", self.id))
     }
 
-    #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
-        Some(library.is_saved_show(self))
-    }
+    // #[inline]
+    // fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    //     Some(library.is_saved_show(self))
+    // }
 
     #[inline]
     fn is_playable(&self) -> bool {

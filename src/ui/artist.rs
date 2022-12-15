@@ -2,20 +2,29 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 
 use cursive::view::ViewWrapper;
+use cursive::views::ScrollView;
 use cursive::Cursive;
 use rspotify::model::AlbumType;
 
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
-use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
-use crate::ui::listview::ListView;
 use crate::ui::tabview::TabView;
 
+use super::list::List;
+
+/// A view that shows all the content from a specific artist.
+///
+/// # Content
+/// - Saved Tracks: Tracks that are also in the user library, if any;
+/// - Top 10: The top 10 tracks of the artist;
+/// - Albums: Artist albums;
+/// - Singles: Artist singles;
+/// - Related Artists: Artists that are similar to this artist.
 pub struct ArtistView {
     artist: Artist,
     tabs: TabView,
@@ -25,10 +34,8 @@ impl ArtistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, artist: &Artist) -> Self {
         let spotify = queue.get_spotify();
 
-        let albums_view =
-            Self::albums_view(artist, AlbumType::Album, queue.clone(), library.clone());
-        let singles_view =
-            Self::albums_view(artist, AlbumType::Single, queue.clone(), library.clone());
+        let albums_view = Self::albums_view(artist, AlbumType::Album, queue.clone());
+        let singles_view = Self::albums_view(artist, AlbumType::Single, queue);
 
         let top_tracks: Arc<RwLock<Vec<Track>>> = Arc::new(RwLock::new(Vec::new()));
         {
@@ -50,7 +57,7 @@ impl ArtistView {
         {
             let related = related.clone();
             let id = artist.id.clone();
-            let library = library.clone();
+            let library = library;
             thread::spawn(move || {
                 if let Some(id) = id {
                     if let Some(artists) = spotify.api.artist_related_artists(&id) {
@@ -68,27 +75,16 @@ impl ArtistView {
 
             tabs.add_tab(
                 "tracks",
-                ListView::new(
-                    Arc::new(RwLock::new(tracks)),
-                    queue.clone(),
-                    library.clone(),
-                )
-                .with_title("Saved Tracks"),
+                ScrollView::new(List::new(Arc::new(RwLock::new(tracks)))),
             );
         }
 
-        tabs.add_tab(
-            "top_tracks",
-            ListView::new(top_tracks, queue.clone(), library.clone()).with_title("Top 10"),
-        );
+        tabs.add_tab("top_tracks", ScrollView::new(List::new(top_tracks)));
 
-        tabs.add_tab("albums", albums_view.with_title("Albums"));
-        tabs.add_tab("singles", singles_view.with_title("Singles"));
+        tabs.add_tab("albums", albums_view);
+        tabs.add_tab("singles", singles_view);
 
-        tabs.add_tab(
-            "related",
-            ListView::new(related, queue, library).with_title("Related Artists"),
-        );
+        tabs.add_tab("related", ScrollView::new(List::new(related)));
 
         Self {
             artist: artist.clone(),
@@ -96,21 +92,15 @@ impl ArtistView {
         }
     }
 
-    fn albums_view(
-        artist: &Artist,
-        album_type: AlbumType,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) -> ListView<Album> {
+    fn albums_view(artist: &Artist, album_type: AlbumType, queue: Arc<Queue>) -> impl ViewExt {
         if let Some(artist_id) = &artist.id {
             let spotify = queue.get_spotify();
             let albums_page = spotify.api.artist_albums(artist_id, Some(album_type));
-            let view = ListView::new(albums_page.items.clone(), queue, library);
-            albums_page.apply_pagination(view.get_pagination());
-
-            view
+            ScrollView::new(List::new(albums_page.items))
+            // FIX: albums_page.apply_pagination(view.get_pagination()) used to
+            // be here!
         } else {
-            ListView::new(Arc::new(RwLock::new(Vec::new())), queue, library)
+            ScrollView::new(List::new(Arc::new(RwLock::new(Vec::new()))))
         }
     }
 }

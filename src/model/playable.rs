@@ -7,7 +7,7 @@ use crate::model::artist::Artist;
 use crate::model::episode::Episode;
 use crate::model::track::Track;
 use crate::queue::Queue;
-use crate::traits::{ListItem, ViewExt};
+use crate::traits::ListItem;
 use std::fmt;
 use std::sync::Arc;
 
@@ -167,45 +167,45 @@ impl ListItem for Playable {
         self.as_listitem().is_playing(queue)
     }
 
-    fn display_left(&self, library: Arc<Library>) -> String {
-        self.as_listitem().display_left(library)
-    }
+    // fn display_left(&self, library: Arc<Library>) -> String {
+    //     self.as_listitem().display_left(library)
+    // }
 
-    fn display_center(&self, library: Arc<Library>) -> String {
-        self.as_listitem().display_center(library)
-    }
+    // fn display_center(&self, library: Arc<Library>) -> String {
+    //     self.as_listitem().display_center(library)
+    // }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
-        self.as_listitem().display_right(library)
-    }
+    // fn display_right(&self, library: Arc<Library>) -> String {
+    //     self.as_listitem().display_right(library)
+    // }
 
-    fn play(&mut self, queue: Arc<Queue>) {
-        self.as_listitem().play(queue)
-    }
+    // fn play(&mut self, queue: Arc<Queue>) {
+    //     self.as_listitem().play(queue)
+    // }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        self.as_listitem().play_next(queue)
-    }
+    // fn play_next(&mut self, queue: Arc<Queue>) {
+    //     self.as_listitem().play_next(queue)
+    // }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
-        self.as_listitem().queue(queue)
-    }
+    // fn queue(&mut self, queue: Arc<Queue>) {
+    //     self.as_listitem().queue(queue)
+    // }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        self.as_listitem().toggle_saved(library)
-    }
+    // fn toggle_saved(&mut self, library: Arc<Library>) {
+    //     self.as_listitem().toggle_saved(library)
+    // }
 
-    fn save(&mut self, library: Arc<Library>) {
-        self.as_listitem().save(library)
-    }
+    // fn save(&mut self, library: Arc<Library>) {
+    //     self.as_listitem().save(library)
+    // }
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        self.as_listitem().unsave(library)
-    }
+    // fn unsave(&mut self, library: Arc<Library>) {
+    //     self.as_listitem().unsave(library)
+    // }
 
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        self.as_listitem().open(queue, library)
-    }
+    // fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    //     self.as_listitem().open(queue, library)
+    // }
 
     fn share_url(&self) -> Option<String> {
         self.as_listitem().share_url()

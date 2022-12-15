@@ -239,7 +239,6 @@ impl CommandManager {
                         term.clone(),
                         self.events.clone(),
                         self.queue.clone(),
-                        self.library.clone(),
                     ))
                 } else {
                     None

@@ -16,6 +16,12 @@ use super::{List, ListItem};
 #[derive(Clone)]
 pub struct CategoryListItem(pub Category);
 
+impl From<Category> for Box<dyn ListItem> {
+    fn from(category: Category) -> Self {
+        Box::new(CategoryListItem(category))
+    }
+}
+
 impl AsRef<dyn ListItem> for CategoryListItem {
     fn as_ref(&self) -> &dyn ListItem {
         self

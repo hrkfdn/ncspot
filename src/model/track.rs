@@ -1,19 +1,16 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
-use crate::config;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
 use rspotify::model::Id;
 
-use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
-use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::listview::ListView;
+use crate::ui::list::List;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
@@ -182,101 +179,97 @@ impl ListItem for Track {
         current.map(|t| t.id() == self.id).unwrap_or(false)
     }
 
-    fn display_left(&self, library: Arc<Library>) -> String {
-        let formatting = library
-            .cfg
-            .values()
-            .track_format
-            .clone()
-            .unwrap_or_default();
-        let default = config::TrackFormat::default().left.unwrap();
-        let left = formatting.left.unwrap_or_else(|| default.clone());
-        if left != default {
-            Playable::format(&Playable::Track(self.clone()), &left, library)
-        } else {
-            format!("{}", self)
-        }
-    }
+    // fn display_left(&self, library: Arc<Library>) -> String {
+    //     let formatting = library
+    //         .cfg
+    //         .values()
+    //         .track_format
+    //         .clone()
+    //         .unwrap_or_default();
+    //     let default = config::TrackFormat::default().left.unwrap();
+    //     let left = formatting.left.unwrap_or_else(|| default.clone());
+    //     if left != default {
+    //         Playable::format(&Playable::Track(self.clone()), &left, library)
+    //     } else {
+    //         format!("{}", self)
+    //     }
+    // }
 
-    fn display_center(&self, library: Arc<Library>) -> String {
-        let formatting = library
-            .cfg
-            .values()
-            .track_format
-            .clone()
-            .unwrap_or_default();
-        let default = config::TrackFormat::default().center.unwrap();
-        let center = formatting.center.unwrap_or_else(|| default.clone());
-        if center != default {
-            Playable::format(&Playable::Track(self.clone()), &center, library)
-        } else {
-            self.album.clone().unwrap_or_default()
-        }
-    }
+    // fn display_center(&self, library: Arc<Library>) -> String {
+    //     let formatting = library
+    //         .cfg
+    //         .values()
+    //         .track_format
+    //         .clone()
+    //         .unwrap_or_default();
+    //     let default = config::TrackFormat::default().center.unwrap();
+    //     let center = formatting.center.unwrap_or_else(|| default.clone());
+    //     if center != default {
+    //         Playable::format(&Playable::Track(self.clone()), &center, library)
+    //     } else {
+    //         self.album.clone().unwrap_or_default()
+    //     }
+    // }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
-        let formatting = library
-            .cfg
-            .values()
-            .track_format
-            .clone()
-            .unwrap_or_default();
-        let default = config::TrackFormat::default().right.unwrap();
-        let right = formatting.right.unwrap_or_else(|| default.clone());
-        if right != default {
-            Playable::format(&Playable::Track(self.clone()), &right, library)
-        } else {
-            let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
-                if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                    "\u{f62b}"
-                } else {
-                    "✓"
-                }
-            } else {
-                ""
-            };
-            format!("{} {}", saved, self.duration_str())
-        }
-    }
+    // fn display_right(&self, library: Arc<Library>) -> String {
+    //     let formatting = library
+    //         .cfg
+    //         .values()
+    //         .track_format
+    //         .clone()
+    //         .unwrap_or_default();
+    //     let default = config::TrackFormat::default().right.unwrap();
+    //     let right = formatting.right.unwrap_or_else(|| default.clone());
+    //     if right != default {
+    //         Playable::format(&Playable::Track(self.clone()), &right, library)
+    //     } else {
+    //         let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
+    //             if library.cfg.values().use_nerdfont.unwrap_or(false) {
+    //                 "\u{f62b}"
+    //             } else {
+    //                 "✓"
+    //             }
+    //         } else {
+    //             ""
+    //         };
+    //         format!("{} {}", saved, self.duration_str())
+    //     }
+    // }
 
-    fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(&vec![Playable::Track(self.clone())]);
-        queue.play(index, true, false);
-    }
+    // fn play(&mut self, queue: Arc<Queue>) {
+    //     let index = queue.append_next(&vec![Playable::Track(self.clone())]);
+    //     queue.play(index, true, false);
+    // }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        queue.insert_after_current(Playable::Track(self.clone()));
-    }
+    // fn play_next(&mut self, queue: Arc<Queue>) {
+    //     queue.insert_after_current(Playable::Track(self.clone()));
+    // }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
-        queue.append(Playable::Track(self.clone()));
-    }
+    // fn queue(&mut self, queue: Arc<Queue>) {
+    //     queue.append(Playable::Track(self.clone()));
+    // }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        if library.is_saved_track(&Playable::Track(self.clone())) {
-            library.unsave_tracks(vec![self], true);
-        } else {
-            library.save_tracks(vec![self], true);
-        }
-    }
+    // fn toggle_saved(&mut self, library: Arc<Library>) {
+    //     if library.is_saved_track(&Playable::Track(self.clone())) {
+    //         library.unsave_tracks(vec![self], true);
+    //     } else {
+    //         library.save_tracks(vec![self], true);
+    //     }
+    // }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_tracks(vec![self], true);
-    }
+    // fn save(&mut self, library: Arc<Library>) {
+    //     library.save_tracks(vec![self], true);
+    // }
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_tracks(vec![self], true);
-    }
+    // fn unsave(&mut self, library: Arc<Library>) {
+    //     library.unsave_tracks(vec![self], true);
+    // }
 
-    fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        None
-    }
+    // fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    //     None
+    // }
 
-    fn open_recommendations(
-        &mut self,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) -> Option<Box<dyn ViewExt>> {
+    fn open_recommendations(&mut self, queue: Arc<Queue>) -> Option<Box<dyn ViewExt>> {
         let spotify = queue.get_spotify();
 
         let recommendations: Option<Vec<Track>> = if let Some(id) = &self.id {
@@ -289,19 +282,7 @@ impl ListItem for Track {
             None
         };
 
-        recommendations.map(|tracks| {
-            ListView::new(
-                Arc::new(RwLock::new(tracks)),
-                queue.clone(),
-                library.clone(),
-            )
-            .with_title(&format!(
-                "Similar to \"{} - {}\"",
-                self.artists.join(", "),
-                self.title
-            ))
-            .into_boxed_view_ext()
-        })
+        recommendations.map(|tracks| List::new(Arc::new(RwLock::new(tracks))).into_boxed_view_ext())
     }
 
     fn share_url(&self) -> Option<String> {
@@ -333,10 +314,10 @@ impl ListItem for Track {
         Some(self.clone())
     }
 
-    #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
-        Some(library.is_saved_track(&Playable::Track(self.clone())))
-    }
+    // #[inline]
+    // fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    //     Some(library.is_saved_track(&Playable::Track(self.clone())))
+    // }
 
     #[inline]
     fn is_playable(&self) -> bool {

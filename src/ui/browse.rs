@@ -1,33 +1,34 @@
 use std::sync::Arc;
 
 use cursive::view::ViewWrapper;
+use cursive::views::ScrollView;
 use cursive::Cursive;
 
 use crate::command::Command;
 use crate::commands::CommandResult;
-use crate::library::Library;
 use crate::model::category::Category;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 
-use crate::ui::listview::ListView;
+use super::list::List;
 
 pub struct BrowseView {
-    list: ListView<Category>,
+    list: ScrollView<List<Category>>,
 }
 
 impl BrowseView {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
+    pub fn new(queue: Arc<Queue>) -> Self {
         let categories = queue.get_spotify().api.categories();
-        let list = ListView::new(categories.items.clone(), queue, library);
-        categories.apply_pagination(list.get_pagination());
+        let list = ScrollView::new(List::new(categories.items));
+        // FIX: categories.apply_pagination(list.get_pagination()) used to be
+        // here!
 
         Self { list }
     }
 }
 
 impl ViewWrapper for BrowseView {
-    wrap_impl!(self.list: ListView<Category>);
+    wrap_impl!(self.list: ScrollView<List<Category>>);
 }
 
 impl ViewExt for BrowseView {

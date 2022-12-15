@@ -6,7 +6,7 @@ use cursive::Cursive;
 
 use crate::commands::CommandResult;
 use crate::ext_traits::SelectViewExt;
-use crate::library::Library;
+use crate::library::{Library, Saveable};
 use crate::model::artist::Artist;
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
@@ -18,6 +18,7 @@ use crate::spotify::PlayerEvent;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
+use crate::LIBRARY;
 use crate::{command::Command, spotify::Spotify};
 use cursive::traits::{Finder, Nameable};
 
@@ -111,7 +112,6 @@ impl ContextMenu {
 
     pub fn select_artist_dialog(
         library: Arc<Library>,
-        queue: Arc<Queue>,
         artists: Vec<Artist>,
     ) -> NamedView<SelectArtistMenu> {
         let mut artist_select = SelectView::<Artist>::new();
@@ -121,11 +121,8 @@ impl ContextMenu {
         }
 
         artist_select.set_on_submit(move |s, selected_artist| {
-            let dialog = Self::select_artist_action_dialog(
-                library.clone(),
-                queue.clone(),
-                selected_artist.clone(),
-            );
+            let dialog =
+                Self::select_artist_action_dialog(library.clone(), selected_artist.clone());
             s.pop_layer();
             s.add_layer(dialog);
         });
@@ -144,7 +141,6 @@ impl ContextMenu {
 
     pub fn select_artist_action_dialog(
         library: Arc<Library>,
-        queue: Arc<Queue>,
         artist: Artist,
     ) -> NamedView<SelectArtistActionMenu> {
         let moved_artist = artist.clone();
@@ -164,17 +160,12 @@ impl ContextMenu {
         artist_action_select.set_on_submit(move |s, selected_action| {
             match selected_action {
                 true => {
-                    if let Some(view) = moved_artist.clone().open(queue.clone(), library.clone()) {
-                        s.call_on_name("main", |v: &mut Layout| v.push_view(view));
-                    }
+                    // FIX: Reimplement open!
+                    // if let Some(view) = moved_artist.clone().open(queue.clone(), library.clone()) {
+                    //     s.call_on_name("main", |v: &mut Layout| v.push_view(view));
+                    // }
                 }
-                false => {
-                    if library.clone().is_followed_artist(&moved_artist) {
-                        moved_artist.clone().unsave(library.clone());
-                    } else {
-                        moved_artist.clone().save(library.clone());
-                    }
-                }
+                false => moved_artist.toggle_save(&LIBRARY.get().unwrap().clone()),
             }
             s.pop_layer();
         });
@@ -266,41 +257,42 @@ impl ContextMenu {
             )
         }
         // If the item is saveable, its save state will be set
-        if let Some(savestatus) = item.is_saved(library.clone()) {
-            content.add_item(
-                match savestatus {
-                    true => "Unsave",
-                    false => "Save",
-                },
-                ContextMenuAction::ToggleSavedStatus(item.as_listitem()),
-            );
-        }
+        // FIX: Reimplement save/unsave with Saveable trait!
+        // if let Some(savestatus) = item.is_saved(library.clone()) {
+        //     content.add_item(
+        //         match savestatus {
+        //             true => "Unsave",
+        //             false => "Save",
+        //         },
+        //         ContextMenuAction::ToggleSavedStatus(item.as_listitem()),
+        //     );
+        // }
 
-        if let Some(album) = item.album(queue.clone()) {
-            if let Some(savestatus) = album.is_saved(library.clone()) {
-                content.add_item(
-                    match savestatus {
-                        true => "Unsave album",
-                        false => "Save album",
-                    },
-                    ContextMenuAction::ToggleSavedStatus(album.as_listitem()),
-                );
-            }
-        }
+        // if let Some(album) = item.album(queue.clone()) {
+        //     if let Some(savestatus) = album.is_saved(library.clone()) {
+        //         content.add_item(
+        //             match savestatus {
+        //                 true => "Unsave album",
+        //                 false => "Save album",
+        //             },
+        //             ContextMenuAction::ToggleSavedStatus(album.as_listitem()),
+        //         );
+        //     }
+        // }
 
         // open detail view of artist/album
         {
-            let library = library.clone();
             content.set_on_submit(move |s: &mut Cursive, action: &ContextMenuAction| {
                 let queue = queue.clone();
                 let library = library.clone();
                 s.pop_layer();
 
                 match action {
-                    ContextMenuAction::ShowItem(item) => {
-                        if let Some(view) = item.open(queue, library) {
-                            s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
-                        }
+                    ContextMenuAction::ShowItem(_item) => {
+                        // FIX: Reimplement open!
+                        // if let Some(view) = item.open(queue, library) {
+                        //     s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                        // }
                     }
                     #[cfg(feature = "share_clipboard")]
                     ContextMenuAction::ShareUrl(url) => {
@@ -312,32 +304,43 @@ impl ContextMenu {
                         s.add_layer(dialog);
                     }
                     ContextMenuAction::ShowRecommendations(item) => {
-                        if let Some(view) = item.to_owned().open_recommendations(queue, library) {
+                        if let Some(view) = item.to_owned().open_recommendations(queue) {
                             s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
                         }
                     }
                     ContextMenuAction::SelectArtist(artists) => {
-                        let dialog = Self::select_artist_dialog(library, queue, artists.clone());
+                        let dialog = Self::select_artist_dialog(library, artists.clone());
                         s.add_layer(dialog);
                     }
                     ContextMenuAction::SelectArtistAction(artist) => {
-                        let dialog =
-                            Self::select_artist_action_dialog(library, queue, artist.clone());
+                        let dialog = Self::select_artist_action_dialog(library, artist.clone());
                         s.add_layer(dialog);
                     }
-                    ContextMenuAction::ToggleSavedStatus(item) => {
-                        item.as_listitem().toggle_saved(library)
+                    ContextMenuAction::ToggleSavedStatus(_item) => {
+                        // FIX: Reimplement save/unsave!
+                        // item.as_listitem().toggle_saved(library)
                     }
-                    ContextMenuAction::Play(item) => item.as_listitem().play(queue),
-                    ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(queue),
+                    ContextMenuAction::Play(_item) => {
+                        // FIX: Reimplement!
+                        // item.as_listitem().play(queue);
+                    }
+                    ContextMenuAction::PlayNext(_item) => {
+                        // FIX: Reimplement!
+                        // item.as_listitem().play_next(queue);
+                    }
                     ContextMenuAction::TogglePlayback => queue.toggleplayback(),
-                    ContextMenuAction::Queue(item) => item.as_listitem().queue(queue),
+                    ContextMenuAction::Queue(_item) => {
+                        // FIX: Reimplement!
+                        // item.as_listitem().queue(queue);
+                    }
                 }
             });
         }
 
         let dialog = Dialog::new()
-            .title(item.display_left(library))
+            // FIX: Reimplement title!
+            // .title(item.display_left(library))
+            .title("Unimplemented!")
             .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));

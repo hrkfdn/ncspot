@@ -1,82 +1,81 @@
-use std::sync::{Arc, RwLock};
+// use std::sync::{Arc, RwLock};
 
-use cursive::view::ViewWrapper;
-use cursive::Cursive;
+// use cursive::view::ViewWrapper;
+// use cursive::Cursive;
+// use cursive::views::ScrollView;
 
-use crate::command::Command;
-use crate::commands::CommandResult;
-use crate::library::Library;
-use crate::model::album::Album;
-use crate::model::artist::Artist;
-use crate::queue::Queue;
-use crate::traits::ViewExt;
-use crate::ui::listview::ListView;
-use crate::ui::tabview::TabView;
+// use crate::command::Command;
+// use crate::commands::CommandResult;
+// use crate::library::Library;
+// use crate::model::album::Album;
+// use crate::model::artist::Artist;
+// use crate::queue::Queue;
+// use crate::traits::ViewExt;
+// use crate::ui::tabview::TabView;
 
-pub struct AlbumView {
-    album: Album,
-    tabs: TabView,
-}
+// use super::list::List;
 
-impl AlbumView {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>, album: &Album) -> Self {
-        let mut album = album.clone();
+// pub struct AlbumView {
+//     album: Album,
+//     tabs: TabView,
+// }
 
-        album.load_all_tracks(queue.get_spotify());
+// impl AlbumView {
+//     pub fn new(queue: Arc<Queue>, library: Arc<Library>, album: &Album) -> Self {
+//         let mut album = album.clone();
 
-        let tracks = if let Some(t) = album.tracks.as_ref() {
-            t.clone()
-        } else {
-            Vec::new()
-        };
+//         album.load_all_tracks(queue.get_spotify());
 
-        let artists = album
-            .artist_ids
-            .iter()
-            .zip(album.artists.iter())
-            .map(|(id, name)| Artist::new(id.clone(), name.clone()))
-            .collect();
+//         let tracks = if let Some(t) = album.tracks.as_ref() {
+//             t.clone()
+//         } else {
+//             Vec::new()
+//         };
 
-        let tabs = TabView::new()
-            .tab(
-                "tracks",
-                ListView::new(
-                    Arc::new(RwLock::new(tracks)),
-                    queue.clone(),
-                    library.clone(),
-                )
-                .with_title("Tracks"),
-            )
-            .tab(
-                "artists",
-                ListView::new(Arc::new(RwLock::new(artists)), queue, library).with_title("Artists"),
-            );
+//         let artists = album
+//             .artist_ids
+//             .iter()
+//             .zip(album.artists.iter())
+//             .map(|(id, name)| Artist::new(id.clone(), name.clone()))
+//             .collect();
 
-        Self { album, tabs }
-    }
-}
+//         let tabs = TabView::new()
+//             .tab(
+//                 "tracks",
+//                 ScrollView::new(List::new(
+//                     Arc::new(RwLock::new(tracks)),
+//                 ))
+//             )
+//             .tab(
+//                 "artists",
+//                 ScrollView::new(List::new(Arc::new(RwLock::new(artists)))),
+//             );
 
-impl ViewWrapper for AlbumView {
-    wrap_impl!(self.tabs: TabView);
-}
+//         Self { album, tabs }
+//     }
+// }
 
-impl ViewExt for AlbumView {
-    fn title(&self) -> String {
-        format!("{} ({})", self.album.title, self.album.year)
-    }
+// impl ViewWrapper for AlbumView {
+//     wrap_impl!(self.tabs: TabView);
+// }
 
-    fn title_sub(&self) -> String {
-        if let Some(tracks) = &self.album.tracks {
-            let duration_secs: u64 = tracks.iter().map(|t| t.duration as u64 / 1000).sum();
-            let duration = std::time::Duration::from_secs(duration_secs);
-            let duration_str = crate::utils::format_duration(&duration);
-            format!("{} tracks, {}", tracks.len(), duration_str)
-        } else {
-            "".to_string()
-        }
-    }
+// impl ViewExt for AlbumView {
+//     fn title(&self) -> String {
+//         format!("{} ({})", self.album.title, self.album.year)
+//     }
 
-    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
-        self.tabs.on_command(s, cmd)
-    }
-}
+//     fn title_sub(&self) -> String {
+//         if let Some(tracks) = &self.album.tracks {
+//             let duration_secs: u64 = tracks.iter().map(|t| t.duration as u64 / 1000).sum();
+//             let duration = std::time::Duration::from_secs(duration_secs);
+//             let duration_str = crate::utils::format_duration(&duration);
+//             format!("{} tracks, {}", tracks.len(), duration_str)
+//         } else {
+//             "".to_string()
+//         }
+//     }
+
+//     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+//         self.tabs.on_command(s, cmd)
+//     }
+// }

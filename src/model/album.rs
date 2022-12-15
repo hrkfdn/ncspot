@@ -7,14 +7,12 @@ use chrono::{DateTime, Utc};
 use log::debug;
 use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
-use crate::library::Library;
 use crate::model::artist::Artist;
-use crate::model::playable::Playable;
 use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::{album::AlbumView, listview::ListView};
+use crate::ui::list::List;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Album {
@@ -169,81 +167,77 @@ impl ListItem for Album {
         }
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
-        format!("{}", self)
-    }
+    // fn display_left(&self, _library: Arc<Library>) -> String {
+    //     format!("{}", self)
+    // }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_album(self) {
-            if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                "\u{f62b} "
-            } else {
-                "✓ "
-            }
-        } else {
-            ""
-        };
-        format!("{}{}", saved, self.year)
-    }
+    // fn display_right(&self, library: Arc<Library>) -> String {
+    //     let saved = if library.is_saved_album(self) {
+    //         if library.cfg.values().use_nerdfont.unwrap_or(false) {
+    //             "\u{f62b} "
+    //         } else {
+    //             "✓ "
+    //         }
+    //     } else {
+    //         ""
+    //     };
+    //     format!("{}{}", saved, self.year)
+    // }
 
-    fn play(&mut self, queue: Arc<Queue>) {
-        self.load_all_tracks(queue.get_spotify());
+    // fn play(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_tracks(queue.get_spotify());
 
-        if let Some(tracks) = self.tracks.as_ref() {
-            let tracks: Vec<Playable> = tracks
-                .iter()
-                .map(|track| Playable::Track(track.clone()))
-                .collect();
-            let index = queue.append_next(&tracks);
-            queue.play(index, true, true);
-        }
-    }
+    //     if let Some(tracks) = self.tracks.as_ref() {
+    //         let tracks: Vec<Playable> = tracks
+    //             .iter()
+    //             .map(|track| Playable::Track(track.clone()))
+    //             .collect();
+    //         let index = queue.append_next(&tracks);
+    //         queue.play(index, true, true);
+    //     }
+    // }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        self.load_all_tracks(queue.get_spotify());
+    // fn play_next(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_tracks(queue.get_spotify());
 
-        if let Some(tracks) = self.tracks.as_ref() {
-            for t in tracks.iter().rev() {
-                queue.insert_after_current(Playable::Track(t.clone()));
-            }
-        }
-    }
+    //     if let Some(tracks) = self.tracks.as_ref() {
+    //         for t in tracks.iter().rev() {
+    //             queue.insert_after_current(Playable::Track(t.clone()));
+    //         }
+    //     }
+    // }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
-        self.load_all_tracks(queue.get_spotify());
+    // fn queue(&mut self, queue: Arc<Queue>) {
+    //     self.load_all_tracks(queue.get_spotify());
 
-        if let Some(tracks) = self.tracks.as_ref() {
-            for t in tracks {
-                queue.append(Playable::Track(t.clone()));
-            }
-        }
-    }
+    //     if let Some(tracks) = self.tracks.as_ref() {
+    //         for t in tracks {
+    //             queue.append(Playable::Track(t.clone()));
+    //         }
+    //     }
+    // }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        if library.is_saved_album(self) {
-            library.unsave_album(self);
-        } else {
-            library.save_album(self);
-        }
-    }
+    // fn toggle_saved(&mut self, library: Arc<Library>) {
+    //     if library.is_saved_album(self) {
+    //         library.unsave_album(self);
+    //     } else {
+    //         library.save_album(self);
+    //     }
+    // }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.save_album(self);
-    }
+    // fn save(&mut self, library: Arc<Library>) {
+    //     library.save_album(self);
+    // }
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.unsave_album(self);
-    }
+    // fn unsave(&mut self, library: Arc<Library>) {
+    //     library.unsave_album(self);
+    // }
 
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        Some(AlbumView::new(queue, library, self).into_boxed_view_ext())
-    }
+    // fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    //     Some(AlbumView::new(queue, library, self).into_boxed_view_ext())
+    // }
 
-    fn open_recommendations(
-        &mut self,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) -> Option<Box<dyn ViewExt>> {
+    fn open_recommendations(&mut self, queue: Arc<Queue>) -> Option<Box<dyn ViewExt>> {
         self.load_all_tracks(queue.get_spotify());
         const MAX_SEEDS: usize = 5;
         let track_ids: Vec<&str> = self
@@ -275,15 +269,7 @@ impl ListItem for Album {
             )
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
-        recommendations.map(|tracks| {
-            ListView::new(
-                Arc::new(RwLock::new(tracks)),
-                queue.clone(),
-                library.clone(),
-            )
-            .with_title(&format!("Similar to Album \"{}\"", self.title))
-            .into_boxed_view_ext()
-        })
+        recommendations.map(|tracks| List::new(Arc::new(RwLock::new(tracks))).into_boxed_view_ext())
     }
 
     fn share_url(&self) -> Option<String> {
@@ -302,10 +288,10 @@ impl ListItem for Album {
         )
     }
 
-    #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
-        Some(library.is_saved_album(self))
-    }
+    // #[inline]
+    // fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    //     Some(library.is_saved_album(self))
+    // }
 
     #[inline]
     fn is_playable(&self) -> bool {

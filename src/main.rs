@@ -248,7 +248,7 @@ async fn main() -> Result<(), String> {
     let user_data: UserData = Arc::new(UserDataInner { cmd: cmd_manager });
     cursive.set_user_data(user_data);
 
-    let search = ui::search::SearchView::new(event_manager.clone(), queue.clone(), library.clone());
+    let search = ui::search::SearchView::new(event_manager.clone(), queue.clone());
 
     let libraryview = ui::library::LibraryView::new(queue.clone(), library.clone());
 

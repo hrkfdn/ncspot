@@ -23,7 +23,6 @@ use crate::queue::Queue;
 use crate::spotify::{Spotify, UriType};
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
-use crate::ui::listview::ListView;
 use crate::ui::pagination::Pagination;
 use crate::ui::search_results::SearchResultsView;
 use crate::ui::tabview::TabView;
@@ -37,16 +36,12 @@ pub struct SearchView {
 pub const EDIT_ID: &str = "search_edit";
 
 impl SearchView {
-    pub fn new(events: EventManager, queue: Arc<Queue>, library: Arc<Library>) -> SearchView {
+    pub fn new(events: EventManager, queue: Arc<Queue>) -> SearchView {
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
                 if !input.is_empty() {
-                    let results = SearchResultsView::new(
-                        input.to_string(),
-                        events.clone(),
-                        queue.clone(),
-                        library.clone(),
-                    );
+                    let results =
+                        SearchResultsView::new(input.to_string(), events.clone(), queue.clone());
                     s.call_on_name("main", move |v: &mut Layout| v.push_view(Box::new(results)));
                 }
             })

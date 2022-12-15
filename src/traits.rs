@@ -6,7 +6,6 @@ use cursive::Cursive;
 
 use crate::command::Command;
 use crate::commands::CommandResult;
-use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::track::Track;
@@ -14,25 +13,23 @@ use crate::queue::Queue;
 
 pub trait ListItem: Sync + Send + 'static {
     fn is_playing(&self, queue: Arc<Queue>) -> bool;
-    fn display_left(&self, library: Arc<Library>) -> String;
-    fn display_center(&self, _library: Arc<Library>) -> String {
-        "".to_string()
-    }
-    fn display_right(&self, library: Arc<Library>) -> String;
-    fn play(&mut self, queue: Arc<Queue>);
-    fn play_next(&mut self, queue: Arc<Queue>);
-    fn queue(&mut self, queue: Arc<Queue>);
-    fn toggle_saved(&mut self, library: Arc<Library>);
-    fn save(&mut self, library: Arc<Library>);
-    fn unsave(&mut self, library: Arc<Library>);
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>>;
-    fn open_recommendations(
-        &mut self,
-        _queue: Arc<Queue>,
-        _library: Arc<Library>,
-    ) -> Option<Box<dyn ViewExt>> {
+    // fn display_left(&self, library: Arc<Library>) -> String;
+    // fn display_center(&self, _library: Arc<Library>) -> String {
+    //     "".to_string()
+    // }
+    // fn display_right(&self, library: Arc<Library>) -> String;
+    // fn play(&mut self, queue: Arc<Queue>);
+    // fn play_next(&mut self, queue: Arc<Queue>);
+    // fn queue(&mut self, queue: Arc<Queue>);
+    // fn toggle_saved(&mut self, library: Arc<Library>);
+    // fn save(&mut self, library: Arc<Library>);
+    // fn unsave(&mut self, library: Arc<Library>);
+    // fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>>;
+
+    fn open_recommendations(&mut self, _queue: Arc<Queue>) -> Option<Box<dyn ViewExt>> {
         None
     }
+
     fn share_url(&self) -> Option<String>;
 
     fn album(&self, _queue: Arc<Queue>) -> Option<Album> {
@@ -47,11 +44,11 @@ pub trait ListItem: Sync + Send + 'static {
         None
     }
 
-    #[allow(unused_variables)]
-    #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
-        None
-    }
+    // #[allow(unused_variables)]
+    // #[inline]
+    // fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    //     None
+    // }
 
     #[inline]
     fn is_playable(&self) -> bool {

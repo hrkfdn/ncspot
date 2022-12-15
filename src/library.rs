@@ -829,7 +829,7 @@ pub trait Saveable {
     fn is_saved(&self, library: &Library) -> bool;
 
     /// Toggle the saved status of the item in the given library.
-    fn toggle_save(&self, _library: Arc<Library>) {
+    fn toggle_save(&self, _library: &Library) {
         // TODO: Remove this default implementation.
     }
 }
@@ -880,7 +880,7 @@ impl Saveable for Track {
     }
 
     // TODO: actually toggle!
-    fn toggle_save(&self, library: Arc<Library>) {
+    fn toggle_save(&self, library: &Library) {
         library.save_tracks(vec![self], true);
     }
 }
@@ -899,7 +899,7 @@ impl Saveable for Playable {
         }
     }
 
-    fn toggle_save(&self, library: Arc<Library>) {
+    fn toggle_save(&self, library: &Library) {
         match self {
             Playable::Track(track) => {
                 track.toggle_save(library);

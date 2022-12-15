@@ -12,21 +12,22 @@ use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
-use crate::ui::listview::ListView;
 use crate::ui::modal::Modal;
 
+use super::list::List;
+
 pub struct QueueView {
-    list: ListView<Playable>,
+    list: ScrollView<List<Playable>>,
     library: Arc<Library>,
     queue: Arc<Queue>,
 }
 
 impl QueueView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> QueueView {
-        let list = ListView::new(queue.queue.clone(), queue.clone(), library.clone());
+        let list = List::new(queue.queue.clone());
 
         QueueView {
-            list,
+            list: ScrollView::new(list),
             library,
             queue,
         }
@@ -85,7 +86,7 @@ impl QueueView {
 }
 
 impl ViewWrapper for QueueView {
-    wrap_impl!(self.list: ListView<Playable>);
+    wrap_impl!(self.list: ScrollView<List<Playable>>);
 }
 
 impl ViewExt for QueueView {
@@ -119,7 +120,8 @@ impl ViewExt for QueueView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
-                self.queue.play(self.list.get_selected_index(), true, false);
+                self.queue
+                    .play(self.list.get_inner().selected_index(), true, false);
                 return Ok(CommandResult::Consumed(None));
             }
             Command::PlayNext => {
@@ -129,12 +131,12 @@ impl ViewExt for QueueView {
                 return Ok(CommandResult::Ignored);
             }
             Command::Delete => {
-                let selected = self.list.get_selected_index();
+                let selected = self.list.get_inner().selected_index();
                 let len = self.queue.len();
 
                 self.queue.remove(selected);
                 if selected == len.saturating_sub(1) {
-                    self.list.move_focus(-1);
+                    self.list.get_inner_mut().move_focus(-1);
                 }
                 return Ok(CommandResult::Consumed(None));
             }
@@ -144,20 +146,20 @@ impl ViewExt for QueueView {
                     _ => 1,
                 };
 
-                let selected = self.list.get_selected_index();
+                let selected = self.list.get_inner().selected_index();
                 let len = self.queue.len();
 
                 match mode {
                     ShiftMode::Up if selected > 0 => {
                         self.queue
                             .shift(selected, (selected as i32).saturating_sub(amount) as usize);
-                        self.list.move_focus(-(amount as i32));
+                        self.list.get_inner_mut().move_focus(-(amount as i32));
                         return Ok(CommandResult::Consumed(None));
                     }
                     ShiftMode::Down if selected < len.saturating_sub(1) => {
                         self.queue
                             .shift(selected, min(selected + amount as usize, len - 1));
-                        self.list.move_focus(amount as i32);
+                        self.list.get_inner_mut().move_focus(amount as i32);
                         return Ok(CommandResult::Consumed(None));
                     }
                     _ => {}
@@ -170,7 +172,7 @@ impl ViewExt for QueueView {
             }
             Command::Move(MoveMode::Playing, _) => {
                 if let Some(playing) = self.queue.get_current_index() {
-                    self.list.move_focus_to(playing);
+                    self.list.get_inner_mut().move_focus_to(playing);
                 }
                 return Ok(CommandResult::Consumed(None));
             }

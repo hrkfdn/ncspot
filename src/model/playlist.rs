@@ -12,8 +12,8 @@ use crate::model::playable::Playable;
 use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
-use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
-use crate::ui::{listview::ListView, playlist::PlaylistView};
+use crate::traits::{ListItem, ViewExt};
+use crate::ui::list::List;
 use crate::{command::SortDirection, command::SortKey, library::Library};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -191,93 +191,89 @@ impl ListItem for Playlist {
         }
     }
 
-    fn display_left(&self, library: Arc<Library>) -> String {
-        let hide_owners = library.cfg.values().hide_display_names.unwrap_or(false);
-        match (self.owner_name.as_ref(), hide_owners) {
-            (Some(owner), false) => format!("{} • {}", self.name, owner),
-            _ => self.name.clone(),
-        }
-    }
+    // fn display_left(&self, library: Arc<Library>) -> String {
+    //     let hide_owners = library.cfg.values().hide_display_names.unwrap_or(false);
+    //     match (self.owner_name.as_ref(), hide_owners) {
+    //         (Some(owner), false) => format!("{} • {}", self.name, owner),
+    //         _ => self.name.clone(),
+    //     }
+    // }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
-        let saved = if library.is_saved_playlist(self) {
-            if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                "\u{f62b} "
-            } else {
-                "✓ "
-            }
-        } else {
-            ""
-        };
+    // fn display_right(&self, library: Arc<Library>) -> String {
+    //     let saved = if library.is_saved_playlist(self) {
+    //         if library.cfg.values().use_nerdfont.unwrap_or(false) {
+    //             "\u{f62b} "
+    //         } else {
+    //             "✓ "
+    //         }
+    //     } else {
+    //         ""
+    //     };
 
-        let num_tracks = self
-            .tracks
-            .as_ref()
-            .map(|t| t.len())
-            .unwrap_or(self.num_tracks);
+    //     let num_tracks = self
+    //         .tracks
+    //         .as_ref()
+    //         .map(|t| t.len())
+    //         .unwrap_or(self.num_tracks);
 
-        format!("{}{:>4} tracks", saved, num_tracks)
-    }
+    //     format!("{}{:>4} tracks", saved, num_tracks)
+    // }
 
-    fn play(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+    // fn play(&mut self, queue: Arc<Queue>) {
+    //     self.load_tracks(queue.get_spotify());
 
-        if let Some(tracks) = &self.tracks {
-            let index = queue.append_next(tracks);
-            queue.play(index, true, true);
-        }
-    }
+    //     if let Some(tracks) = &self.tracks {
+    //         let index = queue.append_next(tracks);
+    //         queue.play(index, true, true);
+    //     }
+    // }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+    // fn play_next(&mut self, queue: Arc<Queue>) {
+    //     self.load_tracks(queue.get_spotify());
 
-        if let Some(tracks) = self.tracks.as_ref() {
-            for track in tracks.iter().rev() {
-                queue.insert_after_current(track.clone());
-            }
-        }
-    }
+    //     if let Some(tracks) = self.tracks.as_ref() {
+    //         for track in tracks.iter().rev() {
+    //             queue.insert_after_current(track.clone());
+    //         }
+    //     }
+    // }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
-        self.load_tracks(queue.get_spotify());
+    // fn queue(&mut self, queue: Arc<Queue>) {
+    //     self.load_tracks(queue.get_spotify());
 
-        if let Some(tracks) = self.tracks.as_ref() {
-            for track in tracks.iter() {
-                queue.append(track.clone());
-            }
-        }
-    }
+    //     if let Some(tracks) = self.tracks.as_ref() {
+    //         for track in tracks.iter() {
+    //             queue.append(track.clone());
+    //         }
+    //     }
+    // }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
-        // Don't allow users to unsave their own playlists with one keypress
-        if !library.is_followed_playlist(self) {
-            return;
-        }
+    // fn toggle_saved(&mut self, library: Arc<Library>) {
+    //     // Don't allow users to unsave their own playlists with one keypress
+    //     if !library.is_followed_playlist(self) {
+    //         return;
+    //     }
 
-        if library.is_saved_playlist(self) {
-            library.delete_playlist(&self.id);
-        } else {
-            library.follow_playlist(self);
-        }
-    }
+    //     if library.is_saved_playlist(self) {
+    //         library.delete_playlist(&self.id);
+    //     } else {
+    //         library.follow_playlist(self);
+    //     }
+    // }
 
-    fn save(&mut self, library: Arc<Library>) {
-        library.follow_playlist(self);
-    }
+    // fn save(&mut self, library: Arc<Library>) {
+    //     library.follow_playlist(self);
+    // }
 
-    fn unsave(&mut self, library: Arc<Library>) {
-        library.delete_playlist(&self.id);
-    }
+    // fn unsave(&mut self, library: Arc<Library>) {
+    //     library.delete_playlist(&self.id);
+    // }
 
-    fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        Some(PlaylistView::new(queue, library, self).into_boxed_view_ext())
-    }
+    // fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
+    //     Some(PlaylistView::new(queue, library, self).into_boxed_view_ext())
+    // }
 
-    fn open_recommendations(
-        &mut self,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) -> Option<Box<dyn ViewExt>> {
+    fn open_recommendations(&mut self, queue: Arc<Queue>) -> Option<Box<dyn ViewExt>> {
         self.load_tracks(queue.get_spotify());
         const MAX_SEEDS: usize = 5;
         let track_ids: Vec<String> = self
@@ -306,15 +302,12 @@ impl ListItem for Playlist {
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
 
-        recommendations.map(|tracks| {
-            ListView::new(
-                Arc::new(RwLock::new(tracks)),
-                queue.clone(),
-                library.clone(),
-            )
-            .with_title(&format!("Similar to Tracks in \"{}\"", self.name))
-            .into_boxed_view_ext()
-        })
+        // recommendations.map(|tracks| Box::new(List::new(Arc::new(RwLock::new(tracks)))))
+        if let Some(tracks) = recommendations {
+            Some(Box::new(List::new(Arc::new(RwLock::new(tracks)))))
+        } else {
+            None
+        }
     }
 
     fn share_url(&self) -> Option<String> {
@@ -324,14 +317,14 @@ impl ListItem for Playlist {
         ))
     }
 
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
-        // save status of personal playlists can't be toggled for safety
-        if !library.is_followed_playlist(self) {
-            return None;
-        }
+    // fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    //     // save status of personal playlists can't be toggled for safety
+    //     if !library.is_followed_playlist(self) {
+    //         return None;
+    //     }
 
-        Some(library.is_saved_playlist(self))
-    }
+    //     Some(library.is_saved_playlist(self))
+    // }
 
     #[inline]
     fn is_playable(&self) -> bool {

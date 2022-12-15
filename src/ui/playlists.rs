@@ -1,34 +1,34 @@
 use std::sync::Arc;
 
 use cursive::view::{Margins, ViewWrapper};
-use cursive::views::Dialog;
+use cursive::views::{Dialog, ScrollView};
 use cursive::Cursive;
 
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::library::Library;
 use crate::model::playlist::Playlist;
-use crate::queue::Queue;
 use crate::traits::ViewExt;
-use crate::ui::listview::ListView;
 use crate::ui::modal::Modal;
 
+use super::list::List;
+
 pub struct PlaylistsView {
-    list: ListView<Playlist>,
+    list: ScrollView<List<Playlist>>,
     library: Arc<Library>,
 }
 
 impl PlaylistsView {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
+    pub fn new(library: Arc<Library>) -> Self {
         Self {
-            list: ListView::new(library.playlists.clone(), queue, library.clone()),
+            list: ScrollView::new(List::new(library.playlists.clone())),
             library,
         }
     }
 
     pub fn delete_dialog(&mut self) -> Option<Modal<Dialog>> {
         let playlists = self.library.playlists();
-        let current = playlists.get(self.list.get_selected_index());
+        let current = playlists.get(self.list.get_inner().selected_index());
 
         if let Some(playlist) = current {
             let library = self.library.clone();
@@ -49,7 +49,7 @@ impl PlaylistsView {
 }
 
 impl ViewWrapper for PlaylistsView {
-    wrap_impl!(self.list: ListView<Playlist>);
+    wrap_impl!(self.list: ScrollView<List<Playlist>>);
 }
 
 impl ViewExt for PlaylistsView {

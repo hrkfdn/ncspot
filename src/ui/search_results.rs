@@ -1,7 +1,6 @@
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::events::EventManager;
-use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::episode::Episode;
@@ -12,29 +11,25 @@ use crate::queue::Queue;
 use crate::spotify::{Spotify, UriType};
 use crate::spotify_url::SpotifyUrl;
 use crate::traits::{ListItem, ViewExt};
-use crate::ui::listview::ListView;
 use crate::ui::pagination::Pagination;
 use crate::ui::tabview::TabView;
 use cursive::view::ViewWrapper;
+use cursive::views::ScrollView;
 use cursive::Cursive;
 use rspotify::model::search::SearchResult;
 use rspotify::model::SearchType;
 use std::sync::{Arc, RwLock};
 
+use super::list::List;
+
 pub struct SearchResultsView {
     search_term: String,
     results_tracks: Arc<RwLock<Vec<Track>>>,
-    pagination_tracks: Pagination<Track>,
     results_albums: Arc<RwLock<Vec<Album>>>,
-    pagination_albums: Pagination<Album>,
     results_artists: Arc<RwLock<Vec<Artist>>>,
-    pagination_artists: Pagination<Artist>,
     results_playlists: Arc<RwLock<Vec<Playlist>>>,
-    pagination_playlists: Pagination<Playlist>,
     results_shows: Arc<RwLock<Vec<Show>>>,
-    pagination_shows: Pagination<Show>,
     results_episodes: Arc<RwLock<Vec<Episode>>>,
-    pagination_episodes: Pagination<Episode>,
     tabs: TabView,
     spotify: Spotify,
     events: EventManager,
@@ -44,12 +39,7 @@ type SearchHandler<I> =
     Box<dyn Fn(&Spotify, &Arc<RwLock<Vec<I>>>, &str, usize, bool) -> u32 + Send + Sync>;
 
 impl SearchResultsView {
-    pub fn new(
-        search_term: String,
-        events: EventManager,
-        queue: Arc<Queue>,
-        library: Arc<Library>,
-    ) -> SearchResultsView {
+    pub fn new(search_term: String, events: EventManager, queue: Arc<Queue>) -> SearchResultsView {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
         let results_artists = Arc::new(RwLock::new(Vec::new()));
@@ -57,42 +47,41 @@ impl SearchResultsView {
         let results_shows = Arc::new(RwLock::new(Vec::new()));
         let results_episodes = Arc::new(RwLock::new(Vec::new()));
 
-        let list_tracks = ListView::new(results_tracks.clone(), queue.clone(), library.clone());
-        let pagination_tracks = list_tracks.get_pagination().clone();
-        let list_albums = ListView::new(results_albums.clone(), queue.clone(), library.clone());
-        let pagination_albums = list_albums.get_pagination().clone();
-        let list_artists = ListView::new(results_artists.clone(), queue.clone(), library.clone());
-        let pagination_artists = list_artists.get_pagination().clone();
-        let list_playlists =
-            ListView::new(results_playlists.clone(), queue.clone(), library.clone());
-        let pagination_playlists = list_playlists.get_pagination().clone();
-        let list_shows = ListView::new(results_shows.clone(), queue.clone(), library.clone());
-        let pagination_shows = list_shows.get_pagination().clone();
-        let list_episodes = ListView::new(results_episodes.clone(), queue.clone(), library);
-        let pagination_episodes = list_episodes.get_pagination().clone();
+        let list_tracks = ScrollView::new(List::new(results_tracks.clone()));
+        // FIX: let pagination_tracks = list_tracks.get_pagination().clone()
+        // removed here!
+        let list_albums = ScrollView::new(List::new(results_albums.clone()));
+        // FIX: let pagination_albums = list_albums.get_pagination().clone()
+        // removed here!
+        let list_artists = ScrollView::new(List::new(results_artists.clone()));
+        // FIX: let pagination_artists = list_artists.get_pagination().clone()
+        // removed here!
+        let list_playlists = ScrollView::new(List::new(results_playlists.clone()));
+        // FIX: let pagination_playlists =
+        // list_playlists.get_pagination().clone() removed here!
+        let list_shows = List::new(results_shows.clone());
+        // FIX: let pagination_shows = list_shows.get_pagination().clone()
+        // removed here!
+        let list_episodes = List::new(results_episodes.clone());
+        // FIX: let pagination_episodes = list_episodes.get_pagination().clone()
+        // removed here!
 
         let tabs = TabView::new()
-            .tab("tracks", list_tracks.with_title("Tracks"))
-            .tab("albums", list_albums.with_title("Albums"))
-            .tab("artists", list_artists.with_title("Artists"))
-            .tab("playlists", list_playlists.with_title("Playlists"))
-            .tab("shows", list_shows.with_title("Podcasts"))
-            .tab("episodes", list_episodes.with_title("Podcast Episodes"));
+            .tab("tracks", list_tracks)
+            .tab("albums", list_albums)
+            .tab("artists", list_artists)
+            .tab("playlists", list_playlists)
+            .tab("shows", list_shows)
+            .tab("episodes", list_episodes);
 
         let mut view = SearchResultsView {
             search_term,
             results_tracks,
-            pagination_tracks,
             results_albums,
-            pagination_albums,
             results_artists,
-            pagination_artists,
             results_playlists,
-            pagination_playlists,
             results_shows,
-            pagination_shows,
             results_episodes,
-            pagination_episodes,
             tabs,
             spotify: queue.get_spotify(),
             events,
@@ -515,37 +504,43 @@ impl SearchResultsView {
                 Box::new(Self::search_track),
                 &self.results_tracks,
                 &query,
-                Some(&self.pagination_tracks),
+                None,
+                // FIX: Some(&self.pagination_tracks),
             );
             self.perform_search(
                 Box::new(Self::search_album),
                 &self.results_albums,
                 &query,
-                Some(&self.pagination_albums),
+                None,
+                // FIX: Some(&self.pagination_albums),
             );
             self.perform_search(
                 Box::new(Self::search_artist),
                 &self.results_artists,
                 &query,
-                Some(&self.pagination_artists),
+                None,
+                // FIX: Some(&self.pagination_artists),
             );
             self.perform_search(
                 Box::new(Self::search_playlist),
                 &self.results_playlists,
                 &query,
-                Some(&self.pagination_playlists),
+                None,
+                // FIX: Some(&self.pagination_playlists),
             );
             self.perform_search(
                 Box::new(Self::search_show),
                 &self.results_shows,
                 &query,
-                Some(&self.pagination_shows),
+                None,
+                // FIX: Some(&self.pagination_shows),
             );
             self.perform_search(
                 Box::new(Self::search_episode),
                 &self.results_episodes,
                 &query,
-                Some(&self.pagination_episodes),
+                None,
+                // FIX: Some(&self.pagination_episodes),
             );
         }
     }

@@ -1,7 +1,5 @@
-use crate::library::Library;
-use crate::model::playable::Playable;
 use crate::queue::Queue;
-use crate::traits::{ListItem, ViewExt};
+use crate::traits::ListItem;
 use chrono::{DateTime, Utc};
 use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
 use rspotify::model::Id;
@@ -73,37 +71,6 @@ impl ListItem for Episode {
         current
             .map(|t| t.id() == Some(self.id.clone()))
             .unwrap_or(false)
-    }
-
-    fn display_left(&self, _library: Arc<Library>) -> String {
-        self.name.clone()
-    }
-
-    fn display_right(&self, _library: Arc<Library>) -> String {
-        format!("{} [{}]", self.duration_str(), self.release_date)
-    }
-
-    fn play(&mut self, queue: Arc<Queue>) {
-        let index = queue.append_next(&vec![Playable::Episode(self.clone())]);
-        queue.play(index, true, false);
-    }
-
-    fn play_next(&mut self, queue: Arc<Queue>) {
-        queue.insert_after_current(Playable::Episode(self.clone()));
-    }
-
-    fn queue(&mut self, queue: Arc<Queue>) {
-        queue.append(Playable::Episode(self.clone()));
-    }
-
-    fn toggle_saved(&mut self, _library: Arc<Library>) {}
-
-    fn save(&mut self, _library: Arc<Library>) {}
-
-    fn unsave(&mut self, _library: Arc<Library>) {}
-
-    fn open(&self, _queue: Arc<Queue>, _library: Arc<Library>) -> Option<Box<dyn ViewExt>> {
-        None
     }
 
     fn share_url(&self) -> Option<String> {
