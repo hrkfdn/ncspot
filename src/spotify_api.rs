@@ -295,13 +295,13 @@ impl WebApi {
             let seed_artistids = seed_artists.as_ref().map(|artistids| {
                 artistids
                     .iter()
-                    .map(|id| ArtistId::from_id(id.clone()).unwrap())
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>()
             });
             let seed_trackids = seed_tracks.as_ref().map(|trackids| {
                 trackids
                     .iter()
-                    .map(|id| TrackId::from_id(id.clone()).unwrap())
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>()
             });
             api.recommendations(
@@ -485,7 +485,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.save_shows(
                 ids.iter()
-                    .map(|id| ShowId::from_id(id.clone()).unwrap())
+                    .map(|id| ShowId::from_id(*id).unwrap())
                     .collect::<Vec<ShowId>>(),
             )
         })
@@ -496,7 +496,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.remove_users_saved_shows(
                 ids.iter()
-                    .map(|id| ShowId::from_id(id.clone()).unwrap())
+                    .map(|id| ShowId::from_id(*id).unwrap())
                     .collect::<Vec<ShowId>>(),
                 Some(Market::FromToken),
             )
@@ -515,7 +515,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.user_follow_artists(
                 ids.iter()
-                    .map(|id| ArtistId::from_id(id.clone()).unwrap())
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>(),
             )
         })
@@ -525,7 +525,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.user_unfollow_artists(
                 ids.iter()
-                    .map(|id| ArtistId::from_id(id.clone()).unwrap())
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>(),
             )
         })
@@ -541,7 +541,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.current_user_saved_albums_add(
                 ids.iter()
-                    .map(|id| AlbumId::from_id(id.clone()).unwrap())
+                    .map(|id| AlbumId::from_id(*id).unwrap())
                     .collect::<Vec<AlbumId>>(),
             )
         })
@@ -551,7 +551,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.current_user_saved_albums_delete(
                 ids.iter()
-                    .map(|id| AlbumId::from_id(id.clone()).unwrap())
+                    .map(|id| AlbumId::from_id(*id).unwrap())
                     .collect::<Vec<AlbumId>>(),
             )
         })
@@ -567,7 +567,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.current_user_saved_tracks_add(
                 ids.iter()
-                    .map(|id| TrackId::from_id(id.clone()).unwrap())
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>(),
             )
         })
@@ -577,7 +577,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.current_user_saved_tracks_delete(
                 ids.iter()
-                    .map(|id| TrackId::from_id(id.clone()).unwrap())
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>(),
             )
         })
