@@ -1753,6 +1753,7 @@ dependencies = [
  "strum_macros 0.24.3",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "toml",
  "unicode-width",
  "url",
@@ -3237,6 +3238,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

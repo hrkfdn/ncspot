@@ -43,12 +43,15 @@ mod traits;
 mod ui;
 mod utils;
 
+#[cfg(unix)]
+mod ipc;
+
 #[cfg(feature = "mpris")]
 mod mpris;
 
 use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
-use crate::config::Config;
+use crate::config::{cache_path, Config};
 use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -351,6 +354,16 @@ fn main() -> Result<(), String> {
     #[cfg(unix)]
     let mut signals = Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
 
+    #[cfg(unix)]
+    let ipc = {
+        ipc::IpcSocket::new(
+            ASYNC_RUNTIME.handle(),
+            cache_path("ncspot.sock"),
+            event_manager.clone(),
+        )
+        .map_err(|e| e.to_string())?
+    };
+
     // cursive event loop
     while cursive.is_running() {
         cursive.step();
@@ -372,6 +385,9 @@ fn main() -> Result<(), String> {
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
 
+                    #[cfg(unix)]
+                    ipc.publish(&state, queue.get_current());
+
                     if state == PlayerEvent::FinishedTrack {
                         queue.next(false);
                     }
@@ -380,6 +396,17 @@ fn main() -> Result<(), String> {
                     queue.handle_event(event);
                 }
                 Event::SessionDied => spotify.start_worker(None),
+                Event::IpcInput(input) => match command::parse(&input) {
+                    Ok(commands) => {
+                        if let Some(data) = cursive.user_data::<UserData>().cloned() {
+                            for cmd in commands {
+                                info!("Executing command from IPC: {cmd}");
+                                data.cmd.handle(&mut cursive, cmd);
+                            }
+                        }
+                    }
+                    Err(e) => error!("Parsing error: {e}"),
+                },
             }
         }
     }
