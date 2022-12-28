@@ -118,9 +118,7 @@ impl WebApi {
                                 .header("Retry-After")
                                 .and_then(|v| v.parse::<u64>().ok());
                             debug!("rate limit hit. waiting {:?} seconds", waiting_duration);
-                            thread::sleep(
-                                Duration::from_secs(waiting_duration.unwrap_or(0) as u64),
-                            );
+                            thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
                             cb(&self.api).ok()
                         }
                         401 => {

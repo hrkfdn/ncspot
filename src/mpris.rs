@@ -156,7 +156,7 @@ fn get_metadata(playable: Option<Playable>, spotify: Spotify, library: Arc<Libra
                     true => 1.0,
                     false => 0.0,
                 })
-                .unwrap_or(0.0) as f64,
+                .unwrap_or(0.0),
         )),
     );
 
