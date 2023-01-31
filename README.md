@@ -351,7 +351,7 @@ Possible use cases for this could be:
 - Displaying the currently playing track in your favorite application/status bar (see below)
 - Setting up routines, i.e. to play specific songs/playlists when ncspot starts
 
-### Extracting info on currently playing
+### Extracting info on currently playing song
 
 Using `netcat` and the domain socket, you can query the currently playing track
 and other relevant information. Note that not all `netcat` versions are suitable,
