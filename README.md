@@ -53,6 +53,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Vim-Like Search Bar](#vim-like-search-bar)
   - [Vim-Like Commands](#vim-like-commands)
   - [Remote control (IPC)](#remote-control-ipc)
+    - [Extracting info on currently playing](#extracting-info-on-currently-playing)
   - [Configuration](#configuration)
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
@@ -347,8 +348,33 @@ a JSON structure.
 
 Possible use cases for this could be:
 - Controlling a detached ncspot session (in `tmux` for example)
-- Displaying the currently playing track in your favorite application/status bar
+- Displaying the currently playing track in your favorite application/status bar (see below)
 - Setting up routines, i.e. to play specific songs/playlists when ncspot starts
+
+### Extracting info on currently playing
+
+Using `netcat` and the domain socket, you can query the currently playing track
+and other relevant information. Note that not all `netcat` versions are suitable,
+as they typically tend to keep the connection to the socket open. OpenBSD's
+`netcat` offers a work-around: by using the `-W` flag, it will close after a
+specific number of packets have been received.
+
+```
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock
+{"mode":{"Playing":{"secs_since_epoch":1675188934,"nanos_since_epoch":50913345}},"playable":{"type":"Track","id":"5Cp6a1h2VnuOtsh1Nqxfv6","uri":"spotify:track:5Cp6a1h2VnuOtsh1Nqxfv6","title":"New Track","track_number":1,"disc_number":1,"duration":498358,"artists":["Francis Bebey"],"artist_ids":["0mdmrbu5UZ32uRcRp2z6mr"],"album":"African Electronic Music (1975-1982)","album_id":"7w99Aae1tYSTSb1OiDnxYY","album_artists":["Francis Bebey"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2736ab57cedf27177fae1eaed87","url":"https://open.spotify.com/track/5Cp6a1h2VnuOtsh1Nqxfv6","added_at":"2020-12-22T09:57:17Z","list_index":0}}
+```
+
+This results in a single output in `JSON` format, which can e.g. be parsed using [jq](https://stedolan.github.io/jq/).
+For example, you can get the currently playing artist and title in your
+terminal as follows:
+
+```
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.title'
+"PUMPIN' JUMPIN'"
+
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.artists[0]'
+"Hideki Naganuma"
+```
 
 ## Configuration
 
