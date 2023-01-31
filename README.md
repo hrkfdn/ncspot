@@ -53,7 +53,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Vim-Like Search Bar](#vim-like-search-bar)
   - [Vim-Like Commands](#vim-like-commands)
   - [Remote control (IPC)](#remote-control-ipc)
-    - [Extracting info on currently playing](#extracting-info-on-currently-playing)
+    - [Extracting info on currently playing song](#extracting-info-on-currently-playing-song)
   - [Configuration](#configuration)
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
