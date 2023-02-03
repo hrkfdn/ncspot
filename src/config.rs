@@ -106,6 +106,7 @@ pub struct ConfigTheme {
     pub playing_bg: Option<String>,
     pub highlight: Option<String>,
     pub highlight_bg: Option<String>,
+    pub highlight_inactive_bg: Option<String>,
     pub error: Option<String>,
     pub error_bg: Option<String>,
     pub statusbar_progress: Option<String>,

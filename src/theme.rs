@@ -33,6 +33,7 @@ pub fn load(theme_cfg: &Option<ConfigTheme>) -> Theme {
     palette[TitlePrimary] = load_color!(theme_cfg, title, Dark(Red));
     palette[HighlightText] = load_color!(theme_cfg, highlight, Dark(White));
     palette[Highlight] = load_color!(theme_cfg, highlight_bg, Dark(Red));
+    palette[HighlightInactive] = load_color!(theme_cfg, highlight_inactive_bg, Dark(Blue));
     palette.set_color("playing", load_color!(theme_cfg, playing, Dark(Blue)));
     palette.set_color(
         "playing_selected",
