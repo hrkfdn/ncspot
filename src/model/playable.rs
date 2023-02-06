@@ -121,7 +121,7 @@ impl Playable {
         let duration = self.duration();
         let minutes = duration / 60_000;
         let seconds = (duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+        format!("{minutes:02}:{seconds:02}")
     }
 
     pub fn as_listitem(&self) -> Box<dyn ListItem> {

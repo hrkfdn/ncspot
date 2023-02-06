@@ -9,7 +9,7 @@ pub fn format_duration(d: &std::time::Duration) -> String {
     let mut s = String::new();
     let mut append_unit = |value, unit| {
         if value > 0 {
-            let _ = write!(s, "{}{}", value, unit);
+            let _ = write!(s, "{value}{unit}");
         }
     };
 

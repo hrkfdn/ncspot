@@ -566,7 +566,7 @@ fn run_dbus_server(
                         let captures = regex.captures(s).unwrap();
                         let uri_type = &captures[2];
                         let id = &captures[3];
-                        format!("spotify:{}:{}", uri_type, id)
+                        format!("spotify:{uri_type}:{id}")
                     }else {
                         s.to_string()
                     };

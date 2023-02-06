@@ -54,8 +54,8 @@ impl Serializer for TomlSerializer {
     }
 
     fn write<P: AsRef<Path>, T: serde::Serialize>(&self, path: P, value: T) -> Result<T, String> {
-        let content = toml::to_string_pretty(&value)
-            .map_err(|e| format!("Failed serializing value: {}", e))?;
+        let content =
+            toml::to_string_pretty(&value).map_err(|e| format!("Failed serializing value: {e}"))?;
         fs::write(path.as_ref(), content)
             .map(|_| value)
             .map_err(|e| {

@@ -218,7 +218,7 @@ impl View for Layout {
             // back button + title
             if !self.is_current_stack_empty() {
                 printer.with_color(ColorStyle::title_secondary(), |printer| {
-                    printer.print((1, 0), &format!("< {}", screen_title));
+                    printer.print((1, 0), &format!("< {screen_title}"));
                 });
             }
 
@@ -255,10 +255,7 @@ impl View for Layout {
 
             printer.with_color(style, |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
-                printer.print(
-                    (0, printer.size.y - cmdline_height),
-                    &format!("ERROR: {}", e),
-                );
+                printer.print((0, printer.size.y - cmdline_height), &format!("ERROR: {e}"));
             });
         }
 

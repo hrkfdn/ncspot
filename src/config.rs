@@ -170,7 +170,7 @@ pub struct Config {
 impl Config {
     pub fn new(filename: &str) -> Self {
         let values = load(filename).unwrap_or_else(|e| {
-            eprintln!("could not load config: {}", e);
+            eprintln!("could not load config: {e}");
             process::exit(1);
         });
 

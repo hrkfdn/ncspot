@@ -25,7 +25,7 @@ impl Episode {
     pub fn duration_str(&self) -> String {
         let minutes = self.duration / 60_000;
         let seconds = (self.duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+        format!("{minutes:02}:{seconds:02}")
     }
 }
 

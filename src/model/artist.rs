@@ -95,7 +95,7 @@ impl ListItem for Artist {
     }
 
     fn display_left(&self, _library: Arc<Library>) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
@@ -115,7 +115,7 @@ impl ListItem for Artist {
             "".into()
         };
 
-        format!("{}{}", followed, tracks)
+        format!("{followed}{tracks}")
     }
 
     fn play(&mut self, queue: Arc<Queue>) {
@@ -199,7 +199,7 @@ impl ListItem for Artist {
     fn share_url(&self) -> Option<String> {
         self.id
             .clone()
-            .map(|id| format!("https://open.spotify.com/artist/{}", id))
+            .map(|id| format!("https://open.spotify.com/artist/{id}"))
     }
 
     #[inline]

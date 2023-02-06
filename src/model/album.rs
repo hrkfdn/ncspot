@@ -170,7 +170,7 @@ impl ListItem for Album {
     }
 
     fn display_left(&self, _library: Arc<Library>) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {
@@ -289,7 +289,7 @@ impl ListItem for Album {
     fn share_url(&self) -> Option<String> {
         self.id
             .clone()
-            .map(|id| format!("https://open.spotify.com/album/{}", id))
+            .map(|id| format!("https://open.spotify.com/album/{id}"))
     }
 
     fn artists(&self) -> Option<Vec<Artist>> {

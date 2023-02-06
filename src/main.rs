@@ -85,8 +85,7 @@ fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, Stri
     if let Some(message) = error_message {
         let mut siv = cursive::default();
         let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
-            "Connection error:\n{}",
-            message
+            "Connection error:\n{message}"
         )))
         .button("Ok", |s| s.quit());
         siv.add_layer(dialog);
@@ -109,7 +108,7 @@ fn register_backtrace_panic_handler() {
             path.push("backtrace.log");
             if let Ok(mut file) = File::create(path) {
                 writeln!(file, "{}", backtrace::Backtrace::force_capture()).unwrap_or_default();
-                writeln!(file, "{}", panic_info).unwrap_or_default();
+                writeln!(file, "{panic_info}").unwrap_or_default();
             }
         }
     }));
@@ -197,7 +196,7 @@ fn main() -> Result<(), String> {
     };
 
     while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
-        let error_msg = format!("{}", error);
+        let error_msg = format!("{error}");
         credentials = credentials_prompt(Some(error_msg))?;
     }
 

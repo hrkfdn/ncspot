@@ -78,10 +78,8 @@ impl Worker {
     ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
-        let url = format!(
-            "hm://keymaster/token/authenticated?client_id={}&scope={}",
-            client_id, scopes
-        );
+        let url =
+            format!("hm://keymaster/token/authenticated?client_id={client_id}&scope={scopes}");
         Box::pin(
             self.session
                 .mercury()

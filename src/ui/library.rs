@@ -83,7 +83,7 @@ impl ViewWrapper for LibraryView {
 impl ViewExt for LibraryView {
     fn title(&self) -> String {
         if let Some(name) = &self.display_name {
-            format!("Library of {}", name)
+            format!("Library of {name}")
         } else {
             "Library".to_string()
         }
