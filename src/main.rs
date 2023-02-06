@@ -351,6 +351,11 @@ fn main() -> Result<(), String> {
 
     cursive.add_fullscreen_layer(layout.with_name("main"));
 
+    #[cfg(all(unix, feature = "pancurses_backend"))]
+    cursive.add_global_callback(cursive::event::Event::CtrlChar('z'), |_s| unsafe {
+        libc::raise(libc::SIGTSTP);
+    });
+
     #[cfg(unix)]
     let mut signals = Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
 
