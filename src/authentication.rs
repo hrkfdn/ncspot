@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use cursive::traits::Resizable;
 use cursive::view::Nameable;
 use cursive::views::*;
@@ -58,6 +60,30 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         .user_data()
         .cloned()
         .unwrap_or_else(|| Err("Didn't obtain any credentials".to_string()))
+}
+
+pub fn credentials_eval(username: String, passeval: String) -> Result<RespotCredentials, String> {
+    println!("using username {}", username);
+    println!("getting password using passeval {}", passeval);
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(passeval)
+        .output()
+        .expect("Failed to execute command");
+    let mut auth_data = output.stdout;
+
+    if let Some(&last_byte) = auth_data.last() {
+        if last_byte == 10 {
+            auth_data.pop();
+        }
+    }
+
+    Ok(RespotCredentials {
+        username,
+        auth_type: AuthenticationType::AUTHENTICATION_USER_PASS,
+        auth_data,
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -191,7 +191,19 @@ fn main() -> Result<(), String> {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(None)?,
+            None => {
+                let c = cfg.clone();
+                let config = c.values();
+                let creds_username = config.creds_username.clone();
+                let creds_passeval = config.creds_passeval.clone();
+
+                match (creds_username, creds_passeval) {
+                    (Some(username), Some(passeval)) => {
+                        authentication::credentials_eval(username, passeval)?
+                    }
+                    _ => credentials_prompt(None)?,
+                }
+            }
         }
     };
 
