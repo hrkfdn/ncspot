@@ -269,6 +269,11 @@ impl CommandManager {
                 log::info!("Exit code: {}", result);
                 Ok(None)
             }
+            Command::Disconnect => {
+                self.spotify.shutdown();
+                Ok(None)
+            }
+
 
             Command::Queue
             | Command::PlayNext
