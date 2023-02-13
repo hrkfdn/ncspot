@@ -52,7 +52,7 @@ cursive_buffered_backend = "0.6.1"
 wl-clipboard-rs = {version = "0.7", optional = true}
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.3.0"
+signal-hook = "0.3.15"
 
 [dependencies.rspotify]
 default-features = false
