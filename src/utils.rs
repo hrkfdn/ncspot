@@ -35,8 +35,6 @@ pub fn ms_to_hms(duration: u32) -> String {
 
     if hours > 0 {
         formated_time.push_str(&format!("{hours}:"));
-    }
-    if hours > 0 {
         formated_time.push_str(&format!("{minutes:02}:"));
     } else {
         formated_time.push_str(&format!("{minutes}:"));
