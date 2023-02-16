@@ -34,8 +34,7 @@ pub fn ms_to_hms(duration: u32) -> String {
     let hours = total_seconds / 3600;
 
     if hours > 0 {
-        formated_time.push_str(&format!("{hours}:"));
-        formated_time.push_str(&format!("{minutes:02}:"));
+        formated_time.push_str(&format!("{hours}:{minutes:02}:"));
     } else {
         formated_time.push_str(&format!("{minutes}:"));
     }
