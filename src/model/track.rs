@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use crate::config;
+use crate::utils::ms_to_hms;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
@@ -72,9 +73,7 @@ impl Track {
     }
 
     pub fn duration_str(&self) -> String {
-        let minutes = self.duration / 60_000;
-        let seconds = (self.duration / 1000) % 60;
-        format!("{minutes:02}:{seconds:02}")
+        ms_to_hms(self.duration)
     }
 }
 

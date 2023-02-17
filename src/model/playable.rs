@@ -8,6 +8,7 @@ use crate::model::episode::Episode;
 use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
+use crate::utils::ms_to_hms;
 use std::fmt;
 use std::sync::Arc;
 
@@ -118,10 +119,7 @@ impl Playable {
     }
 
     pub fn duration_str(&self) -> String {
-        let duration = self.duration();
-        let minutes = duration / 60_000;
-        let seconds = (duration / 1000) % 60;
-        format!("{minutes:02}:{seconds:02}")
+        ms_to_hms(self.duration())
     }
 
     pub fn as_listitem(&self) -> Box<dyn ListItem> {
