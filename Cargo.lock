@@ -1861,11 +1861,12 @@ dependencies = [
 
 [[package]]
 name = "notify-rust"
-version = "4.7.1"
+version = "4.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "260208751689b605138bb55ab6af43ad75f628619a7e0b818d63bf6629e59467"
+checksum = "2bfa211d18e360f08e36c364308f394b5eb23a6629150690e109a916dc6f610e"
 dependencies = [
  "dbus",
+ "log",
  "mac-notification-sys",
  "tauri-winrt-notification",
 ]
