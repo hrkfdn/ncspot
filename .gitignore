@@ -11,3 +11,6 @@
 tags
 
 /.vscode/
+
+# Ignore generated manpages
+*.1
