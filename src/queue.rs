@@ -338,11 +338,7 @@ impl Queue {
 
                     let summary_txt = Playable::format(track, &title, self.library.clone());
                     let body_txt = Playable::format(track, &body, self.library.clone());
-                    let cover_url = if cfg!(feature = "cover") {
-                        track.cover_url()
-                    } else {
-                        None
-                    };
+                    let cover_url = track.cover_url();
                     move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
                 });
             }
