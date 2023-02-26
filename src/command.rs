@@ -157,7 +157,7 @@ pub enum Command {
     ShowRecommendations(TargetMode),
     Redraw,
     Execute(String),
-    Disconnect,
+    Reconnect,
 }
 
 impl fmt::Display for Command {
@@ -217,7 +217,7 @@ impl fmt::Display for Command {
             | Command::ReloadConfig
             | Command::Noop
             | Command::Logout
-            | Command::Disconnect
+            | Command::Reconnect
             | Command::Redraw => vec![],
         };
         repr_tokens.append(&mut extras_args);
@@ -268,7 +268,7 @@ impl Command {
             Command::ShowRecommendations(_) => "similar",
             Command::Redraw => "redraw",
             Command::Execute(_) => "exec",
-            Command::Disconnect => "disconnect",
+            Command::Reconnect => "reconnect",
         }
     }
 }
@@ -724,7 +724,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 "redraw" => Command::Redraw,
                 "exec" => Command::Execute(args.join(" ")),
-                "disconnect" => Command::Disconnect,
+                "reconnect" => Command::Reconnect,
                 _ => {
                     return Err(NoSuchCommand {
                         cmd: command.into(),
