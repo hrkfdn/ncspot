@@ -326,6 +326,7 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `exec` \<CMD\>                                                   | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary.                                                                                                                      |
 | `noop`                                                           | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings).                                                                                                                                                            |
 | `reload`                                                         | Reload the configuration from disk. See [Configuration](#configuration).                                                                                                                                                                                        |
+| `reconnect`                                                      | Reconnect to Spotify (useful when session has expired or connection was lost                                                                                                                                                                                    |
 
 ## Remote control (IPC)
 
