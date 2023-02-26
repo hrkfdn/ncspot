@@ -83,10 +83,11 @@ jobs:
         name: Cache build data
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            target
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
