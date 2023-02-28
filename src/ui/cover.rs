@@ -151,7 +151,7 @@ impl CoverView {
         if ueberzug.is_none() {
             *ueberzug = Some(
                 std::process::Command::new("ueberzug")
-                    .args(&["layer", "--silent"])
+                    .args(["layer", "--silent"])
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
                     .spawn()?,
