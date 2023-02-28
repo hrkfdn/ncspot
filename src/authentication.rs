@@ -62,27 +62,35 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         .unwrap_or_else(|| Err("Didn't obtain any credentials".to_string()))
 }
 
-pub fn credentials_eval(username: String, passeval: String) -> Result<RespotCredentials, String> {
-    println!("using username {}", username);
-    println!("getting password using passeval {}", passeval);
-
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(passeval)
-        .output()
-        .expect("Failed to execute command");
-    let mut auth_data = output.stdout;
-
-    if let Some(&last_byte) = auth_data.last() {
-        if last_byte == 10 {
-            auth_data.pop();
+pub fn credentials_eval(
+    username_cmd: &str,
+    password_cmd: &str,
+) -> Result<RespotCredentials, String> {
+    fn eval(cmd: &str) -> Result<Vec<u8>, String> {
+        println!("Executing \"{}\"", cmd);
+        let mut result = Command::new("sh")
+            .args(["-c", cmd])
+            .output()
+            .map_err(|e| e.to_string())?
+            .stdout;
+        if let Some(&last_byte) = result.last() {
+            if last_byte == 10 {
+                result.pop();
+            }
         }
+
+        Ok(result)
     }
+
+    println!("Retrieving username");
+    let username = String::from_utf8_lossy(&eval(username_cmd)?).into();
+    println!("Retrieving password");
+    let password = eval(password_cmd)?;
 
     Ok(RespotCredentials {
         username,
         auth_type: AuthenticationType::AUTHENTICATION_USER_PASS,
-        auth_data,
+        auth_data: password,
     })
 }
 

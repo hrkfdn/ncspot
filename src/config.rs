@@ -93,8 +93,13 @@ pub struct ConfigValues {
     pub statusbar_format: Option<String>,
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
-    pub creds_username: Option<String>,
-    pub creds_passeval: Option<String>,
+    pub credentials: Option<Credentials>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Credentials {
+    pub username_cmd: Option<String>,
+    pub password_cmd: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

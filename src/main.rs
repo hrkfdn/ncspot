@@ -192,14 +192,12 @@ fn main() -> Result<(), String> {
                 c
             }
             None => {
-                let c = cfg.clone();
-                let config = c.values();
-                let creds_username = config.creds_username.clone();
-                let creds_passeval = config.creds_passeval.clone();
+                info!("Attempting to resolve credentials via username/password commands");
+                let creds = cfg.values().credentials.clone().unwrap_or_default();
 
-                match (creds_username, creds_passeval) {
-                    (Some(username), Some(passeval)) => {
-                        authentication::credentials_eval(username, passeval)?
+                match (creds.username_cmd, creds.password_cmd) {
+                    (Some(username_cmd), Some(password_cmd)) => {
+                        authentication::credentials_eval(&username_cmd, &password_cmd)?
                     }
                     _ => credentials_prompt(None)?,
                 }
