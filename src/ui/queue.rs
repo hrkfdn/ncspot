@@ -23,7 +23,8 @@ pub struct QueueView {
 
 impl QueueView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> QueueView {
-        let list = ListView::new(queue.queue.clone(), queue.clone(), library.clone());
+        let list = ListView::new(queue.queue.clone(), queue.clone(), library.clone())
+            .with_order(queue.get_random_order());
 
         QueueView {
             list,
