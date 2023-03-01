@@ -62,6 +62,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Notification Formatting](#notification-formatting)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
+    - [Using a password manager](#using-a-password-manager)
 
 ## Resource Footprint Comparison
 
@@ -608,3 +609,18 @@ The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
 
 The `logout` command can be used to remove cached credentials. See
 [Vim-Like Commands](#vim-like-commands).
+
+### Using a password manager
+
+If you would like ncspot to retrieve your login data from command results,
+i.e. because you use a password manager like `pass`, you can add the following
+configuration:
+
+```toml
+[credentials]
+username_cmd = "echo username"
+password_cmd = "pass spotify.com/username"
+```
+
+Do note that this is only required for the initial login or when your credential
+token has expired.

@@ -191,7 +191,17 @@ fn main() -> Result<(), String> {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(None)?,
+            None => {
+                info!("Attempting to resolve credentials via username/password commands");
+                let creds = cfg.values().credentials.clone().unwrap_or_default();
+
+                match (creds.username_cmd, creds.password_cmd) {
+                    (Some(username_cmd), Some(password_cmd)) => {
+                        authentication::credentials_eval(&username_cmd, &password_cmd)?
+                    }
+                    _ => credentials_prompt(None)?,
+                }
+            }
         }
     };
 
