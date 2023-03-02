@@ -1,13 +1,15 @@
-use std::env;
 use std::path::PathBuf;
+use std::{env, io};
 
 use clap::builder::PathBufValueParser;
 use clap::error::{Error, ErrorKind};
 use clap::ArgMatches;
-use ncspot::AUTHOR;
+use clap_complete::Shell;
+use ncspot::{AUTHOR, BIN_NAME};
 
 enum XTaskSubcommand {
     GenerateManpage,
+    GenerateShellCompletionScript,
 }
 
 impl TryFrom<&ArgMatches> for XTaskSubcommand {
@@ -17,6 +19,7 @@ impl TryFrom<&ArgMatches> for XTaskSubcommand {
         if let Some(subcommand) = value.subcommand() {
             match subcommand.0 {
                 "generate-manpage" => Ok(XTaskSubcommand::GenerateManpage),
+                "generate-shell-completion" => Ok(XTaskSubcommand::GenerateShellCompletionScript),
                 _ => Err(Error::new(clap::error::ErrorKind::InvalidSubcommand)),
             }
         } else {
@@ -49,7 +52,7 @@ cargo workflox. Xtask's are defined as a separate package and can be used for al
 automation.
         ",
         )
-        .subcommand(
+        .subcommands([
             clap::Command::new("generate-manpage")
                 .visible_alias("gm")
                 .args([clap::Arg::new("output")
@@ -60,15 +63,26 @@ automation.
                     .value_parser(PathBufValueParser::new())
                     .required(true)])
                 .about("Automatic manpage generation"),
-        );
+            clap::Command::new("generate-shell-completion")
+                .visible_alias("gsc")
+                .args([clap::Arg::new("shell")
+                    .short('s')
+                    .long("shell")
+                    .default_value("bash")
+                    .help("The shell for which completion should be generated (default = bash).")])
+                .about("Automatic shell completion generation."),
+        ]);
 
     let program_parsed_arguments = arguments_model.get_matches();
 
     let parsed_subcommand = XTaskSubcommand::try_from(&program_parsed_arguments)?;
 
+    let subcommand_parsed_arguments = program_parsed_arguments.subcommand().unwrap().1;
+
     match parsed_subcommand {
-        XTaskSubcommand::GenerateManpage => {
-            generate_manpage(program_parsed_arguments.subcommand().unwrap().1)
+        XTaskSubcommand::GenerateManpage => generate_manpage(subcommand_parsed_arguments),
+        XTaskSubcommand::GenerateShellCompletionScript => {
+            generate_completion_script(subcommand_parsed_arguments)
         }
     }
 }
@@ -84,9 +98,31 @@ fn generate_manpage(subcommand_arguments: &ArgMatches) -> Result<(), DynError> {
         subcommand_arguments
             .get_one::<PathBuf>("output")
             .unwrap()
-            .join("ncspot.1"),
+            .join(format!("{}.1", BIN_NAME)),
         buffer,
     )?;
 
+    Ok(())
+}
+
+fn generate_completion_script(subcommand_arguments: &ArgMatches) -> Result<(), DynError> {
+    let shell = match subcommand_arguments
+        .get_one::<String>("shell")
+        .unwrap()
+        .as_str()
+    {
+        "bash" => Shell::Bash,
+        "zsh" => Shell::Zsh,
+        "fish" => Shell::Fish,
+        "elvish" => Shell::Elvish,
+        "powershell" => Shell::PowerShell,
+        _ => Shell::Bash,
+    };
+    clap_complete::generate(
+        shell,
+        &mut ncspot::program_arguments(),
+        ncspot::BIN_NAME,
+        &mut io::stdout(),
+    );
     Ok(())
 }
