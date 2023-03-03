@@ -152,7 +152,7 @@ impl fmt::Debug for Album {
 }
 
 impl ListItem for Album {
-    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, queue: &Queue) -> bool {
         if let Some(tracks) = self.tracks.as_ref() {
             let playing: Vec<String> = queue
                 .queue
@@ -169,11 +169,11 @@ impl ListItem for Album {
         }
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
+    fn display_left(&self, _library: &Library) -> String {
         format!("{self}")
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, library: &Library) -> String {
         let saved = if library.is_saved_album(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
@@ -186,7 +186,7 @@ impl ListItem for Album {
         format!("{}{}", saved, self.year)
     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: &Queue) {
         self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -199,7 +199,7 @@ impl ListItem for Album {
         }
     }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
+    fn play_next(&mut self, queue: &Queue) {
         self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -209,7 +209,7 @@ impl ListItem for Album {
         }
     }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: &Queue) {
         self.load_all_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -219,7 +219,7 @@ impl ListItem for Album {
         }
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
+    fn toggle_saved(&mut self, library: &Library) {
         if library.is_saved_album(self) {
             library.unsave_album(self);
         } else {
@@ -227,11 +227,11 @@ impl ListItem for Album {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
+    fn save(&mut self, library: &Library) {
         library.save_album(self);
     }
 
-    fn unsave(&mut self, library: Arc<Library>) {
+    fn unsave(&mut self, library: &Library) {
         library.unsave_album(self);
     }
 
@@ -303,7 +303,7 @@ impl ListItem for Album {
     }
 
     #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    fn is_saved(&self, library: &Library) -> Option<bool> {
         Some(library.is_saved_album(self))
     }
 

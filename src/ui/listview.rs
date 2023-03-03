@@ -142,7 +142,7 @@ impl<I: ListItem + Clone> ListView<I> {
             .iter()
             .enumerate()
             .filter(|(_, i)| {
-                i.display_left(self.library.clone())
+                i.display_left(&self.library)
                     .to_lowercase()
                     .contains(&query[..].to_lowercase())
             })
@@ -208,7 +208,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
 
                 let item = &content[current_index];
 
-                let currently_playing = item.is_playing(self.queue.clone())
+                let currently_playing = item.is_playing(&self.queue)
                     && self.queue.get_current_index() == Some(current_index);
 
                 let style = if self.selected == i {
@@ -231,9 +231,9 @@ impl<I: ListItem + Clone> View for ListView<I> {
                     ColorStyle::primary()
                 };
 
-                let left = item.display_left(self.library.clone());
-                let center = item.display_center(self.library.clone());
-                let right = item.display_right(self.library.clone());
+                let left = item.display_left(&self.library);
+                let center = item.display_center(&self.library);
+                let right = item.display_right(&self.library);
                 let draw_center = !center.is_empty();
 
                 // draw left string
@@ -443,7 +443,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 if !self.attempt_play_all_tracks() {
                     let mut content = self.content.write().unwrap();
                     if let Some(item) = content.get_mut(self.selected) {
-                        item.play(self.queue.clone());
+                        item.play(&self.queue);
                     }
                 }
 
@@ -453,7 +453,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 info!("played next");
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {
-                    item.play_next(self.queue.clone());
+                    item.play_next(&self.queue);
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -461,7 +461,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             Command::Queue => {
                 let mut content = self.content.write().unwrap();
                 if let Some(item) = content.get_mut(self.selected) {
-                    item.queue(self.queue.clone());
+                    item.queue(&self.queue);
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -473,7 +473,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(item) = item.as_mut() {
-                    item.save(self.library.clone());
+                    item.save(&self.library);
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -485,7 +485,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(item) = item.as_mut() {
-                    item.unsave(self.library.clone());
+                    item.unsave(&self.library);
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -607,7 +607,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                     match mode {
                         GotoMode::Album => {
-                            if let Some(album) = item.album(queue.clone()) {
+                            if let Some(album) = item.album(&queue) {
                                 let view =
                                     AlbumView::new(queue, library, &album).into_boxed_view_ext();
                                 return Ok(CommandResult::View(view));
