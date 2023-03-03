@@ -1,5 +1,5 @@
-use std::env;
 use std::path::PathBuf;
+use std::{env, fs};
 
 use clap::builder::PathBufValueParser;
 use clap::error::{Error, ErrorKind};
@@ -56,10 +56,9 @@ automation.
                     .short('o')
                     .long("output")
                     .value_name("PATH")
-                    .help("The output path for the manpage.")
-                    .value_parser(PathBufValueParser::new())
-                    .required(true)])
-                .about("Automatic manpage generation"),
+                    .help("Output directory for the generated man page.")
+                    .value_parser(PathBufValueParser::new())])
+                .about("Automatic man page generation."),
         );
 
     let program_parsed_arguments = arguments_model.get_matches();
@@ -74,19 +73,20 @@ automation.
 }
 
 fn generate_manpage(subcommand_arguments: &ArgMatches) -> Result<(), DynError> {
+    let output_directory =
+        if let Some(output_argument) = subcommand_arguments.get_one::<PathBuf>("output") {
+            output_argument.clone()
+        } else {
+            fs::create_dir_all("misc")?;
+            PathBuf::from("misc")
+        };
     let cmd = ncspot::program_arguments();
-
     let man = clap_mangen::Man::new(cmd);
     let mut buffer: Vec<u8> = Default::default();
+
     man.render(&mut buffer)?;
 
-    std::fs::write(
-        subcommand_arguments
-            .get_one::<PathBuf>("output")
-            .unwrap()
-            .join("ncspot.1"),
-        buffer,
-    )?;
+    std::fs::write(output_directory.join("ncspot.1"), buffer)?;
 
     Ok(())
 }

@@ -4,7 +4,7 @@ pub const AUTHOR: &str = "Henrik Friedrichsen <henrik@affekt.org> and contributo
 
 /// Return the [Command](clap::Command) that models the program's command line arguments. The
 /// command can be used to parse the actual arguments passed to the program, or to automatically
-/// generate a manpage using clap's mangen package.
+/// generate a man page using clap's mangen package.
 pub fn program_arguments() -> clap::Command {
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
