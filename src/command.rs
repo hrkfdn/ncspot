@@ -33,6 +33,8 @@ pub enum MoveMode {
 #[strum(serialize_all = "lowercase")]
 pub enum MoveAmount {
     Integer(i32),
+    HalfPage,
+    FullPage,
     Extreme,
 }
 
