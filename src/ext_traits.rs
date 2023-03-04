@@ -39,7 +39,7 @@ impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
                         match amount {
                             MoveAmount::Extreme => self.set_selection(0),
                             MoveAmount::Integer(amount) => self.select_up(*amount as usize),
-                            _ => Callback::dummy(),  // TODO find a more elegant way to handle this
+                            _ => Callback::dummy(), // TODO find a more elegant way to handle this
                         };
                         Ok(CommandResult::Consumed(None))
                     }
@@ -47,7 +47,7 @@ impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
                         match amount {
                             MoveAmount::Extreme => self.set_selection(items),
                             MoveAmount::Integer(amount) => self.select_down(*amount as usize),
-                            _ => Callback::dummy(),  // TODO find a more elegant way to handle this
+                            _ => Callback::dummy(), // TODO find a more elegant way to handle this
                         };
                         Ok(CommandResult::Consumed(None))
                     }

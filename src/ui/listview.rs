@@ -561,11 +561,11 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                 MoveAmount::HalfPage => {
                                     let amount = self.last_size.y as i32 / 2;
                                     self.move_focus(-(amount))
-                                },
+                                }
                                 MoveAmount::FullPage => {
                                     let amount = self.last_size.y as i32;
                                     self.move_focus(-(amount))
-                                },
+                                }
                                 MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
                             }
                         }
@@ -578,11 +578,11 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                 MoveAmount::HalfPage => {
                                     let amount = self.last_size.y as i32 / 2;
                                     self.move_focus(amount)
-                                },
+                                }
                                 MoveAmount::FullPage => {
                                     let amount = self.last_size.y as i32;
                                     self.move_focus(amount)
-                                },
+                                }
                                 MoveAmount::Integer(amount) => self.move_focus(*amount),
                             }
                         }

@@ -603,8 +603,12 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let move_amount = match move_mode_raw {
                         "playing" => Ok(MoveAmount::default()),
                         "top" | "bottom" | "leftmost" | "rightmost" => Ok(MoveAmount::Extreme),
-                        "pageup" | "pagedown" | "pageleft" | "pageright" => Ok(MoveAmount::FullPage),
-                        "halfpageup" | "halfpagedown" | "halfpageleft" | "halfpageright" => Ok(MoveAmount::HalfPage),
+                        "pageup" | "pagedown" | "pageleft" | "pageright" => {
+                            Ok(MoveAmount::FullPage)
+                        }
+                        "halfpageup" | "halfpagedown" | "halfpageleft" | "halfpageright" => {
+                            Ok(MoveAmount::HalfPage)
+                        }
                         "up" | "down" | "left" | "right" => {
                             let amount = match args.get(1) {
                                 Some(&amount_raw) => amount_raw
