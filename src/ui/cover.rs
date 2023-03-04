@@ -231,12 +231,12 @@ impl ViewExt for CoverView {
         match cmd {
             Command::Save => {
                 if let Some(mut track) = self.queue.get_current() {
-                    track.save(self.library.clone());
+                    track.save(&self.library);
                 }
             }
             Command::Delete => {
                 if let Some(mut track) = self.queue.get_current() {
-                    track.unsave(self.library.clone());
+                    track.unsave(&self.library);
                 }
             }
             #[cfg(feature = "share_clipboard")]
@@ -259,7 +259,7 @@ impl ViewExt for CoverView {
 
                     match mode {
                         GotoMode::Album => {
-                            if let Some(album) = track.album(queue.clone()) {
+                            if let Some(album) = track.album(&queue) {
                                 let view =
                                     AlbumView::new(queue, library, &album).into_boxed_view_ext();
                                 return Ok(CommandResult::View(view));

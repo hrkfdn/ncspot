@@ -336,8 +336,8 @@ impl Queue {
                     let default_body = NotificationFormat::default().body.unwrap();
                     let body = format.body.unwrap_or_else(|| default_body.clone());
 
-                    let summary_txt = Playable::format(track, &title, self.library.clone());
-                    let body_txt = Playable::format(track, &body, self.library.clone());
+                    let summary_txt = Playable::format(track, &title, &self.library);
+                    let body_txt = Playable::format(track, &body, &self.library);
                     let cover_url = track.cover_url();
                     move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
                 });

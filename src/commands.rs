@@ -52,7 +52,7 @@ impl CommandManager {
         config: Arc<Config>,
         events: EventManager,
     ) -> CommandManager {
-        let bindings = RefCell::new(Self::get_bindings(config.clone()));
+        let bindings = RefCell::new(Self::get_bindings(&config));
         CommandManager {
             aliases: HashMap::new(),
             bindings,
@@ -64,7 +64,7 @@ impl CommandManager {
         }
     }
 
-    pub fn get_bindings(config: Arc<Config>) -> HashMap<String, Vec<Command>> {
+    pub fn get_bindings(config: &Config) -> HashMap<String, Vec<Command>> {
         let config = config.values();
         let mut kb = if config.default_keybindings.unwrap_or(true) {
             Self::default_keybindings()
@@ -227,8 +227,7 @@ impl CommandManager {
 
                 // update bindings
                 self.unregister_keybindings(s);
-                self.bindings
-                    .replace(Self::get_bindings(self.config.clone()));
+                self.bindings.replace(Self::get_bindings(&self.config));
                 self.register_keybindings(s);
                 Ok(None)
             }
