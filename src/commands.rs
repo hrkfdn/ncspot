@@ -505,6 +505,22 @@ impl CommandManager {
             vec![Command::Move(MoveMode::Down, MoveAmount::Extreme)],
         );
         kb.insert(
+            "Ctrl+b".into(),
+            vec![Command::Move(MoveMode::Up, MoveAmount::FullPage)],
+        );
+        kb.insert(
+            "Ctrl+f".into(),
+            vec![Command::Move(MoveMode::Down, MoveAmount::FullPage)],
+        );
+        kb.insert(
+            "Ctrl+u".into(),
+            vec![Command::Move(MoveMode::Up, MoveAmount::HalfPage)],
+        );
+        kb.insert(
+            "Ctrl+d".into(),
+            vec![Command::Move(MoveMode::Down, MoveAmount::HalfPage)],
+        );
+        kb.insert(
             "k".into(),
             vec![Command::Move(MoveMode::Up, Default::default())],
         );
