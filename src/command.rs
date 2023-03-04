@@ -572,10 +572,10 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         use MoveMode::*;
                         match move_mode_raw {
                             "playing" => Ok(Playing),
-                            "top" | "up" => Ok(Up),
-                            "bottom" | "down" => Ok(Down),
-                            "leftmost" | "left" => Ok(Left),
-                            "rightmost" | "right" => Ok(Right),
+                            "top" | "up" | "pageup" | "halfpageup" => Ok(Up),
+                            "bottom" | "down" | "pagedown" | "halfpagedown" => Ok(Down),
+                            "leftmost" | "left" | "pageleft" | "halfpageleft" => Ok(Left),
+                            "rightmost" | "right" | "pageright" | "halfpageright" => Ok(Right),
                             _ => Err(BadEnumArg {
                                 arg: move_mode_raw.into(),
                                 accept: vec![
@@ -584,6 +584,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                     "bottom".into(),
                                     "leftmost".into(),
                                     "rightmost".into(),
+                                    "pageup".into(),
+                                    "pagedown".into(),
+                                    "pageleft".into(),
+                                    "pageright".into(),
+                                    "halfpageup".into(),
+                                    "halfpagedown".into(),
+                                    "halfpageleft".into(),
+                                    "halfpageright".into(),
                                     "up".into(),
                                     "down".into(),
                                     "left".into(),
@@ -595,6 +603,8 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let move_amount = match move_mode_raw {
                         "playing" => Ok(MoveAmount::default()),
                         "top" | "bottom" | "leftmost" | "rightmost" => Ok(MoveAmount::Extreme),
+                        "pageup" | "pagedown" | "pageleft" | "pageright" => Ok(MoveAmount::FullPage),
+                        "halfpageup" | "halfpagedown" | "halfpageleft" | "halfpageright" => Ok(MoveAmount::HalfPage),
                         "up" | "down" | "left" | "right" => {
                             let amount = match args.get(1) {
                                 Some(&amount_raw) => amount_raw
