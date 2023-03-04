@@ -70,6 +70,14 @@ impl ViewExt for HelpView {
                             MoveAmount::Extreme => {
                                 self.view.scroll_to_top();
                             }
+                            MoveAmount::FullPage => {
+                                let amount = viewport.height();
+                                scroller.scroll_to_y(viewport.top().saturating_sub(amount));
+                            },
+                            MoveAmount::HalfPage => {
+                                let amount = viewport.height() / 2;
+                                scroller.scroll_to_y(viewport.top().saturating_sub(amount));
+                            },
                             MoveAmount::Integer(amount) => scroller
                                 .scroll_to_y(viewport.top().saturating_sub(*amount as usize)),
                         };
@@ -80,6 +88,14 @@ impl ViewExt for HelpView {
                             MoveAmount::Extreme => {
                                 self.view.scroll_to_bottom();
                             }
+                            MoveAmount::FullPage => {
+                                let amount = viewport.height();
+                                scroller.scroll_to_y(viewport.bottom().saturating_add(amount));
+                            },
+                            MoveAmount::HalfPage => {
+                                let amount = viewport.height() / 2;
+                                scroller.scroll_to_y(viewport.bottom().saturating_add(amount));
+                            },
                             MoveAmount::Integer(amount) => scroller
                                 .scroll_to_y(viewport.bottom().saturating_add(*amount as usize)),
                         };
