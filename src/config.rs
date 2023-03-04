@@ -93,6 +93,13 @@ pub struct ConfigValues {
     pub statusbar_format: Option<String>,
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
+    pub credentials: Option<Credentials>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Credentials {
+    pub username_cmd: Option<String>,
+    pub password_cmd: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -106,6 +113,7 @@ pub struct ConfigTheme {
     pub playing_bg: Option<String>,
     pub highlight: Option<String>,
     pub highlight_bg: Option<String>,
+    pub highlight_inactive_bg: Option<String>,
     pub error: Option<String>,
     pub error_bg: Option<String>,
     pub statusbar_progress: Option<String>,
@@ -169,7 +177,7 @@ pub struct Config {
 impl Config {
     pub fn new(filename: &str) -> Self {
         let values = load(filename).unwrap_or_else(|e| {
-            eprintln!("could not load config: {}", e);
+            eprintln!("could not load config: {e}");
             process::exit(1);
         });
 
@@ -242,14 +250,24 @@ fn load(filename: &str) -> Result<ConfigValues, String> {
 }
 
 fn proj_dirs() -> AppDirs {
-    match *BASE_PATH.read().expect("can't readlock BASE_PATH") {
-        Some(ref basepath) => AppDirs {
+    try_proj_dirs().unwrap()
+}
+
+/// Returns the plaform app directories for ncspot if they could be determined,
+/// or an error otherwise.
+pub fn try_proj_dirs() -> Result<AppDirs, String> {
+    match *BASE_PATH
+        .read()
+        .map_err(|_| String::from("Poisoned RWLock"))?
+    {
+        Some(ref basepath) => Ok(AppDirs {
             cache_dir: basepath.join(".cache"),
             config_dir: basepath.join(".config"),
             data_dir: basepath.join(".local/share"),
             state_dir: basepath.join(".local/state"),
-        },
-        None => AppDirs::new(Some("ncspot"), true).expect("can't determine project paths"),
+        }),
+        None => AppDirs::new(Some("ncspot"), true)
+            .ok_or_else(|| String::from("Couldn't determine platform standard directories")),
     }
 }
 

@@ -5,7 +5,9 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde;
 
-use std::fs;
+use std::backtrace;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -41,12 +43,15 @@ mod traits;
 mod ui;
 mod utils;
 
+#[cfg(unix)]
+mod ipc;
+
 #[cfg(feature = "mpris")]
 mod mpris;
 
 use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
-use crate::config::Config;
+use crate::config::{cache_path, Config};
 use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -80,8 +85,7 @@ fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, Stri
     if let Some(message) = error_message {
         let mut siv = cursive::default();
         let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
-            "Connection error:\n{}",
-            message
+            "Connection error:\n{message}"
         )))
         .button("Ok", |s| s.quit());
         siv.add_layer(dialog);
@@ -91,13 +95,41 @@ fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, Stri
     authentication::create_credentials()
 }
 
+fn register_backtrace_panic_handler() {
+    // During most of the program, Cursive is responsible for drawing to the
+    // tty. Since stdout probably doesn't work as expected during a panic, the
+    // backtrace is written to a file at $USER_CACHE_DIR/ncspot/backtrace.log.
+    std::panic::set_hook(Box::new(|panic_info| {
+        // A panic hook will prevent the default panic handler from being
+        // called. An unwrap in this part would cause a hard crash of ncspot.
+        // Don't unwrap/expect/panic in here!
+        if let Ok(backtrace_log) = config::try_proj_dirs() {
+            let mut path = backtrace_log.cache_dir;
+            path.push("backtrace.log");
+            if let Ok(mut file) = File::create(path) {
+                writeln!(file, "{}", backtrace::Backtrace::force_capture()).unwrap_or_default();
+                writeln!(file, "{panic_info}").unwrap_or_default();
+            }
+        }
+    }));
+}
+
 type UserData = Arc<UserDataInner>;
 struct UserDataInner {
     pub cmd: CommandManager,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), String> {
+lazy_static!(
+    /// The global Tokio runtime for running asynchronous tasks.
+    static ref ASYNC_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+);
+
+fn main() -> Result<(), String> {
+    register_backtrace_panic_handler();
+
     let backends = {
         let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
         format!("Audio backends: {}", backends.join(", "))
@@ -159,15 +191,28 @@ async fn main() -> Result<(), String> {
                 info!("Using cached credentials");
                 c
             }
-            None => credentials_prompt(None)?,
+            None => {
+                info!("Attempting to resolve credentials via username/password commands");
+                let creds = cfg.values().credentials.clone().unwrap_or_default();
+
+                match (creds.username_cmd, creds.password_cmd) {
+                    (Some(username_cmd), Some(password_cmd)) => {
+                        authentication::credentials_eval(&username_cmd, &password_cmd)?
+                    }
+                    _ => credentials_prompt(None)?,
+                }
+            }
         }
     };
 
     while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
-        let error_msg = format!("{}", error);
+        let error_msg = format!("{error}");
         credentials = credentials_prompt(Some(error_msg))?;
     }
 
+    println!("Connecting to Spotify..");
+
+    // DON'T USE STDOUT AFTER THIS CALL!
     let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
     let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
 
@@ -179,7 +224,6 @@ async fn main() -> Result<(), String> {
 
     let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-    println!("Connecting to Spotify..");
     let spotify = spotify::Spotify::new(event_manager.clone(), credentials, cfg.clone());
 
     let library = Arc::new(Library::new(&event_manager, spotify.clone(), cfg.clone()));
@@ -316,8 +360,23 @@ async fn main() -> Result<(), String> {
 
     cursive.add_fullscreen_layer(layout.with_name("main"));
 
+    #[cfg(all(unix, feature = "pancurses_backend"))]
+    cursive.add_global_callback(cursive::event::Event::CtrlChar('z'), |_s| unsafe {
+        libc::raise(libc::SIGTSTP);
+    });
+
     #[cfg(unix)]
-    let mut signals = Signals::new(&[SIGTERM, SIGHUP]).expect("could not register signal handler");
+    let mut signals = Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
+
+    #[cfg(unix)]
+    let ipc = {
+        ipc::IpcSocket::new(
+            ASYNC_RUNTIME.handle(),
+            cache_path("ncspot.sock"),
+            event_manager.clone(),
+        )
+        .map_err(|e| e.to_string())?
+    };
 
     // cursive event loop
     while cursive.is_running() {
@@ -340,6 +399,9 @@ async fn main() -> Result<(), String> {
                     #[cfg(feature = "mpris")]
                     mpris_manager.update();
 
+                    #[cfg(unix)]
+                    ipc.publish(&state, queue.get_current());
+
                     if state == PlayerEvent::FinishedTrack {
                         queue.next(false);
                     }
@@ -348,6 +410,17 @@ async fn main() -> Result<(), String> {
                     queue.handle_event(event);
                 }
                 Event::SessionDied => spotify.start_worker(None),
+                Event::IpcInput(input) => match command::parse(&input) {
+                    Ok(commands) => {
+                        if let Some(data) = cursive.user_data::<UserData>().cloned() {
+                            for cmd in commands {
+                                info!("Executing command from IPC: {cmd}");
+                                data.cmd.handle(&mut cursive, cmd);
+                            }
+                        }
+                    }
+                    Err(e) => error!("Parsing error: {e}"),
+                },
             }
         }
     }

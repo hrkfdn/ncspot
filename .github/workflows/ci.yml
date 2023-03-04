@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  check-macos:
+  # Build the Rust code.
+  build:
     name: Checking ${{ matrix.build_target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -30,13 +31,22 @@ jobs:
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        name: Cache build data
         with:
-          toolchain: stable
-          override: true
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
           target: ${{ matrix.target }}
-          profile: minimal
+          components: clippy, rustfmt
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
@@ -45,23 +55,48 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - uses: actions/checkout@v2
-        name: Checkout src
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Running cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --release --target ${{ matrix.target }} ${{ matrix.features }}
+      - name: Running cargo build
+        run: cargo check --locked --target ${{ matrix.target }} ${{ matrix.features }}
 
+  # Check Rust code formatting.
   fmt:
+    name: Running `cargo fmt`
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
       - name: cargo fmt
         run: cargo fmt --all -- --check
+
+  # Run `cargo clippy` on all the targets in all workspace members with all
+  # features enabled, and return an error if there are any clippy suggestions.
+  clippy:
+    name: Running `cargo clippy`
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        name: Cache build data
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
+      - name: Install Linux dependencies
+        run: |
+          sudo apt update
+          sudo apt install portaudio19-dev libasound2-dev libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - name: cargo clippy
+        run: cargo clippy --locked --no-deps --workspace --all-targets --all-features --verbose -- -D warnings

@@ -12,6 +12,7 @@ use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
+use crate::utils::ms_to_hms;
 
 pub struct StatusBar {
     queue: Arc<Queue>,
@@ -165,11 +166,7 @@ impl View for StatusBar {
         let elapsed = self.spotify.get_current_progress();
         let elapsed_ms = elapsed.as_millis() as u32;
 
-        let formatted_elapsed = format!(
-            "{:02}:{:02}",
-            elapsed.as_secs() / 60,
-            elapsed.as_secs() % 60
-        );
+        let formatted_elapsed = ms_to_hms(elapsed.as_millis().try_into().unwrap_or(0));
 
         let playback_duration_status = match self.queue.get_current() {
             Some(ref t) => format!("{} / {}", formatted_elapsed, t.duration_str()),

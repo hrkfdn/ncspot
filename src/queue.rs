@@ -16,6 +16,7 @@ use crate::model::playable::Playable;
 use crate::spotify::PlayerEvent;
 use crate::spotify::Spotify;
 
+/// Repeat behavior for the [Queue].
 #[derive(Display, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum RepeatSetting {
     #[serde(rename = "off")]
@@ -26,17 +27,28 @@ pub enum RepeatSetting {
     RepeatTrack,
 }
 
+/// Events that are specific to the [Queue].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueueEvent {
+    /// Request the player to 'preload' a track, basically making sure that
+    /// transitions between tracks can be uninterrupted.
     PreloadTrackRequest,
 }
 
+/// The queue determines the playback order of
+/// [Playable](crate::model::playable::Playable) items, and is also used to
+/// control playback itself.
 pub struct Queue {
+    /// The internal data, which doesn't change with shuffle or repeat. This is
+    /// the raw data only.
     pub queue: Arc<RwLock<Vec<Playable>>>,
-    random_order: RwLock<Option<Vec<usize>>>,
+    /// The playback order of the queue, as indices into `self.queue`.
+    random_order: Arc<RwLock<Option<Vec<usize>>>>,
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
+    /// The notification id that uniquely identifies the notification of the
+    /// currently playing song.
     #[cfg(feature = "notify")]
     notification_id: Arc<AtomicU32>,
     library: Arc<Library>,
@@ -50,7 +62,7 @@ impl Queue {
             queue: Arc::new(RwLock::new(queue_state.queue)),
             spotify: spotify.clone(),
             current_track: RwLock::new(queue_state.current_track),
-            random_order: RwLock::new(queue_state.random_order),
+            random_order: Arc::new(RwLock::new(queue_state.random_order)),
             cfg,
             #[cfg(feature = "notify")]
             notification_id: Arc::new(AtomicU32::new(0)),
@@ -77,6 +89,8 @@ impl Queue {
         queue
     }
 
+    /// The index of the next item in `self.queue` that should be played. None
+    /// if at the end of the queue.
     pub fn next_index(&self) -> Option<usize> {
         match *self.current_track.read().unwrap() {
             Some(mut index) => {
@@ -100,6 +114,8 @@ impl Queue {
         }
     }
 
+    /// The index of the previous item in `self.queue` that should be played.
+    /// None if at the start of the queue.
     pub fn previous_index(&self) -> Option<usize> {
         match *self.current_track.read().unwrap() {
             Some(mut index) => {
@@ -123,15 +139,19 @@ impl Queue {
         }
     }
 
+    /// The currently playing item from `self.queue`.
     pub fn get_current(&self) -> Option<Playable> {
         self.get_current_index()
             .map(|index| self.queue.read().unwrap()[index].clone())
     }
 
+    /// The index of the currently playing item from `self.queue`.
     pub fn get_current_index(&self) -> Option<usize> {
         *self.current_track.read().unwrap()
     }
 
+    /// Insert `track` as the item that should logically follow the currently
+    /// playing item, taking into account shuffle status.
     pub fn insert_after_current(&self, track: Playable) {
         if let Some(index) = self.get_current_index() {
             let mut random_order = self.random_order.write().unwrap();
@@ -153,6 +173,7 @@ impl Queue {
         }
     }
 
+    /// Add `track` to the end of the queue.
     pub fn append(&self, track: Playable) {
         let mut random_order = self.random_order.write().unwrap();
         if let Some(order) = random_order.as_mut() {
@@ -164,6 +185,8 @@ impl Queue {
         q.push(track);
     }
 
+    /// Append `tracks` after the currently playing item, taking into account
+    /// shuffle status. Returns the amount of added items.
     pub fn append_next(&self, tracks: &Vec<Playable>) -> usize {
         let mut q = self.queue.write().unwrap();
 
@@ -188,6 +211,8 @@ impl Queue {
         first
     }
 
+    /// Remove the item at `index`. This doesn't take into account shuffle
+    /// status, and will literally remove the item at `index` in `self.queue`.
     pub fn remove(&self, index: usize) {
         {
             let mut q = self.queue.write().unwrap();
@@ -237,6 +262,7 @@ impl Queue {
         }
     }
 
+    /// Clear all the items from the queue and stop playback.
     pub fn clear(&self) {
         self.stop();
 
@@ -249,10 +275,12 @@ impl Queue {
         }
     }
 
+    /// The amount of items in `self.queue`.
     pub fn len(&self) -> usize {
         self.queue.read().unwrap().len()
     }
 
+    /// Shift the item at `from` in `self.queue` to `to`.
     pub fn shift(&self, from: usize, to: usize) {
         let mut queue = self.queue.write().unwrap();
         let item = queue.remove(from);
@@ -272,6 +300,11 @@ impl Queue {
         }
     }
 
+    /// Play the item at `index` in `self.queue`.
+    ///
+    /// `reshuffle`: Reshuffle the current order of the queue.
+    /// `shuffle_index`: If this is true, `index` isn't actually used, but is
+    /// chosen at random as a valid index in the queue.
     pub fn play(&self, mut index: usize, reshuffle: bool, shuffle_index: bool) {
         let queue_length = self.queue.read().unwrap().len();
         // The length of the queue must be bigger than 0 or gen_range panics!
@@ -305,11 +338,7 @@ impl Queue {
 
                     let summary_txt = Playable::format(track, &title, self.library.clone());
                     let body_txt = Playable::format(track, &body, self.library.clone());
-                    let cover_url = if cfg!(feature = "cover") {
-                        track.cover_url()
-                    } else {
-                        None
-                    };
+                    let cover_url = track.cover_url();
                     move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
                 });
             }
@@ -320,6 +349,8 @@ impl Queue {
         }
     }
 
+    /// Toggle the playback. If playback is currently stopped, this will either
+    /// play the next song if one is available, or restart from the start.
     pub fn toggleplayback(&self) {
         match self.spotify.get_current_status() {
             PlayerEvent::Playing(_) | PlayerEvent::Paused(_) => {
@@ -333,12 +364,18 @@ impl Queue {
         }
     }
 
+    /// Stop playback.
     pub fn stop(&self) {
         let mut current = self.current_track.write().unwrap();
         *current = None;
         self.spotify.stop();
     }
 
+    /// Play the next song in the queue.
+    ///
+    /// `manual`: If this is true, normal queue logic like repeat will not be
+    /// used, and the next track will actually be played. This should be used
+    /// when going to the next entry in the queue is the wanted behavior.
     pub fn next(&self, manual: bool) {
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
@@ -365,6 +402,7 @@ impl Queue {
         }
     }
 
+    /// Play the previous item in the queue.
     pub fn previous(&self) {
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
@@ -388,22 +426,27 @@ impl Queue {
         }
     }
 
+    /// Get the current repeat behavior.
     pub fn get_repeat(&self) -> RepeatSetting {
         self.cfg.state().repeat
     }
 
+    /// Set the current repeat behavior and save it to the configuration.
     pub fn set_repeat(&self, new: RepeatSetting) {
         self.cfg.with_state_mut(|mut s| s.repeat = new);
     }
 
+    /// Get the current shuffle behavior.
     pub fn get_shuffle(&self) -> bool {
         self.cfg.state().shuffle
     }
 
-    pub fn get_random_order(&self) -> Option<Vec<usize>> {
-        self.random_order.read().unwrap().clone()
+    /// Get the current order that is used to shuffle.
+    pub fn get_random_order(&self) -> Arc<RwLock<Option<Vec<usize>>>> {
+        self.random_order.clone()
     }
 
+    /// (Re)generate the random shuffle order.
     fn generate_random_order(&self) {
         let q = self.queue.read().unwrap();
         let mut order: Vec<usize> = Vec::with_capacity(q.len());
@@ -422,6 +465,7 @@ impl Queue {
         *random_order = Some(order);
     }
 
+    /// Set the current shuffle behavior.
     pub fn set_shuffle(&self, new: bool) {
         self.cfg.with_state_mut(|mut s| s.shuffle = new);
         if new {
@@ -432,6 +476,7 @@ impl Queue {
         }
     }
 
+    /// Handle events that are specific to the queue.
     pub fn handle_event(&self, event: QueueEvent) {
         match event {
             QueueEvent::PreloadTrackRequest => {
@@ -444,11 +489,19 @@ impl Queue {
         }
     }
 
+    /// Get the spotify session.
     pub fn get_spotify(&self) -> Spotify {
         self.spotify.clone()
     }
 }
 
+/// Send a notification using the desktops default notification method.
+///
+/// `summary_txt`: A short title for the notification.
+/// `body_txt`: The actual content of the notification.
+/// `cover_url`: A URL to an image to show in the notification.
+/// `notification_id`: Unique id for a notification, that can be used to operate
+/// on a previous notification (for example to close it).
 #[cfg(feature = "notify")]
 pub fn send_notification(
     summary_txt: &str,

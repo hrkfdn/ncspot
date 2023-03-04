@@ -204,7 +204,7 @@ impl View for Layout {
         let result = self.get_result();
 
         let cmdline_visible = self.cmdline.get_content().len() > 0;
-        let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
+        let mut cmdline_height = usize::from(cmdline_visible);
         if result.as_ref().map(Option::is_some).unwrap_or(true) {
             cmdline_height += 1;
         }
@@ -218,7 +218,7 @@ impl View for Layout {
             // back button + title
             if !self.is_current_stack_empty() {
                 printer.with_color(ColorStyle::title_secondary(), |printer| {
-                    printer.print((1, 0), &format!("< {}", screen_title));
+                    printer.print((1, 0), &format!("< {screen_title}"));
                 });
             }
 
@@ -255,10 +255,7 @@ impl View for Layout {
 
             printer.with_color(style, |printer| {
                 printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
-                printer.print(
-                    (0, printer.size.y - cmdline_height),
-                    &format!("ERROR: {}", e),
-                );
+                printer.print((0, printer.size.y - cmdline_height), &format!("ERROR: {e}"));
             });
         }
 
@@ -318,7 +315,7 @@ impl View for Layout {
             let result = self.get_result();
 
             let cmdline_visible = self.cmdline.get_content().len() > 0;
-            let mut cmdline_height = if cmdline_visible { 1 } else { 0 };
+            let mut cmdline_height = usize::from(cmdline_visible);
             if result.as_ref().map(Option::is_some).unwrap_or(true) {
                 cmdline_height += 1;
             }
@@ -345,7 +342,7 @@ impl View for Layout {
         }
     }
 
-    fn call_on_any<'a>(&mut self, s: &Selector, c: AnyCb<'a>) {
+    fn call_on_any(&mut self, s: &Selector, c: AnyCb<'_>) {
         if let Some(view) = self.get_current_view_mut() {
             view.call_on_any(s, c);
         }

@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use crate::config;
+use crate::utils::ms_to_hms;
 use chrono::{DateTime, Utc};
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
@@ -72,9 +73,7 @@ impl Track {
     }
 
     pub fn duration_str(&self) -> String {
-        let minutes = self.duration / 60_000;
-        let seconds = (self.duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+        ms_to_hms(self.duration)
     }
 }
 
@@ -194,7 +193,7 @@ impl ListItem for Track {
         if left != default {
             Playable::format(&Playable::Track(self.clone()), &left, library)
         } else {
-            format!("{}", self)
+            format!("{self}")
         }
     }
 
@@ -307,7 +306,7 @@ impl ListItem for Track {
     fn share_url(&self) -> Option<String> {
         self.id
             .clone()
-            .map(|id| format!("https://open.spotify.com/track/{}", id))
+            .map(|id| format!("https://open.spotify.com/track/{id}"))
     }
 
     fn album(&self, queue: Arc<Queue>) -> Option<Album> {

@@ -90,12 +90,12 @@ pub enum SeekDirection {
 impl fmt::Display for SeekDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let repr = match self {
-            SeekDirection::Absolute(pos) => format!("{}", pos),
+            SeekDirection::Absolute(pos) => format!("{pos}"),
             SeekDirection::Relative(delta) => {
                 format!("{}{}", if delta > &0 { "+" } else { "" }, delta)
             }
         };
-        write!(f, "{}", repr)
+        write!(f, "{repr}")
     }
 }
 
@@ -113,7 +113,7 @@ impl fmt::Display for InsertSource {
             InsertSource::Clipboard => "".into(),
             InsertSource::Input(url) => url.to_string(),
         };
-        write!(f, "{}", repr)
+        write!(f, "{repr}")
     }
 }
 
@@ -157,6 +157,7 @@ pub enum Command {
     ShowRecommendations(TargetMode),
     Redraw,
     Execute(String),
+    Reconnect,
 }
 
 impl fmt::Display for Command {
@@ -216,6 +217,7 @@ impl fmt::Display for Command {
             | Command::ReloadConfig
             | Command::Noop
             | Command::Logout
+            | Command::Reconnect
             | Command::Redraw => vec![],
         };
         repr_tokens.append(&mut extras_args);
@@ -266,6 +268,7 @@ impl Command {
             Command::ShowRecommendations(_) => "similar",
             Command::Redraw => "redraw",
             Command::Execute(_) => "exec",
+            Command::Reconnect => "reconnect",
         }
     }
 }
@@ -315,12 +318,12 @@ impl fmt::Display for CommandParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use CommandParseError::*;
         let formatted = match self {
-            NoSuchCommand { cmd } => format!("No such command \"{}\"", cmd),
+            NoSuchCommand { cmd } => format!("No such command \"{cmd}\""),
             InsufficientArgs { cmd, hint } => {
                 if let Some(hint_str) = hint {
-                    format!("\"{}\" requires additional arguments: {}", cmd, hint_str)
+                    format!("\"{cmd}\" requires additional arguments: {hint_str}")
                 } else {
-                    format!("\"{}\" requires additional arguments", cmd)
+                    format!("\"{cmd}\" requires additional arguments")
                 }
             }
             BadEnumArg { arg, accept } => {
@@ -330,9 +333,9 @@ impl fmt::Display for CommandParseError {
                     accept.join("|")
                 )
             }
-            ArgParseError { arg, err } => format!("Error with argument \"{}\": {}", arg, err),
+            ArgParseError { arg, err } => format!("Error with argument \"{arg}\": {err}"),
         };
-        write!(f, "{}", formatted)
+        write!(f, "{formatted}")
     }
 }
 
@@ -721,6 +724,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 "redraw" => Command::Redraw,
                 "exec" => Command::Execute(args.join(" ")),
+                "reconnect" => Command::Reconnect,
                 _ => {
                     return Err(NoSuchCommand {
                         cmd: command.into(),

@@ -6,12 +6,13 @@
 
 [![Crates.io](https://img.shields.io/crates/v/ncspot.svg)](https://crates.io/crates/ncspot)
 [![Gitter](https://badges.gitter.im/ncspot/community.svg)](https://gitter.im/ncspot/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Build](https://github.com/hrkfdn/ncspot/workflows/Build/badge.svg)](https://github.com/hrkfdn/ncspot/actions?query=workflow%3ABuild)
+[![CI](https://github.com/hrkfdn/ncspot/actions/workflows/ci.yml/badge.svg)](https://github.com/hrkfdn/ncspot/actions/workflows/ci.yml)
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
 
+<a href='https://flathub.org/apps/details/io.github.hrkfdn.ncspot'><img width='130' alt='Download on Flathub' src='https://flathub.org/assets/badges/flathub-badge-en.png'/></a>
+
 [![ncspot](https://snapcraft.io//ncspot/badge.svg)](https://snapcraft.io/ncspot)
-[![ncspot](https://snapcraft.io//ncspot/trending.svg?name=0)](https://snapcraft.io/ncspot)
 
 `ncspot` is a ncurses Spotify client written in Rust using `librespot`. It is
 heavily inspired by ncurses MPD clients, such as ncmpc. My motivation was to
@@ -37,6 +38,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [On Linux](#on-linux)
   - [Build](#build)
     - [Prerequisites](#prerequisites)
+    - [Debugging](#debugging)
     - [Compiling](#compiling)
       - [Building a Debian Package](#building-a-debian-package)
     - [Audio Backends](#audio-backends)
@@ -50,6 +52,8 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Library](#library)
     - [Vim-Like Search Bar](#vim-like-search-bar)
   - [Vim-Like Commands](#vim-like-commands)
+  - [Remote control (IPC)](#remote-control-ipc)
+    - [Extracting info on currently playing song](#extracting-info-on-currently-playing-song)
   - [Configuration](#configuration)
     - [Custom Keybindings](#custom-keybindings)
     - [Proxy](#proxy)
@@ -58,6 +62,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Notification Formatting](#notification-formatting)
   - [Cover Drawing](#cover-drawing)
   - [Authentication](#authentication)
+    - [Using a password manager](#using-a-password-manager)
 
 ## Resource Footprint Comparison
 
@@ -125,6 +130,16 @@ On Linux, you also need:
     # headers are included in the base packages
     sudo pacman -S dbus libpulse libxcb ncurses openssl
     ```
+
+### Debugging
+
+For debugging, you can pass a debug log filename:
+
+```sh
+cargo run -- -d debug.log
+```
+
+If ncspot has crashed you can find the latest backtrace at `~/.cache/ncspot/backtrace.log`.
 
 ### Compiling
 
@@ -341,6 +356,56 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `exec` \<CMD\>                                                   | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary.                                                                                                                      |
 | `noop`                                                           | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings).                                                                                                                                                            |
 | `reload`                                                         | Reload the configuration from disk. See [Configuration](#configuration).                                                                                                                                                                                        |
+| `reconnect`                                                      | Reconnect to Spotify (useful when session has expired or connection was lost                                                                                                                                                                                    |
+
+## Remote control (IPC)
+
+Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms
+(Linux, macOS, *BSD) at `~/.cache/ncspot/ncspot.sock`.  Applications or scripts
+can connect to this socket to send commands or be notified of the currently
+playing track, i.e. with `netcat`:
+
+```
+% nc -U ~/.cache/ncspot/ncspot.sock
+play
+{"mode":{"Playing":{"secs_since_epoch":1672249086,"nanos_since_epoch":547517730}},"playable":{"type":"Track","id":"2wcrQZ7ZJolYEfIaPP9yL4","uri":"spotify:track:2wcrQZ7ZJolYEfIaPP9yL4","title":"Hit Me Where It Hurts","track_number":4,"disc_number":1,"duration":184132,"artists":["Caroline Polachek"],"artist_ids":["4Ge8xMJNwt6EEXOzVXju9a"],"album":"Pang","album_id":"4ClyeVlAKJJViIyfVW0yQD","album_artists":["Caroline Polachek"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2737d983e7bf67c2806218c2759","url":"https://open.spotify.com/track/2wcrQZ7ZJolYEfIaPP9yL4","added_at":"2022-12-19T22:41:05Z","list_index":0}}
+playpause
+{"mode":{"Paused":{"secs":25,"nanos":575000000}},"playable":{"type":"Track","id":"2wcrQZ7ZJolYEfIaPP9yL4","uri":"spotify:track:2wcrQZ7ZJolYEfIaPP9yL4","title":"Hit Me Where It Hurts","track_number":4,"disc_number":1,"duration":184132,"artists":["Caroline Polachek"],"artist_ids":["4Ge8xMJNwt6EEXOzVXju9a"],"album":"Pang","album_id":"4ClyeVlAKJJViIyfVW0yQD","album_artists":["Caroline Polachek"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2737d983e7bf67c2806218c2759","url":"https://open.spotify.com/track/2wcrQZ7ZJolYEfIaPP9yL4","added_at":"2022-12-19T22:41:05Z","list_index":0}}
+```
+
+Each time the playback status changes (i.e. after sending the `play`/`playpause`
+command or simply by playing the queue), the current status will be published as
+a JSON structure.
+
+Possible use cases for this could be:
+- Controlling a detached ncspot session (in `tmux` for example)
+- Displaying the currently playing track in your favorite application/status bar (see below)
+- Setting up routines, i.e. to play specific songs/playlists when ncspot starts
+
+### Extracting info on currently playing song
+
+Using `netcat` and the domain socket, you can query the currently playing track
+and other relevant information. Note that not all `netcat` versions are suitable,
+as they typically tend to keep the connection to the socket open. OpenBSD's
+`netcat` offers a work-around: by using the `-W` flag, it will close after a
+specific number of packets have been received.
+
+```
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock
+{"mode":{"Playing":{"secs_since_epoch":1675188934,"nanos_since_epoch":50913345}},"playable":{"type":"Track","id":"5Cp6a1h2VnuOtsh1Nqxfv6","uri":"spotify:track:5Cp6a1h2VnuOtsh1Nqxfv6","title":"New Track","track_number":1,"disc_number":1,"duration":498358,"artists":["Francis Bebey"],"artist_ids":["0mdmrbu5UZ32uRcRp2z6mr"],"album":"African Electronic Music (1975-1982)","album_id":"7w99Aae1tYSTSb1OiDnxYY","album_artists":["Francis Bebey"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2736ab57cedf27177fae1eaed87","url":"https://open.spotify.com/track/5Cp6a1h2VnuOtsh1Nqxfv6","added_at":"2020-12-22T09:57:17Z","list_index":0}}
+```
+
+This results in a single output in `JSON` format, which can e.g. be parsed using [jq](https://stedolan.github.io/jq/).
+For example, you can get the currently playing artist and title in your
+terminal as follows:
+
+```
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.title'
+"PUMPIN' JUMPIN'"
+
+% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.artists[0]'
+"Hideki Naganuma"
+```
 
 ## Configuration
 
@@ -573,3 +638,18 @@ The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
 
 The `logout` command can be used to remove cached credentials. See
 [Vim-Like Commands](#vim-like-commands).
+
+### Using a password manager
+
+If you would like ncspot to retrieve your login data from command results,
+i.e. because you use a password manager like `pass`, you can add the following
+configuration:
+
+```toml
+[credentials]
+username_cmd = "echo username"
+password_cmd = "pass spotify.com/username"
+```
+
+Do note that this is only required for the initial login or when your credential
+token has expired.

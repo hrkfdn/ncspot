@@ -216,7 +216,7 @@ impl ListItem for Playlist {
             .map(|t| t.len())
             .unwrap_or(self.num_tracks);
 
-        format!("{}{:>4} tracks", saved, num_tracks)
+        format!("{saved}{num_tracks:>4} tracks")
     }
 
     fn play(&mut self, queue: Arc<Queue>) {

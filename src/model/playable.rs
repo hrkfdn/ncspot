@@ -8,6 +8,7 @@ use crate::model::episode::Episode;
 use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
+use crate::utils::ms_to_hms;
 use std::fmt;
 use std::sync::Arc;
 
@@ -118,10 +119,7 @@ impl Playable {
     }
 
     pub fn duration_str(&self) -> String {
-        let duration = self.duration();
-        let minutes = duration / 60_000;
-        let seconds = (duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+        ms_to_hms(self.duration())
     }
 
     pub fn as_listitem(&self) -> Box<dyn ListItem> {
@@ -137,6 +135,19 @@ impl From<&PlayableItem> for Playable {
         match item {
             PlayableItem::Episode(episode) => Playable::Episode(episode.into()),
             PlayableItem::Track(track) => Playable::Track(track.into()),
+        }
+    }
+}
+
+impl From<&Playable> for rspotify::prelude::PlayableId<'_> {
+    fn from(p: &Playable) -> Self {
+        match p {
+            Playable::Track(t) => rspotify::prelude::PlayableId::Track(
+                rspotify::model::TrackId::from_id(t.id.clone().unwrap()).unwrap(),
+            ),
+            Playable::Episode(e) => rspotify::prelude::PlayableId::Episode(
+                rspotify::model::EpisodeId::from_id(e.id.clone()).unwrap(),
+            ),
         }
     }
 }

@@ -8,7 +8,7 @@ license = "BSD-2-Clause"
 name = "ncspot"
 readme = "README.md"
 repository = "https://github.com/hrkfdn/ncspot"
-version = "0.11.2"
+version = "0.12.0"
 
 # Used only when releasing final builds of ncspot.
 # Build time is very slow, but binaries are smaller.
@@ -29,7 +29,7 @@ maintenance = {status = "actively-developed"}
 
 [dependencies]
 chrono = "0.4"
-clap = "4.0.0"
+clap = "4.1.7"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
 dbus = {version = "0.9.6", optional = true}
@@ -54,9 +54,10 @@ serde_cbor = "0.11.2"
 serde_json = "1.0"
 strum = "0.24.1"
 strum_macros = "0.24.3"
-tokio = {version = "1", features = ["rt-multi-thread", "sync", "time"]}
-tokio-stream = "0.1.9"
-toml = "0.5"
+tokio = {version = "1", features = ["rt-multi-thread", "sync", "time", "net"]}
+tokio-util = {version = "0.7.4", features = ["codec"]}
+tokio-stream = {version = "0.1.11", features = ["sync"]}
+toml = "0.7"
 unicode-width = "0.1.9"
 url = "2.2"
 cursive_buffered_backend = "0.6.1"

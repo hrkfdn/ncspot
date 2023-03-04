@@ -77,7 +77,7 @@ impl ListItem for Show {
     }
 
     fn display_left(&self, _library: Arc<Library>) -> String {
-        format!("{}", self)
+        format!("{self}")
     }
 
     fn display_right(&self, library: Arc<Library>) -> String {

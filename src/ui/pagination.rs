@@ -50,7 +50,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
     }
 
     pub fn at_end(&self) -> bool {
-        (self.offset() + self.limit as u32) >= self.total
+        (self.offset() + self.limit) >= self.total
     }
 
     pub fn apply_pagination(self, pagination: &Pagination<I>) {
@@ -66,7 +66,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
     }
 
     pub fn next(&self) -> Option<Vec<I>> {
-        let offset = self.offset() + self.limit as u32;
+        let offset = self.offset() + self.limit;
         debug!("fetching next page at offset {}", offset);
         if !self.at_end() {
             if let Some(next_page) = (self.fetch_page)(offset) {

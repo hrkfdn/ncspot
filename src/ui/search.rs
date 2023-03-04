@@ -94,7 +94,7 @@ impl View for SearchView {
         }
     }
 
-    fn call_on_any<'a>(&mut self, selector: &Selector<'_>, callback: AnyCb<'a>) {
+    fn call_on_any(&mut self, selector: &Selector<'_>, callback: AnyCb<'_>) {
         self.edit.call_on_any(selector, &mut |v| callback(v));
     }
 

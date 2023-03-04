@@ -2,6 +2,7 @@ use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
+use crate::utils::ms_to_hms;
 use chrono::{DateTime, Utc};
 use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
 use rspotify::model::Id;
@@ -23,9 +24,7 @@ pub struct Episode {
 
 impl Episode {
     pub fn duration_str(&self) -> String {
-        let minutes = self.duration / 60_000;
-        let seconds = (self.duration / 1000) % 60;
-        format!("{:02}:{:02}", minutes, seconds)
+        ms_to_hms(self.duration)
     }
 }
 

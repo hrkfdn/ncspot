@@ -156,7 +156,7 @@ fn get_metadata(playable: Option<Playable>, spotify: Spotify, library: Arc<Libra
                     true => 1.0,
                     false => 0.0,
                 })
-                .unwrap_or(0.0) as f64,
+                .unwrap_or(0.0),
         )),
     );
 
@@ -566,7 +566,7 @@ fn run_dbus_server(
                         let captures = regex.captures(s).unwrap();
                         let uri_type = &captures[2];
                         let id = &captures[3];
-                        format!("spotify:{}:{}", uri_type, id)
+                        format!("spotify:{uri_type}:{id}")
                     }else {
                         s.to_string()
                     };

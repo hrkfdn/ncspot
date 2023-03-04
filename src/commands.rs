@@ -120,7 +120,13 @@ impl CommandManager {
                         self.queue.get_current_index()
                     );
                     s.queuestate.queue = queue.clone();
-                    s.queuestate.random_order = self.queue.get_random_order();
+                    s.queuestate.random_order = self
+                        .queue
+                        .get_random_order()
+                        .read()
+                        .unwrap()
+                        .as_ref()
+                        .cloned();
                     s.queuestate.current_track = self.queue.get_current_index();
                     s.queuestate.track_progress = self.spotify.get_current_progress();
                 });
@@ -267,6 +273,10 @@ impl CommandManager {
                 let cmd = std::ffi::CString::new(cmd.clone()).unwrap();
                 let result = unsafe { libc::system(cmd.as_ptr()) };
                 log::info!("Exit code: {}", result);
+                Ok(None)
+            }
+            Command::Reconnect => {
+                self.spotify.shutdown();
                 Ok(None)
             }
 

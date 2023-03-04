@@ -7,6 +7,7 @@ use crate::model::playlist::Playlist;
 use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
+use crate::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use futures::channel::oneshot;
 use log::{debug, error, info};
@@ -34,14 +35,20 @@ pub struct WebApi {
     token_expiration: Arc<RwLock<DateTime<Utc>>>,
 }
 
-impl WebApi {
-    pub fn new() -> WebApi {
-        WebApi {
+impl Default for WebApi {
+    fn default() -> Self {
+        Self {
             api: AuthCodeSpotify::default(),
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
             token_expiration: Arc::new(RwLock::new(Utc::now())),
         }
+    }
+}
+
+impl WebApi {
+    pub fn new() -> WebApi {
+        Self::default()
     }
 
     pub fn set_user(&mut self, user: Option<String>) {
@@ -78,7 +85,7 @@ impl WebApi {
             .as_ref()
         {
             channel.send(cmd).expect("can't send message to worker");
-            let token_option = futures::executor::block_on(token_rx).unwrap();
+            let token_option = ASYNC_RUNTIME.block_on(token_rx).unwrap();
             if let Some(token) = token_option {
                 *self.api.token.lock().expect("can't writelock api token") = Some(Token {
                     access_token: token.access_token,
@@ -117,9 +124,7 @@ impl WebApi {
                                 .header("Retry-After")
                                 .and_then(|v| v.parse::<u64>().ok());
                             debug!("rate limit hit. waiting {:?} seconds", waiting_duration);
-                            thread::sleep(
-                                Duration::from_secs(waiting_duration.unwrap_or(0) as u64),
-                            );
+                            thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
                             cb(&self.api).ok()
                         }
                         401 => {
@@ -150,17 +155,9 @@ impl WebApi {
         position: Option<i32>,
     ) -> bool {
         self.api_with_retry(|api| {
-            let trackids: Vec<Box<dyn PlayableId>> = tracks
-                .iter()
-                .map(|playable| {
-                    Box::new(
-                        TrackId::from_id(playable.id().as_ref().unwrap_or(&"".to_string()))
-                            .unwrap(),
-                    ) as Box<dyn PlayableId>
-                })
-                .collect();
+            let trackids: Vec<PlayableId> = tracks.iter().map(|playable| playable.into()).collect();
             api.playlist_add_items(
-                &PlaylistId::from_id(playlist_id).unwrap(),
+                PlaylistId::from_id(playlist_id).unwrap(),
                 trackids.iter().map(|id| id.as_ref()),
                 position,
             )
@@ -175,18 +172,8 @@ impl WebApi {
         playables: &[Playable],
     ) -> bool {
         self.api_with_retry(move |api| {
-            let playable_ids: Vec<Box<dyn PlayableId>> = playables
-                .iter()
-                .map(|playable| match playable {
-                    Playable::Track(track) => {
-                        Box::new(TrackId::from_id(&track.id.clone().unwrap_or_default()).unwrap())
-                            as Box<dyn PlayableId>
-                    }
-                    Playable::Episode(episode) => {
-                        Box::new(EpisodeId::from_id(&episode.id).unwrap()) as Box<dyn PlayableId>
-                    }
-                })
-                .collect();
+            let playable_ids: Vec<PlayableId> =
+                playables.iter().map(|playable| playable.into()).collect();
             let positions = playables
                 .iter()
                 .map(|playable| [playable.list_index() as u32])
@@ -200,7 +187,7 @@ impl WebApi {
                 })
                 .collect();
             api.playlist_remove_specific_occurrences_of_items(
-                &PlaylistId::from_id(playlist_id).unwrap(),
+                PlaylistId::from_id(playlist_id).unwrap(),
                 item_pos,
                 Some(snapshot_id),
             )
@@ -220,20 +207,10 @@ impl WebApi {
         };
 
         if let Some(()) = self.api_with_retry(|api| {
-            let playable_ids: Vec<Box<dyn PlayableId>> = tracks
-                .iter()
-                .map(|playable| match playable {
-                    Playable::Track(track) => {
-                        Box::new(TrackId::from_id(&track.id.clone().unwrap_or_default()).unwrap())
-                            as Box<dyn PlayableId>
-                    }
-                    Playable::Episode(episode) => {
-                        Box::new(EpisodeId::from_id(&episode.id).unwrap()) as Box<dyn PlayableId>
-                    }
-                })
-                .collect();
+            let playable_ids: Vec<PlayableId> =
+                tracks.iter().map(|playable| playable.into()).collect();
             api.playlist_replace_items(
-                &PlaylistId::from_id(id).unwrap(),
+                PlaylistId::from_id(id).unwrap(),
                 playable_ids.iter().map(|p| p.as_ref()),
             )
         }) {
@@ -260,7 +237,7 @@ impl WebApi {
     }
 
     pub fn delete_playlist(&self, id: &str) -> bool {
-        self.api_with_retry(|api| api.playlist_unfollow(&PlaylistId::from_id(id).unwrap()))
+        self.api_with_retry(|api| api.playlist_unfollow(PlaylistId::from_id(id).unwrap()))
             .is_some()
     }
 
@@ -272,7 +249,7 @@ impl WebApi {
     ) -> Option<String> {
         let result = self.api_with_retry(|api| {
             api.user_playlist_create(
-                &UserId::from_id(self.user.as_ref().unwrap()).unwrap(),
+                UserId::from_id(self.user.as_ref().unwrap()).unwrap(),
                 name,
                 public,
                 None,
@@ -284,32 +261,32 @@ impl WebApi {
 
     pub fn album(&self, album_id: &str) -> Option<FullAlbum> {
         let aid = AlbumId::from_id(album_id).ok()?;
-        self.api_with_retry(|api| api.album(&aid))
+        self.api_with_retry(|api| api.album(aid.clone()))
     }
 
     pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
         let aid = ArtistId::from_id(artist_id).ok()?;
-        self.api_with_retry(|api| api.artist(&aid))
+        self.api_with_retry(|api| api.artist(aid.clone()))
     }
 
     pub fn playlist(&self, playlist_id: &str) -> Option<FullPlaylist> {
         let pid = PlaylistId::from_id(playlist_id).ok()?;
-        self.api_with_retry(|api| api.playlist(&pid, None, Some(&Market::FromToken)))
+        self.api_with_retry(|api| api.playlist(pid.clone(), None, Some(Market::FromToken)))
     }
 
     pub fn track(&self, track_id: &str) -> Option<FullTrack> {
         let tid = TrackId::from_id(track_id).ok()?;
-        self.api_with_retry(|api| api.track(&tid))
+        self.api_with_retry(|api| api.track(tid.clone()))
     }
 
     pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
         let sid = ShowId::from_id(show_id).ok()?;
-        self.api_with_retry(|api| api.get_a_show(&sid, Some(&Market::FromToken)))
+        self.api_with_retry(|api| api.get_a_show(sid.clone(), Some(Market::FromToken)))
     }
 
     pub fn episode(&self, episode_id: &str) -> Option<FullEpisode> {
         let eid = EpisodeId::from_id(episode_id).ok()?;
-        self.api_with_retry(|api| api.get_an_episode(&eid, Some(&Market::FromToken)))
+        self.api_with_retry(|api| api.get_an_episode(eid.clone(), Some(Market::FromToken)))
     }
 
     pub fn recommendations(
@@ -322,21 +299,21 @@ impl WebApi {
             let seed_artistids = seed_artists.as_ref().map(|artistids| {
                 artistids
                     .iter()
-                    .map(|id| ArtistId::from_id(id).unwrap())
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>()
             });
             let seed_trackids = seed_tracks.as_ref().map(|trackids| {
                 trackids
                     .iter()
-                    .map(|id| TrackId::from_id(id).unwrap())
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>()
             });
             api.recommendations(
                 std::iter::empty(),
-                seed_artistids.as_ref(),
+                seed_artistids,
                 seed_genres.clone(),
-                seed_trackids.as_ref(),
-                Some(&Market::FromToken),
+                seed_trackids,
+                Some(Market::FromToken),
                 Some(100),
             )
         })
@@ -352,8 +329,8 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.search(
                 query,
-                &searchtype,
-                Some(&Market::FromToken),
+                searchtype,
+                Some(Market::FromToken),
                 None,
                 Some(limit),
                 Some(offset),
@@ -392,9 +369,9 @@ impl WebApi {
             );
             spotify.api_with_retry(|api| {
                 match api.playlist_items_manual(
-                    &PlaylistId::from_id(&playlist_id).unwrap(),
+                    PlaylistId::from_id(&playlist_id).unwrap(),
                     None,
-                    Some(&Market::FromToken),
+                    Some(Market::FromToken),
                     Some(MAX_LIMIT),
                     Some(offset),
                 ) {
@@ -424,7 +401,7 @@ impl WebApi {
     }
 
     pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
-        self.api_with_retry(|api| api.album(&AlbumId::from_id(album_id).unwrap()))
+        self.api_with_retry(|api| api.album(AlbumId::from_id(album_id).unwrap()))
     }
 
     pub fn album_tracks(
@@ -435,7 +412,7 @@ impl WebApi {
     ) -> Option<Page<SimplifiedTrack>> {
         self.api_with_retry(|api| {
             api.album_track_manual(
-                &AlbumId::from_id(album_id).unwrap(),
+                AlbumId::from_id(album_id).unwrap(),
                 Some(limit),
                 Some(offset),
             )
@@ -454,9 +431,9 @@ impl WebApi {
             debug!("fetching artist {} albums, offset: {}", artist_id, offset);
             spotify.api_with_retry(|api| {
                 match api.artist_albums_manual(
-                    &ArtistId::from_id(&artist_id).unwrap(),
-                    album_type.as_ref(),
-                    Some(&Market::FromToken),
+                    ArtistId::from_id(&artist_id).unwrap(),
+                    album_type.as_ref().copied(),
+                    Some(Market::FromToken),
                     Some(MAX_SIZE),
                     Some(offset),
                 ) {
@@ -486,8 +463,8 @@ impl WebApi {
             debug!("fetching show {} episodes, offset: {}", &show_id, offset);
             spotify.api_with_retry(|api| {
                 match api.get_shows_episodes_manual(
-                    &ShowId::from_id(&show_id).unwrap(),
-                    Some(&Market::FromToken),
+                    ShowId::from_id(&show_id).unwrap(),
+                    Some(Market::FromToken),
                     Some(50),
                     Some(offset),
                 ) {
@@ -511,8 +488,8 @@ impl WebApi {
     pub fn save_shows(&self, ids: Vec<&str>) -> bool {
         self.api_with_retry(|api| {
             api.save_shows(
-                &ids.iter()
-                    .map(|id| ShowId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| ShowId::from_id(*id).unwrap())
                     .collect::<Vec<ShowId>>(),
             )
         })
@@ -522,10 +499,10 @@ impl WebApi {
     pub fn unsave_shows(&self, ids: Vec<&str>) -> bool {
         self.api_with_retry(|api| {
             api.remove_users_saved_shows(
-                &ids.iter()
-                    .map(|id| ShowId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| ShowId::from_id(*id).unwrap())
                     .collect::<Vec<ShowId>>(),
-                Some(&Market::FromToken),
+                Some(Market::FromToken),
             )
         })
         .is_some()
@@ -541,8 +518,8 @@ impl WebApi {
     pub fn user_follow_artists(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.user_follow_artists(
-                &ids.iter()
-                    .map(|id| ArtistId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>(),
             )
         })
@@ -551,8 +528,8 @@ impl WebApi {
     pub fn user_unfollow_artists(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.user_unfollow_artists(
-                &ids.iter()
-                    .map(|id| ArtistId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| ArtistId::from_id(*id).unwrap())
                     .collect::<Vec<ArtistId>>(),
             )
         })
@@ -560,15 +537,15 @@ impl WebApi {
 
     pub fn current_user_saved_albums(&self, offset: u32) -> Option<Page<SavedAlbum>> {
         self.api_with_retry(|api| {
-            api.current_user_saved_albums_manual(Some(&Market::FromToken), Some(50), Some(offset))
+            api.current_user_saved_albums_manual(Some(Market::FromToken), Some(50), Some(offset))
         })
     }
 
     pub fn current_user_saved_albums_add(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.current_user_saved_albums_add(
-                &ids.iter()
-                    .map(|id| AlbumId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| AlbumId::from_id(*id).unwrap())
                     .collect::<Vec<AlbumId>>(),
             )
         })
@@ -577,8 +554,8 @@ impl WebApi {
     pub fn current_user_saved_albums_delete(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.current_user_saved_albums_delete(
-                &ids.iter()
-                    .map(|id| AlbumId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| AlbumId::from_id(*id).unwrap())
                     .collect::<Vec<AlbumId>>(),
             )
         })
@@ -586,15 +563,15 @@ impl WebApi {
 
     pub fn current_user_saved_tracks(&self, offset: u32) -> Option<Page<SavedTrack>> {
         self.api_with_retry(|api| {
-            api.current_user_saved_tracks_manual(Some(&Market::FromToken), Some(50), Some(offset))
+            api.current_user_saved_tracks_manual(Some(Market::FromToken), Some(50), Some(offset))
         })
     }
 
     pub fn current_user_saved_tracks_add(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.current_user_saved_tracks_add(
-                &ids.iter()
-                    .map(|id| TrackId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>(),
             )
         })
@@ -603,26 +580,26 @@ impl WebApi {
     pub fn current_user_saved_tracks_delete(&self, ids: Vec<&str>) -> Option<()> {
         self.api_with_retry(|api| {
             api.current_user_saved_tracks_delete(
-                &ids.iter()
-                    .map(|id| TrackId::from_id(id).unwrap())
+                ids.iter()
+                    .map(|id| TrackId::from_id(*id).unwrap())
                     .collect::<Vec<TrackId>>(),
             )
         })
     }
 
     pub fn user_playlist_follow_playlist(&self, id: &str) -> Option<()> {
-        self.api_with_retry(|api| api.playlist_follow(&PlaylistId::from_id(id).unwrap(), None))
+        self.api_with_retry(|api| api.playlist_follow(PlaylistId::from_id(id).unwrap(), None))
     }
 
     pub fn artist_top_tracks(&self, id: &str) -> Option<Vec<Track>> {
         self.api_with_retry(|api| {
-            api.artist_top_tracks(&ArtistId::from_id(id).unwrap(), &Market::FromToken)
+            api.artist_top_tracks(ArtistId::from_id(id).unwrap(), Market::FromToken)
         })
         .map(|ft| ft.iter().map(|t| t.into()).collect())
     }
 
     pub fn artist_related_artists(&self, id: &str) -> Option<Vec<Artist>> {
-        self.api_with_retry(|api| api.artist_related_artists(&ArtistId::from_id(id).unwrap()))
+        self.api_with_retry(|api| api.artist_related_artists(ArtistId::from_id(id).unwrap()))
             .map(|fa| fa.iter().map(|a| a.into()).collect())
     }
 
@@ -634,7 +611,7 @@ impl WebApi {
             spotify.api_with_retry(|api| {
                 match api.categories_manual(
                     None,
-                    Some(&Market::FromToken),
+                    Some(Market::FromToken),
                     Some(MAX_LIMIT),
                     Some(offset),
                 ) {
@@ -659,7 +636,7 @@ impl WebApi {
             spotify.api_with_retry(|api| {
                 match api.category_playlists_manual(
                     &category_id,
-                    Some(&Market::FromToken),
+                    Some(Market::FromToken),
                     Some(MAX_LIMIT),
                     Some(offset),
                 ) {

@@ -67,7 +67,7 @@ pub fn read_share() -> Option<String> {
                     string = None
                 }
                 Err(err) => {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                     string = None
                 }
             }

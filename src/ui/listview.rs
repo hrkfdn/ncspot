@@ -34,6 +34,7 @@ use crate::ui::pagination::Pagination;
 
 pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
+    order: Arc<RwLock<Option<Vec<usize>>>>,
     last_content_len: usize,
     selected: usize,
     search_query: String,
@@ -61,6 +62,7 @@ impl<I: ListItem + Clone> ListView<I> {
     pub fn new(content: Arc<RwLock<Vec<I>>>, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let result = Self {
             content,
+            order: Arc::new(RwLock::new(None)),
             last_content_len: 0,
             selected: 0,
             search_query: String::new(),
@@ -75,6 +77,11 @@ impl<I: ListItem + Clone> ListView<I> {
         };
         result.try_paginate();
         result
+    }
+
+    pub fn with_order(mut self, order: Arc<RwLock<Option<Vec<usize>>>>) -> Self {
+        self.order = order;
+        self
     }
 
     pub fn with_title(mut self, title: &str) -> Self {
@@ -193,11 +200,19 @@ impl<I: ListItem + Clone> View for ListView<I> {
                     printer.print((0, 0), &buf);
                 });
             } else if i < content.len() {
-                let item = &content[i];
+                let current_index = if self.order.read().unwrap().is_some() {
+                    self.order.read().unwrap().as_ref().unwrap()[i]
+                } else {
+                    i
+                };
+
+                let item = &content[current_index];
+
                 let currently_playing = item.is_playing(self.queue.clone())
-                    && self.queue.get_current_index() == Some(i);
+                    && self.queue.get_current_index() == Some(current_index);
 
                 let style = if self.selected == i {
+                    // Highlight the currently selected item.
                     if currently_playing {
                         ColorStyle::new(
                             *printer.theme.palette.custom("playing_selected").unwrap(),
@@ -207,6 +222,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
                         ColorStyle::highlight()
                     }
                 } else if currently_playing {
+                    // Apply a different color to the currently playing item.
                     ColorStyle::new(
                         ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
                         ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
