@@ -55,7 +55,7 @@ impl Playlist {
         })
     }
 
-    pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: Arc<Library>) -> bool {
+    pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: &Library) -> bool {
         let track = self.tracks.as_ref().unwrap()[index].clone();
         debug!("deleting track: {} {:?}", index, track);
         match spotify
@@ -74,12 +74,7 @@ impl Playlist {
         }
     }
 
-    pub fn append_tracks(
-        &mut self,
-        new_tracks: &[Playable],
-        spotify: Spotify,
-        library: Arc<Library>,
-    ) {
+    pub fn append_tracks(&mut self, new_tracks: &[Playable], spotify: &Spotify, library: &Library) {
         let mut has_modified = false;
 
         if spotify.api.append_tracks(&self.id, new_tracks, None) {
@@ -175,7 +170,7 @@ impl From<&FullPlaylist> for Playlist {
 }
 
 impl ListItem for Playlist {
-    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, queue: &Queue) -> bool {
         if let Some(tracks) = self.tracks.as_ref() {
             let playing: Vec<String> = queue
                 .queue
@@ -191,7 +186,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn display_left(&self, library: Arc<Library>) -> String {
+    fn display_left(&self, library: &Library) -> String {
         let hide_owners = library.cfg.values().hide_display_names.unwrap_or(false);
         match (self.owner_name.as_ref(), hide_owners) {
             (Some(owner), false) => format!("{} • {}", self.name, owner),
@@ -199,7 +194,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, library: &Library) -> String {
         let saved = if library.is_saved_playlist(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
@@ -219,7 +214,7 @@ impl ListItem for Playlist {
         format!("{saved}{num_tracks:>4} tracks")
     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: &Queue) {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = &self.tracks {
@@ -228,7 +223,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
+    fn play_next(&mut self, queue: &Queue) {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -238,7 +233,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: &Queue) {
         self.load_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -248,7 +243,7 @@ impl ListItem for Playlist {
         }
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
+    fn toggle_saved(&mut self, library: &Library) {
         // Don't allow users to unsave their own playlists with one keypress
         if !library.is_followed_playlist(self) {
             return;
@@ -261,11 +256,11 @@ impl ListItem for Playlist {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
+    fn save(&mut self, library: &Library) {
         library.follow_playlist(self);
     }
 
-    fn unsave(&mut self, library: Arc<Library>) {
+    fn unsave(&mut self, library: &Library) {
         library.delete_playlist(&self.id);
     }
 
@@ -324,7 +319,7 @@ impl ListItem for Playlist {
         ))
     }
 
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    fn is_saved(&self, library: &Library) -> Option<bool> {
         // save status of personal playlists can't be toggled for safety
         if !library.is_followed_playlist(self) {
             return None;

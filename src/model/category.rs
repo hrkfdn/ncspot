@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
+    library::Library,
+    queue::Queue,
     traits::{IntoBoxedViewExt, ListItem},
     ui::listview::ListView,
 };
@@ -21,29 +23,29 @@ impl From<&rspotify::model::Category> for Category {
 }
 
 impl ListItem for Category {
-    fn is_playing(&self, _queue: Arc<crate::queue::Queue>) -> bool {
+    fn is_playing(&self, _queue: &Queue) -> bool {
         false
     }
 
-    fn display_left(&self, _library: Arc<crate::library::Library>) -> String {
+    fn display_left(&self, _library: &Library) -> String {
         self.name.clone()
     }
 
-    fn display_right(&self, _library: Arc<crate::library::Library>) -> String {
+    fn display_right(&self, _library: &Library) -> String {
         "".to_string()
     }
 
-    fn play(&mut self, _queue: Arc<crate::queue::Queue>) {}
+    fn play(&mut self, _queue: &Queue) {}
 
-    fn play_next(&mut self, _queue: Arc<crate::queue::Queue>) {}
+    fn play_next(&mut self, _queue: &Queue) {}
 
-    fn queue(&mut self, _queue: Arc<crate::queue::Queue>) {}
+    fn queue(&mut self, _queue: &Queue) {}
 
-    fn toggle_saved(&mut self, _library: Arc<crate::library::Library>) {}
+    fn toggle_saved(&mut self, _library: &Library) {}
 
-    fn save(&mut self, _library: Arc<crate::library::Library>) {}
+    fn save(&mut self, _library: &Library) {}
 
-    fn unsave(&mut self, _library: Arc<crate::library::Library>) {}
+    fn unsave(&mut self, _library: &Library) {}
 
     fn open(
         &self,
