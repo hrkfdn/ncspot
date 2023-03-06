@@ -1,0 +1,13 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap_mangen = "0.2.8"
+clap = "4.1.6"
+
+[dependencies.ncspot]
+path = ".."

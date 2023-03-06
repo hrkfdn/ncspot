@@ -13,6 +13,12 @@ version = "0.12.0"
 [badges]
 maintenance = {status = "actively-developed"}
 
+[workspace]
+members = [
+    ".",
+    "xtask"
+]
+
 [dependencies]
 chrono = "0.4"
 clap = "4.1.7"

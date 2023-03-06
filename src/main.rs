@@ -12,14 +12,13 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use clap::{Arg, Command as ClapCommand};
 use cursive::event::EventTrigger;
 use cursive::traits::Nameable;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
-use librespot_playback::audio_backend;
 use log::{error, info, trace};
 
+use ncspot::program_arguments;
 #[cfg(unix)]
 use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
@@ -130,38 +129,7 @@ lazy_static!(
 fn main() -> Result<(), String> {
     register_backtrace_panic_handler();
 
-    let backends = {
-        let backends: Vec<&str> = audio_backend::BACKENDS.iter().map(|b| b.0).collect();
-        format!("Audio backends: {}", backends.join(", "))
-    };
-    let matches = ClapCommand::new("ncspot")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author("Henrik Friedrichsen <henrik@affekt.org> and contributors")
-        .about("cross-platform ncurses Spotify client")
-        .after_help(backends)
-        .arg(
-            Arg::new("debug")
-                .short('d')
-                .long("debug")
-                .value_name("FILE")
-                .help("Enable debug logging to the specified file"),
-        )
-        .arg(
-            Arg::new("basepath")
-                .short('b')
-                .long("basepath")
-                .value_name("PATH")
-                .help("custom basepath to config/cache files"),
-        )
-        .arg(
-            Arg::new("config")
-                .short('c')
-                .long("config")
-                .value_name("FILE")
-                .help("Filename of config file in basepath")
-                .default_value("config.toml"),
-        )
-        .get_matches();
+    let matches = program_arguments().get_matches();
 
     if let Some(filename) = matches.get_one::<String>("debug") {
         setup_logging(filename).expect("can't setup logging");
