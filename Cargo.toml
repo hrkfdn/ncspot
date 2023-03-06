@@ -91,7 +91,7 @@ assets = [
   ["images/logo.svg", "usr/share/icons/hicolor/scalable/apps/ncspot.svg", "644"],
   ["README.md", "usr/share/doc/ncspot/README.md", "644"],
 ]
-depends = "$auto, pulseaudio"
+depends = "$auto"
 extended-description = """\
 ncurses Spotify client written in Rust using librespot. \
 It is heavily inspired by ncurses MPD clients, such as ncmpc."""
