@@ -574,7 +574,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                                 MoveAmount::Float(scale) => {
                                     let amount = (self.last_size.y as f32) * scale;
                                     self.move_focus(amount as i32)
-                                },
+                                }
                                 MoveAmount::Integer(amount) => self.move_focus(*amount),
                             }
                         }
