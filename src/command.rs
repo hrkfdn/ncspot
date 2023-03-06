@@ -187,7 +187,6 @@ impl fmt::Display for Command {
                 (MoveMode::Down, MoveAmount::Extreme) => vec!["bottom".to_string()],
                 (MoveMode::Left, MoveAmount::Extreme) => vec!["leftmost".to_string()],
                 (MoveMode::Right, MoveAmount::Extreme) => vec!["rightmost".to_string()],
-                (MoveMode::Up, MoveAmount::HalfPage) => vec!["halfpageup".to_string()],
                 (mode, MoveAmount::Float(amount)) => vec![mode.to_string(), amount.to_string()],
                 (mode, MoveAmount::Integer(amount)) => vec![mode.to_string(), amount.to_string()],
             },
