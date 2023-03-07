@@ -12,5 +12,10 @@ tags
 
 /.vscode/
 
-# Ignore generated manpages
+# Ignore generated resources
 *.1
+misc/_ncspot
+misc/ncspot.bash
+misc/ncspot.fish
+misc/ncspot.elv
+misc/_ncspot.ps1
