@@ -433,7 +433,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "focus" => {
                     let &target = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
-                        hint: Some("queue|search|library".into()),
+                        hint: Some("queue|search|library|lyrics".into()), // TODO: these names should come from a "central" registrar for views so that contributors don't need to always keep updating it
                     })?;
                     // TODO: this really should be strongly typed
                     Command::Focus(target.into())
