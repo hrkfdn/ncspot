@@ -79,7 +79,7 @@ impl StatusBar {
             .statusbar_format
             .clone()
             .unwrap_or_else(|| "%artists - %title".to_string());
-        Playable::format(t, &format, self.library.clone())
+        Playable::format(t, &format, &self.library)
     }
 }
 

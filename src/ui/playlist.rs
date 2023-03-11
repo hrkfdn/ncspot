@@ -82,7 +82,7 @@ impl ViewExt for PlaylistView {
             let pos = self.list.get_selected_index();
             if self
                 .playlist
-                .delete_track(pos, self.spotify.clone(), self.library.clone())
+                .delete_track(pos, self.spotify.clone(), &self.library)
             {
                 self.list.remove(pos);
             }

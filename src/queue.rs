@@ -43,7 +43,7 @@ pub struct Queue {
     /// the raw data only.
     pub queue: Arc<RwLock<Vec<Playable>>>,
     /// The playback order of the queue, as indices into `self.queue`.
-    random_order: Arc<RwLock<Option<Vec<usize>>>>,
+    random_order: RwLock<Option<Vec<usize>>>,
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
@@ -62,7 +62,7 @@ impl Queue {
             queue: Arc::new(RwLock::new(queue_state.queue)),
             spotify: spotify.clone(),
             current_track: RwLock::new(queue_state.current_track),
-            random_order: Arc::new(RwLock::new(queue_state.random_order)),
+            random_order: RwLock::new(queue_state.random_order),
             cfg,
             #[cfg(feature = "notify")]
             notification_id: Arc::new(AtomicU32::new(0)),
@@ -336,8 +336,8 @@ impl Queue {
                     let default_body = NotificationFormat::default().body.unwrap();
                     let body = format.body.unwrap_or_else(|| default_body.clone());
 
-                    let summary_txt = Playable::format(track, &title, self.library.clone());
-                    let body_txt = Playable::format(track, &body, self.library.clone());
+                    let summary_txt = Playable::format(track, &title, &self.library);
+                    let body_txt = Playable::format(track, &body, &self.library);
                     let cover_url = track.cover_url();
                     move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
                 });
@@ -442,8 +442,8 @@ impl Queue {
     }
 
     /// Get the current order that is used to shuffle.
-    pub fn get_random_order(&self) -> Arc<RwLock<Option<Vec<usize>>>> {
-        self.random_order.clone()
+    pub fn get_random_order(&self) -> Option<Vec<usize>> {
+        self.random_order.read().unwrap().clone()
     }
 
     /// (Re)generate the random shuffle order.

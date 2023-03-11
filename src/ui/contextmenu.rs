@@ -67,7 +67,6 @@ impl ContextMenu {
             }
         }
 
-        list_select.set_autojump(true);
         list_select.set_on_submit(move |s, selected| {
             let track = track.clone();
             let mut playlist = selected.clone();
@@ -79,10 +78,8 @@ impl ContextMenu {
 
                 already_added_dialog.add_button("Add anyway", move |c| {
                     let mut playlist = playlist.clone();
-                    let spotify = spotify.clone();
-                    let library = library.clone();
 
-                    playlist.append_tracks(&[Playable::Track(track.clone())], spotify, library);
+                    playlist.append_tracks(&[Playable::Track(track.clone())], &spotify, &library);
                     c.pop_layer();
 
                     // Close add_track_dialog too
@@ -92,7 +89,7 @@ impl ContextMenu {
                 let modal = Modal::new(already_added_dialog);
                 s.add_layer(modal);
             } else {
-                playlist.append_tracks(&[Playable::Track(track)], spotify, library);
+                playlist.append_tracks(&[Playable::Track(track)], &spotify, &library);
                 s.pop_layer();
             }
         });
@@ -170,9 +167,9 @@ impl ContextMenu {
                 }
                 false => {
                     if library.clone().is_followed_artist(&moved_artist) {
-                        moved_artist.clone().unsave(library.clone());
+                        moved_artist.clone().unsave(&library);
                     } else {
-                        moved_artist.clone().save(library.clone());
+                        moved_artist.clone().save(&library);
                     }
                 }
             }
@@ -205,13 +202,13 @@ impl ContextMenu {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
 
         if item.is_playable() {
-            if item.is_playing(queue.clone())
+            if item.is_playing(&queue)
                 && queue.get_spotify().get_current_status()
                     == PlayerEvent::Paused(queue.get_spotify().get_current_progress())
             {
                 // the item is the current track, but paused
                 content.insert_item(0, "Resume", ContextMenuAction::TogglePlayback);
-            } else if !item.is_playing(queue.clone()) {
+            } else if !item.is_playing(&queue) {
                 // the item is not the current track
                 content.insert_item(0, "Play", ContextMenuAction::Play(item.as_listitem()));
             } else {
@@ -241,7 +238,7 @@ impl ContextMenu {
             }
         }
 
-        if let Some(a) = item.album(queue.clone()) {
+        if let Some(a) = item.album(&queue) {
             content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
         }
 
@@ -250,7 +247,7 @@ impl ContextMenu {
             if let Some(url) = item.share_url() {
                 content.add_item("Share", ContextMenuAction::ShareUrl(url));
             }
-            if let Some(url) = item.album(queue.clone()).and_then(|a| a.share_url()) {
+            if let Some(url) = item.album(&queue).and_then(|a| a.share_url()) {
                 content.add_item("Share album", ContextMenuAction::ShareUrl(url));
             }
         }
@@ -266,7 +263,7 @@ impl ContextMenu {
             )
         }
         // If the item is saveable, its save state will be set
-        if let Some(savestatus) = item.is_saved(library.clone()) {
+        if let Some(savestatus) = item.is_saved(&library) {
             content.add_item(
                 match savestatus {
                     true => "Unsave",
@@ -276,8 +273,8 @@ impl ContextMenu {
             );
         }
 
-        if let Some(album) = item.album(queue.clone()) {
-            if let Some(savestatus) = album.is_saved(library.clone()) {
+        if let Some(album) = item.album(&queue) {
+            if let Some(savestatus) = album.is_saved(&library) {
                 content.add_item(
                     match savestatus {
                         true => "Unsave album",
@@ -326,18 +323,18 @@ impl ContextMenu {
                         s.add_layer(dialog);
                     }
                     ContextMenuAction::ToggleSavedStatus(item) => {
-                        item.as_listitem().toggle_saved(library)
+                        item.as_listitem().toggle_saved(&library)
                     }
-                    ContextMenuAction::Play(item) => item.as_listitem().play(queue),
-                    ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(queue),
+                    ContextMenuAction::Play(item) => item.as_listitem().play(&queue),
+                    ContextMenuAction::PlayNext(item) => item.as_listitem().play_next(&queue),
                     ContextMenuAction::TogglePlayback => queue.toggleplayback(),
-                    ContextMenuAction::Queue(item) => item.as_listitem().queue(queue),
+                    ContextMenuAction::Queue(item) => item.as_listitem().queue(&queue),
                 }
             });
         }
 
         let dialog = Dialog::new()
-            .title(item.display_left(library))
+            .title(item.display_left(&library))
             .dismiss_button("Close")
             .padding(Margins::lrtb(1, 1, 1, 0))
             .content(content.with_name("contextmenu_select"));

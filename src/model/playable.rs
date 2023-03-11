@@ -20,7 +20,7 @@ pub enum Playable {
 }
 
 impl Playable {
-    pub fn format(playable: &Playable, formatting: &str, library: Arc<Library>) -> String {
+    pub fn format(playable: &Playable, formatting: &str, library: &Library) -> String {
         formatting
             .replace(
                 "%artists",
@@ -162,43 +162,43 @@ impl fmt::Display for Playable {
 }
 
 impl ListItem for Playable {
-    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, queue: &Queue) -> bool {
         self.as_listitem().is_playing(queue)
     }
 
-    fn display_left(&self, library: Arc<Library>) -> String {
+    fn display_left(&self, library: &Library) -> String {
         self.as_listitem().display_left(library)
     }
 
-    fn display_center(&self, library: Arc<Library>) -> String {
+    fn display_center(&self, library: &Library) -> String {
         self.as_listitem().display_center(library)
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, library: &Library) -> String {
         self.as_listitem().display_right(library)
     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: &Queue) {
         self.as_listitem().play(queue)
     }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
+    fn play_next(&mut self, queue: &Queue) {
         self.as_listitem().play_next(queue)
     }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: &Queue) {
         self.as_listitem().queue(queue)
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
+    fn toggle_saved(&mut self, library: &Library) {
         self.as_listitem().toggle_saved(library)
     }
 
-    fn save(&mut self, library: Arc<Library>) {
+    fn save(&mut self, library: &Library) {
         self.as_listitem().save(library)
     }
 
-    fn unsave(&mut self, library: Arc<Library>) {
+    fn unsave(&mut self, library: &Library) {
         self.as_listitem().unsave(library)
     }
 
@@ -210,7 +210,7 @@ impl ListItem for Playable {
         self.as_listitem().share_url()
     }
 
-    fn album(&self, queue: Arc<Queue>) -> Option<Album> {
+    fn album(&self, queue: &Queue) -> Option<Album> {
         self.as_listitem().album(queue)
     }
 

@@ -8,10 +8,16 @@ license = "BSD-2-Clause"
 name = "ncspot"
 readme = "README.md"
 repository = "https://github.com/hrkfdn/ncspot"
-version = "0.12.0"
+version = "0.13.0"
 
 [badges]
 maintenance = {status = "actively-developed"}
+
+[workspace]
+members = [
+    ".",
+    "xtask"
+]
 
 [dependencies]
 chrono = "0.4"
@@ -91,7 +97,7 @@ assets = [
   ["images/logo.svg", "usr/share/icons/hicolor/scalable/apps/ncspot.svg", "644"],
   ["README.md", "usr/share/doc/ncspot/README.md", "644"],
 ]
-depends = "$auto, pulseaudio"
+depends = "$auto"
 extended-description = """\
 ncurses Spotify client written in Rust using librespot. \
 It is heavily inspired by ncurses MPD clients, such as ncmpc."""

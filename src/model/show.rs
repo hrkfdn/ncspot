@@ -72,15 +72,15 @@ impl fmt::Display for Show {
 }
 
 impl ListItem for Show {
-    fn is_playing(&self, _queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, _queue: &Queue) -> bool {
         false
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
+    fn display_left(&self, _library: &Library) -> String {
         format!("{self}")
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, library: &Library) -> String {
         let saved = if library.is_saved_show(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
@@ -93,7 +93,7 @@ impl ListItem for Show {
         saved.to_owned()
     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: &Queue) {
         self.load_all_episodes(queue.get_spotify());
 
         let playables = self
@@ -108,7 +108,7 @@ impl ListItem for Show {
         queue.play(index, true, true);
     }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
+    fn play_next(&mut self, queue: &Queue) {
         self.load_all_episodes(queue.get_spotify());
 
         if let Some(episodes) = self.episodes.as_ref() {
@@ -118,7 +118,7 @@ impl ListItem for Show {
         }
     }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: &Queue) {
         self.load_all_episodes(queue.get_spotify());
 
         for ep in self.episodes.as_ref().unwrap_or(&Vec::new()) {
@@ -126,7 +126,7 @@ impl ListItem for Show {
         }
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
+    fn toggle_saved(&mut self, library: &Library) {
         if library.is_saved_show(self) {
             self.unsave(library);
         } else {
@@ -134,11 +134,11 @@ impl ListItem for Show {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
+    fn save(&mut self, library: &Library) {
         library.save_show(self);
     }
 
-    fn unsave(&mut self, library: Arc<Library>) {
+    fn unsave(&mut self, library: &Library) {
         library.unsave_show(self);
     }
 
@@ -151,7 +151,7 @@ impl ListItem for Show {
     }
 
     #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    fn is_saved(&self, library: &Library) -> Option<bool> {
         Some(library.is_saved_show(self))
     }
 

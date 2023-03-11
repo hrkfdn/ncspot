@@ -78,7 +78,7 @@ impl fmt::Debug for Artist {
 }
 
 impl ListItem for Artist {
-    fn is_playing(&self, queue: Arc<Queue>) -> bool {
+    fn is_playing(&self, queue: &Queue) -> bool {
         if let Some(tracks) = &self.tracks {
             let playing: Vec<String> = queue
                 .queue
@@ -94,11 +94,11 @@ impl ListItem for Artist {
         }
     }
 
-    fn display_left(&self, _library: Arc<Library>) -> String {
+    fn display_left(&self, _library: &Library) -> String {
         format!("{self}")
     }
 
-    fn display_right(&self, library: Arc<Library>) -> String {
+    fn display_right(&self, library: &Library) -> String {
         let followed = if library.is_followed_artist(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {
                 "\u{f62b} "
@@ -118,7 +118,7 @@ impl ListItem for Artist {
         format!("{followed}{tracks}")
     }
 
-    fn play(&mut self, queue: Arc<Queue>) {
+    fn play(&mut self, queue: &Queue) {
         self.load_top_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -131,7 +131,7 @@ impl ListItem for Artist {
         }
     }
 
-    fn play_next(&mut self, queue: Arc<Queue>) {
+    fn play_next(&mut self, queue: &Queue) {
         self.load_top_tracks(queue.get_spotify());
 
         if let Some(tracks) = self.tracks.as_ref() {
@@ -141,7 +141,7 @@ impl ListItem for Artist {
         }
     }
 
-    fn queue(&mut self, queue: Arc<Queue>) {
+    fn queue(&mut self, queue: &Queue) {
         self.load_top_tracks(queue.get_spotify());
 
         if let Some(tracks) = &self.tracks {
@@ -151,7 +151,7 @@ impl ListItem for Artist {
         }
     }
 
-    fn toggle_saved(&mut self, library: Arc<Library>) {
+    fn toggle_saved(&mut self, library: &Library) {
         if library.is_followed_artist(self) {
             library.unfollow_artist(self);
         } else {
@@ -159,11 +159,11 @@ impl ListItem for Artist {
         }
     }
 
-    fn save(&mut self, library: Arc<Library>) {
+    fn save(&mut self, library: &Library) {
         library.follow_artist(self);
     }
 
-    fn unsave(&mut self, library: Arc<Library>) {
+    fn unsave(&mut self, library: &Library) {
         library.unfollow_artist(self);
     }
 
@@ -203,7 +203,7 @@ impl ListItem for Artist {
     }
 
     #[inline]
-    fn is_saved(&self, library: Arc<Library>) -> Option<bool> {
+    fn is_saved(&self, library: &Library) -> Option<bool> {
         Some(library.is_followed_artist(self))
     }
 

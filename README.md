@@ -41,6 +41,7 @@ You **must** have an existing premium Spotify subscription to use `ncspot`.
     - [Debugging](#debugging)
     - [Compiling](#compiling)
       - [Building a Debian Package](#building-a-debian-package)
+      - [Packaging Information](#packaging-information)
     - [Audio Backends](#audio-backends)
     - [Other Features](#other-features)
   - [Key Bindings](#key-bindings)
@@ -169,6 +170,21 @@ cargo deb
 ```
 
 You can find the package under `target/debian`.
+
+#### Packaging Information
+
+The following files are provided and should be bundled together with ncspot:
+- LICENSE
+- images/logo.svg (optional)
+- misc/ncspot.desktop (for Linux systems)
+- misc/ncspot.1 (for Linux systems)
+- misc/ncspot.bash (bash completions)
+- misc/\_ncspot (zsh completions)
+- misc/ncspot.fish (fish completions)
+- misc/ncspot.elv (elvish completions)
+- misc/\_ncspot.ps1 (powershell completions)
+
+Some of these files have to be generated. Execute `cargo xtask --help` for more information.
 
 ### Audio Backends
 
