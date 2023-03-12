@@ -11,4 +11,5 @@ clap_complete = "4.1.4"
 clap = "4.1.6"
 
 [dependencies.ncspot]
+default-features = false
 path = ".."
