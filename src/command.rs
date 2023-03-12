@@ -33,6 +33,7 @@ pub enum MoveMode {
 #[strum(serialize_all = "lowercase")]
 pub enum MoveAmount {
     Integer(i32),
+    Float(f32),
     Extreme,
 }
 
@@ -186,6 +187,7 @@ impl fmt::Display for Command {
                 (MoveMode::Down, MoveAmount::Extreme) => vec!["bottom".to_string()],
                 (MoveMode::Left, MoveAmount::Extreme) => vec!["leftmost".to_string()],
                 (MoveMode::Right, MoveAmount::Extreme) => vec!["rightmost".to_string()],
+                (mode, MoveAmount::Float(amount)) => vec![mode.to_string(), amount.to_string()],
                 (mode, MoveAmount::Integer(amount)) => vec![mode.to_string(), amount.to_string()],
             },
             Command::Shift(mode, amount) => vec![mode.to_string(), amount.unwrap_or(1).to_string()],
@@ -562,10 +564,10 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         use MoveMode::*;
                         match move_mode_raw {
                             "playing" => Ok(Playing),
-                            "top" | "up" => Ok(Up),
-                            "bottom" | "down" => Ok(Down),
-                            "leftmost" | "left" => Ok(Left),
-                            "rightmost" | "right" => Ok(Right),
+                            "top" | "pageup" | "up" => Ok(Up),
+                            "bottom" | "pagedown" | "down" => Ok(Down),
+                            "leftmost" | "pageleft" | "left" => Ok(Left),
+                            "rightmost" | "pageright" | "right" => Ok(Right),
                             _ => Err(BadEnumArg {
                                 arg: move_mode_raw.into(),
                                 accept: vec![
@@ -574,6 +576,10 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                     "bottom".into(),
                                     "leftmost".into(),
                                     "rightmost".into(),
+                                    "pageup".into(),
+                                    "pagedown".into(),
+                                    "pageleft".into(),
+                                    "pageright".into(),
                                     "up".into(),
                                     "down".into(),
                                     "left".into(),
@@ -585,6 +591,19 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let move_amount = match move_mode_raw {
                         "playing" => Ok(MoveAmount::default()),
                         "top" | "bottom" | "leftmost" | "rightmost" => Ok(MoveAmount::Extreme),
+                        "pageup" | "pagedown" | "pageleft" | "pageright" => {
+                            let amount = match args.get(1) {
+                                Some(&amount_raw) => amount_raw
+                                    .parse::<f32>()
+                                    .map(MoveAmount::Float)
+                                    .map_err(|err| ArgParseError {
+                                        arg: amount_raw.into(),
+                                        err: err.to_string(),
+                                    })?,
+                                None => MoveAmount::default(),
+                            };
+                            Ok(amount)
+                        }
                         "up" | "down" | "left" | "right" => {
                             let amount = match args.get(1) {
                                 Some(&amount_raw) => amount_raw

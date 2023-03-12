@@ -1,4 +1,5 @@
 use cursive::views::ViewRef;
+use cursive::{View, XY};
 
 use crate::command::{Command, MoveAmount, MoveMode};
 use crate::commands::CommandResult;
@@ -37,6 +38,10 @@ impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
                     MoveMode::Up => {
                         match amount {
                             MoveAmount::Extreme => self.set_selection(0),
+                            MoveAmount::Float(scale) => {
+                                let amount = (*self).required_size(XY::default()).y as f32 * scale;
+                                self.select_up(amount as usize)
+                            }
                             MoveAmount::Integer(amount) => self.select_up(*amount as usize),
                         };
                         Ok(CommandResult::Consumed(None))
@@ -44,6 +49,10 @@ impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
                     MoveMode::Down => {
                         match amount {
                             MoveAmount::Extreme => self.set_selection(items),
+                            MoveAmount::Float(scale) => {
+                                let amount = (*self).required_size(XY::default()).y as f32 * scale;
+                                self.select_down(amount as usize)
+                            }
                             MoveAmount::Integer(amount) => self.select_down(*amount as usize),
                         };
                         Ok(CommandResult::Consumed(None))

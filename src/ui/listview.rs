@@ -542,6 +542,10 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         if self.selected > 0 {
                             match amount {
                                 MoveAmount::Extreme => self.move_focus_to(0),
+                                MoveAmount::Float(scale) => {
+                                    let amount = (self.last_size.y as f32) * scale;
+                                    self.move_focus(-(amount as i32))
+                                }
                                 MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
                             }
                         }
@@ -551,6 +555,10 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         if self.selected < last_idx {
                             match amount {
                                 MoveAmount::Extreme => self.move_focus_to(last_idx),
+                                MoveAmount::Float(scale) => {
+                                    let amount = (self.last_size.y as f32) * scale;
+                                    self.move_focus(amount as i32)
+                                }
                                 MoveAmount::Integer(amount) => self.move_focus(*amount),
                             }
                         }

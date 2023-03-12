@@ -70,6 +70,11 @@ impl ViewExt for HelpView {
                             MoveAmount::Extreme => {
                                 self.view.scroll_to_top();
                             }
+                            MoveAmount::Float(scale) => {
+                                let amount = (viewport.height() as f32) * scale;
+                                scroller
+                                    .scroll_to_y(viewport.top().saturating_sub(amount as usize));
+                            }
                             MoveAmount::Integer(amount) => scroller
                                 .scroll_to_y(viewport.top().saturating_sub(*amount as usize)),
                         };
@@ -79,6 +84,11 @@ impl ViewExt for HelpView {
                         match amount {
                             MoveAmount::Extreme => {
                                 self.view.scroll_to_bottom();
+                            }
+                            MoveAmount::Float(scale) => {
+                                let amount = (viewport.height() as f32) * scale;
+                                scroller
+                                    .scroll_to_y(viewport.bottom().saturating_add(amount as usize));
                             }
                             MoveAmount::Integer(amount) => scroller
                                 .scroll_to_y(viewport.bottom().saturating_add(*amount as usize)),

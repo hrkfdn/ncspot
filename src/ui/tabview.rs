@@ -144,6 +144,7 @@ impl ViewExt for TabView {
                     match amount {
                         MoveAmount::Extreme => self.move_focus_to(0),
                         MoveAmount::Integer(amount) => self.move_focus(-(*amount)),
+                        _ => (),
                     }
                     return Ok(CommandResult::Consumed(None));
                 }
@@ -151,6 +152,7 @@ impl ViewExt for TabView {
                     match amount {
                         MoveAmount::Extreme => self.move_focus_to(last_idx),
                         MoveAmount::Integer(amount) => self.move_focus(*amount),
+                        _ => (),
                     }
                     return Ok(CommandResult::Consumed(None));
                 }
