@@ -4,43 +4,61 @@ use cursive::{
     theme::Effect,
     utils::markup::StyledString,
     view::ViewWrapper,
-    views::{ScrollView, TextView},
+    views::{DummyView, LinearLayout, ScrollView, TextView},
 };
 
-use crate::{commands::CommandResult, queue::Queue, traits::ViewExt, command::Command};
+use crate::{commands::CommandResult, lyrics::LyricsManager, traits::ViewExt, command::Command};
 
 pub struct LyricsView {
-    queue: Arc<Queue>,
-    view: ScrollView<TextView>,
+    manager: Arc<LyricsManager>,
+    view: LinearLayout,
 }
 
 impl LyricsView {
-    pub fn new(queue: Arc<Queue>) -> LyricsView {
+    pub fn new(manager: Arc<LyricsManager>) -> LyricsView {
         let mut text = StyledString::styled("Keybindings\n\n", Effect::Bold);
 
         let note = format!(
             "Custom bindings can be set in the {} file within the [keybindings] section.\n\n",
             "test"
         );
-        text.append(StyledString::styled(note, Effect::Italic));
 
-        LyricsView {
-            queue,
-            view: ScrollView::new(TextView::new(text)),
-        }
+        // TODO: fixme
+        let content = String::from("");
+
+        text.append(StyledString::styled(note, Effect::Italic));
+        text.append(content);
+
+        text.append("\n\n");
+        text.append(StyledString::styled(
+            manager.get_lyrics_for_current(),
+            Effect::Simple,
+        ));
+
+        let lyrics_view = ScrollView::new(TextView::new(text).center());
+
+        let view = LinearLayout::vertical()
+            .child(TextView::new("Title").center())
+            .child(TextView::new("Authors").center())
+            .child(TextView::new("Album").center())
+            .child(DummyView)
+            .child(lyrics_view);
+
+        LyricsView { manager, view }
     }
 
-    pub fn save_lyrics(&mut self, lyrics: String) -> Result<CommandResult, String> {
-        // println!("Saving Lyrics: {}", lyrics);
+    /// Saves the lyrics of the current song
+    pub fn save_lyrics(&self) -> Result<CommandResult, String> {
+        let result = self
+            .manager
+            .save_lyrics(self.manager.get_lyrics_for_current());
 
-        self.view.get_inner_mut().set_content(lyrics);
-
-        Ok(CommandResult::Consumed(None))
+        Ok(CommandResult::Consumed(result))
     }
 }
 
 impl ViewWrapper for LyricsView {
-    wrap_impl!(self.view: ScrollView<TextView>);
+    wrap_impl!(self.view: LinearLayout);
 }
 
 impl ViewExt for LyricsView {
@@ -49,9 +67,7 @@ impl ViewExt for LyricsView {
     }
 
     fn title_sub(&self) -> String {
-        let current_track = self.queue.get_current().unwrap();
-
-        format!("{}", current_track)
+        "".to_string()
     }
 
     fn on_leave(&self) {}
@@ -62,10 +78,8 @@ impl ViewExt for LyricsView {
         cmd: &Command,
     ) -> Result<CommandResult, String> {
         match cmd {
-            Command::Save => self.save_lyrics(format!("{}", cmd)),
-            Command::Quit => Ok(CommandResult::Ignored),
-            Command::Focus(_) => Ok(CommandResult::Ignored),
-            _ => Ok(CommandResult::Ignored)
+            Command::Save => self.save_lyrics(),
+            _ => Ok(CommandResult::Ignored),
         }
     }
 }
