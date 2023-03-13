@@ -247,7 +247,7 @@ impl Command {
             Command::PlayNext => "playnext",
             Command::Play => "play",
             Command::UpdateLibrary => "update",
-            Command::Save => "save",
+            Command::Save => "save (saves lyrics if in 'lyrics' view)",
             Command::SaveCurrent => "save current",
             Command::SaveQueue => "save queue",
             Command::Add => "add",
