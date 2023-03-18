@@ -17,8 +17,8 @@ ncurses MPD clients, such as [ncmpc](https://musicpd.org/clients/ncmpc/). My mot
 provide a simple and resource friendly alternative to the official client as well as to support
 platforms that currently don't have a Spotify client, such as the \*BSDs.
 
-Since ncspot offers features that are incompatible with free Spotify accounts, it will only work
-with a premium account.
+ncspot only works with a Spotify premium account as it offers features that are not available for
+free accounts.
 
 ## Features
 - Support for tracks, albums, playlists, genres, searching...
@@ -29,18 +29,19 @@ with a premium account.
 - Automatic authentication using a password manager
 
 ## Installation
-ncspot is available on macOS (Homebrew), Windows (Scoop) and Linux (native package, Snapcraft and
-Flathub). Detailed instructions for each method can be found [here](doc/users.md).
+ncspot is available on macOS (Homebrew), Windows (Scoop), Linux (native package, Snapcraft and
+Flathub) and the BSD's. Detailed installation instructions for each platform can be found
+[here](/doc/users.md).
 
 ## Configuration
-A configuration file can be provided at `$XDG_USER_CONFIG/ncspot/config.toml`. Detailed
-configuration information can be found [here](doc/users.md).
+A configuration file can be provided at `$XDG_CONFIG_HOME/ncspot/config.toml`. Detailed
+configuration information can be found [here](/doc/users.md#configuration).
 
 ## Building
 Building ncspot requires a working [Rust installation](https://www.rust-lang.org/tools/install) and
 a Python 3 installation. To compile ncspot, run `cargo build`. For detailed instructions on building
-ncspot, there is more information [here](doc/developers.md).
+ncspot, there is more information [here](/doc/developers.md).
 
 ## Packaging
-Information about provided files and how to generate some of them can be found
-[here](doc/package_maintainers.md).
+Information about provided files, how to generate some of them and current package status accross
+platforms can be found [here](/doc/package_maintainers.md).

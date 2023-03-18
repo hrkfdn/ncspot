@@ -1,12 +1,9 @@
-## Table of Contents
-
-- [Installation Instructions](#installation-instructions)
-- [Configuration](#configuration)
+# User Documentation
 
 ## Installation Instructions
+[![Packaging status](https://repology.org/badge/vertical-allrepos/ncspot.svg)](https://repology.org/project/ncspot/versions)
 
 ### On macOS
-
 `ncspot` is available via [Homebrew](https://brew.sh/):
 
 ```zsh
@@ -14,7 +11,6 @@ brew install ncspot
 ```
 
 ### On Windows
-
 `ncspot` is available via [Scoop](https://scoop.sh/):
 
 ```powershell
@@ -22,7 +18,6 @@ scoop install ncspot
 ```
 
 ### On Linux
-
 <div>
 <a href="https://flathub.org/apps/details/io.github.hrkfdn.ncspot"><img width="130" alt="Download on Flathub" src="https://flathub.org/assets/badges/flathub-badge-en.png"/></a>
 <a href="https://snapcraft.io/ncspot"><img alt="Download on Snapcraft" src="https://snapcraft.io//ncspot/badge.svg"/></a>
@@ -31,7 +26,7 @@ scoop install ncspot
 Your distribution may have packaged `ncspot` in its package repository.
 If so, simply install using your distribution's package manager - it
 is by far the easiest way. If not, you can build from source instead.
-See [Build](#../../build).
+See [Compiling](/doc/developers.md).
 
 In case your package manager does not perform dependency resolution,
 here are the runtime dependencies:
@@ -41,17 +36,19 @@ here are the runtime dependencies:
 - `libxcb` (if built with the `clipboard` feature)
 - `ueberzug` (if built with the `cover` feature)
 
-## Configuration
+### On BSD's
+Your distribution may have packaged `ncspot` in its package repository.
+If so, simply install using your distribution's package manager - it
+is by far the easiest way. If not, you can build from source instead.
+See [Compiling](/doc/developers.md).
 
 ## Key Bindings
-
 The keybindings listed below are configured by default. Additionally, if you
 built `ncspot` with MPRIS support, you may be able to use media keys to control
 playback depending on your desktop environment settings. Have a look at the
 [configuration section](#configuration) if you want to set custom bindings.
 
 ### Navigation
-
 | Key               | Command                                                                       |
 |-------------------|-------------------------------------------------------------------------------|
 | <kbd>?</kbd>      | Show help screen.                                                             |
@@ -65,7 +62,6 @@ playback depending on your desktop environment settings. Have a look at the
 | <kbd>Q</kbd>      | Quit `ncspot`.                                                                |
 
 ### Playback
-
 | Key                           | Command                                                        |
 |-------------------------------|----------------------------------------------------------------|
 | <kbd>Return</kbd>             | Play track or playlist.                                        |
@@ -91,7 +87,6 @@ playback depending on your desktop environment settings. Have a look at the
 | <kbd>Z</kbd>                  | Toggle _Shuffle_ state.                                        |
 
 ### Context Menus
-
 | Key                           | Command                                                                                                   |
 |-------------------------------|-----------------------------------------------------------------------------------------------------------|
 | <kbd>O</kbd>                  | Open a detail view or context for the **selected item**.                                                  |
@@ -114,7 +109,6 @@ When pressing <kbd>O</kbd>:
   - "Similar tracks"
 
 ### Sharing
-
 (if built with the `share_clipboard` feature)
 
 | Key                           | Command                                                                  |
@@ -123,7 +117,6 @@ When pressing <kbd>O</kbd>:
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy the URL to the **currently playing track** to the system clipboard. |
 
 ### Queue
-
 | Key                          | Command                              |
 |------------------------------|--------------------------------------|
 | <kbd>C</kbd>                 | Clear the entire queue.              |
@@ -131,20 +124,17 @@ When pressing <kbd>O</kbd>:
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
 
 ### Library
-
 | Key          | Command                                 |
 |--------------|-----------------------------------------|
 | <kbd>D</kbd> | Delete the currently selected playlist. |
 
 ### Vim-Like Search Bar
-
 | Key          | Command                     |
 |--------------|-----------------------------|
 | <kbd>n</kbd> | Previous search occurrence. |
 | <kbd>N</kbd> | Next search occurrence.     |
 
-## Vim-Like Commands
-
+### Vim-Like Commands
 You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
 time with <kbd>Escape</kbd>.
 
@@ -177,7 +167,6 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `reconnect`                                                      | Reconnect to Spotify (useful when session has expired or connection was lost                                                                                                                                                                                    |
 
 ## Remote control (IPC)
-
 Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms
 (Linux, macOS, *BSD) at `~/.cache/ncspot/ncspot.sock`.  Applications or scripts
 can connect to this socket to send commands or be notified of the currently
@@ -201,7 +190,6 @@ Possible use cases for this could be:
 - Setting up routines, i.e. to play specific songs/playlists when ncspot starts
 
 ### Extracting info on currently playing song
-
 Using `netcat` and the domain socket, you can query the currently playing track
 and other relevant information. Note that not all `netcat` versions are suitable,
 as they typically tend to keep the connection to the socket open. OpenBSD's
@@ -226,7 +214,6 @@ terminal as follows:
 ```
 
 ## Configuration
-
 Configuration is saved to `~/.config/ncspot/config.toml` (or
 `%AppData%\ncspot\config.toml` on Windows). To reload the configuration during
 runtime use the `reload` command.
@@ -269,7 +256,6 @@ Possible configuration values are:
 4. If built with the `notify` feature.
 
 ### Custom Keybindings
-
 Keybindings can be configured in `[keybindings]` section in `config.toml`.
 
 Each key-value pair specifies one keybinding, where the key is a string in the
@@ -311,7 +297,6 @@ To disable a default keybinding, set its command to `noop`:
 </details>
 
 ### Proxy
-
 `ncspot` will respect system proxy settings defined via the `http_proxy`
 environment variable.
 
@@ -321,7 +306,6 @@ http_proxy="http://foo.bar:4444" ncspot
 ```
 
 ### Theming
-
 [Theme generator](https://ncspot-theme-generator.vaa.red/) by [@vaarad](https://github.com/vaared).
 
 The color palette can be modified in the configuration. For instance, to have
@@ -352,7 +336,6 @@ search_match = "light red"
 More examples can be found in [this pull request](https://github.com/hrkfdn/ncspot/pull/40).
 
 ### Track Formatting
-
 It's possible to customize how tracks are shown in Queue/Library views and the
 statusbar, whereas `statusbar_format` will hold the statusbar formatting and
 `[track_format]` the formatting for tracks in list views.
@@ -417,7 +400,6 @@ right = "%album"
 </details>
 
 ### Notification Formatting
-
 `ncspot` also supports customizing the way notifications are displayed
 (which appear when compiled with the `notify` feature and `notify = true`).
 The title and body of the notification can be set, with `title` and `body`, or the default will be used.
@@ -431,8 +413,7 @@ title = "%title"
 body = "%artists"
 ```
 
-## Cover Drawing
-
+### Cover Drawing
 When compiled with the `cover` feature, `ncspot` can draw the album art of the
 current track in a dedicated view (`:focus cover` or <kbd>F8</kbd> by default)
 using [Überzug](https://github.com/seebye/ueberzug). For more information on
@@ -447,7 +428,6 @@ cover_max_scale = 2
 ```
 
 ## Authentication
-
 `ncspot` prompts for a Spotify username and password on first launch, uses this
 to generate an OAuth token, and stores it to disk.
 
@@ -457,8 +437,7 @@ The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
 The `logout` command can be used to remove cached credentials. See
 [Vim-Like Commands](#vim-like-commands).
 
-### Using a password manager
-
+### Using a Password Manager
 If you would like ncspot to retrieve your login data from command results,
 i.e. because you use a password manager like `pass`, you can add the following
 configuration:
