@@ -47,9 +47,9 @@ impl StatusBar {
             .flip_status_indicators
             .unwrap_or(false);
 
-        const NF_PLAY: &str = "\u{f909} ";
-        const NF_PAUSE: &str = "\u{f8e3} ";
-        const NF_STOP: &str = "\u{f9da} ";
+        const NF_PLAY: &str = "\u{f04b} ";
+        const NF_PAUSE: &str = "\u{f04c} ";
+        const NF_STOP: &str = "\u{f04d} ";
         let indicators = match (nerdfont, flipped) {
             (false, false) => ("▶ ", "▮▮", "◼ "),
             (false, true) => ("▮▮", "▶ ", "▶ "),
