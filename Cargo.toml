@@ -21,7 +21,7 @@ members = [
 
 [dependencies]
 chrono = "0.4"
-clap = "4.1.7"
+clap = "4.1.14"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
 dbus = {version = "0.9.6", optional = true}
