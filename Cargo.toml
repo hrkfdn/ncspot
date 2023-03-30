@@ -24,8 +24,7 @@ chrono = "0.4"
 clap = "4.1.7"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
-dbus = {version = "0.9.6", optional = true}
-dbus-tree = {version = "0.9.2", optional = true}
+zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
 fern = "0.6"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
@@ -80,7 +79,7 @@ optional = true
 alsa_backend = ["librespot-playback/alsa-backend"]
 cover = ["ioctl-rs"] # Support displaying the album cover
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "termion_backend"]
-mpris = ["dbus", "dbus-tree"] # Allow ncspot to be controlled via MPRIS API
+mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
 notify = ["notify-rust"] # Show what's playing via a notification
 pancurses_backend = ["cursive/pancurses-backend", "pancurses/win32"]
 portaudio_backend = ["librespot-playback/portaudio-backend"]
