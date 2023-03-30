@@ -203,7 +203,7 @@ fn main() -> Result<(), String> {
     ));
 
     #[cfg(feature = "mpris")]
-    ASYNC_RUNTIME.spawn(mpris::serve());
+    ASYNC_RUNTIME.spawn(mpris::serve(event_manager.clone(), spotify.clone()));
 
     let mut cmd_manager = CommandManager::new(
         spotify.clone(),
