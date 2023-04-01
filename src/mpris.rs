@@ -1,16 +1,12 @@
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::{mpsc, Arc};
-use std::time::Duration;
+use std::error::Error;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::StreamExt;
+use zbus::zvariant::{ObjectPath, Value};
+use zbus::{dbus_interface, ConnectionBuilder};
 
-use dbus::arg::{RefArg, Variant};
-use dbus::ffidisp::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
-use dbus::message::SignalArgs;
-use dbus::strings::Path;
-use dbus_tree::{Access, Factory};
-use log::{debug, warn};
-
-use crate::events::EventManager;
 use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::episode::Episode;
@@ -18,746 +14,506 @@ use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::show::Show;
 use crate::model::track::Track;
-use crate::queue::{Queue, RepeatSetting};
-use crate::spotify::{PlayerEvent, Spotify, UriType, VOLUME_PERCENT};
+use crate::queue::RepeatSetting;
+use crate::spotify::UriType;
+use crate::spotify_url::SpotifyUrl;
 use crate::traits::ListItem;
-use regex::Regex;
+use crate::ASYNC_RUNTIME;
+use crate::{
+    events::EventManager,
+    queue::Queue,
+    spotify::{PlayerEvent, Spotify, VOLUME_PERCENT},
+};
 
-type Metadata = HashMap<String, Variant<Box<dyn RefArg>>>;
+struct MprisRoot {}
 
-struct MprisState(String, Option<Playable>);
-
-fn get_playbackstatus(spotify: Spotify) -> String {
-    match spotify.get_current_status() {
-        PlayerEvent::Playing(_) | PlayerEvent::FinishedTrack => "Playing",
-        PlayerEvent::Paused(_) => "Paused",
-        _ => "Stopped",
+#[dbus_interface(name = "org.mpris.MediaPlayer2")]
+impl MprisRoot {
+    #[dbus_interface(property)]
+    fn can_quit(&self) -> bool {
+        false
     }
-    .to_string()
+
+    #[dbus_interface(property)]
+    fn can_raise(&self) -> bool {
+        false
+    }
+
+    #[dbus_interface(property)]
+    fn has_tracklist(&self) -> bool {
+        true
+    }
+
+    #[dbus_interface(property)]
+    fn identity(&self) -> &str {
+        "ncspot"
+    }
+
+    #[dbus_interface(property)]
+    fn supported_uri_schemes(&self) -> Vec<String> {
+        vec!["spotify".to_string()]
+    }
+
+    #[dbus_interface(property)]
+    fn supported_mime_types(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    fn raise(&self) {}
+
+    fn quit(&self) {}
 }
 
-fn get_metadata(playable: Option<Playable>, spotify: Spotify, library: Arc<Library>) -> Metadata {
-    let mut hm: Metadata = HashMap::new();
-
-    // Fetch full track details in case this playable is based on a SimplifiedTrack
-    // This is necessary because SimplifiedTrack objects don't contain a cover_url
-    let playable_full = playable.and_then(|p| match p {
-        Playable::Track(track) => {
-            if track.cover_url.is_some() {
-                // We already have `cover_url`, no need to fetch the full track
-                Some(Playable::Track(track))
-            } else {
-                spotify
-                    .api
-                    .track(&track.id.unwrap_or_default())
-                    .as_ref()
-                    .map(|t| Playable::Track(t.into()))
-            }
-        }
-        Playable::Episode(episode) => Some(Playable::Episode(episode)),
-    });
-    let playable = playable_full.as_ref();
-
-    hm.insert(
-        "mpris:trackid".to_string(),
-        Variant(Box::new(Path::from(format!(
-            "/org/ncspot/{}",
-            playable
-                .filter(|t| t.id().is_some())
-                .map(|t| t.uri().replace(':', "/"))
-                .unwrap_or_else(|| String::from("0"))
-        )))),
-    );
-    hm.insert(
-        "mpris:length".to_string(),
-        Variant(Box::new(
-            playable.map(|t| t.duration() as i64 * 1_000).unwrap_or(0),
-        )),
-    );
-    hm.insert(
-        "mpris:artUrl".to_string(),
-        Variant(Box::new(
-            playable
-                .map(|t| t.cover_url().unwrap_or_default())
-                .unwrap_or_default(),
-        )),
-    );
-
-    hm.insert(
-        "xesam:album".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| t.album.unwrap_or_default())
-                .unwrap_or_default(),
-        )),
-    );
-    hm.insert(
-        "xesam:albumArtist".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| t.album_artists)
-                .unwrap_or_default(),
-        )),
-    );
-    hm.insert(
-        "xesam:artist".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| t.artists)
-                .unwrap_or_default(),
-        )),
-    );
-    hm.insert(
-        "xesam:discNumber".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| t.disc_number)
-                .unwrap_or(0),
-        )),
-    );
-    hm.insert(
-        "xesam:title".to_string(),
-        Variant(Box::new(
-            playable
-                .map(|t| match t {
-                    Playable::Track(t) => t.title.clone(),
-                    Playable::Episode(ep) => ep.name.clone(),
-                })
-                .unwrap_or_default(),
-        )),
-    );
-    hm.insert(
-        "xesam:trackNumber".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| t.track_number)
-                .unwrap_or(0) as i32,
-        )),
-    );
-    hm.insert(
-        "xesam:url".to_string(),
-        Variant(Box::new(
-            playable
-                .map(|t| t.share_url().unwrap_or_default())
-                .unwrap_or_default(),
-        )),
-    );
-    hm.insert(
-        "xesam:userRating".to_string(),
-        Variant(Box::new(
-            playable
-                .and_then(|p| p.track())
-                .map(|t| match library.is_saved_track(&Playable::Track(t)) {
-                    true => 1.0,
-                    false => 0.0,
-                })
-                .unwrap_or(0.0),
-        )),
-    );
-
-    hm
-}
-
-fn run_dbus_server(
-    ev: EventManager,
-    spotify: Spotify,
+struct MprisPlayer {
+    event: EventManager,
     queue: Arc<Queue>,
     library: Arc<Library>,
-    rx: mpsc::Receiver<MprisState>,
-) {
-    let conn = Rc::new(
-        dbus::ffidisp::Connection::get_private(dbus::ffidisp::BusType::Session)
-            .expect("Failed to connect to dbus"),
-    );
-    conn.register_name(
-        "org.mpris.MediaPlayer2.ncspot",
-        dbus::ffidisp::NameFlag::ReplaceExisting as u32,
-    )
-    .expect("Failed to register dbus player name");
+    spotify: Spotify,
+}
 
-    let f = Factory::new_fn::<()>();
-
-    let property_canquit = f
-        .property::<bool, _>("CanQuit", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(false); // TODO
-            Ok(())
-        });
-
-    let property_canraise = f
-        .property::<bool, _>("CanRaise", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(false);
-            Ok(())
-        });
-
-    let property_cansetfullscreen = f
-        .property::<bool, _>("CanSetFullscreen", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(false);
-            Ok(())
-        });
-
-    let property_hastracklist = f
-        .property::<bool, _>("HasTrackList", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(false); // TODO
-            Ok(())
-        });
-
-    let property_identity = f
-        .property::<String, _>("Identity", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append("ncspot".to_string());
-            Ok(())
-        });
-
-    let property_urischemes = f
-        .property::<Vec<String>, _>("SupportedUriSchemes", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(vec!["spotify".to_string()]);
-            Ok(())
-        });
-
-    let property_mimetypes = f
-        .property::<Vec<String>, _>("SupportedMimeTypes", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(Vec::new() as Vec<String>);
-            Ok(())
-        });
-
-    // https://specifications.freedesktop.org/mpris-spec/latest/Media_Player.html
-    let interface = f
-        .interface("org.mpris.MediaPlayer2", ())
-        .add_p(property_canquit)
-        .add_p(property_canraise)
-        .add_p(property_cansetfullscreen)
-        .add_p(property_hastracklist)
-        .add_p(property_identity)
-        .add_p(property_urischemes)
-        .add_p(property_mimetypes);
-
-    let property_playbackstatus = {
-        let spotify = spotify.clone();
-        f.property::<String, _>("PlaybackStatus", ())
-            .access(Access::Read)
-            .on_get(move |iter, _| {
-                let status = get_playbackstatus(spotify.clone());
-                iter.append(status);
-                Ok(())
-            })
-    };
-
-    let property_loopstatus = {
-        let queue1 = queue.clone();
-        let queue2 = queue.clone();
-        f.property::<String, _>("LoopStatus", ())
-            .access(Access::ReadWrite)
-            .on_get(move |iter, _| {
-                iter.append(
-                    match queue1.get_repeat() {
-                        RepeatSetting::None => "None",
-                        RepeatSetting::RepeatTrack => "Track",
-                        RepeatSetting::RepeatPlaylist => "Playlist",
-                    }
-                    .to_string(),
-                );
-                Ok(())
-            })
-            .on_set(move |iter, _| {
-                let setting = match iter.get::<&str>().unwrap_or_default() {
-                    "Track" => RepeatSetting::RepeatTrack,
-                    "Playlist" => RepeatSetting::RepeatPlaylist,
-                    _ => RepeatSetting::None,
-                };
-                queue2.set_repeat(setting);
-
-                Ok(())
-            })
-    };
-
-    let property_metadata = {
-        let spotify = spotify.clone();
-        let queue = queue.clone();
-        let library = library.clone();
-        f.property::<HashMap<String, Variant<Box<dyn RefArg>>>, _>("Metadata", ())
-            .access(Access::Read)
-            .on_get(move |iter, _| {
-                let hm = get_metadata(
-                    queue.clone().get_current(),
-                    spotify.clone(),
-                    library.clone(),
-                );
-
-                iter.append(hm);
-                Ok(())
-            })
-    };
-
-    let property_position = {
-        let spotify = spotify.clone();
-        f.property::<i64, _>("Position", ())
-            .access(Access::Read)
-            .on_get(move |iter, _| {
-                let progress = spotify.get_current_progress();
-                iter.append(progress.as_micros() as i64);
-                Ok(())
-            })
-    };
-
-    let property_volume = {
-        let spotify1 = spotify.clone();
-        let spotify2 = spotify.clone();
-        let event = ev.clone();
-        f.property::<f64, _>("Volume", ())
-            .access(Access::ReadWrite)
-            .on_get(move |i, _| {
-                i.append(spotify1.volume() as f64 / 65535_f64);
-                Ok(())
-            })
-            .on_set(move |i, _| {
-                let cur = spotify2.volume() as f64 / 65535_f64;
-                let req = i.get::<f64>().unwrap_or(cur);
-                if (0.0..=1.0).contains(&req) {
-                    let vol = (VOLUME_PERCENT as f64) * req * 100.0;
-                    spotify2.set_volume(vol as u16);
-                }
-                event.trigger();
-                Ok(())
-            })
-    };
-
-    let property_rate = f
-        .property::<f64, _>("Rate", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(1.0);
-            Ok(())
-        });
-
-    let property_minrate = f
-        .property::<f64, _>("MinimumRate", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(1.0);
-            Ok(())
-        });
-
-    let property_maxrate = f
-        .property::<f64, _>("MaximumRate", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(1.0);
-            Ok(())
-        });
-
-    let property_canplay = f
-        .property::<bool, _>("CanPlay", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_canpause = f
-        .property::<bool, _>("CanPause", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_canseek = f
-        .property::<bool, _>("CanSeek", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_cancontrol = f
-        .property::<bool, _>("CanControl", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_cangonext = f
-        .property::<bool, _>("CanGoNext", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_cangoprevious = f
-        .property::<bool, _>("CanGoPrevious", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_shuffle = {
-        let queue_get = queue.clone();
-        let queue_set = queue.clone();
-        f.property::<bool, _>("Shuffle", ())
-            .access(Access::ReadWrite)
-            .on_get(move |iter, _| {
-                let current_state = queue_get.get_shuffle();
-                iter.append(current_state);
-                Ok(())
-            })
-            .on_set(move |iter, _| {
-                if let Some(shuffle_state) = iter.get() {
-                    queue_set.set_shuffle(shuffle_state);
-                }
-                ev.trigger();
-                Ok(())
-            })
-    };
-
-    let property_cangoforward = f
-        .property::<bool, _>("CanGoForward", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let property_canrewind = f
-        .property::<bool, _>("CanRewind", ())
-        .access(Access::Read)
-        .on_get(|iter, _| {
-            iter.append(true);
-            Ok(())
-        });
-
-    let method_playpause = {
-        let queue = queue.clone();
-        f.method("PlayPause", (), move |m| {
-            queue.toggleplayback();
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_play = {
-        let spotify = spotify.clone();
-        f.method("Play", (), move |m| {
-            spotify.play();
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_pause = {
-        let spotify = spotify.clone();
-        f.method("Pause", (), move |m| {
-            spotify.pause();
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_stop = {
-        let spotify = spotify.clone();
-        f.method("Stop", (), move |m| {
-            spotify.stop();
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_next = {
-        let queue = queue.clone();
-        f.method("Next", (), move |m| {
-            queue.next(true);
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_previous = {
-        let spotify = spotify.clone();
-        let queue = queue.clone();
-        f.method("Previous", (), move |m| {
-            if spotify.get_current_progress() < Duration::from_secs(5) {
-                queue.previous();
-            } else {
-                spotify.seek(0);
-            }
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_forward = {
-        let spotify = spotify.clone();
-        f.method("Forward", (), move |m| {
-            spotify.seek_relative(5000);
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_rewind = {
-        let spotify = spotify.clone();
-        f.method("Rewind", (), move |m| {
-            spotify.seek_relative(-5000);
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_seek = {
-        let queue = queue.clone();
-        let spotify = spotify.clone();
-        f.method("Seek", (), move |m| {
-            if let Some(current_track) = queue.get_current() {
-                let offset = m.msg.get1::<i64>().unwrap_or(0); // micros
-                let progress = spotify.get_current_progress();
-                let new_position = (progress.as_secs() * 1000) as i32
-                    + progress.subsec_millis() as i32
-                    + (offset / 1000) as i32;
-                let new_position = new_position.max(0) as u32;
-                let duration = current_track.duration();
-
-                if new_position < duration {
-                    spotify.seek(new_position);
-                } else {
-                    queue.next(true);
-                }
-            }
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_set_position = {
-        let queue = queue.clone();
-        let spotify = spotify.clone();
-        f.method("SetPosition", (), move |m| {
-            if let Some(current_track) = queue.get_current() {
-                let (_, position) = m.msg.get2::<Path, i64>(); // micros
-                let position = (position.unwrap_or(0) / 1000) as u32;
-                let duration = current_track.duration();
-
-                if position < duration {
-                    spotify.seek(position);
-                }
-            }
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    let method_openuri = {
-        let spotify = spotify.clone();
-        f.method("OpenUri", (), move |m| {
-            let uri_data: Option<&str> = m.msg.get1();
-            let uri = match uri_data {
-                Some(s) => {
-                    let spotify_uri = if s.contains("open.spotify.com") {
-                        let regex = Regex::new(r"https?://open\.spotify\.com(/user/\S+)?/(album|track|playlist|show|episode)/(.+)(\?si=\S+)?").unwrap();
-                        let captures = regex.captures(s).unwrap();
-                        let uri_type = &captures[2];
-                        let id = &captures[3];
-                        format!("spotify:{uri_type}:{id}")
-                    }else {
-                        s.to_string()
-                    };
-                    spotify_uri
-                }
-                None => "".to_string(),
-            };
-            let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
-            let uri_type = UriType::from_uri(&uri);
-            match uri_type {
-                Some(UriType::Album) => {
-                    if let Some(a) = spotify.api.album(id) {
-                        if let Some(t) = &Album::from(&a).tracks {
-                            let should_shuffle = queue.get_shuffle();
-                            queue.clear();
-                            let index = queue.append_next(
-                                &t.iter()
-                                    .map(|track| Playable::Track(track.clone()))
-                                    .collect(),
-                            );
-                            queue.play(index, should_shuffle, should_shuffle)
-                        }
-                    }
-                }
-                Some(UriType::Track) => {
-                    if let Some(t) = spotify.api.track(id) {
-                        queue.clear();
-                        queue.append(Playable::Track(Track::from(&t)));
-                        queue.play(0, false, false)
-                    }
-                }
-                Some(UriType::Playlist) => {
-                    if let Some(p) = spotify.api.playlist(id) {
-                        let mut playlist = Playlist::from(&p);
-                        let spotify = spotify.clone();
-                        playlist.load_tracks(spotify);
-                        if let Some(tracks) = &playlist.tracks {
-                            let should_shuffle = queue.get_shuffle();
-                            queue.clear();
-                            let index = queue.append_next(tracks);
-                            queue.play(index, should_shuffle, should_shuffle)
-                        }
-                    }
-                }
-                Some(UriType::Show) => {
-                    if let Some(s) = spotify.api.get_show(id) {
-                        let mut show: Show = (&s).into();
-                        let spotify = spotify.clone();
-                        show.load_all_episodes(spotify);
-                        if let Some(e) = &show.episodes {
-                            let should_shuffle = queue.get_shuffle();
-                            queue.clear();
-                            let mut ep = e.clone();
-                            ep.reverse();
-                            let index = queue.append_next(
-                                &ep.iter()
-                                    .map(|episode| Playable::Episode(episode.clone()))
-                                    .collect(),
-                            );
-                            queue.play(index, should_shuffle, should_shuffle)
-                        }
-                    }
-                }
-                Some(UriType::Episode) => {
-                    if let Some(e) = spotify.api.episode(id) {
-                        queue.clear();
-                        queue.append(Playable::Episode(Episode::from(&e)));
-                        queue.play(0, false, false)
-                    }
-                }
-                Some(UriType::Artist) => {
-                    if let Some(a) = spotify.api.artist_top_tracks(id) {
-                        let should_shuffle = queue.get_shuffle();
-                        queue.clear();
-                        let index = queue.append_next(&a.iter().map(|track| Playable::Track(track.clone())).collect());
-                        queue.play(index, should_shuffle, should_shuffle)
-                    }
-                }
-                None => {}
-            }
-            Ok(vec![m.msg.method_return()])
-        })
-    };
-
-    // https://specifications.freedesktop.org/mpris-spec/latest/Player_Interface.html
-    let interface_player = f
-        .interface("org.mpris.MediaPlayer2.Player", ())
-        .add_p(property_playbackstatus)
-        .add_p(property_loopstatus)
-        .add_p(property_metadata)
-        .add_p(property_position)
-        .add_p(property_volume)
-        .add_p(property_rate)
-        .add_p(property_minrate)
-        .add_p(property_maxrate)
-        .add_p(property_canplay)
-        .add_p(property_canpause)
-        .add_p(property_canseek)
-        .add_p(property_cancontrol)
-        .add_p(property_cangonext)
-        .add_p(property_cangoprevious)
-        .add_p(property_shuffle)
-        .add_p(property_cangoforward)
-        .add_p(property_canrewind)
-        .add_m(method_playpause)
-        .add_m(method_play)
-        .add_m(method_pause)
-        .add_m(method_stop)
-        .add_m(method_next)
-        .add_m(method_previous)
-        .add_m(method_forward)
-        .add_m(method_rewind)
-        .add_m(method_seek)
-        .add_m(method_set_position)
-        .add_m(method_openuri);
-
-    let tree = f.tree(()).add(
-        f.object_path("/org/mpris/MediaPlayer2", ())
-            .introspectable()
-            .add(interface)
-            .add(interface_player),
-    );
-
-    tree.set_registered(&conn, true)
-        .expect("failed to register tree");
-
-    conn.add_handler(tree);
-    loop {
-        if let Some(m) = conn.incoming(200).next() {
-            warn!("Unhandled dbus message: {:?}", m);
+#[dbus_interface(name = "org.mpris.MediaPlayer2.Player")]
+impl MprisPlayer {
+    #[dbus_interface(property)]
+    fn playback_status(&self) -> &str {
+        match self.spotify.get_current_status() {
+            PlayerEvent::Playing(_) | PlayerEvent::FinishedTrack => "Playing",
+            PlayerEvent::Paused(_) => "Paused",
+            _ => "Stopped",
         }
+    }
 
-        if let Ok(state) = rx.try_recv() {
-            let mut changed: PropertiesPropertiesChanged = Default::default();
-            debug!(
-                "mpris PropertiesChanged: status {}, track: {:?}",
-                state.0, state.1
-            );
+    #[dbus_interface(property)]
+    fn loop_status(&self) -> &str {
+        match self.queue.get_repeat() {
+            RepeatSetting::None => "None",
+            RepeatSetting::RepeatTrack => "Track",
+            RepeatSetting::RepeatPlaylist => "Playlist",
+        }
+    }
 
-            changed.interface_name = "org.mpris.MediaPlayer2.Player".to_string();
-            changed.changed_properties.insert(
-                "Metadata".to_string(),
-                Variant(Box::new(get_metadata(
-                    state.1,
-                    spotify.clone(),
-                    library.clone(),
-                ))),
-            );
+    #[dbus_interface(property)]
+    fn set_loop_status(&self, loop_status: &str) {
+        let setting = match loop_status {
+            "Track" => RepeatSetting::RepeatTrack,
+            "Playlist" => RepeatSetting::RepeatPlaylist,
+            _ => RepeatSetting::None,
+        };
+        self.queue.set_repeat(setting);
+        self.event.trigger();
+    }
 
-            changed
-                .changed_properties
-                .insert("PlaybackStatus".to_string(), Variant(Box::new(state.0)));
+    #[dbus_interface(property)]
+    fn rate(&self) -> f64 {
+        1.0
+    }
 
-            conn.send(
-                changed.to_emit_message(&Path::new("/org/mpris/MediaPlayer2".to_string()).unwrap()),
-            )
-            .unwrap();
+    #[dbus_interface(property)]
+    fn minimum_rate(&self) -> f64 {
+        1.0
+    }
+
+    #[dbus_interface(property)]
+    fn maximum_rate(&self) -> f64 {
+        1.0
+    }
+
+    #[dbus_interface(property)]
+    fn metadata(&self) -> HashMap<String, Value> {
+        let mut hm = HashMap::new();
+
+        let playable = self.queue.get_current();
+
+        // Fetch full track details in case this playable is based on a SimplifiedTrack
+        // This is necessary because SimplifiedTrack objects don't contain a cover_url
+        let playable_full = playable.and_then(|p| match p {
+            Playable::Track(track) => {
+                if track.cover_url.is_some() {
+                    // We already have `cover_url`, no need to fetch the full track
+                    Some(Playable::Track(track))
+                } else {
+                    self.spotify
+                        .api
+                        .track(&track.id.unwrap_or_default())
+                        .as_ref()
+                        .map(|t| Playable::Track(t.into()))
+                }
+            }
+            Playable::Episode(episode) => Some(Playable::Episode(episode)),
+        });
+        let playable = playable_full.as_ref();
+
+        hm.insert(
+            "mpris:trackid".to_string(),
+            Value::ObjectPath(ObjectPath::from_string_unchecked(format!(
+                "/org/ncspot/{}",
+                playable
+                    .filter(|t| t.id().is_some())
+                    .map(|t| t.uri().replace(':', "/"))
+                    .unwrap_or_else(|| String::from("0"))
+            ))),
+        );
+        hm.insert(
+            "mpris:length".to_string(),
+            Value::I64(playable.map(|t| t.duration() as i64 * 1_000).unwrap_or(0)),
+        );
+        hm.insert(
+            "mpris:artUrl".to_string(),
+            Value::Str(
+                playable
+                    .map(|t| t.cover_url().unwrap_or_default())
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+
+        hm.insert(
+            "xesam:album".to_string(),
+            Value::Str(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| t.album.unwrap_or_default())
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+        hm.insert(
+            "xesam:albumArtist".to_string(),
+            Value::Array(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| t.album_artists)
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+        hm.insert(
+            "xesam:artist".to_string(),
+            Value::Array(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| t.artists)
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+        hm.insert(
+            "xesam:discNumber".to_string(),
+            Value::I32(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| t.disc_number)
+                    .unwrap_or(0),
+            ),
+        );
+        hm.insert(
+            "xesam:title".to_string(),
+            Value::Str(
+                playable
+                    .map(|t| match t {
+                        Playable::Track(t) => t.title.clone(),
+                        Playable::Episode(ep) => ep.name.clone(),
+                    })
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+        hm.insert(
+            "xesam:trackNumber".to_string(),
+            Value::I32(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| t.track_number)
+                    .unwrap_or(0) as i32,
+            ),
+        );
+        hm.insert(
+            "xesam:url".to_string(),
+            Value::Str(
+                playable
+                    .map(|t| t.share_url().unwrap_or_default())
+                    .unwrap_or_default()
+                    .into(),
+            ),
+        );
+        hm.insert(
+            "xesam:userRating".to_string(),
+            Value::F64(
+                playable
+                    .and_then(|p| p.track())
+                    .map(|t| match self.library.is_saved_track(&Playable::Track(t)) {
+                        true => 1.0,
+                        false => 0.0,
+                    })
+                    .unwrap_or(0.0),
+            ),
+        );
+
+        hm
+    }
+
+    #[dbus_interface(property)]
+    fn shuffle(&self) -> bool {
+        self.queue.get_shuffle()
+    }
+
+    #[dbus_interface(property)]
+    fn set_shuffle(&self, shuffle: bool) {
+        self.queue.set_shuffle(shuffle);
+        self.event.trigger();
+    }
+
+    #[dbus_interface(property)]
+    fn volume(&self) -> f64 {
+        self.spotify.volume() as f64 / 65535_f64
+    }
+
+    #[dbus_interface(property)]
+    fn set_volume(&self, volume: f64) {
+        log::info!("set volume: {volume}");
+        if (0.0..=1.0).contains(&volume) {
+            let vol = (VOLUME_PERCENT as f64) * volume * 100.0;
+            self.spotify.set_volume(vol as u16);
+            self.event.trigger();
+        }
+    }
+
+    #[dbus_interface(property)]
+    fn position(&self) -> i64 {
+        self.spotify.get_current_progress().as_micros() as i64
+    }
+
+    #[dbus_interface(property)]
+    fn can_go_next(&self) -> bool {
+        self.queue.next_index().is_some()
+    }
+
+    #[dbus_interface(property)]
+    fn can_go_previous(&self) -> bool {
+        self.queue.previous_index().is_some()
+    }
+
+    #[dbus_interface(property)]
+    fn can_play(&self) -> bool {
+        self.queue.get_current().is_some()
+    }
+
+    #[dbus_interface(property)]
+    fn can_pause(&self) -> bool {
+        self.queue.get_current().is_some()
+    }
+
+    #[dbus_interface(property)]
+    fn can_seek(&self) -> bool {
+        self.queue.get_current().is_some()
+    }
+
+    #[dbus_interface(property)]
+    fn can_control(&self) -> bool {
+        self.queue.get_current().is_some()
+    }
+
+    fn next(&self) {
+        self.queue.next(true)
+    }
+
+    fn previous(&self) {
+        self.queue.previous()
+    }
+
+    fn pause(&self) {
+        self.spotify.pause()
+    }
+
+    fn play_pause(&self) {
+        self.queue.toggleplayback()
+    }
+
+    fn stop(&self) {
+        self.queue.stop()
+    }
+
+    fn play(&self) {
+        self.spotify.play()
+    }
+
+    fn seek(&self, offset: i64) {
+        if let Some(current_track) = self.queue.get_current() {
+            let progress = self.spotify.get_current_progress();
+            let new_position = (progress.as_secs() * 1000) as i32
+                + progress.subsec_millis() as i32
+                + (offset / 1000) as i32;
+            let new_position = new_position.max(0) as u32;
+            let duration = current_track.duration();
+
+            if new_position < duration {
+                self.spotify.seek(new_position);
+            } else {
+                self.queue.next(true);
+            }
+        }
+    }
+
+    fn set_position(&self, _track: ObjectPath, position: i64) {
+        if let Some(current_track) = self.queue.get_current() {
+            let position = (position / 1000) as u32;
+            let duration = current_track.duration();
+
+            if position < duration {
+                self.spotify.seek(position);
+            }
+        }
+    }
+
+    fn open_uri(&self, uri: &str) {
+        let spotify_url = if uri.contains("open.spotify.com") {
+            SpotifyUrl::from_url(uri)
+        } else if UriType::from_uri(uri).is_some() {
+            let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
+            let uri_type = UriType::from_uri(uri).unwrap();
+            Some(SpotifyUrl::new(id, uri_type))
+        } else {
+            None
+        };
+
+        let id = spotify_url
+            .as_ref()
+            .map(|s| s.id.clone())
+            .unwrap_or("".to_string());
+        let uri_type = spotify_url.map(|s| s.uri_type);
+        match uri_type {
+            Some(UriType::Album) => {
+                if let Some(a) = self.spotify.api.album(&id) {
+                    if let Some(t) = &Album::from(&a).tracks {
+                        let should_shuffle = self.queue.get_shuffle();
+                        self.queue.clear();
+                        let index = self.queue.append_next(
+                            &t.iter()
+                                .map(|track| Playable::Track(track.clone()))
+                                .collect(),
+                        );
+                        self.queue.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Track) => {
+                if let Some(t) = self.spotify.api.track(&id) {
+                    self.queue.clear();
+                    self.queue.append(Playable::Track(Track::from(&t)));
+                    self.queue.play(0, false, false)
+                }
+            }
+            Some(UriType::Playlist) => {
+                if let Some(p) = self.spotify.api.playlist(&id) {
+                    let mut playlist = Playlist::from(&p);
+                    let spotify = self.spotify.clone();
+                    playlist.load_tracks(spotify);
+                    if let Some(tracks) = &playlist.tracks {
+                        let should_shuffle = self.queue.get_shuffle();
+                        self.queue.clear();
+                        let index = self.queue.append_next(tracks);
+                        self.queue.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Show) => {
+                if let Some(s) = self.spotify.api.get_show(&id) {
+                    let mut show: Show = (&s).into();
+                    let spotify = self.spotify.clone();
+                    show.load_all_episodes(spotify);
+                    if let Some(e) = &show.episodes {
+                        let should_shuffle = self.queue.get_shuffle();
+                        self.queue.clear();
+                        let mut ep = e.clone();
+                        ep.reverse();
+                        let index = self.queue.append_next(
+                            &ep.iter()
+                                .map(|episode| Playable::Episode(episode.clone()))
+                                .collect(),
+                        );
+                        self.queue.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Episode) => {
+                if let Some(e) = self.spotify.api.episode(&id) {
+                    self.queue.clear();
+                    self.queue.append(Playable::Episode(Episode::from(&e)));
+                    self.queue.play(0, false, false)
+                }
+            }
+            Some(UriType::Artist) => {
+                if let Some(a) = self.spotify.api.artist_top_tracks(&id) {
+                    let should_shuffle = self.queue.get_shuffle();
+                    self.queue.clear();
+                    let index = self.queue.append_next(
+                        &a.iter()
+                            .map(|track| Playable::Track(track.clone()))
+                            .collect(),
+                    );
+                    self.queue.play(index, should_shuffle, should_shuffle)
+                }
+            }
+            None => {}
         }
     }
 }
 
-#[derive(Clone)]
 pub struct MprisManager {
-    tx: mpsc::Sender<MprisState>,
-    queue: Arc<Queue>,
-    spotify: Spotify,
+    tx: mpsc::UnboundedSender<()>,
 }
 
 impl MprisManager {
     pub fn new(
-        ev: EventManager,
-        spotify: Spotify,
+        event: EventManager,
         queue: Arc<Queue>,
         library: Arc<Library>,
+        spotify: Spotify,
     ) -> Self {
-        let (tx, rx) = mpsc::channel::<MprisState>();
+        let root = MprisRoot {};
+        let player = MprisPlayer {
+            event,
+            queue,
+            library,
+            spotify,
+        };
 
-        {
-            let spotify = spotify.clone();
-            let queue = queue.clone();
-            std::thread::spawn(move || {
-                run_dbus_server(ev, spotify.clone(), queue.clone(), library.clone(), rx);
-            });
-        }
+        let (tx, rx) = mpsc::unbounded_channel::<()>();
 
-        MprisManager { tx, queue, spotify }
+        ASYNC_RUNTIME.spawn(Self::serve(UnboundedReceiverStream::new(rx), root, player));
+
+        MprisManager { tx }
     }
 
-    pub fn update(&self) {
-        let status = get_playbackstatus(self.spotify.clone());
-        let track = self.queue.get_current();
-        self.tx.send(MprisState(status, track)).unwrap();
+    async fn serve(
+        mut rx: UnboundedReceiverStream<()>,
+        root: MprisRoot,
+        player: MprisPlayer,
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let conn = ConnectionBuilder::session()?
+            .name("org.mpris.MediaPlayer2.ncspot")?
+            .serve_at("/org/mpris/MediaPlayer2", root)?
+            .serve_at("/org/mpris/MediaPlayer2", player)?
+            .build()
+            .await?;
+
+        let object_server = conn.object_server();
+        let player_iface_ref = object_server
+            .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
+            .await?;
+        let player_iface = player_iface_ref.get().await;
+
+        loop {
+            tokio::select! {
+                Some(()) = rx.next() => {
+                    let ctx = player_iface_ref.signal_context();
+                    player_iface.playback_status_changed(ctx).await?;
+                    player_iface.metadata_changed(ctx).await?;
+                }
+            }
+        }
+    }
+
+    pub fn update(&self) -> Result<(), String> {
+        self.tx.send(()).map_err(|e| e.to_string())
     }
 }

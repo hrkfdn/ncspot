@@ -25,7 +25,7 @@ impl fmt::Display for SpotifyUrl {
 }
 
 impl SpotifyUrl {
-    fn new(id: &str, uri_type: UriType) -> SpotifyUrl {
+    pub fn new(id: &str, uri_type: UriType) -> SpotifyUrl {
         SpotifyUrl {
             id: id.to_string(),
             uri_type,
