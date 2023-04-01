@@ -72,6 +72,7 @@ pub trait ViewExt: View {
     }
 
     fn on_leave(&self) {}
+    fn on_enter(&mut self) {} // TODO: see if there are args that should go here
 
     fn on_command(&mut self, _s: &mut Cursive, _cmd: &Command) -> Result<CommandResult, String> {
         Ok(CommandResult::Ignored)
@@ -89,6 +90,10 @@ impl<V: ViewExt> ViewExt for NamedView<V> {
 
     fn on_leave(&self) {
         self.with_view(|v| v.on_leave());
+    }
+
+    fn on_enter(&mut self) {
+        self.with_view_mut(|v| v.on_enter());
     }
 
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {

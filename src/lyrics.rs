@@ -41,7 +41,7 @@ impl LyricsManager {
     }
 
     /// Returns the track being played currently, or nothing if the user is listening to a podcast episodes
-    fn get_current_track(&self) -> Option<Track> {
+    pub fn get_current_track(&self) -> Option<Track> {
         let playable = self.queue.get_current().unwrap();
 
         match playable {
