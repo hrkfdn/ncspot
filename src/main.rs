@@ -203,12 +203,12 @@ fn main() -> Result<(), String> {
     ));
 
     #[cfg(feature = "mpris")]
-    ASYNC_RUNTIME.spawn(mpris::serve(
+    let mpris_manager = mpris::MprisManager::new(
         event_manager.clone(),
         queue.clone(),
         library.clone(),
         spotify.clone(),
-    ));
+    );
 
     let mut cmd_manager = CommandManager::new(
         spotify.clone(),
@@ -363,6 +363,9 @@ fn main() -> Result<(), String> {
                 Event::Player(state) => {
                     trace!("event received: {:?}", state);
                     spotify.update_status(state.clone());
+
+                    #[cfg(feature = "mpris")]
+                    mpris_manager.update()?;
 
                     #[cfg(unix)]
                     ipc.publish(&state, queue.get_current());

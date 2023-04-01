@@ -1,5 +1,9 @@
 use std::collections::HashMap;
-use std::{error::Error, future::pending, sync::Arc};
+use std::error::Error;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::StreamExt;
 use zbus::zvariant::{ObjectPath, Value};
 use zbus::{dbus_interface, ConnectionBuilder};
 
@@ -14,6 +18,7 @@ use crate::queue::RepeatSetting;
 use crate::spotify::UriType;
 use crate::spotify_url::SpotifyUrl;
 use crate::traits::ListItem;
+use crate::ASYNC_RUNTIME;
 use crate::{
     events::EventManager,
     queue::Queue,
@@ -453,28 +458,62 @@ impl MprisPlayer {
     }
 }
 
-pub async fn serve(
-    event: EventManager,
-    queue: Arc<Queue>,
-    library: Arc<Library>,
-    spotify: Spotify,
-) -> Result<(), Box<dyn Error + Sync + Send>> {
-    let root = MprisRoot {};
-    let player = MprisPlayer {
-        event,
-        queue,
-        library,
-        spotify,
-    };
+pub struct MprisManager {
+    tx: mpsc::UnboundedSender<()>,
+}
 
-    let _conn = ConnectionBuilder::session()?
-        .name("org.mpris.MediaPlayer2.ncspot")?
-        .serve_at("/org/mpris/MediaPlayer2", root)?
-        .serve_at("/org/mpris/MediaPlayer2", player)?
-        .build()
-        .await?;
+impl MprisManager {
+    pub fn new(
+        event: EventManager,
+        queue: Arc<Queue>,
+        library: Arc<Library>,
+        spotify: Spotify,
+    ) -> Self {
+        let root = MprisRoot {};
+        let player = MprisPlayer {
+            event,
+            queue,
+            library,
+            spotify,
+        };
 
-    pending::<()>().await;
+        let (tx, rx) = mpsc::unbounded_channel::<()>();
 
-    Ok(())
+        ASYNC_RUNTIME.spawn(Self::serve(UnboundedReceiverStream::new(rx), root, player));
+
+        MprisManager { tx }
+    }
+
+    async fn serve(
+        mut rx: UnboundedReceiverStream<()>,
+        root: MprisRoot,
+        player: MprisPlayer,
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let conn = ConnectionBuilder::session()?
+            .name("org.mpris.MediaPlayer2.ncspot")?
+            .serve_at("/org/mpris/MediaPlayer2", root)?
+            .serve_at("/org/mpris/MediaPlayer2", player)?
+            .build()
+            .await?;
+
+        let object_server = conn.object_server();
+        let player_iface_ref = object_server
+            .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
+            .await?;
+        let player_iface = player_iface_ref.get().await;
+
+        loop {
+            tokio::select! {
+                Some(()) = rx.next() => {
+                    let ctx = player_iface_ref.signal_context();
+                    player_iface.playback_status_changed(ctx).await?;
+                    player_iface.metadata_changed(ctx).await?;
+                }
+            }
+        }
+    }
+
+    pub fn update(&self) -> Result<(), String> {
+        self.tx.send(()).map_err(|e| e.to_string())
+    }
 }
