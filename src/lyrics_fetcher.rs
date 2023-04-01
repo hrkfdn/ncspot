@@ -1,3 +1,5 @@
+use log::trace;
+
 use crate::model::track::Track;
 
 #[derive(Clone)]
@@ -11,6 +13,7 @@ impl LyricsFetcher {
     /// Fetches the lyrics of the given song using the specified lyrics source
     pub fn fetch(&self, track: &Track) -> String {
         // std::thread::sleep(std::time::Duration::from_secs(2));
+        trace!("Fetching lyrics for {track}");
 
         format!("Sample Lyrics for {}\n", track.title)
     }
