@@ -317,7 +317,11 @@ impl MprisPlayer {
     }
 
     fn previous(&self) {
-        self.queue.previous()
+        if self.spotify.get_current_progress() < Duration::from_secs(5) {
+            self.queue.previous();
+        } else {
+            self.spotify.seek(0);
+        }
     }
 
     fn pause(&self) {
