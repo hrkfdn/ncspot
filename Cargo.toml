@@ -71,8 +71,8 @@ version = "0.20.0"
 [dependencies.notify-rust]
 default-features = false
 version = "4"
-# Use dbus, which we already depend on, instead of zbus.
-features = ["d"]
+# Use zbus, which we already depend on, instead of dbus.
+features = ["z"]
 optional = true
 
 [features]
