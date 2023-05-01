@@ -291,6 +291,12 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
+
+[[package]]
+name = "base64"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
@@ -424,7 +430,6 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
- "rustc-serialize",
  "serde",
  "time 0.1.45",
  "wasm-bindgen",
@@ -2904,11 +2909,11 @@ checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 
 [[package]]
 name = "rspotify"
-version = "0.11.6"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a86007448fb9a88a0677fd332addf8e7c1057e67bc385d3477c8d44c1bb0e96f"
+checksum = "5c4e72e087489ade8dcbd2ff76ee5963d33e5e98583d244780a094c0626cb74b"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.20.0",
  "chrono",
  "getrandom",
  "log",
@@ -2925,9 +2930,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify-http"
-version = "0.11.6"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa7481b3155d1ee3a0a73f94148d3385487e519b795d418ec0df1588961c1105"
+checksum = "a801199bba6b992c360e474bed2a500b79ef0e2538f1ece77a60e949ed6e3da8"
 dependencies = [
  "log",
  "maybe-async",
@@ -2938,15 +2943,15 @@ dependencies = [
 
 [[package]]
 name = "rspotify-macros"
-version = "0.11.6"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c86521fc751c75235937f0014dfb17e67f8abc6461b28ad82c9c2acc33a0c47"
+checksum = "6f662a0bbf070fd283985de33ad4d707ae83480230e0e2162953490a97edf203"
 
 [[package]]
 name = "rspotify-model"
-version = "0.11.6"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b03296b02fc44c9b792635cf8156d13b9d0edf629d74e80c4f551a97a1b83cd"
+checksum = "6fbdf1e8fe5fa1bbc0928904941d7c6bcfd235d01a136bb1c0fc01376cf10ec8"
 dependencies = [
  "chrono",
  "enum_dispatch",
@@ -2967,12 +2972,6 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
-
-[[package]]
-name = "rustc-serialize"
-version = "0.3.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
 
 [[package]]
 name = "rustc_version"
