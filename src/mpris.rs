@@ -484,7 +484,12 @@ impl MprisManager {
 
         let (tx, rx) = mpsc::unbounded_channel::<()>();
 
-        ASYNC_RUNTIME.spawn(Self::serve(UnboundedReceiverStream::new(rx), root, player));
+        ASYNC_RUNTIME.spawn(async {
+            let result = Self::serve(UnboundedReceiverStream::new(rx), root, player).await;
+            if let Err(e) = result {
+                log::error!("MPRIS error: {e}");
+            }
+        });
 
         MprisManager { tx }
     }
@@ -518,7 +523,9 @@ impl MprisManager {
         }
     }
 
-    pub fn update(&self) -> Result<(), String> {
-        self.tx.send(()).map_err(|e| e.to_string())
+    pub fn update(&self) {
+        if let Err(e) = self.tx.send(()) {
+            log::warn!("Could not update MPRIS state: {e}");
+        }
     }
 }

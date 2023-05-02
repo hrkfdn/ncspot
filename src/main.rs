@@ -365,7 +365,7 @@ fn main() -> Result<(), String> {
                     spotify.update_status(state.clone());
 
                     #[cfg(feature = "mpris")]
-                    mpris_manager.update()?;
+                    mpris_manager.update();
 
                     #[cfg(unix)]
                     ipc.publish(&state, queue.get_current());
