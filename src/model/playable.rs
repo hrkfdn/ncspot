@@ -58,7 +58,7 @@ impl Playable {
                     Playable::Track(track) => Playable::Track(track),
                 }) {
                     if library.cfg.values().use_nerdfont.unwrap_or_default() {
-                        "\u{f62b}"
+                        "\u{f012c}"
                     } else {
                         "✓"
                     }

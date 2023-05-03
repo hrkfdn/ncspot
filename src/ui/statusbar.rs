@@ -125,7 +125,7 @@ impl View for StatusBar {
 
         let updating = if !*self.library.is_done.read().unwrap() {
             if self.use_nerdfont() {
-                "\u{f9e5} "
+                "\u{f04e6} "
             } else {
                 "[U] "
             }
@@ -136,8 +136,8 @@ impl View for StatusBar {
         let repeat = if self.use_nerdfont() {
             match self.queue.get_repeat() {
                 RepeatSetting::None => "",
-                RepeatSetting::RepeatPlaylist => "\u{f955} ",
-                RepeatSetting::RepeatTrack => "\u{f957} ",
+                RepeatSetting::RepeatPlaylist => "\u{f0456} ",
+                RepeatSetting::RepeatTrack => "\u{f0458} ",
             }
         } else {
             match self.queue.get_repeat() {
@@ -149,7 +149,7 @@ impl View for StatusBar {
 
         let shuffle = if self.queue.get_shuffle() {
             if self.use_nerdfont() {
-                "\u{f99c} "
+                "\u{f049d} "
             } else {
                 "[Z] "
             }

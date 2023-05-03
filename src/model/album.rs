@@ -176,7 +176,7 @@ impl ListItem for Album {
     fn display_right(&self, library: &Library) -> String {
         let saved = if library.is_saved_album(self) {
             if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                "\u{f62b} "
+                "\u{f012c} "
             } else {
                 "✓ "
             }
