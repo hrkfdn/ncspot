@@ -227,7 +227,7 @@ impl ListItem for Track {
         } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {
-                    "\u{f62b}"
+                    "\u{f012c}"
                 } else {
                     "✓"
                 }
