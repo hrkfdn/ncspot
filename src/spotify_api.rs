@@ -159,7 +159,7 @@ impl WebApi {
             api.playlist_add_items(
                 PlaylistId::from_id(playlist_id).unwrap(),
                 trackids.iter().map(|id| id.as_ref()),
-                position,
+                position.map(|num| chrono::Duration::milliseconds(num as i64)),
             )
         })
         .is_some()
