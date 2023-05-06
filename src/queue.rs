@@ -509,13 +509,8 @@ pub fn send_notification(
     cover_url: Option<String>,
     notification_id: Arc<AtomicU32>,
 ) {
-    let current_notification_id = notification_id.load(std::sync::atomic::Ordering::Relaxed);
-
     let mut n = Notification::new();
-    n.appname("ncspot")
-        .id(current_notification_id)
-        .summary(summary_txt)
-        .body(body_txt);
+    n.appname("ncspot").summary(summary_txt).body(body_txt);
 
     // album cover image
     if let Some(u) = cover_url {
@@ -539,13 +534,10 @@ pub fn send_notification(
             // only available for XDG
             #[cfg(all(unix, not(target_os = "macos")))]
             {
-                let new_notification_id = _handle.id();
-                log::debug!(
-                    "new notification id: {}, previously: {}",
-                    new_notification_id,
-                    current_notification_id
-                );
-                notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
+                let old_id = notification_id.load(std::sync::atomic::Ordering::Acquire);
+                let new_id = _handle.id();
+                log::debug!("new notification id: {}, previously: {}", new_id, old_id);
+                notification_id.store(new_id, std::sync::atomic::Ordering::Release);
             }
         }
         Err(e) => error!("Failed to send notification cover: {}", e),
