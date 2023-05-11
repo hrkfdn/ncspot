@@ -188,9 +188,17 @@ impl<I: ListItem + Clone> ListView<I> {
         }
     }
 
-    pub fn remove(&self, index: usize) {
+    /// Remove the item at `index` from the list.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    pub fn remove(&mut self, index: usize) {
         let mut c = self.content.write().unwrap();
         c.remove(index);
+        if self.selected >= c.len() {
+            self.selected = self.selected.saturating_sub(1);
+        }
     }
 }
 
