@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::application::UserData;
 use crate::command::{
     parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
@@ -19,7 +20,6 @@ use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 use crate::ui::search_results::SearchResultsView;
-use crate::UserData;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::Dialog;

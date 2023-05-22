@@ -12,12 +12,12 @@ use log::{debug, error};
 
 use crate::command::{Command, GotoMode};
 use crate::commands::CommandResult;
+use crate::config::Config;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
-use crate::Config;
 
 pub struct CoverView {
     queue: Arc<Queue>,
