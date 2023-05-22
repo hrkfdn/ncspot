@@ -1,6 +1,4 @@
 use std::cmp::Ordering;
-#[cfg(feature = "notify")]
-use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
 use log::{debug, error, info};
@@ -47,10 +45,6 @@ pub struct Queue {
     current_track: RwLock<Option<usize>>,
     spotify: Spotify,
     cfg: Arc<Config>,
-    /// The notification id that uniquely identifies the notification of the
-    /// currently playing song.
-    #[cfg(feature = "notify")]
-    notification_id: Arc<AtomicU32>,
     library: Arc<Library>,
 }
 
@@ -64,8 +58,6 @@ impl Queue {
             current_track: RwLock::new(queue_state.current_track),
             random_order: RwLock::new(queue_state.random_order),
             cfg,
-            #[cfg(feature = "notify")]
-            notification_id: Arc::new(AtomicU32::new(0)),
             library,
         };
 
@@ -321,7 +313,6 @@ impl Queue {
 
             #[cfg(feature = "notify")]
             if self.cfg.values().notify.unwrap_or(false) {
-                let notification_id = self.notification_id.clone();
                 std::thread::spawn({
                     // use same parser as track_format, Playable::format
                     let format = self
@@ -339,7 +330,7 @@ impl Queue {
                     let summary_txt = Playable::format(track, &title, &self.library);
                     let body_txt = Playable::format(track, &body, &self.library);
                     let cover_url = track.cover_url();
-                    move || send_notification(&summary_txt, &body_txt, cover_url, notification_id)
+                    move || send_notification(&summary_txt, &body_txt, cover_url)
                 });
             }
         }
@@ -503,19 +494,9 @@ impl Queue {
 /// `notification_id`: Unique id for a notification, that can be used to operate
 /// on a previous notification (for example to close it).
 #[cfg(feature = "notify")]
-pub fn send_notification(
-    summary_txt: &str,
-    body_txt: &str,
-    cover_url: Option<String>,
-    notification_id: Arc<AtomicU32>,
-) {
-    let current_notification_id = notification_id.load(std::sync::atomic::Ordering::Relaxed);
-
+pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<String>) {
     let mut n = Notification::new();
-    n.appname("ncspot")
-        .id(current_notification_id)
-        .summary(summary_txt)
-        .body(body_txt);
+    n.appname("ncspot").summary(summary_txt).body(body_txt);
 
     // album cover image
     if let Some(u) = cover_url {
@@ -535,18 +516,10 @@ pub fn send_notification(
         .hint(Hint::DesktopEntry("ncspot".into()));
 
     match n.show() {
-        Ok(_handle) => {
+        Ok(handle) => {
             // only available for XDG
             #[cfg(all(unix, not(target_os = "macos")))]
-            {
-                let new_notification_id = _handle.id();
-                log::debug!(
-                    "new notification id: {}, previously: {}",
-                    new_notification_id,
-                    current_notification_id
-                );
-                notification_id.store(new_notification_id, std::sync::atomic::Ordering::Relaxed);
-            }
+            info!("Created notification: {}", handle.id());
         }
         Err(e) => error!("Failed to send notification cover: {}", e),
     }
