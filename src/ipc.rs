@@ -15,6 +15,7 @@ use crate::spotify::PlayerEvent;
 
 pub struct IpcSocket {
     tx: Sender<Status>,
+    path: PathBuf,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -23,11 +24,25 @@ struct Status {
     playable: Option<Playable>,
 }
 
+impl Drop for IpcSocket {
+    fn drop(&mut self) {
+        log::info!("Removing IPC socket: {:?}", self.path);
+        std::fs::remove_file(&self.path).expect("Could not remove IPC socket");
+    }
+}
+
 impl IpcSocket {
     pub fn new(handle: &Handle, path: PathBuf, ev: EventManager) -> io::Result<IpcSocket> {
-        if path.exists() {
+        let path = if path.exists() && Self::is_open_socket(&path) {
+            let mut new_path = path;
+            new_path.set_file_name(format!("ncspot.{}.sock", std::process::id()));
+            new_path
+        } else if path.exists() && !Self::is_open_socket(&path) {
             std::fs::remove_file(&path)?;
-        }
+            path
+        } else {
+            path
+        };
 
         info!("Creating IPC domain socket at {path:?}");
 
@@ -37,12 +52,18 @@ impl IpcSocket {
         };
 
         let (tx, rx) = tokio::sync::watch::channel(status);
+        let listener_path = path.clone();
         handle.spawn(async move {
-            let listener = UnixListener::bind(path).expect("Could not create IPC domain socket");
+            let listener =
+                UnixListener::bind(listener_path).expect("Could not create IPC domain socket");
             Self::worker(listener, ev, rx.clone()).await;
         });
 
-        Ok(IpcSocket { tx })
+        Ok(IpcSocket { tx, path })
+    }
+
+    fn is_open_socket(path: &PathBuf) -> bool {
+        std::os::unix::net::UnixStream::connect(path).is_ok()
     }
 
     pub fn publish(&self, event: &PlayerEvent, playable: Option<Playable>) {
