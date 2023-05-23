@@ -59,14 +59,8 @@ fn register_backtrace_panic_handler() {
     }));
 }
 
-lazy_static!(
-    /// The global Tokio runtime for running asynchronous tasks.
-    static ref ASYNC_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-);
-
+// Functionality related to the operating system process itself is implemented here.
+// Functionality related to ncspot goes into `Application`.
 fn main() -> Result<(), String> {
     register_backtrace_panic_handler();
 

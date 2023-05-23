@@ -8,6 +8,7 @@ use tokio_stream::StreamExt;
 use zbus::zvariant::{ObjectPath, Value};
 use zbus::{dbus_interface, ConnectionBuilder};
 
+use crate::application::ASYNC_RUNTIME;
 use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::episode::Episode;
@@ -19,7 +20,6 @@ use crate::queue::RepeatSetting;
 use crate::spotify::UriType;
 use crate::spotify_url::SpotifyUrl;
 use crate::traits::ListItem;
-use crate::ASYNC_RUNTIME;
 use crate::{
     events::EventManager,
     queue::Queue,
