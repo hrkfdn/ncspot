@@ -8,6 +8,10 @@ extern crate serde;
 use std::backtrace;
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
+
+use application::Application;
+use ncspot::program_arguments;
 
 mod application;
 mod authentication;
@@ -36,8 +40,6 @@ mod ipc;
 #[cfg(feature = "mpris")]
 mod mpris;
 
-use crate::application::Application;
-
 /// Register a custom panic handler to write the backtrace to a file since stdout is in use by the
 /// Cursive TUI library during most of the application.
 fn register_backtrace_panic_handler() {
@@ -64,7 +66,13 @@ fn register_backtrace_panic_handler() {
 fn main() -> Result<(), String> {
     register_backtrace_panic_handler();
 
-    let mut application = Application::new()?;
+    let matches = program_arguments().get_matches();
+
+    let mut application = Application::new(
+        matches.get_one::<PathBuf>("debug").cloned(),
+        matches.get_one::<PathBuf>("basepath").cloned(),
+        matches.get_one::<PathBuf>("config").cloned(),
+    )?;
 
     application.run()
 }

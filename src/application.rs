@@ -1,7 +1,6 @@
 use crate::{command, ipc, mpris, queue, spotify};
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use cursive::event::EventTrigger;
@@ -11,7 +10,6 @@ use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use log::{error, info, trace};
 
-use ncspot::program_arguments;
 #[cfg(unix)]
 use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
@@ -90,27 +88,33 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn new() -> Result<Self, String> {
-        let matches = program_arguments().get_matches();
-
-        if let Some(filename) = matches.get_one::<String>("debug") {
-            setup_logging(filename).expect("can't setup logging");
+    /// Create a new ncspot application.
+    ///
+    /// # Arguments
+    ///
+    /// * `debug_log_path` - Path where an optional debug log should be written to
+    /// * `configuration_base_path` - Path to the configuration directory
+    /// * `configuration_file_path` - Relative path to the configuration file inside the base path
+    pub fn new(
+        debug_log_path: Option<PathBuf>,
+        configuration_base_path: Option<PathBuf>,
+        configuration_file_path: Option<PathBuf>,
+    ) -> Result<Self, String> {
+        if let Some(filename) = debug_log_path {
+            setup_logging(&filename.to_string_lossy()).expect("can't setup logging");
         }
 
-        if let Some(basepath) = matches.get_one::<String>("basepath") {
-            let path = PathBuf::from_str(basepath).expect("invalid path");
-            if !path.exists() {
-                fs::create_dir_all(&path).expect("could not create basepath directory");
+        if let Some(basepath) = configuration_base_path {
+            if !basepath.exists() {
+                fs::create_dir_all(&basepath).expect("could not create basepath directory");
             }
-            *config::BASE_PATH.write().unwrap() = Some(path);
+            *config::BASE_PATH.write().unwrap() = Some(basepath);
         }
 
         // Things here may cause the process to abort; we must do them before creating curses windows
         // otherwise the error message will not be seen by a user
         let config: Arc<crate::config::Config> = Arc::new(Config::new(
-            matches
-                .get_one::<String>("config")
-                .unwrap_or(&"config.toml".to_string()),
+            configuration_file_path.unwrap_or("config.toml".into()),
         ));
         let mut credentials = {
             let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)

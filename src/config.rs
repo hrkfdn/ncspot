@@ -169,14 +169,14 @@ lazy_static! {
 }
 
 pub struct Config {
-    filename: String,
+    filename: PathBuf,
     values: RwLock<ConfigValues>,
     state: RwLock<UserState>,
 }
 
 impl Config {
-    pub fn new(filename: &str) -> Self {
-        let values = load(filename).unwrap_or_else(|e| {
+    pub fn new(filename: PathBuf) -> Self {
+        let values = load(&filename.to_string_lossy()).unwrap_or_else(|e| {
             eprintln!("could not load config: {e}");
             process::exit(1);
         });
@@ -200,7 +200,7 @@ impl Config {
         }
 
         Self {
-            filename: filename.to_string(),
+            filename,
             values: RwLock::new(values),
             state: RwLock::new(userstate),
         }
@@ -239,7 +239,7 @@ impl Config {
     }
 
     pub fn reload(&self) {
-        let cfg = load(&self.filename).expect("could not reload config");
+        let cfg = load(&self.filename.to_string_lossy()).expect("could not reload config");
         *self.values.write().expect("can't writelock config values") = cfg
     }
 }
