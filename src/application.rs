@@ -1,4 +1,4 @@
-use crate::{command, ipc, mpris, queue, spotify, ASYNC_RUNTIME};
+use crate::{command, ipc, mpris, queue, spotify};
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -66,6 +66,14 @@ pub type UserData = Arc<UserDataInner>;
 pub struct UserDataInner {
     pub cmd: CommandManager,
 }
+
+lazy_static!(
+    /// The global Tokio runtime for running asynchronous tasks.
+    pub static ref ASYNC_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+);
 
 /// The representation of an ncspot application.
 pub struct Application {

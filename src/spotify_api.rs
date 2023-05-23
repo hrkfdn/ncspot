@@ -1,3 +1,4 @@
+use crate::application::ASYNC_RUNTIME;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::category::Category;
@@ -7,7 +8,6 @@ use crate::model::playlist::Playlist;
 use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
-use crate::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use futures::channel::oneshot;
 use log::{debug, error, info};
