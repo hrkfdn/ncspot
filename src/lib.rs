@@ -1,3 +1,4 @@
+use clap::builder::PathBufValueParser;
 use librespot_playback::audio_backend;
 
 pub const AUTHOR: &str = "Henrik Friedrichsen <henrik@affekt.org> and contributors";
@@ -22,6 +23,7 @@ pub fn program_arguments() -> clap::Command {
                 .short('d')
                 .long("debug")
                 .value_name("FILE")
+                .value_parser(PathBufValueParser::new())
                 .help("Enable debug logging to the specified file"),
         )
         .arg(
@@ -29,6 +31,7 @@ pub fn program_arguments() -> clap::Command {
                 .short('b')
                 .long("basepath")
                 .value_name("PATH")
+                .value_parser(PathBufValueParser::new())
                 .help("custom basepath to config/cache files"),
         )
         .arg(
@@ -36,6 +39,7 @@ pub fn program_arguments() -> clap::Command {
                 .short('c')
                 .long("config")
                 .value_name("FILE")
+                .value_parser(PathBufValueParser::new())
                 .help("Filename of config file in basepath")
                 .default_value("config.toml"),
         )
