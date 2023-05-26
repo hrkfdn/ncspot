@@ -43,6 +43,7 @@ impl Default for MoveAmount {
     }
 }
 
+/// Keys that can be used to sort songs on.
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
 pub enum SortKey {
