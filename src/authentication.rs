@@ -3,13 +3,71 @@ use std::process::Command;
 use cursive::traits::Resizable;
 use cursive::view::Nameable;
 use cursive::views::*;
-use cursive::{Cursive, CursiveExt};
+use cursive::Cursive;
 
 use librespot_core::authentication::Credentials as RespotCredentials;
+use librespot_core::cache::Cache;
 use librespot_protocol::authentication::AuthenticationType;
+use log::info;
+
+use crate::config::{self, Config};
+use crate::spotify::Spotify;
+use crate::ui::create_cursive;
+
+/// Get credentials for use with librespot. This first tries to get cached credentials. If no cached
+/// credentials are available, it will either try to get them from the user configured commands, or
+/// if that fails, it will prompt the user on stdout.
+pub fn get_credentials(configuration: &Config) -> Result<RespotCredentials, String> {
+    let mut credentials = {
+        let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)
+            .expect("Could not create librespot cache");
+        let cached_credentials = cache.credentials();
+        match cached_credentials {
+            Some(c) => {
+                info!("Using cached credentials");
+                c
+            }
+            None => {
+                info!("Attempting to resolve credentials via username/password commands");
+                let creds = configuration
+                    .values()
+                    .credentials
+                    .clone()
+                    .unwrap_or_default();
+
+                match (creds.username_cmd, creds.password_cmd) {
+                    (Some(username_cmd), Some(password_cmd)) => {
+                        credentials_eval(&username_cmd, &password_cmd)?
+                    }
+                    _ => credentials_prompt(None)?,
+                }
+            }
+        }
+    };
+
+    while let Err(error) = Spotify::test_credentials(credentials.clone()) {
+        let error_msg = format!("{error}");
+        credentials = credentials_prompt(Some(error_msg))?;
+    }
+    Ok(credentials)
+}
+
+fn credentials_prompt(error_message: Option<String>) -> Result<RespotCredentials, String> {
+    if let Some(message) = error_message {
+        let mut siv = create_cursive().unwrap();
+        let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
+            "Connection error:\n{message}"
+        )))
+        .button("Ok", |s| s.quit());
+        siv.add_layer(dialog);
+        siv.run();
+    }
+
+    create_credentials()
+}
 
 pub fn create_credentials() -> Result<RespotCredentials, String> {
-    let mut login_cursive = Cursive::default();
+    let mut login_cursive = create_cursive().unwrap();
     let info_buf = TextContent::new("Please login to Spotify\n");
     let info_view = Dialog::around(TextView::new_with_content(info_buf))
         .button("Login", move |s| {

@@ -1,12 +1,11 @@
-use crate::{command, ipc, mpris, queue, spotify};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use cursive::event::EventTrigger;
+use cursive::theme::Theme;
 use cursive::traits::Nameable;
 use cursive::{Cursive, CursiveRunner};
-use librespot_core::authentication::Credentials;
-use librespot_core::cache::Cache;
 use log::{error, info, trace};
 
 #[cfg(unix)]
@@ -14,27 +13,20 @@ use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
 use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
-use crate::config::{self, cache_path, set_configuration_base_path, Config};
+use crate::config::{cache_path, Config};
 use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
+use crate::ipc::IpcSocket;
 use crate::library::Library;
+use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::contextmenu::ContextMenu;
+use crate::ui::create_cursive;
 use crate::{authentication, ui};
+use crate::{command, ipc, queue, spotify};
 
-fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, String> {
-    if let Some(message) = error_message {
-        let mut siv = cursive::default();
-        let dialog = cursive::views::Dialog::around(cursive::views::TextView::new(format!(
-            "Connection error:\n{message}"
-        )))
-        .button("Ok", |s| s.quit());
-        siv.add_layer(dialog);
-        siv.run();
-    }
-
-    authentication::create_credentials()
-}
+#[cfg(feature = "mpris")]
+use crate::mpris::{self, MprisManager};
 
 /// Set up the global logger to log to `filename`.
 pub fn setup_logging(filename: &Path) -> Result<(), fern::InitError> {
@@ -77,14 +69,24 @@ lazy_static!(
 pub struct Application {
     /// The Spotify library, which is obtained from the Spotify API using rspotify.
     library: Arc<Library>,
+    /// The music queue which controls playback order.
+    queue: Arc<Queue>,
     /// Internally shared
     spotify: Spotify,
     /// The configuration provided in the config file.
-    config: Arc<Config>,
+    configuration: Arc<Config>,
     /// Internally shared
     event_manager: EventManager,
+    /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
+    #[cfg(feature = "mpris")]
+    mpris_manager: MprisManager,
+    /// An IPC implementation using a Unix domain socket, used to control and inspect ncspot.
+    #[cfg(unix)]
+    ipc: IpcSocket,
     /// The object to render to the terminal.
     cursive: CursiveRunner<Cursive>,
+    /// The theme used to draw the user interface.
+    theme: Rc<Theme>,
 }
 
 impl Application {
@@ -94,97 +96,75 @@ impl Application {
     ///
     /// * `configuration_base_path` - Path to the configuration directory
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
-    pub fn new(
-        configuration_base_path: Option<PathBuf>,
-        configuration_file_path: Option<PathBuf>,
-    ) -> Result<Self, String> {
-        set_configuration_base_path(configuration_base_path);
+    pub fn new(configuration_file_path: Option<String>) -> Result<Self, String> {
+        // Things here may cause the process to abort; we must do them before creating curses
+        // windows otherwise the error message will not be seen by a user
 
-        // Things here may cause the process to abort; we must do them before creating curses windows
-        // otherwise the error message will not be seen by a user
-        let config = Arc::new(Config::new(
-            configuration_file_path.unwrap_or("config.toml".into()),
-        ));
-
-        let mut credentials = {
-            let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)
-                .expect("Could not create librespot cache");
-            let cached_credentials = cache.credentials();
-            match cached_credentials {
-                Some(c) => {
-                    info!("Using cached credentials");
-                    c
-                }
-                None => {
-                    info!("Attempting to resolve credentials via username/password commands");
-                    let creds = config.values().credentials.clone().unwrap_or_default();
-
-                    match (creds.username_cmd, creds.password_cmd) {
-                        (Some(username_cmd), Some(password_cmd)) => {
-                            authentication::credentials_eval(&username_cmd, &password_cmd)?
-                        }
-                        _ => credentials_prompt(None)?,
-                    }
-                }
-            }
-        };
-
-        while let Err(error) = spotify::Spotify::test_credentials(credentials.clone()) {
-            let error_msg = format!("{error}");
-            credentials = credentials_prompt(Some(error_msg))?;
-        }
+        let configuration = Arc::new(Config::new(configuration_file_path));
+        let credentials = authentication::get_credentials(&configuration)?;
+        let theme = configuration.build_theme();
 
         println!("Connecting to Spotify..");
 
         // DON'T USE STDOUT AFTER THIS CALL!
-        let backend = cursive::backends::try_default().map_err(|e| e.to_string())?;
-        let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
+        let mut cursive = create_cursive().map_err(|error| error.to_string())?;
 
-        let mut cursive = cursive::CursiveRunner::new(cursive::Cursive::new(), buffered_backend);
-        cursive.set_window_title("ncspot");
+        cursive.set_theme(theme.clone());
 
         let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-        let spotify = spotify::Spotify::new(event_manager.clone(), credentials, config.clone());
+        let spotify =
+            spotify::Spotify::new(event_manager.clone(), credentials, configuration.clone());
 
         let library = Arc::new(Library::new(
-            &event_manager,
+            event_manager.clone(),
             spotify.clone(),
-            config.clone(),
+            configuration.clone(),
         ));
 
-        Ok(Self {
-            library,
-            spotify,
-            config,
-            event_manager,
-            cursive,
-        })
-    }
-
-    pub fn run(&mut self) -> Result<(), String> {
-        let theme = self.config.build_theme();
-        self.cursive.set_theme(theme.clone());
-
         let queue = Arc::new(queue::Queue::new(
-            self.spotify.clone(),
-            self.config.clone(),
-            self.library.clone(),
+            spotify.clone(),
+            configuration.clone(),
+            library.clone(),
         ));
 
         #[cfg(feature = "mpris")]
         let mpris_manager = mpris::MprisManager::new(
-            self.event_manager.clone(),
+            event_manager.clone(),
             queue.clone(),
-            self.library.clone(),
-            self.spotify.clone(),
+            library.clone(),
+            spotify.clone(),
         );
 
+        #[cfg(unix)]
+        let ipc = ipc::IpcSocket::new(
+            ASYNC_RUNTIME.handle(),
+            cache_path("ncspot.sock"),
+            event_manager.clone(),
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(Self {
+            library,
+            queue,
+            spotify,
+            configuration,
+            event_manager,
+            #[cfg(feature = "mpris")]
+            mpris_manager,
+            #[cfg(unix)]
+            ipc,
+            cursive,
+            theme: Rc::new(theme),
+        })
+    }
+
+    pub fn run(&mut self) -> Result<(), String> {
         let mut cmd_manager = CommandManager::new(
             self.spotify.clone(),
-            queue.clone(),
+            self.queue.clone(),
             self.library.clone(),
-            self.config.clone(),
+            self.configuration.clone(),
             self.event_manager.clone(),
         );
 
@@ -196,31 +176,35 @@ impl Application {
 
         let search = ui::search::SearchView::new(
             self.event_manager.clone(),
-            queue.clone(),
+            self.queue.clone(),
             self.library.clone(),
         );
 
-        let libraryview = ui::library::LibraryView::new(queue.clone(), self.library.clone());
+        let libraryview = ui::library::LibraryView::new(self.queue.clone(), self.library.clone());
 
-        let queueview = ui::queue::QueueView::new(queue.clone(), self.library.clone());
+        let queueview = ui::queue::QueueView::new(self.queue.clone(), self.library.clone());
 
         #[cfg(feature = "cover")]
-        let coverview =
-            ui::cover::CoverView::new(queue.clone(), self.library.clone(), &self.config);
+        let coverview = ui::cover::CoverView::new(
+            self.queue.clone(),
+            self.library.clone(),
+            &self.configuration,
+        );
 
-        let status = ui::statusbar::StatusBar::new(queue.clone(), Arc::clone(&self.library));
+        let status = ui::statusbar::StatusBar::new(self.queue.clone(), Arc::clone(&self.library));
 
-        let mut layout = ui::layout::Layout::new(status, &self.event_manager, theme)
-            .screen("search", search.with_name("search"))
-            .screen("library", libraryview.with_name("library"))
-            .screen("queue", queueview);
+        let mut layout =
+            ui::layout::Layout::new(status, &self.event_manager, Rc::clone(&self.theme))
+                .screen("search", search.with_name("search"))
+                .screen("library", libraryview.with_name("library"))
+                .screen("queue", queueview);
 
         #[cfg(feature = "cover")]
         layout.add_screen("cover", coverview.with_name("cover"));
 
         // initial screen is library
         let initial_screen = self
-            .config
+            .configuration
             .values()
             .initial_screen
             .clone()
@@ -235,8 +219,8 @@ impl Application {
         let cmd_key = |cfg: Arc<Config>| cfg.values().command_key.unwrap_or(':');
 
         {
-            let c = self.config.clone();
-            let config_clone = Arc::clone(&self.config);
+            let c = self.configuration.clone();
+            let config_clone = Arc::clone(&self.configuration);
             self.cursive.set_on_post_event(
                 EventTrigger::from_fn(move |event| {
                     event == &cursive::event::Event::Char(cmd_key(c.clone()))
@@ -316,16 +300,6 @@ impl Application {
         let mut signals =
             Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
 
-        #[cfg(unix)]
-        let ipc = {
-            ipc::IpcSocket::new(
-                ASYNC_RUNTIME.handle(),
-                cache_path("ncspot.sock"),
-                self.event_manager.clone(),
-            )
-            .map_err(|e| e.to_string())?
-        };
-
         // cursive event loop
         while self.cursive.is_running() {
             self.cursive.step();
@@ -345,17 +319,17 @@ impl Application {
                         self.spotify.update_status(state.clone());
 
                         #[cfg(feature = "mpris")]
-                        mpris_manager.update();
+                        self.mpris_manager.update();
 
                         #[cfg(unix)]
-                        ipc.publish(&state, queue.get_current());
+                        self.ipc.publish(&state, self.queue.get_current());
 
                         if state == PlayerEvent::FinishedTrack {
-                            queue.next(false);
+                            self.queue.next(false);
                         }
                     }
                     Event::Queue(event) => {
-                        queue.handle_event(event);
+                        self.queue.handle_event(event);
                     }
                     Event::SessionDied => self.spotify.start_worker(None),
                     Event::IpcInput(input) => match command::parse(&input) {

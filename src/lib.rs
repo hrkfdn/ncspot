@@ -39,7 +39,6 @@ pub fn program_arguments() -> clap::Command {
                 .short('c')
                 .long("config")
                 .value_name("FILE")
-                .value_parser(PathBufValueParser::new())
                 .help("Filename of config file in basepath")
                 .default_value("config.toml"),
         )

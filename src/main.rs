@@ -8,6 +8,7 @@ extern crate serde;
 use std::path::PathBuf;
 
 use application::{setup_logging, Application};
+use config::set_configuration_base_path;
 use ncspot::program_arguments;
 
 mod application;
@@ -51,11 +52,12 @@ fn main() -> Result<(), String> {
         setup_logging(filename).expect("logger could not be initialized");
     }
 
+    // Set the configuration base path. All configuration files are read/written relative to this
+    // path.
+    set_configuration_base_path(matches.get_one::<PathBuf>("basepath").cloned());
+
     // Create the application.
-    let mut application = Application::new(
-        matches.get_one::<PathBuf>("basepath").cloned(),
-        matches.get_one::<PathBuf>("config").cloned(),
-    )?;
+    let mut application = Application::new(matches.get_one::<String>("config").cloned())?;
 
     // Start the application event loop.
     application.run()

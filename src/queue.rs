@@ -1,14 +1,14 @@
 use std::cmp::Ordering;
 use std::sync::{Arc, RwLock};
 
-use log::{debug, error, info};
+use log::{debug, info};
 #[cfg(feature = "notify")]
 use notify_rust::{Hint, Notification, Urgency};
 
 use rand::prelude::*;
 use strum_macros::Display;
 
-use crate::config::{Config, NotificationFormat, PlaybackState};
+use crate::config::{Config, PlaybackState};
 use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::spotify::PlayerEvent;
@@ -321,10 +321,10 @@ impl Queue {
                         .notification_format
                         .clone()
                         .unwrap_or_default();
-                    let default_title = NotificationFormat::default().title.unwrap();
+                    let default_title = crate::config::NotificationFormat::default().title.unwrap();
                     let title = format.title.unwrap_or_else(|| default_title.clone());
 
-                    let default_body = NotificationFormat::default().body.unwrap();
+                    let default_body = crate::config::NotificationFormat::default().body.unwrap();
                     let body = format.body.unwrap_or_else(|| default_body.clone());
 
                     let summary_txt = Playable::format(track, &title, &self.library);
@@ -503,7 +503,7 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
         let path = crate::utils::cache_path_for_url(u.to_string());
         if !path.exists() {
             if let Err(e) = crate::utils::download(u, path.clone()) {
-                error!("Failed to download cover: {}", e);
+                log::error!("Failed to download cover: {}", e);
             }
         }
         n.icon(path.to_str().unwrap());
@@ -521,6 +521,6 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
             #[cfg(all(unix, not(target_os = "macos")))]
             info!("Created notification: {}", handle.id());
         }
-        Err(e) => error!("Failed to send notification cover: {}", e),
+        Err(e) => log::error!("Failed to send notification cover: {}", e),
     }
 }

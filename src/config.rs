@@ -182,7 +182,7 @@ lazy_static! {
 /// The complete configuration (state + user configuration) of ncspot.
 pub struct Config {
     /// The configuration file path.
-    filename: PathBuf,
+    filename: String,
     /// Configuration set by the user, read only.
     values: RwLock<ConfigValues>,
     /// Runtime state which can't be edited by the user, read/write.
@@ -191,8 +191,10 @@ pub struct Config {
 
 impl Config {
     /// Generate the configuration from the user configuration file and the runtime state file.
-    pub fn new(filename: PathBuf) -> Self {
-        let values = load(&filename.to_string_lossy()).unwrap_or_else(|e| {
+    /// `filename` can be used to look for a differently named configuration file.
+    pub fn new(filename: Option<String>) -> Self {
+        let filename = filename.unwrap_or("config.toml".to_owned());
+        let values = load(&filename).unwrap_or_else(|e| {
             eprintln!("could not load config: {e}");
             process::exit(1);
         });
@@ -256,7 +258,7 @@ impl Config {
 
     /// Reload the configuration file.
     pub fn reload(&self) {
-        let cfg = load(&self.filename.to_string_lossy()).expect("could not reload config");
+        let cfg = load(&self.filename).expect("could not reload config");
         *self.values.write().expect("can't writelock config values") = cfg
     }
 }
