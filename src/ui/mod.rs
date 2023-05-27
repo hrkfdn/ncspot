@@ -1,3 +1,6 @@
+use cursive::{Cursive, CursiveRunner};
+use ncspot::BIN_NAME;
+
 pub mod album;
 pub mod artist;
 pub mod browse;
@@ -19,3 +22,14 @@ pub mod tabview;
 
 #[cfg(feature = "cover")]
 pub mod cover;
+
+/// Create a CursiveRunner which implements the drawing logic and event loop.
+pub fn create_cursive() -> Result<CursiveRunner<Cursive>, Box<dyn std::error::Error>> {
+    let backend = cursive::backends::try_default()?;
+    let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
+    let mut cursive_runner = CursiveRunner::new(cursive::Cursive::new(), buffered_backend);
+
+    cursive_runner.set_window_title(BIN_NAME);
+
+    Ok(cursive_runner)
+}

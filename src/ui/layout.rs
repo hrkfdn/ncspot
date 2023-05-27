@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
@@ -30,11 +31,11 @@ pub struct Layout {
     screenchange: bool,
     last_size: Vec2,
     ev: events::EventManager,
-    theme: Theme,
+    theme: Rc<Theme>,
 }
 
 impl Layout {
-    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager, theme: Theme) -> Layout {
+    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager, theme: Rc<Theme>) -> Layout {
         let style = ColorStyle::new(
             ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
             ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
