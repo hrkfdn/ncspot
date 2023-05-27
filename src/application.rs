@@ -13,20 +13,22 @@ use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
 use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
-use crate::config::{cache_path, Config};
+use crate::config::Config;
 use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
-use crate::ipc::IpcSocket;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::create_cursive;
 use crate::{authentication, ui};
-use crate::{command, ipc, queue, spotify};
+use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
 use crate::mpris::{self, MprisManager};
+
+#[cfg(unix)]
+use crate::ipc::{self, IpcSocket};
 
 /// Set up the global logger to log to `filename`.
 pub fn setup_logging(filename: &Path) -> Result<(), fern::InitError> {
@@ -139,7 +141,7 @@ impl Application {
         #[cfg(unix)]
         let ipc = ipc::IpcSocket::new(
             ASYNC_RUNTIME.handle(),
-            cache_path("ncspot.sock"),
+            crate::config::cache_path("ncspot.sock"),
             event_manager.clone(),
         )
         .map_err(|e| e.to_string())?;
