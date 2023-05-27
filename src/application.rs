@@ -1,9 +1,6 @@
 use std::path::Path;
-use std::rc::Rc;
 use std::sync::Arc;
 
-use cursive::event::EventTrigger;
-use cursive::theme::Theme;
 use cursive::traits::Nameable;
 use cursive::{Cursive, CursiveRunner};
 use log::{error, info, trace};
@@ -11,15 +8,13 @@ use log::{error, info, trace};
 #[cfg(unix)]
 use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
-use crate::command::{Command, JumpMode};
+use crate::command::Command;
 use crate::commands::CommandManager;
 use crate::config::Config;
 use crate::events::{Event, EventManager};
-use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
-use crate::ui::contextmenu::ContextMenu;
 use crate::ui::create_cursive;
 use crate::{authentication, ui};
 use crate::{command, queue, spotify};
@@ -69,14 +64,10 @@ lazy_static!(
 
 /// The representation of an ncspot application.
 pub struct Application {
-    /// The Spotify library, which is obtained from the Spotify API using rspotify.
-    library: Arc<Library>,
     /// The music queue which controls playback order.
     queue: Arc<Queue>,
     /// Internally shared
     spotify: Spotify,
-    /// The configuration provided in the config file.
-    configuration: Arc<Config>,
     /// Internally shared
     event_manager: EventManager,
     /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
@@ -87,8 +78,6 @@ pub struct Application {
     ipc: IpcSocket,
     /// The object to render to the terminal.
     cursive: CursiveRunner<Cursive>,
-    /// The theme used to draw the user interface.
-    theme: Rc<Theme>,
 }
 
 impl Application {
@@ -111,6 +100,11 @@ impl Application {
         let mut cursive = create_cursive().map_err(|error| error.to_string())?;
 
         cursive.set_theme(theme.clone());
+
+        #[cfg(all(unix, feature = "pancurses_backend"))]
+        cursive.add_global_callback(cursive::event::Event::CtrlChar('z'), |_s| unsafe {
+            libc::raise(libc::SIGTSTP);
+        });
 
         let event_manager = EventManager::new(cursive.cb_sink().clone());
 
@@ -145,57 +139,33 @@ impl Application {
         )
         .map_err(|e| e.to_string())?;
 
-        Ok(Self {
-            library,
-            queue,
-            spotify,
-            configuration,
-            event_manager,
-            #[cfg(feature = "mpris")]
-            mpris_manager,
-            #[cfg(unix)]
-            ipc,
-            cursive,
-            theme: Rc::new(theme),
-        })
-    }
-
-    pub fn run(&mut self) -> Result<(), String> {
         let mut cmd_manager = CommandManager::new(
-            self.spotify.clone(),
-            self.queue.clone(),
-            self.library.clone(),
-            self.configuration.clone(),
-            self.event_manager.clone(),
+            spotify.clone(),
+            queue.clone(),
+            library.clone(),
+            configuration.clone(),
+            event_manager.clone(),
         );
 
         cmd_manager.register_all();
-        cmd_manager.register_keybindings(&mut self.cursive);
+        cmd_manager.register_keybindings(&mut cursive);
 
-        let user_data: UserData = Arc::new(UserDataInner { cmd: cmd_manager });
-        self.cursive.set_user_data(user_data);
+        cursive.set_user_data(Arc::new(UserDataInner { cmd: cmd_manager }));
 
-        let search = ui::search::SearchView::new(
-            self.event_manager.clone(),
-            self.queue.clone(),
-            self.library.clone(),
-        );
+        let search =
+            ui::search::SearchView::new(event_manager.clone(), queue.clone(), library.clone());
 
-        let libraryview = ui::library::LibraryView::new(self.queue.clone(), self.library.clone());
+        let libraryview = ui::library::LibraryView::new(queue.clone(), library.clone());
 
-        let queueview = ui::queue::QueueView::new(self.queue.clone(), self.library.clone());
+        let queueview = ui::queue::QueueView::new(queue.clone(), library.clone());
 
         #[cfg(feature = "cover")]
-        let coverview = ui::cover::CoverView::new(
-            self.queue.clone(),
-            self.library.clone(),
-            &self.configuration,
-        );
+        let coverview = ui::cover::CoverView::new(queue.clone(), library.clone(), &configuration);
 
-        let status = ui::statusbar::StatusBar::new(self.queue.clone(), Arc::clone(&self.library));
+        let status = ui::statusbar::StatusBar::new(queue.clone(), Arc::clone(&library));
 
         let mut layout =
-            ui::layout::Layout::new(status, &self.event_manager, Rc::clone(&self.theme))
+            ui::layout::Layout::new(status, &event_manager, theme, Arc::clone(&configuration))
                 .screen("search", search.with_name("search"))
                 .screen("library", libraryview.with_name("library"))
                 .screen("queue", queueview);
@@ -204,8 +174,7 @@ impl Application {
         layout.add_screen("cover", coverview.with_name("cover"));
 
         // initial screen is library
-        let initial_screen = self
-            .configuration
+        let initial_screen = configuration
             .values()
             .initial_screen
             .clone()
@@ -217,86 +186,22 @@ impl Application {
             layout.set_screen("library");
         }
 
-        let cmd_key = |cfg: Arc<Config>| cfg.values().command_key.unwrap_or(':');
+        cursive.add_fullscreen_layer(layout.with_name("main"));
 
-        {
-            let c = self.configuration.clone();
-            let config_clone = Arc::clone(&self.configuration);
-            self.cursive.set_on_post_event(
-                EventTrigger::from_fn(move |event| {
-                    event == &cursive::event::Event::Char(cmd_key(c.clone()))
-                }),
-                move |s| {
-                    if s.find_name::<ContextMenu>("contextmenu").is_none() {
-                        s.call_on_name("main", |v: &mut ui::layout::Layout| {
-                            v.enable_cmdline(cmd_key(config_clone.clone()));
-                        });
-                    }
-                },
-            );
-        }
+        Ok(Self {
+            queue,
+            spotify,
+            event_manager,
+            #[cfg(feature = "mpris")]
+            mpris_manager,
+            #[cfg(unix)]
+            ipc,
+            cursive,
+        })
+    }
 
-        self.cursive.add_global_callback('/', move |s| {
-            if s.find_name::<ContextMenu>("contextmenu").is_none() {
-                s.call_on_name("main", |v: &mut ui::layout::Layout| {
-                    v.enable_jump();
-                });
-            }
-        });
-
-        self.cursive
-            .add_global_callback(cursive::event::Key::Esc, move |s| {
-                if s.find_name::<ContextMenu>("contextmenu").is_none() {
-                    s.call_on_name("main", |v: &mut ui::layout::Layout| {
-                        v.clear_cmdline();
-                    });
-                }
-            });
-
-        layout.cmdline.set_on_edit(move |s, cmd, _| {
-            s.call_on_name("main", |v: &mut ui::layout::Layout| {
-                if cmd.is_empty() {
-                    v.clear_cmdline();
-                }
-            });
-        });
-
-        {
-            let ev = self.event_manager.clone();
-            layout.cmdline.set_on_submit(move |s, cmd| {
-                s.on_layout(|_, mut layout| layout.clear_cmdline());
-                let cmd_without_prefix = &cmd[1..];
-                if cmd.strip_prefix('/').is_some() {
-                    let command = Command::Jump(JumpMode::Query(cmd_without_prefix.to_string()));
-                    if let Some(data) = s.user_data::<UserData>().cloned() {
-                        data.cmd.handle(s, command);
-                    }
-                } else {
-                    match command::parse(cmd_without_prefix) {
-                        Ok(commands) => {
-                            if let Some(data) = s.user_data::<UserData>().cloned() {
-                                for cmd in commands {
-                                    data.cmd.handle(s, cmd);
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            s.on_layout(|_, mut layout| layout.set_result(Err(err.to_string())));
-                        }
-                    }
-                }
-                ev.trigger();
-            });
-        }
-
-        self.cursive.add_fullscreen_layer(layout.with_name("main"));
-
-        #[cfg(all(unix, feature = "pancurses_backend"))]
-        self.cursive
-            .add_global_callback(cursive::event::Event::CtrlChar('z'), |_s| unsafe {
-                libc::raise(libc::SIGTSTP);
-            });
-
+    /// Start the application and run the event loop.
+    pub fn run(&mut self) -> Result<(), String> {
         #[cfg(unix)]
         let mut signals =
             Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
