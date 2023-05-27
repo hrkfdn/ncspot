@@ -1,6 +1,5 @@
 use crate::{command, ipc, mpris, queue, spotify};
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use cursive::event::EventTrigger;
@@ -15,7 +14,7 @@ use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
 use crate::command::{Command, JumpMode};
 use crate::commands::CommandManager;
-use crate::config::{self, cache_path, Config};
+use crate::config::{self, cache_path, set_configuration_base_path, Config};
 use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -37,7 +36,8 @@ fn credentials_prompt(error_message: Option<String>) -> Result<Credentials, Stri
     authentication::create_credentials()
 }
 
-fn setup_logging(filename: &str) -> Result<(), fern::InitError> {
+/// Set up the global logger to log to `filename`.
+pub fn setup_logging(filename: &Path) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         // Perform allocation-free log formatting
         .format(|out, message, record| {
@@ -92,30 +92,20 @@ impl Application {
     ///
     /// # Arguments
     ///
-    /// * `debug_log_path` - Path where an optional debug log should be written to
     /// * `configuration_base_path` - Path to the configuration directory
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
     pub fn new(
-        debug_log_path: Option<PathBuf>,
         configuration_base_path: Option<PathBuf>,
         configuration_file_path: Option<PathBuf>,
     ) -> Result<Self, String> {
-        if let Some(filename) = debug_log_path {
-            setup_logging(&filename.to_string_lossy()).expect("can't setup logging");
-        }
-
-        if let Some(basepath) = configuration_base_path {
-            if !basepath.exists() {
-                fs::create_dir_all(&basepath).expect("could not create basepath directory");
-            }
-            *config::BASE_PATH.write().unwrap() = Some(basepath);
-        }
+        set_configuration_base_path(configuration_base_path);
 
         // Things here may cause the process to abort; we must do them before creating curses windows
         // otherwise the error message will not be seen by a user
-        let config: Arc<crate::config::Config> = Arc::new(Config::new(
+        let config = Arc::new(Config::new(
             configuration_file_path.unwrap_or("config.toml".into()),
         ));
+
         let mut credentials = {
             let cache = Cache::new(Some(config::cache_path("librespot")), None, None, None)
                 .expect("Could not create librespot cache");
