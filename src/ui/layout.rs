@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
 use cursive::direction::Direction;
-use cursive::event::{AnyCb, Event, EventResult, MouseButton, MouseEvent};
+use cursive::event::{AnyCb, Event, EventResult, Key, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, Theme};
 use cursive::traits::View;
 use cursive::vec::Vec2;
@@ -14,9 +14,12 @@ use cursive::{Cursive, Printer};
 use log::debug;
 use unicode_width::UnicodeWidthStr;
 
-use crate::command::Command;
+use crate::application::UserData;
+use crate::command::{self, Command, JumpMode};
 use crate::commands::CommandResult;
+use crate::config::Config;
 use crate::events;
+use crate::ext_traits::CursiveExt;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
 
 pub struct Layout {
@@ -24,29 +27,74 @@ pub struct Layout {
     stack: HashMap<String, Vec<Box<dyn ViewExt>>>,
     statusbar: Box<dyn View>,
     focus: Option<String>,
-    pub cmdline: EditView,
+    cmdline: EditView,
     cmdline_focus: bool,
     result: Result<Option<String>, String>,
     result_time: Option<SystemTime>,
     screenchange: bool,
     last_size: Vec2,
     ev: events::EventManager,
-    theme: Rc<Theme>,
+    theme: Theme,
+    configuration: Arc<Config>,
 }
 
 impl Layout {
-    pub fn new<T: IntoBoxedView>(status: T, ev: &events::EventManager, theme: Rc<Theme>) -> Layout {
+    pub fn new<T: IntoBoxedView>(
+        status: T,
+        ev: &events::EventManager,
+        theme: Theme,
+        configuration: Arc<Config>,
+    ) -> Layout {
         let style = ColorStyle::new(
             ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
             ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
         );
+        let mut command_line_input = EditView::new().filler(" ").style(style);
+
+        let event_manager = ev.clone();
+        // 1. When a search was submitted on the commandline...
+        command_line_input.set_on_submit(move |s, cmd| {
+            // 2. Clear the commandline on Layout...
+            s.on_layout(|_, mut layout| layout.clear_cmdline());
+
+            // 3. Get the actual command without the prefix (like `:` or `/`)...
+            let cmd_without_prefix = &cmd[1..];
+            if cmd.strip_prefix('/').is_some() {
+                // 4. If it is a search command...
+
+                // 5. Send a jump command with the search query to the command manager.
+                let command = Command::Jump(JumpMode::Query(cmd_without_prefix.to_string()));
+                if let Some(data) = s.user_data::<UserData>().cloned() {
+                    data.cmd.handle(s, command);
+                }
+            } else {
+                // 4. If it is an actual command...
+
+                // 5. Parse the command and...
+                match command::parse(cmd_without_prefix) {
+                    Ok(commands) => {
+                        // 6. Send the parsed command to the command manager.
+                        if let Some(data) = s.user_data::<UserData>().cloned() {
+                            for cmd in commands {
+                                data.cmd.handle(s, cmd);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        // 6. Set an error message on the global layout.
+                        s.on_layout(|_, mut layout| layout.set_result(Err(err.to_string())));
+                    }
+                }
+            }
+            event_manager.trigger();
+        });
 
         Layout {
             screens: HashMap::new(),
             stack: HashMap::new(),
             statusbar: status.into_boxed_view(),
             focus: None,
-            cmdline: EditView::new().filler(" ").style(style),
+            cmdline: command_line_input,
             cmdline_focus: false,
             result: Ok(None),
             result_time: None,
@@ -54,6 +102,7 @@ impl Layout {
             last_size: Vec2::new(0, 0),
             ev: ev.clone(),
             theme,
+            configuration,
         }
     }
 
@@ -290,57 +339,78 @@ impl View for Layout {
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
-        // handle mouse events in cmdline/statusbar area
-        if let Event::Mouse {
-            position,
-            event: mouseevent,
-            ..
-        } = event
-        {
-            if position.y == 0 {
-                if mouseevent == MouseEvent::Press(MouseButton::Left)
-                    && !self.is_current_stack_empty()
-                    && position.x
-                        < self
-                            .get_current_screen()
-                            .map(|screen| screen.title())
-                            .unwrap_or_default()
-                            .len()
-                            + 3
-                {
-                    self.pop_view();
+        match event {
+            Event::Char(':') => {
+                let result = if let Some(view) = self.get_current_view_mut() {
+                    view.on_event(event.relativized((0, 1)))
+                } else {
+                    EventResult::Ignored
+                };
+
+                if let EventResult::Ignored = result {
+                    let command_key = self.configuration.values().command_key.unwrap_or(':');
+                    self.enable_cmdline(command_key);
+                } else {
+                    return EventResult::Ignored;
                 }
-                return EventResult::consumed();
             }
-
-            let result = self.get_result();
-
-            let cmdline_visible = self.cmdline.get_content().len() > 0;
-            let mut cmdline_height = usize::from(cmdline_visible);
-            if result.as_ref().map(Option::is_some).unwrap_or(true) {
-                cmdline_height += 1;
+            Event::Char('/') => self.enable_jump(),
+            Event::Key(Key::Esc) if self.cmdline_focus => self.clear_cmdline(),
+            _ if self.cmdline_focus => {
+                let result = self.cmdline.on_event(event);
+                if self.cmdline.get_content().is_empty() {
+                    self.clear_cmdline();
+                }
+                return result;
             }
+            Event::Mouse {
+                position,
+                event: mouse_event,
+                ..
+            } => {
+                // Handle mouse events in the command/jump area.
+                if position.y == 0 {
+                    if mouse_event == MouseEvent::Press(MouseButton::Left)
+                        && !self.is_current_stack_empty()
+                        && position.x
+                            < self
+                                .get_current_screen()
+                                .map(|screen| screen.title())
+                                .unwrap_or_default()
+                                .len()
+                                + 3
+                    {
+                        self.pop_view();
+                    }
+                    return EventResult::consumed();
+                }
 
-            if position.y >= self.last_size.y.saturating_sub(2 + cmdline_height)
-                && position.y < self.last_size.y - cmdline_height
-            {
-                self.statusbar.on_event(
-                    event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
-                );
-                return EventResult::Consumed(None);
+                let result = self.get_result();
+
+                let cmdline_visible = self.cmdline.get_content().len() > 0;
+                let mut cmdline_height = usize::from(cmdline_visible);
+                if result.as_ref().map(Option::is_some).unwrap_or(true) {
+                    cmdline_height += 1;
+                }
+
+                if position.y >= self.last_size.y.saturating_sub(2 + cmdline_height)
+                    && position.y < self.last_size.y - cmdline_height
+                {
+                    self.statusbar.on_event(
+                        event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
+                    );
+                    return EventResult::Consumed(None);
+                }
+            }
+            _ => {
+                if let Some(view) = self.get_current_view_mut() {
+                    return view.on_event(event.relativized((0, 1)));
+                } else {
+                    return EventResult::Ignored;
+                }
             }
         }
-
-        if self.cmdline_focus {
-            debug!("cmdline event");
-            return self.cmdline.on_event(event);
-        }
-
-        if let Some(view) = self.get_current_view_mut() {
-            view.on_event(event.relativized((0, 1)))
-        } else {
-            EventResult::Ignored
-        }
+        EventResult::Consumed(None)
     }
 
     fn call_on_any(&mut self, s: &Selector, c: AnyCb<'_>) {
