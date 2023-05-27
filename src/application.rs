@@ -96,7 +96,6 @@ impl Application {
     ///
     /// # Arguments
     ///
-    /// * `configuration_base_path` - Path to the configuration directory
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
     pub fn new(configuration_file_path: Option<String>) -> Result<Self, String> {
         // Things here may cause the process to abort; we must do them before creating curses
