@@ -7,7 +7,7 @@ extern crate serde;
 
 use std::path::PathBuf;
 
-use application::Application;
+use application::{setup_logging, Application};
 use ncspot::program_arguments;
 
 mod application;
@@ -43,13 +43,20 @@ fn main() -> Result<(), String> {
     // stdout is most likely in use by Cursive.
     panic::register_backtrace_panic_handler();
 
+    // Parse the command line arguments.
     let matches = program_arguments().get_matches();
 
+    // Enable debug logging to a file if specified on the command line.
+    if let Some(filename) = matches.get_one::<PathBuf>("debug") {
+        setup_logging(filename).expect("logger could not be initialized");
+    }
+
+    // Create the application.
     let mut application = Application::new(
-        matches.get_one::<PathBuf>("debug").cloned(),
         matches.get_one::<PathBuf>("basepath").cloned(),
         matches.get_one::<PathBuf>("config").cloned(),
     )?;
 
+    // Start the application event loop.
     application.run()
 }

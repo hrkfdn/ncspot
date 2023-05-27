@@ -254,6 +254,7 @@ impl Config {
         crate::theme::load(theme)
     }
 
+    /// Reload the configuration file.
     pub fn reload(&self) {
         let cfg = load(&self.filename.to_string_lossy()).expect("could not reload config");
         *self.values.write().expect("can't writelock config values") = cfg
@@ -326,4 +327,14 @@ pub fn cache_path(file: &str) -> PathBuf {
     let mut pb = cache_dir.to_path_buf();
     pb.push(file);
     pb
+}
+
+/// Set the configuration base path. All configuration files are read/written relative to this path.
+pub fn set_configuration_base_path(base_path: Option<PathBuf>) {
+    if let Some(basepath) = base_path {
+        if !basepath.exists() {
+            fs::create_dir_all(&basepath).expect("could not create basepath directory");
+        }
+        *BASE_PATH.write().unwrap() = Some(basepath);
+    }
 }

@@ -40,6 +40,8 @@ pub enum PlayerEvent {
     FinishedTrack,
 }
 
+// TODO: Rename or document this as it isn't immediately clear what it represents/does from the
+// name.
 #[derive(Clone)]
 pub struct Spotify {
     events: EventManager,
