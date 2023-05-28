@@ -340,7 +340,7 @@ impl View for Layout {
 
     fn on_event(&mut self, event: Event) -> EventResult {
         match event {
-            Event::Char(':') => {
+            Event::Char(':') | Event::Char('/') => {
                 let result = if let Some(view) = self.get_current_view_mut() {
                     view.on_event(event.relativized((0, 1)))
                 } else {
@@ -348,13 +348,16 @@ impl View for Layout {
                 };
 
                 if let EventResult::Ignored = result {
-                    let command_key = self.configuration.values().command_key.unwrap_or(':');
-                    self.enable_cmdline(command_key);
+                    if let Event::Char(':') = event {
+                        let command_key = self.configuration.values().command_key.unwrap_or(':');
+                        self.enable_cmdline(command_key);
+                    } else {
+                        self.enable_jump();
+                    }
                 } else {
                     return EventResult::Ignored;
                 }
             }
-            Event::Char('/') => self.enable_jump(),
             Event::Key(Key::Esc) if self.cmdline_focus => self.clear_cmdline(),
             _ if self.cmdline_focus => {
                 let result = self.cmdline.on_event(event);
