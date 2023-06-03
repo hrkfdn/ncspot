@@ -249,6 +249,22 @@ impl Layout {
             None
         }
     }
+
+    /// Propagate the given event to the command line.
+    fn command_line_handle_event(&mut self, event: Event) -> EventResult {
+        let is_left_right_event = matches!(event, Event::Key(Key::Left) | Event::Key(Key::Right));
+        let result = self.cmdline.on_event(event);
+
+        if self.cmdline.get_content().is_empty() {
+            self.clear_cmdline();
+        }
+
+        if is_left_right_event {
+            EventResult::Consumed(None)
+        } else {
+            result
+        }
+    }
 }
 
 impl View for Layout {
@@ -362,11 +378,7 @@ impl View for Layout {
             }
             Event::Key(Key::Esc) if self.cmdline_focus => self.clear_cmdline(),
             _ if self.cmdline_focus => {
-                let result = self.cmdline.on_event(event);
-                if self.cmdline.get_content().is_empty() {
-                    self.clear_cmdline();
-                }
-                return result;
+                return self.command_line_handle_event(event);
             }
             Event::Mouse {
                 position,
