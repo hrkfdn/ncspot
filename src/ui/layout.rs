@@ -58,7 +58,9 @@ impl Layout {
             s.on_layout(|_, mut layout| layout.clear_cmdline());
 
             // 3. Get the actual command without the prefix (like `:` or `/`)...
-            let cmd_without_prefix = &cmd[1..];
+            let mut command_characters = cmd.chars();
+            command_characters.next();
+            let cmd_without_prefix = command_characters.as_str();
             if cmd.strip_prefix('/').is_some() {
                 // 4. If it is a search command...
 
