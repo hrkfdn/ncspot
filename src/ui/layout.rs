@@ -17,7 +17,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::application::UserData;
 use crate::command::{self, Command, JumpMode};
 use crate::commands::CommandResult;
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::events;
 use crate::ext_traits::CursiveExt;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
@@ -342,24 +342,6 @@ impl View for Layout {
 
     fn on_event(&mut self, event: Event) -> EventResult {
         match event {
-            Event::Char(':') | Event::Char('/') => {
-                let result = if let Some(view) = self.get_current_view_mut() {
-                    view.on_event(event.relativized((0, 1)))
-                } else {
-                    EventResult::Ignored
-                };
-
-                if let EventResult::Ignored = result {
-                    if let Event::Char(':') = event {
-                        let command_key = self.configuration.values().command_key.unwrap_or(':');
-                        self.enable_cmdline(command_key);
-                    } else {
-                        self.enable_jump();
-                    }
-                } else {
-                    return EventResult::Ignored;
-                }
-            }
             Event::Key(Key::Esc) if self.cmdline_focus => self.clear_cmdline(),
             _ if self.cmdline_focus => {
                 let result = self.cmdline.on_event(event);
@@ -367,6 +349,39 @@ impl View for Layout {
                     self.clear_cmdline();
                 }
                 return result;
+            }
+            Event::Char(character)
+                if !self.cmdline_focus
+                    && (character
+                        == self
+                            .configuration
+                            .values()
+                            .command_key
+                            .unwrap_or(config::DEFAULT_COMMAND_KEY)
+                        || character == '/') =>
+            {
+                let result = self
+                    .get_current_view_mut()
+                    .map(|view| view.on_event(event))
+                    .unwrap_or(EventResult::Ignored);
+
+                if let EventResult::Ignored = result {
+                    let command_key = self
+                        .configuration
+                        .values()
+                        .command_key
+                        .unwrap_or(config::DEFAULT_COMMAND_KEY);
+
+                    if character == command_key {
+                        self.enable_cmdline(command_key);
+                    } else if character == '/' {
+                        self.enable_jump();
+                    } else {
+                        return EventResult::Ignored;
+                    }
+                } else {
+                    return result;
+                }
             }
             Event::Mouse {
                 position,
