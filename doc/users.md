@@ -42,6 +42,18 @@ If so, simply install using your distribution's package manager - it
 is by far the easiest way. If not, you can build from source instead.
 See [Compiling](/doc/developers.md).
 
+### From [crates.io](https://crates.io/crates/ncspot)
+
+`ncspot` can be installed with `cargo`. The `cargo` documentation recommends against installing
+software with it. If another option is available from the ones above, it should be preferred. If no
+recent version is available for your OS, you can use the following command to install `ncspot` from
+[crates.io](https://crates.io/crates/ncspot).
+
+```zsh
+# The --locked option is important and the compilation process might fail without it
+cargo install --locked ncspot
+```
+
 ## Key Bindings
 The keybindings listed below are configured by default. Additionally, if you
 built `ncspot` with MPRIS support, you may be able to use media keys to control
