@@ -29,9 +29,8 @@ free accounts.
 - Automatic authentication using a password manager
 
 ## Installation
-ncspot is available on macOS (Homebrew), Windows (Scoop), Linux (native package, Snapcraft and
-Flathub) and the BSD's. Detailed installation instructions for each platform can be found
-[here](/doc/users.md).
+ncspot is available on macOS (Homebrew), Windows (Scoop), Linux (native package and Flathub) and the
+BSD's. Detailed installation instructions for each platform can be found [here](/doc/users.md).
 
 ## Configuration
 A configuration file can be provided at `$XDG_CONFIG_HOME/ncspot/config.toml`. Detailed
