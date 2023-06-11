@@ -1921,7 +1921,7 @@ dependencies = [
 
 [[package]]
 name = "ncspot"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "chrono",
  "clap",
