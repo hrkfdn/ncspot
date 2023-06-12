@@ -19,6 +19,15 @@ members = [
     "xtask"
 ]
 
+[profile.release]
+lto = true
+codegen-units = 1
+
+[profile.optimized]
+inherits = "release"
+lto = false
+codegen-units = 16
+
 [dependencies]
 chrono = "0.4"
 clap = "4.2.7"
