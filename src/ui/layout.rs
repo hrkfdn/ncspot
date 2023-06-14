@@ -260,7 +260,7 @@ impl Layout {
         }
 
         if is_left_right_event {
-            EventResult::Consumed(None)
+            EventResult::consumed()
         } else {
             result
         }
@@ -358,10 +358,11 @@ impl View for Layout {
 
     fn on_event(&mut self, event: Event) -> EventResult {
         match event {
-            Event::Key(Key::Esc) if self.cmdline_focus => self.clear_cmdline(),
-            _ if self.cmdline_focus => {
-                return self.command_line_handle_event(event);
+            Event::Key(Key::Esc) if self.cmdline_focus => {
+                self.clear_cmdline();
+                EventResult::consumed()
             }
+            _ if self.cmdline_focus => self.command_line_handle_event(event),
             Event::Char(character)
                 if !self.cmdline_focus
                     && (character
@@ -386,13 +387,15 @@ impl View for Layout {
 
                     if character == command_key {
                         self.enable_cmdline(command_key);
+                        EventResult::consumed()
                     } else if character == '/' {
                         self.enable_jump();
+                        EventResult::consumed()
                     } else {
-                        return EventResult::Ignored;
+                        EventResult::Ignored
                     }
                 } else {
-                    return result;
+                    result
                 }
             }
             Event::Mouse {
@@ -431,18 +434,23 @@ impl View for Layout {
                     self.statusbar.on_event(
                         event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
                     );
-                    return EventResult::Consumed(None);
+                    return EventResult::consumed();
+                }
+
+                if let Some(view) = self.get_current_view_mut() {
+                    view.on_event(event.relativized((0, 1)))
+                } else {
+                    EventResult::Ignored
                 }
             }
             _ => {
                 if let Some(view) = self.get_current_view_mut() {
-                    return view.on_event(event.relativized((0, 1)));
+                    view.on_event(event.relativized((0, 1)))
                 } else {
-                    return EventResult::Ignored;
+                    EventResult::Ignored
                 }
             }
         }
-        EventResult::Consumed(None)
     }
 
     fn call_on_any(&mut self, s: &Selector, c: AnyCb<'_>) {
