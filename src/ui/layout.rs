@@ -11,7 +11,6 @@ use cursive::vec::Vec2;
 use cursive::view::{CannotFocus, IntoBoxedView, Selector};
 use cursive::views::EditView;
 use cursive::{Cursive, Printer};
-use log::debug;
 use unicode_width::UnicodeWidthStr;
 
 use crate::application::UserData;
@@ -31,7 +30,6 @@ pub struct Layout {
     cmdline_focus: bool,
     result: Result<Option<String>, String>,
     result_time: Option<SystemTime>,
-    screenchange: bool,
     last_size: Vec2,
     ev: events::EventManager,
     theme: Theme,
@@ -100,7 +98,6 @@ impl Layout {
             cmdline_focus: false,
             result: Ok(None),
             result_time: None,
-            screenchange: true,
             last_size: Vec2::new(0, 0),
             ev: ev.clone(),
             theme,
@@ -150,7 +147,6 @@ impl Layout {
         let s = id.into();
         self.focus = Some(s);
         self.cmdline_focus = false;
-        self.screenchange = true;
 
         // trigger a redraw
         self.ev.trigger();
@@ -342,13 +338,6 @@ impl View for Layout {
 
         if let Some(view) = self.get_current_view_mut() {
             view.layout(Vec2::new(size.x, size.y - 3));
-        }
-
-        // the focus view has changed, let the views know so they can redraw
-        // their items
-        if self.screenchange {
-            debug!("layout: new screen selected: {:?}", self.focus);
-            self.screenchange = false;
         }
     }
 
