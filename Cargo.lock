@@ -1965,7 +1965,7 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "signal-hook",
- "strum",
+ "strum 0.25.0",
  "strum_macros",
  "tokio",
  "tokio-stream",
@@ -2917,7 +2917,7 @@ dependencies = [
  "enum_dispatch",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.24.1",
  "thiserror",
 ]
 
@@ -3277,6 +3277,12 @@ checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 dependencies = [
  "strum_macros",
 ]
+
+[[package]]
+name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 
 [[package]]
 name = "strum_macros"
