@@ -12,7 +12,7 @@ use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{Spotify, VOLUME_PERCENT};
-use crate::traits::{IntoBoxedViewExt, ViewExt};
+use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::contextmenu::{
     AddToPlaylistMenu, ContextMenu, SelectArtistActionMenu, SelectArtistMenu,
 };
@@ -270,6 +270,12 @@ impl CommandManager {
             }
             Command::Reconnect => {
                 self.spotify.shutdown();
+                Ok(None)
+            }
+            Command::SaveCurrent => {
+                if let Some(mut track) = self.queue.get_current() {
+                    track.save(&self.library);
+                }
                 Ok(None)
             }
 

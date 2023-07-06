@@ -132,6 +132,7 @@ pub enum Command {
     Play,
     UpdateLibrary,
     Save,
+    SaveCurrent,
     SaveQueue,
     Delete,
     Focus(String),
@@ -213,6 +214,7 @@ impl fmt::Display for Command {
             | Command::Play
             | Command::UpdateLibrary
             | Command::Save
+            | Command::SaveCurrent
             | Command::SaveQueue
             | Command::Delete
             | Command::Back
@@ -242,6 +244,7 @@ impl Command {
             Command::Play => "play",
             Command::UpdateLibrary => "update",
             Command::Save => "save",
+            Command::SaveCurrent => "save current",
             Command::SaveQueue => "save queue",
             Command::Delete => "delete",
             Command::Focus(_) => "focus",
@@ -388,6 +391,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "update" => Command::UpdateLibrary,
                 "save" => match args.first().cloned() {
                     Some("queue") => Ok(Command::SaveQueue),
+                    Some("current") => Ok(Command::SaveCurrent),
                     Some(arg) => Err(BadEnumArg {
                         arg: arg.into(),
                         accept: vec!["**omit**".into(), "queue".into()],
