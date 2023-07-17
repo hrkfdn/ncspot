@@ -272,6 +272,19 @@ impl CommandManager {
                 self.spotify.shutdown();
                 Ok(None)
             }
+            Command::AddCurrent => {
+                if let Some(track) = self.queue.get_current() {
+                    match track.track() {
+                        Some(track) => {
+                            let dialog =
+                                ContextMenu::add_track_dialog(self.library.clone(), self.queue.get_spotify(), track);
+                            s.add_layer(dialog);
+                        }
+                        None => ()
+                    }
+                }
+                Ok(None)
+            }
             Command::SaveCurrent => {
                 if let Some(mut track) = self.queue.get_current() {
                     track.save(&self.library);
@@ -284,6 +297,7 @@ impl CommandManager {
             | Command::Play
             | Command::Save
             | Command::SaveQueue
+            | Command::Add
             | Command::Delete
             | Command::Focus(_)
             | Command::Back

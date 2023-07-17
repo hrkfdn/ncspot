@@ -134,6 +134,8 @@ pub enum Command {
     Save,
     SaveCurrent,
     SaveQueue,
+    Add,
+    AddCurrent,
     Delete,
     Focus(String),
     Seek(SeekDirection),
@@ -216,6 +218,8 @@ impl fmt::Display for Command {
             | Command::Save
             | Command::SaveCurrent
             | Command::SaveQueue
+            | Command::Add
+            | Command::AddCurrent
             | Command::Delete
             | Command::Back
             | Command::Help
@@ -246,6 +250,8 @@ impl Command {
             Command::Save => "save",
             Command::SaveCurrent => "save current",
             Command::SaveQueue => "save queue",
+            Command::Add => "add",
+            Command::AddCurrent => "add current",
             Command::Delete => "delete",
             Command::Focus(_) => "focus",
             Command::Seek(_) => "seek",
@@ -389,6 +395,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "playnext" => Command::PlayNext,
                 "play" => Command::Play,
                 "update" => Command::UpdateLibrary,
+                "add" => match args.first().cloned() {
+                    Some("current") => Ok(Command::AddCurrent),
+                    Some(arg) => Err(BadEnumArg {
+                        arg: arg.into(),
+                        accept: vec!["**omit**".into(), "queue".into()],
+                    }),
+                    None => Ok(Command::Add),
+                }?,
                 "save" => match args.first().cloned() {
                     Some("queue") => Ok(Command::SaveQueue),
                     Some("current") => Ok(Command::SaveCurrent),

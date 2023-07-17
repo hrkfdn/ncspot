@@ -472,7 +472,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
         self.title.clone()
     }
 
-    fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
                 self.queue.clear();
@@ -508,6 +508,25 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
                 if let Some(item) = item.as_mut() {
                     item.save(&self.library);
+                }
+
+                return Ok(CommandResult::Consumed(None));
+            }
+            Command::Add => {
+                let item = {
+                    let content = self.content.read().unwrap();
+                    content.get(self.selected).cloned()
+                };
+
+                if let Some(track) = item {
+                    match track.track() {
+                        Some(track) => {
+                            let dialog =
+                                ContextMenu::add_track_dialog(self.library.clone(), self.queue.get_spotify(), track);
+                            s.add_layer(dialog);
+                        }
+                        None => ()
+                    }
                 }
 
                 return Ok(CommandResult::Consumed(None));
