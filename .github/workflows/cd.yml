@@ -43,7 +43,7 @@ jobs:
             os: macos-latest
             target: x86_64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
-          - build_target: linux-arm64
+          - build_target: macos-arm64
             os: ubuntu-latest
             container: rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
             target: aarch64-apple-darwin
