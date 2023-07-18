@@ -274,13 +274,13 @@ impl CommandManager {
             }
             Command::AddCurrent => {
                 if let Some(track) = self.queue.get_current() {
-                    match track.track() {
-                        Some(track) => {
-                            let dialog =
-                                ContextMenu::add_track_dialog(self.library.clone(), self.queue.get_spotify(), track);
-                            s.add_layer(dialog);
-                        }
-                        None => ()
+                    if let Some(track) = track.track() {
+                        let dialog = ContextMenu::add_track_dialog(
+                            self.library.clone(),
+                            self.queue.get_spotify(),
+                            track,
+                        );
+                        s.add_layer(dialog);
                     }
                 }
                 Ok(None)

@@ -519,13 +519,13 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(track) = item {
-                    match track.track() {
-                        Some(track) => {
-                            let dialog =
-                                ContextMenu::add_track_dialog(self.library.clone(), self.queue.get_spotify(), track);
-                            s.add_layer(dialog);
-                        }
-                        None => ()
+                    if let Some(track) = track.track() {
+                        let dialog = ContextMenu::add_track_dialog(
+                            self.library.clone(),
+                            self.queue.get_spotify(),
+                            track,
+                        );
+                        s.add_layer(dialog);
                     }
                 }
 
