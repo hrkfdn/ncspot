@@ -44,13 +44,9 @@ jobs:
             target: x86_64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
           - build_target: macos-arm64
-            os: ubuntu-latest
-            container: rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
+            os: macos-latest
             target: aarch64-apple-darwin
             features: '--no-default-features --features alsa_backend,cursive/termion-backend'
-            dependencies: 'libasound2-dev:arm64 libssl-dev:arm64'
-            cross_arch: 'arm64'
-            pkg_config_path: '/usr/lib/aarch64-linux-gnu/pkgconfig/'
           - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -66,6 +62,11 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
+      - name: Set up arm mac cross compilation
+        if: matrix.build_target == macos-arm64
+        run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
       - name: Set up cross compilation
         if: matrix.cross_arch
         run: |
