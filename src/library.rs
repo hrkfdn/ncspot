@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::iter::Iterator;
 use std::ops::Deref;
+use std::cmp::Reverse;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread;
@@ -396,12 +397,13 @@ impl Library {
         }
 
         albums.sort_unstable_by_key(|album| {
-            format!(
-                "{}{}{}",
+            Reverse(format!(
+                "{:?}{}{}{}",
+                album.added_at,
                 album.artists[0].to_lowercase(),
                 album.year,
                 album.title.to_lowercase()
-            )
+            ))
         });
 
         *(self.albums.write().unwrap()) = albums;
