@@ -15,7 +15,7 @@ jobs:
     container: ${{ matrix.container }}
     strategy:
       matrix:
-        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x86_64, windows-x86_64]
+        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x86_64, macos-arm64, windows-x86_64]
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
@@ -43,6 +43,12 @@ jobs:
             os: macos-latest
             target: x86_64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
+          - build_target: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            features: '--no-default-features --features rodio_backend,pancurses_backend'
+            # cross_arch: 'arm64'
+            pkg_config_path: '/usr/lib/arm-linux-gnueabihf/pkgconfig/'
           - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
