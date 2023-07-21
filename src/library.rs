@@ -396,11 +396,21 @@ impl Library {
         }
 
         albums.sort_unstable_by_key(|album| {
+            let mut album_artist : &str = &album.artists[0];
+            let mut album_title : &str = &album.title;
+
+            if album.artists[0].starts_with("The ") {
+                album_artist = &album.artists[0].strip_prefix("The ").unwrap()
+            }
+            if album.title.starts_with("The ") {
+                album_title = &album.title.strip_prefix("The ").unwrap()
+            }
+
             format!(
                 "{}{}{}",
-                album.artists[0].to_lowercase(),
+                album_artist.to_lowercase(),
                 album.year,
-                album.title.to_lowercase()
+                album_title.to_lowercase()
             )
         });
 
@@ -483,7 +493,20 @@ impl Library {
             artist.tracks = Some(Vec::new());
         }
 
-        artists.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+        artists.sort_unstable_by(|a, b| {
+            let a_cmp : &str = if a.name.starts_with("The ") {
+                &a.name.strip_prefix("The ").unwrap()
+            } else {
+                &a.name
+            };
+            let b_cmp : &str = if b.name.starts_with("The ") {
+                &b.name.strip_prefix("The ").unwrap()
+            } else {
+                &b.name
+            };
+
+            a_cmp.partial_cmp(b_cmp).unwrap()
+        });
 
         // Add saved tracks to artists
         {
