@@ -396,11 +396,15 @@ impl Library {
         }
 
         albums.sort_unstable_by_key(|album| {
+            let album_artist = album.artists[0]
+                .strip_prefix("The ")
+                .unwrap_or(&album.artists[0]);
+            let album_title = album.title.strip_prefix("The ").unwrap_or(&album.title);
             format!(
                 "{}{}{}",
-                album.artists[0].to_lowercase(),
+                album_artist.to_lowercase(),
                 album.year,
-                album.title.to_lowercase()
+                album_title.to_lowercase()
             )
         });
 
@@ -483,7 +487,12 @@ impl Library {
             artist.tracks = Some(Vec::new());
         }
 
-        artists.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+        artists.sort_unstable_by(|a, b| {
+            let a_cmp = a.name.strip_prefix("The ").unwrap_or(&a.name);
+            let b_cmp = b.name.strip_prefix("The ").unwrap_or(&b.name);
+
+            a_cmp.partial_cmp(b_cmp).unwrap()
+        });
 
         // Add saved tracks to artists
         {
