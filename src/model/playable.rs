@@ -139,15 +139,17 @@ impl From<&PlayableItem> for Playable {
     }
 }
 
-impl From<&Playable> for rspotify::prelude::PlayableId<'_> {
+impl From<&Playable> for Option<rspotify::prelude::PlayableId<'_>> {
     fn from(p: &Playable) -> Self {
         match p {
-            Playable::Track(t) => rspotify::prelude::PlayableId::Track(
-                rspotify::model::TrackId::from_id(t.id.clone().unwrap()).unwrap(),
-            ),
-            Playable::Episode(e) => rspotify::prelude::PlayableId::Episode(
-                rspotify::model::EpisodeId::from_id(e.id.clone()).unwrap(),
-            ),
+            Playable::Track(t) => {
+                t.id.clone()
+                    .and_then(|id| rspotify::model::TrackId::from_id(id).ok())
+                    .map(rspotify::prelude::PlayableId::Track)
+            }
+            Playable::Episode(e) => rspotify::model::EpisodeId::from_id(e.id.clone())
+                .map(rspotify::prelude::PlayableId::Episode)
+                .ok(),
         }
     }
 }
