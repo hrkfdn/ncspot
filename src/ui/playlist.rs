@@ -80,13 +80,16 @@ impl ViewExt for PlaylistView {
     fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         if let Command::Delete = cmd {
             let pos = self.list.get_selected_index();
-            if self
+
+            return if self
                 .playlist
                 .delete_track(pos, self.spotify.clone(), &self.library)
             {
                 self.list.remove(pos);
-            }
-            return Ok(CommandResult::Consumed(None));
+                Ok(CommandResult::Consumed(None))
+            } else {
+                Err("Could not delete track.".to_string())
+            };
         }
 
         if let Command::Sort(key, direction) = cmd {
