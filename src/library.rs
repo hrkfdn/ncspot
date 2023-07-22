@@ -396,16 +396,10 @@ impl Library {
         }
 
         albums.sort_unstable_by_key(|album| {
-            let mut album_artist : &str = &album.artists[0];
-            let mut album_title : &str = &album.title;
-
-            if album.artists[0].starts_with("The ") {
-                album_artist = &album.artists[0].strip_prefix("The ").unwrap()
-            }
-            if album.title.starts_with("The ") {
-                album_title = &album.title.strip_prefix("The ").unwrap()
-            }
-
+            let album_artist = album.artists[0]
+                .strip_prefix("The ")
+                .unwrap_or(&album.artists[0]);
+            let album_title = album.title.strip_prefix("The ").unwrap_or(&album.title);
             format!(
                 "{}{}{}",
                 album_artist.to_lowercase(),
@@ -494,16 +488,8 @@ impl Library {
         }
 
         artists.sort_unstable_by(|a, b| {
-            let a_cmp : &str = if a.name.starts_with("The ") {
-                &a.name.strip_prefix("The ").unwrap()
-            } else {
-                &a.name
-            };
-            let b_cmp : &str = if b.name.starts_with("The ") {
-                &b.name.strip_prefix("The ").unwrap()
-            } else {
-                &b.name
-            };
+            let a_cmp = a.name.strip_prefix("The ").unwrap_or(&a.name);
+            let b_cmp = b.name.strip_prefix("The ").unwrap_or(&b.name);
 
             a_cmp.partial_cmp(b_cmp).unwrap()
         });
