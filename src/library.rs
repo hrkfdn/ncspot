@@ -501,7 +501,7 @@ impl Library {
                     };
 
                     if let Some(i) = index {
-                        let mut artist = artists.get_mut(i).unwrap();
+                        let artist = artists.get_mut(i).unwrap();
                         if artist.tracks.is_none() {
                             artist.tracks = Some(Vec::new());
                         }
