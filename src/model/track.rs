@@ -16,7 +16,7 @@ use crate::queue::Queue;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::listview::ListView;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Track {
     pub id: Option<String>,
     pub uri: String,
@@ -33,6 +33,7 @@ pub struct Track {
     pub url: String,
     pub added_at: Option<DateTime<Utc>>,
     pub list_index: usize,
+    pub is_local: bool,
 }
 
 impl Track {
@@ -69,6 +70,7 @@ impl Track {
             url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
+            is_local: track.is_local,
         }
     }
 
@@ -106,6 +108,7 @@ impl From<&SimplifiedTrack> for Track {
             url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
+            is_local: track.is_local,
         }
     }
 }
@@ -145,6 +148,7 @@ impl From<&FullTrack> for Track {
             url: track.id.as_ref().map(|id| id.url()).unwrap_or_default(),
             added_at: None,
             list_index: 0,
+            is_local: track.is_local,
         }
     }
 }
@@ -160,18 +164,6 @@ impl From<&SavedTrack> for Track {
 impl fmt::Display for Track {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} - {}", self.artists.join(", "), self.title)
-    }
-}
-
-impl fmt::Debug for Track {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({} - {} ({:?}))",
-            self.artists.join(", "),
-            self.title,
-            self.id
-        )
     }
 }
 

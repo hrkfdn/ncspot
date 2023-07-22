@@ -4,7 +4,7 @@ use std::{cmp::Ordering, iter::Iterator};
 
 use rand::{seq::IteratorRandom, thread_rng};
 
-use log::debug;
+use log::{debug, warn};
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 use rspotify::model::Id;
 
@@ -56,11 +56,17 @@ impl Playlist {
     }
 
     pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: &Library) -> bool {
-        let track = self.tracks.as_ref().unwrap()[index].clone();
-        debug!("deleting track: {} {:?}", index, track);
+        let playable = self.tracks.as_ref().unwrap()[index].clone();
+        debug!("deleting track: {} {:?}", index, playable);
+
+        if playable.track().map(|t| t.is_local) == Some(true) {
+            warn!("track is a local file, can't delete");
+            return false;
+        }
+
         match spotify
             .api
-            .delete_tracks(&self.id, &self.snapshot_id, &[track])
+            .delete_tracks(&self.id, &self.snapshot_id, &[playable])
         {
             false => false,
             true => {
