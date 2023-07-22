@@ -26,7 +26,7 @@ pub enum PlaybackState {
 }
 
 /// The focussed library tab when ncspot is started.
-#[derive(Clone, Serialize, Deserialize, Debug, Hash, strum::EnumIter)]
+#[derive(Clone, Serialize, Deserialize, Debug, Hash, strum_macros::EnumIter)]
 #[serde(rename_all = "lowercase")]
 pub enum LibraryTab {
     Tracks,
