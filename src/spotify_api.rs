@@ -155,7 +155,10 @@ impl WebApi {
         position: Option<i32>,
     ) -> bool {
         self.api_with_retry(|api| {
-            let trackids: Vec<PlayableId> = tracks.iter().map(|playable| playable.into()).collect();
+            let trackids: Vec<PlayableId> = tracks
+                .iter()
+                .filter_map(|playable| playable.into())
+                .collect();
             api.playlist_add_items(
                 PlaylistId::from_id(playlist_id).unwrap(),
                 trackids.iter().map(|id| id.as_ref()),
@@ -172,8 +175,10 @@ impl WebApi {
         playables: &[Playable],
     ) -> bool {
         self.api_with_retry(move |api| {
-            let playable_ids: Vec<PlayableId> =
-                playables.iter().map(|playable| playable.into()).collect();
+            let playable_ids: Vec<PlayableId> = playables
+                .iter()
+                .filter_map(|playable| playable.into())
+                .collect();
             let positions = playables
                 .iter()
                 .map(|playable| [playable.list_index() as u32])
@@ -207,8 +212,10 @@ impl WebApi {
         };
 
         if let Some(()) = self.api_with_retry(|api| {
-            let playable_ids: Vec<PlayableId> =
-                tracks.iter().map(|playable| playable.into()).collect();
+            let playable_ids: Vec<PlayableId> = tracks
+                .iter()
+                .filter_map(|playable| playable.into())
+                .collect();
             api.playlist_replace_items(
                 PlaylistId::from_id(id).unwrap(),
                 playable_ids.iter().map(|p| p.as_ref()),
