@@ -472,7 +472,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
         self.title.clone()
     }
 
-    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+    fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
                 self.queue.clear();
@@ -525,7 +525,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                             self.queue.get_spotify(),
                             track,
                         );
-                        s.add_layer(dialog);
+                        return Ok(CommandResult::Modal(Box::new(dialog)));
                     }
                 }
 
