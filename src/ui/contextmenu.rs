@@ -200,6 +200,7 @@ impl ContextMenu {
 
     pub fn new(item: &dyn ListItem, queue: Arc<Queue>, library: Arc<Library>) -> NamedView<Self> {
         let mut content: SelectView<ContextMenuAction> = SelectView::new();
+        let album = item.album(&queue);
 
         if item.is_playable() {
             if item.is_playing(&queue)
@@ -238,8 +239,11 @@ impl ContextMenu {
             }
         }
 
-        if let Some(a) = item.album(&queue) {
-            content.add_item("Show album", ContextMenuAction::ShowItem(Box::new(a)));
+        if let Some(ref a) = album {
+            content.add_item(
+                "Show album",
+                ContextMenuAction::ShowItem(Box::new(a.clone())),
+            );
         }
 
         #[cfg(feature = "share_clipboard")]
@@ -247,7 +251,7 @@ impl ContextMenu {
             if let Some(url) = item.share_url() {
                 content.add_item("Share", ContextMenuAction::ShareUrl(url));
             }
-            if let Some(url) = item.album(&queue).and_then(|a| a.share_url()) {
+            if let Some(url) = album.as_ref().and_then(|a| a.share_url()) {
                 content.add_item("Share album", ContextMenuAction::ShareUrl(url));
             }
         }
@@ -273,14 +277,14 @@ impl ContextMenu {
             );
         }
 
-        if let Some(album) = item.album(&queue) {
-            if let Some(savestatus) = album.is_saved(&library) {
+        if let Some(ref a) = album {
+            if let Some(savestatus) = a.is_saved(&library) {
                 content.add_item(
                     match savestatus {
                         true => "Unsave album",
                         false => "Save album",
                     },
-                    ContextMenuAction::ToggleSavedStatus(album.as_listitem()),
+                    ContextMenuAction::ToggleSavedStatus(a.as_listitem()),
                 );
             }
         }
