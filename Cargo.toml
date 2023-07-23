@@ -8,7 +8,7 @@ license = "BSD-2-Clause"
 name = "ncspot"
 readme = "README.md"
 repository = "https://github.com/hrkfdn/ncspot"
-version = "0.13.3"
+version = "0.13.4"
 
 [badges]
 maintenance = {status = "actively-developed"}
