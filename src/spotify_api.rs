@@ -260,6 +260,7 @@ impl WebApi {
     }
 
     pub fn album(&self, album_id: &str) -> Option<FullAlbum> {
+        debug!("fetching album {}", album_id);
         let aid = AlbumId::from_id(album_id).ok()?;
         self.api_with_retry(|api| api.album(aid.clone()))
     }
@@ -400,16 +401,13 @@ impl WebApi {
         ApiResult::new(MAX_LIMIT, Arc::new(fetch_page))
     }
 
-    pub fn full_album(&self, album_id: &str) -> Option<FullAlbum> {
-        self.api_with_retry(|api| api.album(AlbumId::from_id(album_id).unwrap()))
-    }
-
     pub fn album_tracks(
         &self,
         album_id: &str,
         limit: u32,
         offset: u32,
     ) -> Option<Page<SimplifiedTrack>> {
+        debug!("fetching album tracks {}", album_id);
         self.api_with_retry(|api| {
             api.album_track_manual(
                 AlbumId::from_id(album_id).unwrap(),
