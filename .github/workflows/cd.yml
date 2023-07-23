@@ -80,7 +80,7 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
       - name: Extract git tag
         shell: bash
-        run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
+        run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
         id: extract_tag
       - name: Packaging assets
         shell: bash
