@@ -25,7 +25,7 @@ jobs:
             dependencies: 'libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev'
           - build_target: linux-arm64
             os: ubuntu-latest
-            container: rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
+            container: ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
             target: aarch64-unknown-linux-gnu
             features: '--no-default-features --features alsa_backend,cursive/termion-backend'
             dependencies: 'libasound2-dev:arm64 libssl-dev:arm64'
@@ -33,7 +33,7 @@ jobs:
             pkg_config_path: '/usr/lib/aarch64-linux-gnu/pkgconfig/'
           - build_target: linux-armhf
             os: ubuntu-latest
-            container: rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
+            container: ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main
             target: armv7-unknown-linux-gnueabihf
             features: '--no-default-features --features alsa_backend,cursive/termion-backend'
             dependencies: 'libasound2-dev:armhf libssl-dev:armhf'
@@ -49,12 +49,10 @@ jobs:
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
           target: ${{ matrix.target }}
-          profile: minimal
+          toolchain: stable
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
@@ -69,19 +67,17 @@ jobs:
         run: |
           apt update
           apt install -y ${{ matrix.dependencies }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         name: Checkout src
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/
+            ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Running cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --locked --release --target ${{ matrix.target }} ${{ matrix.features }}
+        run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
       - name: Extract git tag
         shell: bash
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
@@ -91,11 +87,11 @@ jobs:
         run: |
           cd target/${{ matrix.target }}/release
           case ${{ matrix.target }} in
-          *-pc-windows-*) 
+          *-pc-windows-*)
             7z -y a ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.zip ncspot.exe
             sha256sum ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.zip > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.sha256
             ;;
-          *) 
+          *)
             tar czvf ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.tar.gz ncspot
             shasum -a 256 ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.tar.gz > ncspot-${{ steps.extract_tag.outputs.tag }}-${{ matrix.build_target }}.sha256
             ;;
