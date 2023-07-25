@@ -60,14 +60,15 @@ impl LyricsView {
         lyrics_view
     }
 
-    // needs to be made public in order to be updated from main's event loop
-    pub fn update_lyrics(&self) {
+    fn update_lyrics(&self) {
+        // TODO: this should be done in a separate thread and the UI should be updated when the lyrics are fetched (or an error occurs)
+
         let current_track = self.manager.get_current_track();
 
         if let Some(track) = current_track {
             let track_title_str = track.clone().title;
 
-            let track_authors_str = track.clone().artists.join(", ");
+            let track_authors_str = track.artists.join(", ");
 
             let track_album_str = match track.clone().album {
                 None => String::default(),

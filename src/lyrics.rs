@@ -1,4 +1,4 @@
-use log::trace;
+use log::debug;
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
 use crate::{
@@ -7,15 +7,14 @@ use crate::{
     queue::Queue,
 };
 
-#[derive(Clone)]
 pub struct LyricsManager {
     queue: Arc<Queue>,
-    fetcher: LyricsFetcher,
+    fetcher: Box<dyn LyricsFetcher>,
     cache: RefCell<HashMap<String, String>>,
 }
 
 impl LyricsManager {
-    pub fn new(queue: Arc<Queue>, fetcher: LyricsFetcher) -> Self {
+    pub fn new(queue: Arc<Queue>, fetcher: Box<dyn LyricsFetcher>) -> Self {
         LyricsManager {
             queue,
             fetcher,
@@ -43,8 +42,8 @@ impl LyricsManager {
             let cache = self.cache.borrow();
 
             if cache.contains_key(track_id) {
-                trace!("Retrieving cached lyrics for {}", track.title);
-                return cache.get(track_id).unwrap().to_owned();
+                debug!("Retrieving cached lyrics for {}", track.title);
+                return cache.get(track_id).unwrap().into();
             }
         }
 
