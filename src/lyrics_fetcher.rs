@@ -51,8 +51,9 @@ impl LyricsFetcher for MusixMatchLyricsFetcher {
     }
 }
 
+/// Create a default lyrics fetcher.
 pub fn default_fetcher(cfg: Arc<Config>) -> Box<dyn LyricsFetcher> {
     Box::new(MusixMatchLyricsFetcher {
-        api_key: cfg.values().backend.clone().unwrap(),
+        api_key: cfg.values().backend.clone().unwrap_or_default(),
     })
 }
