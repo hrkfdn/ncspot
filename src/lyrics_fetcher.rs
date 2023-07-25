@@ -1,26 +1,58 @@
-use log::trace;
+use std::sync::Arc;
 
-use crate::model::track::Track;
+use log::debug;
 
-#[derive(Clone)]
-pub struct LyricsFetcher {}
+use crate::{config::Config, model::track::Track};
 
-impl LyricsFetcher {
-    pub fn new() -> LyricsFetcher {
-        Self {}
-    }
+pub trait LyricsFetcher {
+    fn fetch(&self, track: &Track) -> String;
+}
 
-    /// Fetches the lyrics of the given song using the specified lyrics source
-    pub fn fetch(&self, track: &Track) -> String {
-        // std::thread::sleep(std::time::Duration::from_secs(2));
-        trace!("Fetching lyrics for {track}");
+pub struct MusixMatchLyricsFetcher {
+    api_key: String,
+}
 
-        format!("Sample Lyrics for {}\n", track.title)
+impl LyricsFetcher for MusixMatchLyricsFetcher {
+    fn fetch(&self, track: &Track) -> String {
+        let track_title = track.title.clone();
+        let track_authors = track.artists.join(", ");
+
+        debug!("Fetching lyrics for {} by {}", track_title, track_authors);
+
+        let client = reqwest::blocking::Client::new();
+
+        let response = client
+            .get("https://api.musixmatch.com/ws/1.1/matcher.lyrics.get")
+            .query(&[
+                ("q_track", track_title.clone()),
+                ("q_artist", track_authors),
+                ("apikey", self.api_key.clone()),
+            ])
+            .send()
+            .unwrap();
+
+        if response.status() != 200 {
+            debug!("Error fetching lyrics for {}", track_title);
+            return format!("Error fetching lyrics for {}", track_title);
+        }
+
+        // Do this since we do not have a specific body type to parse into
+        let text = response.text().unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+
+        debug!("Received {:?}", json);
+
+        if json["status_code"] != 200 {
+            debug!("Error fetching lyrics for {}", track_title);
+            return format!("Error fetching lyrics for {}", track_title);
+        }
+
+        json["message"]["body"]["lyrics"]["lyrics_body"].to_string()
     }
 }
 
-impl Default for LyricsFetcher {
-    fn default() -> Self {
-        LyricsFetcher::new() // TODO: check the prefered fetcher
-    }
+pub fn default_fetcher(cfg: Arc<Config>) -> Box<dyn LyricsFetcher> {
+    Box::new(MusixMatchLyricsFetcher {
+        api_key: cfg.values().backend.clone().unwrap(),
+    })
 }
