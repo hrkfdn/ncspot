@@ -99,7 +99,7 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
                         .as_bytes()
                         .to_vec();
                     s.set_user_data::<Result<RespotCredentials, String>>(Ok(RespotCredentials {
-                        username,
+                        username: Some(username),
                         auth_type: AuthenticationType::AUTHENTICATION_USER_PASS,
                         auth_data,
                     }));
@@ -146,7 +146,7 @@ pub fn credentials_eval(
     let password = eval(password_cmd)?;
 
     Ok(RespotCredentials {
-        username,
+        username: Some(username),
         auth_type: AuthenticationType::AUTHENTICATION_USER_PASS,
         auth_data: password,
     })
