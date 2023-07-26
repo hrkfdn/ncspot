@@ -1,16 +1,17 @@
-use crate::config;
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
-use futures::{Future, FutureExt};
-use librespot_core::keymaster::Token;
+use futures::Future;
+use futures::FutureExt;
 use librespot_core::session::Session;
-use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
+use librespot_core::spotify_id::SpotifyId;
+use librespot_core::token::Token;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 use log::{debug, error, info, warn};
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::Pin, time::SystemTime};
 use tokio::sync::mpsc;
@@ -36,10 +37,10 @@ pub struct Worker {
     player_events: UnboundedReceiverStream<LibrespotPlayerEvent>,
     commands: UnboundedReceiverStream<WorkerCommand>,
     session: Session,
-    player: Player,
+    player: Arc<Player>,
     token_task: Pin<Box<dyn Future<Output = ()> + Send>>,
     active: bool,
-    mixer: Box<dyn Mixer>,
+    mixer: Arc<dyn Mixer>,
 }
 
 impl Worker {
@@ -48,8 +49,8 @@ impl Worker {
         player_events: mpsc::UnboundedReceiver<LibrespotPlayerEvent>,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         session: Session,
-        player: Player,
-        mixer: Box<dyn Mixer>,
+        player: Arc<Player>,
+        mixer: Arc<dyn Mixer>,
     ) -> Self {
         Self {
             events,
@@ -63,27 +64,13 @@ impl Worker {
         }
     }
 
-    fn get_token(&self, sender: Sender<Option<Token>>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-        let client_id = config::CLIENT_ID;
+    async fn get_token(session: Session, sender: Sender<Option<Token>>) {
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
-        let url =
-            format!("hm://keymaster/token/authenticated?client_id={client_id}&scope={scopes}");
-        Box::pin(
-            self.session
-                .mercury()
-                .get(url)
-                .map(move |response| {
-                    response.ok().and_then(move |response| {
-                        let payload = response.payload.first()?;
-
-                        let data = String::from_utf8(payload.clone()).ok()?;
-                        let token: Token = serde_json::from_str(&data).ok()?;
-                        info!("new token received: {:?}", token);
-                        Some(token)
-                    })
-                })
-                .map(move |result| sender.send(result).unwrap()),
-        )
+        session
+            .token_provider()
+            .get_token(scopes)
+            .map(|response| sender.send(response.ok()).expect("token channel is closed"))
+            .await;
     }
 
     pub async fn run_loop(&mut self) {
@@ -102,7 +89,7 @@ impl Worker {
                         match SpotifyId::from_uri(&playable.uri()) {
                             Ok(id) => {
                                 info!("player loading track: {:?}", id);
-                                if id.audio_type == SpotifyAudioType::NonPlayable {
+                                if !id.is_playable() {
                                     warn!("track is not playable");
                                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                                 } else {
@@ -131,7 +118,7 @@ impl Worker {
                         self.mixer.set_volume(volume);
                     }
                     Some(WorkerCommand::RequestToken(sender)) => {
-                        self.token_task = self.get_token(sender);
+                        self.token_task = Box::pin(Self::get_token(self.session.clone(), sender));
                     }
                     Some(WorkerCommand::Preload(playable)) => {
                         if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
@@ -150,7 +137,6 @@ impl Worker {
                         play_request_id: _,
                         track_id: _,
                         position_ms,
-                        duration_ms: _,
                     }) => {
                         let position = Duration::from_millis(position_ms as u64);
                         let playback_start = SystemTime::now() - position;
@@ -162,7 +148,6 @@ impl Worker {
                         play_request_id: _,
                         track_id: _,
                         position_ms,
-                        duration_ms: _,
                     }) => {
                         let position = Duration::from_millis(position_ms as u64);
                         self.events
