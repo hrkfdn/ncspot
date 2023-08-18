@@ -30,7 +30,7 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.2.7"
+clap = "4.3.22"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
