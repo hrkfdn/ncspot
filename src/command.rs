@@ -320,10 +320,22 @@ fn handle_aliases(input: &str) -> &str {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum CommandParseError {
-    NoSuchCommand { cmd: String },
-    InsufficientArgs { cmd: String, hint: Option<String> },
-    BadEnumArg { arg: String, accept: Vec<String> },
-    ArgParseError { arg: String, err: String },
+    NoSuchCommand {
+        cmd: String,
+    },
+    InsufficientArgs {
+        cmd: String,
+        hint: Option<String>,
+    },
+    BadEnumArg {
+        arg: String,
+        accept: Vec<String>,
+        optional: bool,
+    },
+    ArgParseError {
+        arg: String,
+        err: String,
+    },
 }
 
 impl fmt::Display for CommandParseError {
@@ -338,12 +350,17 @@ impl fmt::Display for CommandParseError {
                     format!("\"{cmd}\" requires additional arguments")
                 }
             }
-            BadEnumArg { arg, accept } => {
-                format!(
-                    "Illegal argument \"{}\": supported values are {}",
-                    arg,
-                    accept.join("|")
-                )
+            BadEnumArg {
+                arg,
+                accept,
+                optional,
+            } => {
+                let accept = accept.join("|");
+                if *optional {
+                    format!("Argument \"{arg}\" should be one of {accept} or be omitted")
+                } else {
+                    format!("Argument \"{arg}\" should be one of {accept}")
+                }
             }
             ArgParseError { arg, err } => format!("Error with argument \"{arg}\": {err}"),
         };
@@ -399,7 +416,8 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     Some("current") => Ok(Command::AddCurrent),
                     Some(arg) => Err(BadEnumArg {
                         arg: arg.into(),
-                        accept: vec!["**omit**".into(), "queue".into()],
+                        accept: vec!["current".into()],
+                        optional: true,
                     }),
                     None => Ok(Command::Add),
                 }?,
@@ -408,7 +426,8 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     Some("current") => Ok(Command::SaveCurrent),
                     Some(arg) => Err(BadEnumArg {
                         arg: arg.into(),
-                        accept: vec!["**omit**".into(), "queue".into()],
+                        accept: vec!["queue".into(), "current".into()],
+                        optional: true,
                     }),
                     None => Ok(Command::Save),
                 }?,
@@ -500,7 +519,6 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         Some(arg) => Err(BadEnumArg {
                             arg: arg.into(),
                             accept: vec![
-                                "**omit**".into(),
                                 "list".into(),
                                 "playlist".into(),
                                 "queue".into(),
@@ -510,6 +528,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 "none".into(),
                                 "off".into(),
                             ],
+                            optional: true,
                         }),
                         None => Ok(None),
                     }?;
@@ -521,7 +540,8 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         Some("off") => Ok(Some(false)),
                         Some(arg) => Err(BadEnumArg {
                             arg: arg.into(),
-                            accept: vec!["**omit**".into(), "on".into(), "off".into()],
+                            accept: vec!["on".into(), "off".into()],
+                            optional: true,
                         }),
                         None => Ok(None),
                     }?;
@@ -539,6 +559,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         _ => Err(BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
+                            optional: false,
                         }),
                     }?;
                     Command::Share(target_mode)
@@ -555,6 +576,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         _ => Err(BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
+                            optional: false,
                         }),
                     }?;
                     Command::Open(target_mode)
@@ -570,6 +592,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         _ => Err(BadEnumArg {
                             arg: goto_mode_raw.into(),
                             accept: vec!["album".into(), "artist".into()],
+                            optional: false,
                         }),
                     }?;
                     Command::Goto(goto_mode)
@@ -604,6 +627,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                     "left".into(),
                                     "right".into(),
                                 ],
+                                optional: false,
                             }),
                         }?
                     };
@@ -651,6 +675,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         _ => Err(BadEnumArg {
                             arg: shift_dir_raw.into(),
                             accept: vec!["up".into(), "down".into()],
+                            optional: false,
                         }),
                     }?;
                     let amount = match args.get(1) {
@@ -722,24 +747,24 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 "added".into(),
                                 "artist".into(),
                             ],
+                            optional: false,
                         }),
                     }?;
-                    let direction = match args.get(1) {
-                        Some(&direction_raw) => match direction_raw {
-                            "a" | "asc" | "ascending" => Ok(SortDirection::Ascending),
-                            "d" | "desc" | "descending" => Ok(SortDirection::Descending),
-                            _ => Err(BadEnumArg {
-                                arg: direction_raw.into(),
-                                accept: vec![
-                                    "a".into(),
-                                    "asc".into(),
-                                    "ascending".into(),
-                                    "d".into(),
-                                    "desc".into(),
-                                    "descending".into(),
-                                ],
-                            }),
-                        },
+                    let direction = match args.get(1).copied() {
+                        Some("a" | "asc" | "ascending") => Ok(SortDirection::Ascending),
+                        Some("d" | "desc" | "descending") => Ok(SortDirection::Descending),
+                        Some(direction_raw) => Err(BadEnumArg {
+                            arg: direction_raw.into(),
+                            accept: vec![
+                                "a".into(),
+                                "asc".into(),
+                                "ascending".into(),
+                                "d".into(),
+                                "desc".into(),
+                                "descending".into(),
+                            ],
+                            optional: true,
+                        }),
                         None => Ok(SortDirection::Ascending),
                     }?;
                     Command::Sort(key, direction)
@@ -756,6 +781,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         _ => Err(BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
+                            optional: false,
                         }),
                     }?;
                     Command::ShowRecommendations(target_mode)
