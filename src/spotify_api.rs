@@ -89,8 +89,8 @@ impl WebApi {
             if let Some(token) = token_option {
                 *self.api.token.lock().expect("can't writelock api token") = Some(Token {
                     access_token: token.access_token,
-                    expires_in: chrono::Duration::seconds(token.expires_in.into()),
-                    scopes: HashSet::from_iter(token.scope),
+                    expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
+                    scopes: HashSet::from_iter(token.scopes),
                     expires_at: None,
                     refresh_token: None,
                 });
@@ -98,7 +98,7 @@ impl WebApi {
                     .token_expiration
                     .write()
                     .expect("could not writelock token") =
-                    Utc::now() + ChronoDuration::seconds(token.expires_in.into());
+                    Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
             } else {
                 error!("Failed to update token");
             }
