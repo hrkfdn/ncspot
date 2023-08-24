@@ -9,6 +9,7 @@ pub mod help;
 pub mod layout;
 pub mod library;
 pub mod listview;
+pub mod lyrics;
 pub mod modal;
 pub mod pagination;
 pub mod playlist;

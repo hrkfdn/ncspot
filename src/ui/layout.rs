@@ -148,6 +148,11 @@ impl Layout {
         self.focus = Some(s);
         self.cmdline_focus = false;
 
+        self.screens
+            .get_mut(self.focus.as_ref().unwrap())
+            .unwrap()
+            .on_enter();
+
         // trigger a redraw
         self.ev.trigger();
     }
@@ -173,12 +178,13 @@ impl Layout {
         self.result.clone()
     }
 
-    pub fn push_view(&mut self, view: Box<dyn ViewExt>) {
+    pub fn push_view(&mut self, mut view: Box<dyn ViewExt>) {
         if let Some(view) = self.get_top_view() {
             view.on_leave();
         }
 
         if let Some(stack) = self.get_focussed_stack_mut() {
+            view.on_enter();
             stack.push(view)
         }
     }
@@ -493,6 +499,12 @@ impl ViewExt for Layout {
                     Ok(CommandResult::Ignored)
                 }
             }
+        }
+    }
+
+    fn on_enter(&mut self) {
+        if let Some(view) = self.get_current_view_mut() {
+            view.on_enter()
         }
     }
 }

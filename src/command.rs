@@ -247,7 +247,7 @@ impl Command {
             Command::PlayNext => "playnext",
             Command::Play => "play",
             Command::UpdateLibrary => "update",
-            Command::Save => "save",
+            Command::Save => "save (saves lyrics if in 'lyrics' view)",
             Command::SaveCurrent => "save current",
             Command::SaveQueue => "save queue",
             Command::Add => "add",
@@ -435,7 +435,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "focus" => {
                     let &target = args.first().ok_or(InsufficientArgs {
                         cmd: command.into(),
-                        hint: Some("queue|search|library".into()),
+                        hint: Some("queue|search|library|lyrics".into()), // TODO: these names should come from a "central" registrar for views so that contributors don't need to always keep updating it
                     })?;
                     // TODO: this really should be strongly typed
                     Command::Focus(target.into())
