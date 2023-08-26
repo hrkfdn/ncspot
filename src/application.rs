@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use cursive::traits::Nameable;
@@ -49,7 +50,7 @@ pub fn setup_logging(filename: &Path) -> Result<(), fern::InitError> {
     Ok(())
 }
 
-pub type UserData = Arc<UserDataInner>;
+pub type UserData = Rc<UserDataInner>;
 pub struct UserDataInner {
     pub cmd: CommandManager,
 }
@@ -150,7 +151,7 @@ impl Application {
         cmd_manager.register_all();
         cmd_manager.register_keybindings(&mut cursive);
 
-        cursive.set_user_data(Arc::new(UserDataInner { cmd: cmd_manager }));
+        cursive.set_user_data(Rc::new(UserDataInner { cmd: cmd_manager }));
 
         let search =
             ui::search::SearchView::new(event_manager.clone(), queue.clone(), library.clone());
