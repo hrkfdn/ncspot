@@ -337,9 +337,17 @@ impl Spotify {
     }
 
     fn send_worker(&self, cmd: WorkerCommand) {
+        info!("sending command to worker: {:?}", cmd);
         let channel = self.channel.read().expect("can't readlock worker channel");
         match channel.as_ref() {
-            Some(channel) => channel.send(cmd).expect("can't send message to worker"),
+            Some(channel) => {
+                if let Err(e) = channel.send(cmd) {
+                    error!(
+                        "can't send command to spotify worker: {}, dropping command",
+                        e
+                    );
+                }
+            }
             None => error!("no channel to worker available"),
         }
     }
