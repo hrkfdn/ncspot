@@ -128,11 +128,12 @@ When pressing <kbd>O</kbd>:
 | <kbd>Shift</kbd>+<kbd>X</kbd> | Copy the URL to the **currently playing track** to the system clipboard. |
 
 ### Queue
-| Key                          | Command                              |
-|------------------------------|--------------------------------------|
-| <kbd>C</kbd>                 | Clear the entire queue.              |
-| <kbd>D</kbd>                 | Delete the currently selected track. |
-| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track. |
+| Key                          | Command                                                          |
+|------------------------------|------------------------------------------------------------------|
+| <kbd>C</kbd>                 | Clear the entire queue.                                          |
+| <kbd>D</kbd>                 | Delete the currently selected track.                             |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Delete the currently selected track.                             |
+| <kbd>Z</kbd>                 | Randomize the queue tracks (put into random order).              |
 
 ### Library
 | Key          | Command                                 |

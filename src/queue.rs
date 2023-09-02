@@ -467,6 +467,21 @@ impl Queue {
         }
     }
 
+    /// Randomize the queue ("shuffle" all the entries of the underlying Vec). Different from the `Shuffle`
+    /// option in that this actually changes the track positions in the queue (that gets displayed to the user),
+    /// but leaves the play order running from top to bottom. Useful If you want to shuffle a playlist,
+    /// but still want to add songs to be played next.
+    ///
+    /// This deactivates `Shuffle`.
+    pub fn randomize(&self) {
+        let mut queue = self.queue.write().unwrap();
+        queue.shuffle(&mut thread_rng());
+
+        if self.get_shuffle() == true {
+            self.set_shuffle(false);
+        }
+    }
+
     /// Handle events that are specific to the queue.
     pub fn handle_event(&self, event: QueueEvent) {
         match event {

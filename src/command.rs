@@ -143,6 +143,7 @@ pub enum Command {
     VolumeDown(u16),
     Repeat(Option<RepeatSetting>),
     Shuffle(Option<bool>),
+    Randomize,
     #[cfg(feature = "share_clipboard")]
     Share(TargetMode),
     Back,
@@ -220,6 +221,7 @@ impl fmt::Display for Command {
             | Command::SaveQueue
             | Command::Add
             | Command::AddCurrent
+            | Command::Randomize
             | Command::Delete
             | Command::Back
             | Command::Help
@@ -259,6 +261,7 @@ impl Command {
             Command::VolumeDown(_) => "voldown",
             Command::Repeat(_) => "repeat",
             Command::Shuffle(_) => "shuffle",
+            Command::Randomize => "randomize",
             #[cfg(feature = "share_clipboard")]
             Command::Share(_) => "share",
             Command::Back => "back",
@@ -547,6 +550,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     }?;
                     Command::Shuffle(switch)
                 }
+                "randomize" => Command::Randomize,
                 #[cfg(feature = "share_clipboard")]
                 "share" => {
                     let &target_mode_raw = args.first().ok_or(InsufficientArgs {
