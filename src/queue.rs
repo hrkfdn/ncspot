@@ -474,11 +474,25 @@ impl Queue {
     ///
     /// This deactivates `Shuffle`.
     pub fn randomize(&self) {
+        // stop playlist, because we completely invalidate any playing order
+        let previous_playback_state = self.cfg.state().playback_state.clone();
+        self.stop();
+
+        // deactivate `Shuffle` feature, because it usually wouldn't make sense to use both
+        if self.get_shuffle() == true {
+            self.set_shuffle(false);
+        }
+
+        // permutate the queue Vec
         let mut queue = self.queue.write().unwrap();
         queue.shuffle(&mut thread_rng());
 
-        if self.get_shuffle() == true {
-            self.set_shuffle(false);
+        // resetting playing position to start of queue doesn't seem necessary
+        // my guess is that stop() does that
+
+        // resume playback if we were playing before
+        if previous_playback_state == PlaybackState::Playing {
+            self.toggleplayback();
         }
     }
 

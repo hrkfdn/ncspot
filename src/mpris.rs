@@ -263,11 +263,11 @@ impl MprisPlayer {
         self.event.trigger();
     }
 
-    #[dbus_interface(property)]
-    fn randomize(&self) {
+    /*#[dbus_interface(property)]
+    fn randomize(&self, _b: bool) {
         self.queue.randomize();
         self.event.trigger();
-    }
+    }*/
 
     #[dbus_interface(property)]
     fn volume(&self) -> f64 {
