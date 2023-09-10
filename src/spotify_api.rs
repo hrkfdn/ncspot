@@ -19,7 +19,7 @@ use rspotify::model::{
     PrivateUser, Recommendations, SavedAlbum, SavedTrack, SearchResult, SearchType, Show, ShowId,
     SimplifiedTrack, TrackId, UserId,
 };
-use rspotify::{prelude::*, AuthCodeSpotify, ClientError, ClientResult, Token};
+use rspotify::{prelude::*, AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::sync::{Arc, RwLock};
@@ -37,8 +37,17 @@ pub struct WebApi {
 
 impl Default for WebApi {
     fn default() -> Self {
+        let config = Config {
+            token_refreshing: false,
+            ..Default::default()
+        };
+        let api = AuthCodeSpotify::with_config(
+            rspotify::Credentials::default(),
+            rspotify::OAuth::default(),
+            config,
+        );
         Self {
-            api: AuthCodeSpotify::default(),
+            api,
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
             token_expiration: Arc::new(RwLock::new(Utc::now())),
@@ -152,7 +161,7 @@ impl WebApi {
         &self,
         playlist_id: &str,
         tracks: &[Playable],
-        position: Option<i32>,
+        position: Option<u32>,
     ) -> bool {
         self.api_with_retry(|api| {
             let trackids: Vec<PlayableId> = tracks
@@ -162,7 +171,7 @@ impl WebApi {
             api.playlist_add_items(
                 PlaylistId::from_id(playlist_id).unwrap(),
                 trackids.iter().map(|id| id.as_ref()),
-                position.map(|num| chrono::Duration::milliseconds(num as i64)),
+                position,
             )
         })
         .is_some()
@@ -269,7 +278,7 @@ impl WebApi {
     pub fn album(&self, album_id: &str) -> Option<FullAlbum> {
         debug!("fetching album {}", album_id);
         let aid = AlbumId::from_id(album_id).ok()?;
-        self.api_with_retry(|api| api.album(aid.clone()))
+        self.api_with_retry(|api| api.album(aid.clone(), Some(Market::FromToken)))
     }
 
     pub fn artist(&self, artist_id: &str) -> Option<FullArtist> {
@@ -284,7 +293,7 @@ impl WebApi {
 
     pub fn track(&self, track_id: &str) -> Option<FullTrack> {
         let tid = TrackId::from_id(track_id).ok()?;
-        self.api_with_retry(|api| api.track(tid.clone()))
+        self.api_with_retry(|api| api.track(tid.clone(), Some(Market::FromToken)))
     }
 
     pub fn get_show(&self, show_id: &str) -> Option<FullShow> {
@@ -418,6 +427,7 @@ impl WebApi {
         self.api_with_retry(|api| {
             api.album_track_manual(
                 AlbumId::from_id(album_id).unwrap(),
+                Some(Market::FromToken),
                 Some(limit),
                 Some(offset),
             )
@@ -598,7 +608,7 @@ impl WebApi {
 
     pub fn artist_top_tracks(&self, id: &str) -> Option<Vec<Track>> {
         self.api_with_retry(|api| {
-            api.artist_top_tracks(ArtistId::from_id(id).unwrap(), Market::FromToken)
+            api.artist_top_tracks(ArtistId::from_id(id).unwrap(), Some(Market::FromToken))
         })
         .map(|ft| ft.iter().map(|t| t.into()).collect())
     }
