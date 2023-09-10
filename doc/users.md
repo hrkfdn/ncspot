@@ -132,7 +132,7 @@ When pressing <kbd>O</kbd>:
 |------------------------------|--------------------------------------|
 | <kbd>C</kbd>                 | Clear the entire queue.              |
 | <kbd>D</kbd>                 | Delete the currently selected track. |
-| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Save the current queue. |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Save the current queue.              |
 
 ### Library
 | Key          | Command                                 |
