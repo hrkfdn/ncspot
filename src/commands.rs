@@ -173,6 +173,10 @@ impl CommandManager {
                 self.queue.set_shuffle(mode);
                 Ok(None)
             }
+            Command::Randomize => {
+                self.queue.randomize();
+                Ok(None)
+            }
             Command::Repeat(mode) => {
                 let mode = mode.unwrap_or_else(|| match self.queue.get_repeat() {
                     RepeatSetting::None => RepeatSetting::RepeatPlaylist,
@@ -452,6 +456,7 @@ impl CommandManager {
 
         kb.insert("r".into(), vec![Command::Repeat(None)]);
         kb.insert("z".into(), vec![Command::Shuffle(None)]);
+        kb.insert("Ctrl+z".into(), vec![Command::Randomize]);
 
         #[cfg(feature = "share_clipboard")]
         {
