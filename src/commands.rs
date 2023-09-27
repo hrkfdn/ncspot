@@ -51,9 +51,9 @@ impl CommandManager {
         library: Arc<Library>,
         config: Arc<Config>,
         events: EventManager,
-    ) -> CommandManager {
+    ) -> Self {
         let bindings = RefCell::new(Self::get_bindings(&config));
-        CommandManager {
+        Self {
             aliases: HashMap::new(),
             bindings,
             spotify,

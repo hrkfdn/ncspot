@@ -56,12 +56,8 @@ pub struct Spotify {
 }
 
 impl Spotify {
-    pub fn new(
-        events: EventManager,
-        credentials: Credentials,
-        cfg: Arc<config::Config>,
-    ) -> Spotify {
-        let mut spotify = Spotify {
+    pub fn new(events: EventManager, credentials: Credentials, cfg: Arc<config::Config>) -> Self {
+        let mut spotify = Self {
             events,
             credentials,
             cfg: cfg.clone(),
@@ -402,19 +398,19 @@ pub enum UriType {
 }
 
 impl UriType {
-    pub fn from_uri(s: &str) -> Option<UriType> {
+    pub fn from_uri(s: &str) -> Option<Self> {
         if s.starts_with("spotify:album:") {
-            Some(UriType::Album)
+            Some(Self::Album)
         } else if s.starts_with("spotify:artist:") {
-            Some(UriType::Artist)
+            Some(Self::Artist)
         } else if s.starts_with("spotify:track:") {
-            Some(UriType::Track)
+            Some(Self::Track)
         } else if s.starts_with("spotify:") && s.contains(":playlist:") {
-            Some(UriType::Playlist)
+            Some(Self::Playlist)
         } else if s.starts_with("spotify:show:") {
-            Some(UriType::Show)
+            Some(Self::Show)
         } else if s.starts_with("spotify:episode:") {
-            Some(UriType::Episode)
+            Some(Self::Episode)
         } else {
             None
         }

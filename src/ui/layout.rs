@@ -42,7 +42,7 @@ impl Layout {
         ev: &events::EventManager,
         theme: Theme,
         configuration: Arc<Config>,
-    ) -> Layout {
+    ) -> Self {
         let style = ColorStyle::new(
             ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
             ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
@@ -89,7 +89,7 @@ impl Layout {
             event_manager.trigger();
         });
 
-        Layout {
+        Self {
             screens: HashMap::new(),
             stack: HashMap::new(),
             statusbar: status.into_boxed_view(),

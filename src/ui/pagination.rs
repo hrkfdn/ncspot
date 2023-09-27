@@ -18,7 +18,7 @@ pub struct ApiResult<I> {
 }
 
 impl<I: ListItem + Clone> ApiResult<I> {
-    pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> ApiResult<I> {
+    pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> Self {
         let items = Arc::new(RwLock::new(Vec::new()));
         if let Some(first_page) = fetch_page(0) {
             debug!(
@@ -27,7 +27,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 first_page.total
             );
             items.write().unwrap().extend(first_page.items);
-            ApiResult {
+            Self {
                 offset: Arc::new(RwLock::new(first_page.offset)),
                 limit,
                 total: first_page.total,
@@ -35,7 +35,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 fetch_page: fetch_page.clone(),
             }
         } else {
-            ApiResult {
+            Self {
                 offset: Arc::new(RwLock::new(0)),
                 limit,
                 total: 0,
@@ -102,7 +102,7 @@ pub struct Pagination<I: ListItem> {
 
 impl<I: ListItem> Default for Pagination<I> {
     fn default() -> Self {
-        Pagination {
+        Self {
             loaded_content: Arc::new(RwLock::new(0)),
             max_content: Arc::new(RwLock::new(None)),
             callback: Arc::new(RwLock::new(None)),

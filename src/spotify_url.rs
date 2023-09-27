@@ -25,8 +25,8 @@ impl fmt::Display for SpotifyUrl {
 }
 
 impl SpotifyUrl {
-    pub fn new(id: &str, uri_type: UriType) -> SpotifyUrl {
-        SpotifyUrl {
+    pub fn new(id: &str, uri_type: UriType) -> Self {
+        Self {
             id: id.to_string(),
             uri_type,
         }
@@ -39,7 +39,7 @@ impl SpotifyUrl {
     /// assert_eq!(result.id, "4uLU6hMCjMI75M1A2tKUQC");
     /// assert_eq!(result.uri_type, URIType::Track);
     /// ```
-    pub fn from_url<S: AsRef<str>>(s: S) -> Option<SpotifyUrl> {
+    pub fn from_url<S: AsRef<str>>(s: S) -> Option<Self> {
         let url = Url::parse(s.as_ref()).ok()?;
         if url.host() != Some(Host::Domain("open.spotify.com")) {
             return None;
@@ -71,7 +71,7 @@ impl SpotifyUrl {
 
         let id = path_segments.next()?;
 
-        Some(SpotifyUrl::new(id, uri_type))
+        Some(Self::new(id, uri_type))
     }
 }
 

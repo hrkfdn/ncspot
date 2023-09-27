@@ -147,7 +147,7 @@ impl Playlist {
 
 impl From<&SimplifiedPlaylist> for Playlist {
     fn from(list: &SimplifiedPlaylist) -> Self {
-        Playlist {
+        Self {
             id: list.id.id().to_string(),
             name: list.name.clone(),
             owner_id: list.owner.id.id().to_string(),
@@ -162,7 +162,7 @@ impl From<&SimplifiedPlaylist> for Playlist {
 
 impl From<&FullPlaylist> for Playlist {
     fn from(list: &FullPlaylist) -> Self {
-        Playlist {
+        Self {
             id: list.id.id().to_string(),
             name: list.name.clone(),
             owner_id: list.owner.id.id().to_string(),

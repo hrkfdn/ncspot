@@ -14,7 +14,7 @@ pub trait CursiveExt {
 impl CursiveExt for cursive::Cursive {
     fn on_layout<F, R>(&mut self, cb: F) -> R
     where
-        F: FnOnce(&mut cursive::Cursive, ViewRef<Layout>) -> R,
+        F: FnOnce(&mut Self, ViewRef<Layout>) -> R,
     {
         let layout = self
             .find_name::<Layout>("main")

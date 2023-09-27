@@ -491,7 +491,7 @@ impl MprisManager {
             }
         });
 
-        MprisManager { tx }
+        Self { tx }
     }
 
     async fn serve(

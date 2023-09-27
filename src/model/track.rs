@@ -37,7 +37,7 @@ pub struct Track {
 }
 
 impl Track {
-    pub fn from_simplified_track(track: &SimplifiedTrack, album: &FullAlbum) -> Track {
+    pub fn from_simplified_track(track: &SimplifiedTrack, album: &FullAlbum) -> Self {
         let artists = track
             .artists
             .iter()
@@ -270,12 +270,12 @@ impl ListItem for Track {
     ) -> Option<Box<dyn ViewExt>> {
         let spotify = queue.get_spotify();
 
-        let recommendations: Option<Vec<Track>> = if let Some(id) = &self.id {
+        let recommendations: Option<Vec<Self>> = if let Some(id) = &self.id {
             spotify
                 .api
                 .recommendations(None, None, Some(vec![id]))
                 .map(|r| r.tracks)
-                .map(|tracks| tracks.iter().map(Track::from).collect())
+                .map(|tracks| tracks.iter().map(Self::from).collect())
         } else {
             None
         };

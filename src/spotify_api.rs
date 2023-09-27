@@ -56,7 +56,7 @@ impl Default for WebApi {
 }
 
 impl WebApi {
-    pub fn new() -> WebApi {
+    pub fn new() -> Self {
         Self::default()
     }
 

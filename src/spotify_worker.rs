@@ -50,8 +50,8 @@ impl Worker {
         session: Session,
         player: Player,
         mixer: Box<dyn Mixer>,
-    ) -> Worker {
-        Worker {
+    ) -> Self {
+        Self {
             events,
             player_events: UnboundedReceiverStream::new(player_events),
             commands: UnboundedReceiverStream::new(commands),

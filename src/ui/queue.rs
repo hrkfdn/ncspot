@@ -22,10 +22,10 @@ pub struct QueueView {
 }
 
 impl QueueView {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> QueueView {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let list = ListView::new(queue.queue.clone(), queue.clone(), library.clone());
 
-        QueueView {
+        Self {
             list,
             library,
             queue,
