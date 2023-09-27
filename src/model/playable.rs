@@ -20,7 +20,7 @@ pub enum Playable {
 }
 
 impl Playable {
-    pub fn format(playable: &Playable, formatting: &str, library: &Library) -> String {
+    pub fn format(playable: &Self, formatting: &str, library: &Library) -> String {
         formatting
             .replace(
                 "%artists",
@@ -38,15 +38,15 @@ impl Playable {
             .replace(
                 "%title",
                 match playable.clone() {
-                    Playable::Episode(episode) => episode.name,
-                    Playable::Track(track) => track.title,
+                    Self::Episode(episode) => episode.name,
+                    Self::Track(track) => track.title,
                 }
                 .as_str(),
             )
             .replace(
                 "%album",
                 match playable.clone() {
-                    Playable::Track(track) => track.album.unwrap_or_default(),
+                    Self::Track(track) => track.album.unwrap_or_default(),
                     _ => String::new(),
                 }
                 .as_str(),
@@ -54,8 +54,8 @@ impl Playable {
             .replace(
                 "%saved",
                 if library.is_saved_track(&match playable.clone() {
-                    Playable::Episode(episode) => Playable::Episode(episode),
-                    Playable::Track(track) => Playable::Track(track),
+                    Self::Episode(episode) => Self::Episode(episode),
+                    Self::Track(track) => Self::Track(track),
                 }) {
                     if library.cfg.values().use_nerdfont.unwrap_or_default() {
                         "\u{f012c}"
@@ -71,50 +71,50 @@ impl Playable {
 
     pub fn id(&self) -> Option<String> {
         match self {
-            Playable::Track(track) => track.id.clone(),
-            Playable::Episode(episode) => Some(episode.id.clone()),
+            Self::Track(track) => track.id.clone(),
+            Self::Episode(episode) => Some(episode.id.clone()),
         }
     }
 
     pub fn uri(&self) -> String {
         match self {
-            Playable::Track(track) => track.uri.clone(),
-            Playable::Episode(episode) => episode.uri.clone(),
+            Self::Track(track) => track.uri.clone(),
+            Self::Episode(episode) => episode.uri.clone(),
         }
     }
 
     pub fn cover_url(&self) -> Option<String> {
         match self {
-            Playable::Track(track) => track.cover_url.clone(),
-            Playable::Episode(episode) => episode.cover_url.clone(),
+            Self::Track(track) => track.cover_url.clone(),
+            Self::Episode(episode) => episode.cover_url.clone(),
         }
     }
 
     pub fn duration(&self) -> u32 {
         match self {
-            Playable::Track(track) => track.duration,
-            Playable::Episode(episode) => episode.duration,
+            Self::Track(track) => track.duration,
+            Self::Episode(episode) => episode.duration,
         }
     }
 
     pub fn list_index(&self) -> usize {
         match self {
-            Playable::Track(track) => track.list_index,
-            Playable::Episode(episode) => episode.list_index,
+            Self::Track(track) => track.list_index,
+            Self::Episode(episode) => episode.list_index,
         }
     }
 
     pub fn set_list_index(&mut self, index: usize) {
         match self {
-            Playable::Track(track) => track.list_index = index,
-            Playable::Episode(episode) => episode.list_index = index,
+            Self::Track(track) => track.list_index = index,
+            Self::Episode(episode) => episode.list_index = index,
         }
     }
 
     pub fn set_added_at(&mut self, added_at: Option<DateTime<Utc>>) {
         match self {
-            Playable::Track(track) => track.added_at = added_at,
-            Playable::Episode(episode) => episode.added_at = added_at,
+            Self::Track(track) => track.added_at = added_at,
+            Self::Episode(episode) => episode.added_at = added_at,
         }
     }
 
@@ -124,8 +124,8 @@ impl Playable {
 
     pub fn as_listitem(&self) -> Box<dyn ListItem> {
         match self {
-            Playable::Track(track) => track.as_listitem(),
-            Playable::Episode(episode) => episode.as_listitem(),
+            Self::Track(track) => track.as_listitem(),
+            Self::Episode(episode) => episode.as_listitem(),
         }
     }
 }
@@ -133,8 +133,8 @@ impl Playable {
 impl From<&PlayableItem> for Playable {
     fn from(item: &PlayableItem) -> Self {
         match item {
-            PlayableItem::Episode(episode) => Playable::Episode(episode.into()),
-            PlayableItem::Track(track) => Playable::Track(track.into()),
+            PlayableItem::Episode(episode) => Self::Episode(episode.into()),
+            PlayableItem::Track(track) => Self::Track(track.into()),
         }
     }
 }
@@ -157,8 +157,8 @@ impl From<&Playable> for Option<rspotify::prelude::PlayableId<'_>> {
 impl fmt::Display for Playable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Playable::Track(track) => track.fmt(f),
-            Playable::Episode(episode) => episode.fmt(f),
+            Self::Track(track) => track.fmt(f),
+            Self::Episode(episode) => episode.fmt(f),
         }
     }
 }

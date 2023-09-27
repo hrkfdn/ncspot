@@ -49,7 +49,7 @@ impl SearchResultsView {
         events: EventManager,
         queue: Arc<Queue>,
         library: Arc<Library>,
-    ) -> SearchResultsView {
+    ) -> Self {
         let results_tracks = Arc::new(RwLock::new(Vec::new()));
         let results_albums = Arc::new(RwLock::new(Vec::new()));
         let results_artists = Arc::new(RwLock::new(Vec::new()));
@@ -79,7 +79,7 @@ impl SearchResultsView {
             .tab("shows", list_shows.with_title("Podcasts"))
             .tab("episodes", list_episodes.with_title("Podcast Episodes"));
 
-        let mut view = SearchResultsView {
+        let mut view = Self {
             search_term,
             results_tracks,
             pagination_tracks,

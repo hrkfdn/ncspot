@@ -47,7 +47,7 @@ pub struct TrackFormat {
 
 impl TrackFormat {
     pub fn default() -> Self {
-        TrackFormat {
+        Self {
             left: Some(String::from("%artists - %title")),
             center: Some(String::from("%album")),
             right: Some(String::from("%saved %duration")),
@@ -64,7 +64,7 @@ pub struct NotificationFormat {
 
 impl NotificationFormat {
     pub fn default() -> Self {
-        NotificationFormat {
+        Self {
             title: Some(String::from("%title")),
             body: Some(String::from("%artists")),
         }
@@ -163,7 +163,7 @@ pub struct UserState {
 
 impl Default for UserState {
     fn default() -> Self {
-        UserState {
+        Self {
             volume: u16::MAX,
             shuffle: false,
             repeat: queue::RepeatSetting::None,

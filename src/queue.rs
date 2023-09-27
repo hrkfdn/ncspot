@@ -49,10 +49,10 @@ pub struct Queue {
 }
 
 impl Queue {
-    pub fn new(spotify: Spotify, cfg: Arc<Config>, library: Arc<Library>) -> Queue {
+    pub fn new(spotify: Spotify, cfg: Arc<Config>, library: Arc<Library>) -> Self {
         let queue_state = cfg.state().queuestate.clone();
         let playback_state = cfg.state().playback_state.clone();
-        let queue = Queue {
+        let queue = Self {
             queue: Arc::new(RwLock::new(queue_state.queue)),
             spotify: spotify.clone(),
             current_track: RwLock::new(queue_state.current_track),

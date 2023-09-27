@@ -37,7 +37,7 @@ pub struct SearchView {
 pub const EDIT_ID: &str = "search_edit";
 
 impl SearchView {
-    pub fn new(events: EventManager, queue: Arc<Queue>, library: Arc<Library>) -> SearchView {
+    pub fn new(events: EventManager, queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let searchfield = EditView::new()
             .on_submit(move |s, input| {
                 if !input.is_empty() {
@@ -52,7 +52,7 @@ impl SearchView {
             })
             .with_name(EDIT_ID);
 
-        SearchView {
+        Self {
             edit: searchfield,
             edit_focused: true,
         }

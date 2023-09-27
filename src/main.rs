@@ -1,3 +1,5 @@
+#![deny(clippy::use_self)]
+
 #[macro_use]
 extern crate cursive;
 #[macro_use]

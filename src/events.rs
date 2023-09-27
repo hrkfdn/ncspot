@@ -21,10 +21,10 @@ pub struct EventManager {
 }
 
 impl EventManager {
-    pub fn new(cursive_sink: CbSink) -> EventManager {
+    pub fn new(cursive_sink: CbSink) -> Self {
         let (tx, rx) = unbounded();
 
-        EventManager {
+        Self {
             tx,
             rx,
             cursive_sink,

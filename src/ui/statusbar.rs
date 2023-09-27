@@ -22,10 +22,10 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> StatusBar {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
         let spotify = queue.get_spotify();
 
-        StatusBar {
+        Self {
             queue,
             spotify,
             library,

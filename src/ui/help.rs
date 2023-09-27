@@ -17,7 +17,7 @@ pub struct HelpView {
 }
 
 impl HelpView {
-    pub fn new(bindings: HashMap<String, Vec<Command>>) -> HelpView {
+    pub fn new(bindings: HashMap<String, Vec<Command>>) -> Self {
         let mut text = StyledString::styled("Keybindings\n\n", Effect::Bold);
 
         let note = format!(
@@ -43,7 +43,7 @@ impl HelpView {
             text.append(binding);
         }
 
-        HelpView {
+        Self {
             view: ScrollView::new(TextView::new(text)),
         }
     }

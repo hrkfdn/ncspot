@@ -39,7 +39,7 @@ pub enum MoveAmount {
 
 impl Default for MoveAmount {
     fn default() -> Self {
-        MoveAmount::Integer(1)
+        Self::Integer(1)
     }
 }
 
@@ -92,8 +92,8 @@ pub enum SeekDirection {
 impl fmt::Display for SeekDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let repr = match self {
-            SeekDirection::Absolute(pos) => format!("{pos}"),
-            SeekDirection::Relative(delta) => {
+            Self::Absolute(pos) => format!("{pos}"),
+            Self::Relative(delta) => {
                 format!("{}{}", if delta > &0 { "+" } else { "" }, delta)
             }
         };
@@ -112,8 +112,8 @@ impl fmt::Display for InsertSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let repr = match self {
             #[cfg(feature = "share_clipboard")]
-            InsertSource::Clipboard => "".into(),
-            InsertSource::Input(url) => url.to_string(),
+            Self::Clipboard => "".into(),
+            Self::Input(url) => url.to_string(),
         };
         write!(f, "{repr}")
     }
@@ -169,23 +169,23 @@ impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut repr_tokens = vec![self.basename().to_owned()];
         let mut extras_args = match self {
-            Command::Focus(tab) => vec![tab.to_owned()],
-            Command::Seek(direction) => vec![direction.to_string()],
-            Command::VolumeUp(amount) => vec![amount.to_string()],
-            Command::VolumeDown(amount) => vec![amount.to_string()],
-            Command::Repeat(mode) => match mode {
+            Self::Focus(tab) => vec![tab.to_owned()],
+            Self::Seek(direction) => vec![direction.to_string()],
+            Self::VolumeUp(amount) => vec![amount.to_string()],
+            Self::VolumeDown(amount) => vec![amount.to_string()],
+            Self::Repeat(mode) => match mode {
                 Some(mode) => vec![mode.to_string()],
                 None => vec![],
             },
-            Command::Shuffle(on) => match on {
+            Self::Shuffle(on) => match on {
                 Some(b) => vec![(if *b { "on" } else { "off" }).into()],
                 None => vec![],
             },
             #[cfg(feature = "share_clipboard")]
-            Command::Share(mode) => vec![mode.to_string()],
-            Command::Open(mode) => vec![mode.to_string()],
-            Command::Goto(mode) => vec![mode.to_string()],
-            Command::Move(mode, amount) => match (mode, amount) {
+            Self::Share(mode) => vec![mode.to_string()],
+            Self::Open(mode) => vec![mode.to_string()],
+            Self::Goto(mode) => vec![mode.to_string()],
+            Self::Move(mode, amount) => match (mode, amount) {
                 (MoveMode::Playing, _) => vec!["playing".to_string()],
                 (MoveMode::Up, MoveAmount::Extreme) => vec!["top".to_string()],
                 (MoveMode::Down, MoveAmount::Extreme) => vec!["bottom".to_string()],
@@ -194,40 +194,40 @@ impl fmt::Display for Command {
                 (mode, MoveAmount::Float(amount)) => vec![mode.to_string(), amount.to_string()],
                 (mode, MoveAmount::Integer(amount)) => vec![mode.to_string(), amount.to_string()],
             },
-            Command::Shift(mode, amount) => vec![mode.to_string(), amount.unwrap_or(1).to_string()],
-            Command::Search(term) => vec![term.to_owned()],
-            Command::Jump(mode) => match mode {
+            Self::Shift(mode, amount) => vec![mode.to_string(), amount.unwrap_or(1).to_string()],
+            Self::Search(term) => vec![term.to_owned()],
+            Self::Jump(mode) => match mode {
                 JumpMode::Previous | JumpMode::Next => vec![],
                 JumpMode::Query(term) => vec![term.to_owned()],
             },
-            Command::Insert(source) => vec![source.to_string()],
-            Command::NewPlaylist(name) => vec![name.to_owned()],
-            Command::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
-            Command::ShowRecommendations(mode) => vec![mode.to_string()],
-            Command::Execute(cmd) => vec![cmd.to_owned()],
-            Command::Quit
-            | Command::TogglePlay
-            | Command::Stop
-            | Command::Previous
-            | Command::Next
-            | Command::Clear
-            | Command::Queue
-            | Command::PlayNext
-            | Command::Play
-            | Command::UpdateLibrary
-            | Command::Save
-            | Command::SaveCurrent
-            | Command::SaveQueue
-            | Command::Add
-            | Command::AddCurrent
-            | Command::Delete
-            | Command::Back
-            | Command::Help
-            | Command::ReloadConfig
-            | Command::Noop
-            | Command::Logout
-            | Command::Reconnect
-            | Command::Redraw => vec![],
+            Self::Insert(source) => vec![source.to_string()],
+            Self::NewPlaylist(name) => vec![name.to_owned()],
+            Self::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
+            Self::ShowRecommendations(mode) => vec![mode.to_string()],
+            Self::Execute(cmd) => vec![cmd.to_owned()],
+            Self::Quit
+            | Self::TogglePlay
+            | Self::Stop
+            | Self::Previous
+            | Self::Next
+            | Self::Clear
+            | Self::Queue
+            | Self::PlayNext
+            | Self::Play
+            | Self::UpdateLibrary
+            | Self::Save
+            | Self::SaveCurrent
+            | Self::SaveQueue
+            | Self::Add
+            | Self::AddCurrent
+            | Self::Delete
+            | Self::Back
+            | Self::Help
+            | Self::ReloadConfig
+            | Self::Noop
+            | Self::Logout
+            | Self::Reconnect
+            | Self::Redraw => vec![],
         };
         repr_tokens.append(&mut extras_args);
         write!(f, "{}", repr_tokens.join(" "))
@@ -237,50 +237,50 @@ impl fmt::Display for Command {
 impl Command {
     pub fn basename(&self) -> &str {
         match self {
-            Command::Quit => "quit",
-            Command::TogglePlay => "playpause",
-            Command::Stop => "stop",
-            Command::Previous => "previous",
-            Command::Next => "next",
-            Command::Clear => "clear",
-            Command::Queue => "queue",
-            Command::PlayNext => "playnext",
-            Command::Play => "play",
-            Command::UpdateLibrary => "update",
-            Command::Save => "save",
-            Command::SaveCurrent => "save current",
-            Command::SaveQueue => "save queue",
-            Command::Add => "add",
-            Command::AddCurrent => "add current",
-            Command::Delete => "delete",
-            Command::Focus(_) => "focus",
-            Command::Seek(_) => "seek",
-            Command::VolumeUp(_) => "volup",
-            Command::VolumeDown(_) => "voldown",
-            Command::Repeat(_) => "repeat",
-            Command::Shuffle(_) => "shuffle",
+            Self::Quit => "quit",
+            Self::TogglePlay => "playpause",
+            Self::Stop => "stop",
+            Self::Previous => "previous",
+            Self::Next => "next",
+            Self::Clear => "clear",
+            Self::Queue => "queue",
+            Self::PlayNext => "playnext",
+            Self::Play => "play",
+            Self::UpdateLibrary => "update",
+            Self::Save => "save",
+            Self::SaveCurrent => "save current",
+            Self::SaveQueue => "save queue",
+            Self::Add => "add",
+            Self::AddCurrent => "add current",
+            Self::Delete => "delete",
+            Self::Focus(_) => "focus",
+            Self::Seek(_) => "seek",
+            Self::VolumeUp(_) => "volup",
+            Self::VolumeDown(_) => "voldown",
+            Self::Repeat(_) => "repeat",
+            Self::Shuffle(_) => "shuffle",
             #[cfg(feature = "share_clipboard")]
-            Command::Share(_) => "share",
-            Command::Back => "back",
-            Command::Open(_) => "open",
-            Command::Goto(_) => "goto",
-            Command::Move(_, _) => "move",
-            Command::Shift(_, _) => "shift",
-            Command::Search(_) => "search",
-            Command::Jump(JumpMode::Previous) => "jumpprevious",
-            Command::Jump(JumpMode::Next) => "jumpnext",
-            Command::Jump(JumpMode::Query(_)) => "jump",
-            Command::Help => "help",
-            Command::ReloadConfig => "reload",
-            Command::Noop => "noop",
-            Command::Insert(_) => "insert",
-            Command::NewPlaylist(_) => "newplaylist",
-            Command::Sort(_, _) => "sort",
-            Command::Logout => "logout",
-            Command::ShowRecommendations(_) => "similar",
-            Command::Redraw => "redraw",
-            Command::Execute(_) => "exec",
-            Command::Reconnect => "reconnect",
+            Self::Share(_) => "share",
+            Self::Back => "back",
+            Self::Open(_) => "open",
+            Self::Goto(_) => "goto",
+            Self::Move(_, _) => "move",
+            Self::Shift(_, _) => "shift",
+            Self::Search(_) => "search",
+            Self::Jump(JumpMode::Previous) => "jumpprevious",
+            Self::Jump(JumpMode::Next) => "jumpnext",
+            Self::Jump(JumpMode::Query(_)) => "jump",
+            Self::Help => "help",
+            Self::ReloadConfig => "reload",
+            Self::Noop => "noop",
+            Self::Insert(_) => "insert",
+            Self::NewPlaylist(_) => "newplaylist",
+            Self::Sort(_, _) => "sort",
+            Self::Logout => "logout",
+            Self::ShowRecommendations(_) => "similar",
+            Self::Redraw => "redraw",
+            Self::Execute(_) => "exec",
+            Self::Reconnect => "reconnect",
         }
     }
 }

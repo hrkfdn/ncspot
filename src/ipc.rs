@@ -32,7 +32,7 @@ impl Drop for IpcSocket {
 }
 
 impl IpcSocket {
-    pub fn new(handle: &Handle, path: PathBuf, ev: EventManager) -> io::Result<IpcSocket> {
+    pub fn new(handle: &Handle, path: PathBuf, ev: EventManager) -> io::Result<Self> {
         let path = if path.exists() && Self::is_open_socket(&path) {
             let mut new_path = path;
             new_path.set_file_name(format!("ncspot.{}.sock", std::process::id()));
@@ -59,7 +59,7 @@ impl IpcSocket {
             Self::worker(listener, ev, rx.clone()).await;
         });
 
-        Ok(IpcSocket { tx, path })
+        Ok(Self { tx, path })
     }
 
     fn is_open_socket(path: &PathBuf) -> bool {

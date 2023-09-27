@@ -8,13 +8,13 @@ pub struct Modal<T: View> {
 
 impl<T: View> Modal<T> {
     pub fn new(inner: T) -> Self {
-        Modal {
+        Self {
             block_events: true,
             inner,
         }
     }
     pub fn new_ext(inner: T) -> Self {
-        Modal {
+        Self {
             block_events: false,
             inner,
         }

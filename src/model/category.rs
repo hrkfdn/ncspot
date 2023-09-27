@@ -15,7 +15,7 @@ pub struct Category {
 
 impl From<&rspotify::model::Category> for Category {
     fn from(c: &rspotify::model::Category) -> Self {
-        Category {
+        Self {
             id: c.id.clone(),
             name: c.name.clone(),
         }
