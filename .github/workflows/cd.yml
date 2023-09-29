@@ -27,7 +27,7 @@ jobs:
             os: ubuntu-latest
             container: ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
             target: aarch64-unknown-linux-gnu
-            features: '--no-default-features --features alsa_backend,cursive/termion-backend'
+            features: '--no-default-features --features alsa_backend,cursive/crossterm-backend'
             dependencies: 'libasound2-dev:arm64 libssl-dev:arm64'
             cross_arch: 'arm64'
             pkg_config_path: '/usr/lib/aarch64-linux-gnu/pkgconfig/'
@@ -35,7 +35,7 @@ jobs:
             os: ubuntu-latest
             container: ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main
             target: armv7-unknown-linux-gnueabihf
-            features: '--no-default-features --features alsa_backend,cursive/termion-backend'
+            features: '--no-default-features --features alsa_backend,cursive/crossterm-backend'
             dependencies: 'libasound2-dev:armhf libssl-dev:armhf'
             cross_arch: 'armhf'
             pkg_config_path: '/usr/lib/arm-linux-gnueabihf/pkgconfig/'
