@@ -500,7 +500,7 @@ impl MprisManager {
         player: MprisPlayer,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let conn = ConnectionBuilder::session()?
-            .name("org.mpris.MediaPlayer2.ncspot")?
+            .name(instance_bus_name())?
             .serve_at("/org/mpris/MediaPlayer2", root)?
             .serve_at("/org/mpris/MediaPlayer2", player)?
             .build()
@@ -528,4 +528,14 @@ impl MprisManager {
             log::warn!("Could not update MPRIS state: {e}");
         }
     }
+}
+
+/// Get the D-Bus bus name for this instance according to the MPRIS specification.
+///
+/// https://specifications.freedesktop.org/mpris-spec/2.2/#Bus-Name-Policy
+pub fn instance_bus_name() -> String {
+    format!(
+        "org.mpris.MediaPlayer2.ncspot.instance{}",
+        std::process::id()
+    )
 }
