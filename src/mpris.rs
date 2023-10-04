@@ -513,13 +513,10 @@ impl MprisManager {
         let player_iface = player_iface_ref.get().await;
 
         loop {
-            tokio::select! {
-                Some(()) = rx.next() => {
-                    let ctx = player_iface_ref.signal_context();
-                    player_iface.playback_status_changed(ctx).await?;
-                    player_iface.metadata_changed(ctx).await?;
-                }
-            }
+            rx.next().await;
+            let ctx = player_iface_ref.signal_context();
+            player_iface.playback_status_changed(ctx).await?;
+            player_iface.metadata_changed(ctx).await?;
         }
     }
 
