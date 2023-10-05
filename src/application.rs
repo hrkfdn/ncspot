@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use cursive::traits::Nameable;
 use cursive::{Cursive, CursiveRunner};
@@ -55,13 +55,8 @@ pub struct UserDataInner {
     pub cmd: CommandManager,
 }
 
-lazy_static!(
-    /// The global Tokio runtime for running asynchronous tasks.
-    pub static ref ASYNC_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-);
+/// The global Tokio runtime for running asynchronous tasks.
+pub static ASYNC_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 
 /// The representation of an ncspot application.
 pub struct Application {
@@ -90,6 +85,15 @@ impl Application {
     pub fn new(configuration_file_path: Option<String>) -> Result<Self, String> {
         // Things here may cause the process to abort; we must do them before creating curses
         // windows otherwise the error message will not be seen by a user
+
+        ASYNC_RUNTIME
+            .set(
+                tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
 
         let configuration = Arc::new(Config::new(configuration_file_path));
         let credentials = authentication::get_credentials(&configuration)?;
@@ -134,7 +138,7 @@ impl Application {
 
         #[cfg(unix)]
         let ipc = ipc::IpcSocket::new(
-            ASYNC_RUNTIME.handle(),
+            ASYNC_RUNTIME.get().unwrap().handle(),
             crate::config::cache_path("ncspot.sock"),
             event_manager.clone(),
         )

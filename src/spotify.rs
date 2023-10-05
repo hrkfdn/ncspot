@@ -71,7 +71,7 @@ impl Spotify {
 
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx));
-        spotify.user = ASYNC_RUNTIME.block_on(user_rx).ok();
+        spotify.user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
@@ -95,7 +95,7 @@ impl Spotify {
             let events = self.events.clone();
             let volume = self.volume();
             let credentials = self.credentials.clone();
-            ASYNC_RUNTIME.spawn(Self::worker(
+            ASYNC_RUNTIME.get().unwrap().spawn(Self::worker(
                 worker_channel,
                 events,
                 rx,
@@ -122,6 +122,8 @@ impl Spotify {
     pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
         let config = Self::session_config();
         ASYNC_RUNTIME
+            .get()
+            .unwrap()
             .block_on(Session::connect(config, credentials, None, true))
             .map(|r| r.0)
     }

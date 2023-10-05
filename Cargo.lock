@@ -1968,7 +1968,6 @@ dependencies = [
  "fern",
  "futures",
  "ioctl-rs",
- "lazy_static",
  "libc",
  "librespot-core",
  "librespot-playback",

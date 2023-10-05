@@ -175,10 +175,8 @@ impl Default for UserState {
     }
 }
 
-lazy_static! {
-    /// Configuration files are read/written relative to this directory.
-    pub static ref BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
-}
+/// Configuration files are read/written relative to this directory.
+static BASE_PATH: RwLock<Option<PathBuf>> = RwLock::new(None);
 
 /// The complete configuration (state + user configuration) of ncspot.
 pub struct Config {
