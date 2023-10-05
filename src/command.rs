@@ -303,9 +303,6 @@ lazy_static! {
         );
         register_aliases(&mut m, "repeat", vec!["loop"]);
 
-        m.insert("1", "foo");
-        m.insert("2", "bar");
-        m.insert("3", "baz");
         m
     };
 }
