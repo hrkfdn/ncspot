@@ -7,7 +7,7 @@ use cursive::{Cursive, CursiveRunner};
 use log::{error, info, trace};
 
 #[cfg(unix)]
-use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
+use signal_hook::{consts::SIGTERM, iterator::Signals};
 
 use crate::command::Command;
 use crate::commands::CommandManager;
@@ -204,15 +204,14 @@ impl Application {
     /// Start the application and run the event loop.
     pub fn run(&mut self) -> Result<(), String> {
         #[cfg(unix)]
-        let mut signals =
-            Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
+        let mut signals = Signals::new([SIGTERM]).expect("could not register signal handler");
 
         // cursive event loop
         while self.cursive.is_running() {
             self.cursive.step();
             #[cfg(unix)]
             for signal in signals.pending() {
-                if signal == SIGTERM || signal == SIGHUP {
+                if signal == SIGTERM {
                     info!("Caught {}, cleaning up and closing", signal);
                     if let Some(data) = self.cursive.user_data::<UserData>().cloned() {
                         data.cmd.handle(&mut self.cursive, Command::Quit);
