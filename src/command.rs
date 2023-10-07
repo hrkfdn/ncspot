@@ -2,6 +2,7 @@ use crate::queue::RepeatSetting;
 use crate::spotify_url::SpotifyUrl;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::OnceLock;
 
 use strum_macros::Display;
 
@@ -291,8 +292,12 @@ fn register_aliases(map: &mut HashMap<&str, &str>, cmd: &'static str, names: Vec
     }
 }
 
-lazy_static! {
-    static ref ALIASES: HashMap<&'static str, &'static str> = {
+fn handle_aliases(input: &str) -> &str {
+    // NOTE: There is probably a better way to write this than a static HashMap. The HashMap doesn't
+    // improve performance as there's far too few keys, and the use of static doesn't seem good.
+    static ALIASES: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+
+    let aliases = ALIASES.get_or_init(|| {
         let mut m = HashMap::new();
 
         register_aliases(&mut m, "quit", vec!["q", "x"]);
@@ -302,13 +307,10 @@ lazy_static! {
             vec!["pause", "toggleplay", "toggleplayback"],
         );
         register_aliases(&mut m, "repeat", vec!["loop"]);
-
         m
-    };
-}
+    });
 
-fn handle_aliases(input: &str) -> &str {
-    if let Some(cmd) = ALIASES.get(input) {
+    if let Some(cmd) = aliases.get(input) {
         handle_aliases(cmd)
     } else {
         input
