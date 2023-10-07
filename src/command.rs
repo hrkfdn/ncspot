@@ -307,11 +307,6 @@ fn handle_aliases(input: &str) -> &str {
             vec!["pause", "toggleplay", "toggleplayback"],
         );
         register_aliases(&mut m, "repeat", vec!["loop"]);
-
-        // TODO: FooBarBaz XD
-        m.insert("1", "foo");
-        m.insert("2", "bar");
-        m.insert("3", "baz");
         m
     });
 
