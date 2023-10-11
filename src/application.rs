@@ -61,7 +61,7 @@ async fn handle_signals(cursive_callback_sink: CbSink) {
     while let Some(signal) = signals.next().await {
         info!("Caught {}, cleaning up and closing", signal);
         match signal {
-            SIGTERM => {
+            SIGTERM | SIGHUP => {
                 cursive_callback_sink
                     .send(Box::new(|cursive| {
                         if let Some(data) = cursive.user_data::<UserData>().cloned() {
