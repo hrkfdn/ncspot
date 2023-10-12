@@ -26,8 +26,7 @@ struct Status {
 
 impl Drop for IpcSocket {
     fn drop(&mut self) {
-        log::info!("Removing IPC socket: {:?}", self.path);
-        std::fs::remove_file(&self.path).expect("Could not remove IPC socket");
+        self.try_remove_socket();
     }
 }
 
@@ -124,6 +123,16 @@ impl IpcSocket {
                     return Ok(())
                 }
             }
+        }
+    }
+
+    /// Try to remove the IPC socket if there is one for this instance of `ncspot`. Don't do
+    /// anything if the socket has already been removed for some reason.
+    fn try_remove_socket(&mut self) {
+        if std::fs::remove_file(&self.path).is_ok() {
+            info!("removed socket at {:?}", self.path);
+        } else {
+            info!("socket already removed");
         }
     }
 }
