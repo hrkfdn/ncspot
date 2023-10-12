@@ -17,7 +17,7 @@ use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::create_cursive;
-use crate::{authentication, ui};
+use crate::{authentication, ui, utils};
 use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
@@ -140,7 +140,9 @@ impl Application {
         #[cfg(unix)]
         let ipc = ipc::IpcSocket::new(
             ASYNC_RUNTIME.get().unwrap().handle(),
-            crate::config::cache_path("ncspot.sock"),
+            utils::create_runtime_directory()
+                .unwrap()
+                .join("ncspot.sock"),
             event_manager.clone(),
         )
         .map_err(|e| e.to_string())?;

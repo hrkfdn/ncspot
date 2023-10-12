@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::fmt::Write;
+use std::{fmt::Write, path::PathBuf};
 
 /// Returns a human readable String of a Duration
 ///
@@ -58,4 +58,55 @@ pub fn download(url: String, path: std::path::PathBuf) -> Result<(), std::io::Er
 
     std::io::copy(&mut resp, &mut file)?;
     Ok(())
+}
+
+/// Create the application specific runtime directory and return the path to it.
+///
+/// If the directory already exists and has the correct permissions, this function just returns the
+/// existing directory. The contents stored in this directory are not necessarily persisted across
+/// reboots. Stored files should be small since they could reside in memory (like on a tmpfs mount).
+#[cfg(unix)]
+pub fn create_runtime_directory() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    use std::{
+        fs::{self, Permissions},
+        os::unix::prelude::PermissionsExt,
+    };
+
+    let linux_runtime_directory =
+        PathBuf::from(format!("/run/user/{}/", unsafe { libc::getuid() }));
+    let unix_runtime_directory = PathBuf::from("/tmp/");
+
+    let user_runtime_directory = if let Some(xdg_runtime_directory) = xdg_runtime_directory() {
+        Some(xdg_runtime_directory.join("ncspot"))
+    } else if cfg!(linux) && linux_runtime_directory.exists() {
+        Some(linux_runtime_directory.join("ncspot"))
+    } else if unix_runtime_directory.exists() {
+        Some(unix_runtime_directory.join(format!("ncspot-{}", unsafe { libc::getuid() })))
+    } else {
+        None
+    }
+    .ok_or("no runtime directory found")?;
+
+    let creation_result = fs::create_dir(&user_runtime_directory);
+
+    if creation_result.is_ok()
+        || matches!(
+            creation_result.as_ref().unwrap_err().kind(),
+            std::io::ErrorKind::AlreadyExists
+        )
+    {
+        // Needed when created inside a world readable directory, to prevent unauthorized access.
+        // Doesn't hurt otherwise.
+        fs::set_permissions(&user_runtime_directory, Permissions::from_mode(0o700))?;
+
+        Ok(user_runtime_directory)
+    } else {
+        #[allow(clippy::unnecessary_unwrap)]
+        Err(Box::new(creation_result.unwrap_err()))
+    }
+}
+
+#[cfg(unix)]
+fn xdg_runtime_directory() -> Option<PathBuf> {
+    std::env::var("XDG_RUNTIME_DIR").ok().map(Into::into)
 }
