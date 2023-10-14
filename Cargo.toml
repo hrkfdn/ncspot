@@ -66,7 +66,6 @@ wl-clipboard-rs = {version = "0.7", optional = true}
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.0"
-signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 
 [dependencies.rspotify]
 default-features = false

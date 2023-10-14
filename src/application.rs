@@ -3,15 +3,11 @@ use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
 use cursive::traits::Nameable;
-use cursive::{CbSink, Cursive, CursiveRunner};
+use cursive::{Cursive, CursiveRunner};
 use log::{error, info, trace};
 
 #[cfg(unix)]
-use futures::stream::StreamExt;
-#[cfg(unix)]
-use signal_hook::{consts::SIGHUP, consts::SIGTERM};
-#[cfg(unix)]
-use signal_hook_tokio::Signals;
+use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
 use crate::command::Command;
 use crate::commands::CommandManager;
@@ -53,27 +49,6 @@ pub fn setup_logging(filename: &Path) -> Result<(), fern::InitError> {
         // Apply globally
         .apply()?;
     Ok(())
-}
-
-#[cfg(unix)]
-async fn handle_signals(cursive_callback_sink: CbSink) {
-    let mut signals = Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
-
-    while let Some(signal) = signals.next().await {
-        info!("Caught {}, cleaning up and closing", signal);
-        match signal {
-            SIGTERM => {
-                cursive_callback_sink
-                    .send(Box::new(|cursive| {
-                        if let Some(data) = cursive.user_data::<UserData>().cloned() {
-                            data.cmd.handle(cursive, Command::Quit);
-                        }
-                    }))
-                    .expect("can't send callback to cursive");
-            }
-            _ => unreachable!(),
-        }
-    }
 }
 
 pub type UserData = Rc<UserDataInner>;
@@ -219,14 +194,6 @@ impl Application {
 
         cursive.add_fullscreen_layer(layout.with_name("main"));
 
-        #[cfg(unix)]
-        let cursive_callback_sink = cursive.cb_sink().clone();
-
-        #[cfg(unix)]
-        ASYNC_RUNTIME.get().unwrap().spawn(async {
-            handle_signals(cursive_callback_sink).await;
-        });
-
         Ok(Self {
             queue,
             spotify,
@@ -241,9 +208,22 @@ impl Application {
 
     /// Start the application and run the event loop.
     pub fn run(&mut self) -> Result<(), String> {
+        #[cfg(unix)]
+        let mut signals =
+            Signals::new([SIGTERM, SIGHUP]).expect("could not register signal handler");
+
         // cursive event loop
         while self.cursive.is_running() {
             self.cursive.step();
+            #[cfg(unix)]
+            for signal in signals.pending() {
+                if signal == SIGTERM || signal == SIGHUP {
+                    info!("Caught {}, cleaning up and closing", signal);
+                    if let Some(data) = self.cursive.user_data::<UserData>().cloned() {
+                        data.cmd.handle(&mut self.cursive, Command::Quit);
+                    }
+                }
+            }
             for event in self.event_manager.msg_iter() {
                 match event {
                     Event::Player(state) => {
