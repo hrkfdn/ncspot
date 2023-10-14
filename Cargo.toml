@@ -37,7 +37,7 @@ zbus = {version = "3.11.1", default-features = false, features = ["tokio"], opti
 fern = "0.6"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.142"
+libc = "0.2.149"
 librespot-core = "0.4.2"
 librespot-playback = "0.4.2"
 librespot-protocol = "0.4.2"
