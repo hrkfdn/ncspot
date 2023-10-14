@@ -221,6 +221,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
                 let currently_playing =
                     item.is_playing(&self.queue) && self.queue.get_current_index() == Some(i);
                 let is_local = item.track().map(|t| t.is_local).unwrap_or_default();
+                let is_playable = item.track().map(|t| t.is_playable).unwrap_or_default();
 
                 let style = if self.selected == i {
                     if currently_playing {
@@ -241,7 +242,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
                         ColorType::Color(*printer.theme.palette.custom("playing").unwrap()),
                         ColorType::Color(*printer.theme.palette.custom("playing_bg").unwrap()),
                     )
-                } else if is_local {
+                } else if is_local || is_playable == Some(false) {
                     ColorStyle::secondary()
                 } else {
                     ColorStyle::primary()
