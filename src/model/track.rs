@@ -34,6 +34,7 @@ pub struct Track {
     pub added_at: Option<DateTime<Utc>>,
     pub list_index: usize,
     pub is_local: bool,
+    pub is_playable: Option<bool>,
 }
 
 impl Track {
@@ -71,6 +72,7 @@ impl Track {
             added_at: None,
             list_index: 0,
             is_local: track.is_local,
+            is_playable: track.is_playable,
         }
     }
 
@@ -109,6 +111,7 @@ impl From<&SimplifiedTrack> for Track {
             added_at: None,
             list_index: 0,
             is_local: track.is_local,
+            is_playable: track.is_playable,
         }
     }
 }
@@ -149,6 +152,7 @@ impl From<&FullTrack> for Track {
             added_at: None,
             list_index: 0,
             is_local: track.is_local,
+            is_playable: track.is_playable,
         }
     }
 }
