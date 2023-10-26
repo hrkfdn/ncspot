@@ -5,3 +5,5 @@ updates:
   schedule:
     interval: daily
     time: "04:00"
+  groups:
+    cargo:
