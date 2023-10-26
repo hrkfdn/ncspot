@@ -67,7 +67,7 @@ jobs:
         run: |
           apt update
           apt install -y ${{ matrix.dependencies }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: Checkout src
       - uses: actions/cache@v3
         with:
