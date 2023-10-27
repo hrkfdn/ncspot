@@ -14,11 +14,11 @@ use crate::model::track::Track;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
-use crate::ui::tabview::TabView;
+use crate::ui::tabbedview::TabbedView;
 
 pub struct ArtistView {
     artist: Artist,
-    tabs: TabView,
+    tabs: TabbedView,
 }
 
 impl ArtistView {
@@ -61,34 +61,27 @@ impl ArtistView {
             });
         }
 
-        let mut tabs = TabView::new();
+        let mut tabs = TabbedView::new();
 
         if let Some(tracks) = artist.tracks.as_ref() {
             let tracks = tracks.clone();
 
             tabs.add_tab(
-                "tracks",
+                "Saved Tracks",
                 ListView::new(
                     Arc::new(RwLock::new(tracks)),
                     queue.clone(),
                     library.clone(),
-                )
-                .with_title("Saved Tracks"),
+                ),
             );
         }
-
         tabs.add_tab(
-            "top_tracks",
-            ListView::new(top_tracks, queue.clone(), library.clone()).with_title("Top 10"),
+            "Top 10",
+            ListView::new(top_tracks, queue.clone(), library.clone()),
         );
-
-        tabs.add_tab("albums", albums_view.with_title("Albums"));
-        tabs.add_tab("singles", singles_view.with_title("Singles"));
-
-        tabs.add_tab(
-            "related",
-            ListView::new(related, queue, library).with_title("Related Artists"),
-        );
+        tabs.add_tab("Albums", albums_view);
+        tabs.add_tab("Singles", singles_view);
+        tabs.add_tab("Related Artists", ListView::new(related, queue, library));
 
         Self {
             artist: artist.clone(),
@@ -116,7 +109,7 @@ impl ArtistView {
 }
 
 impl ViewWrapper for ArtistView {
-    wrap_impl!(self.tabs: TabView);
+    wrap_impl!(self.tabs: TabbedView);
 }
 
 impl ViewExt for ArtistView {

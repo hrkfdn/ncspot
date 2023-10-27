@@ -18,7 +18,7 @@ pub mod search;
 pub mod search_results;
 pub mod show;
 pub mod statusbar;
-pub mod tabview;
+pub mod tabbedview;
 
 #[cfg(feature = "cover")]
 pub mod cover;
