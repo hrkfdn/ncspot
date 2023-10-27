@@ -14,7 +14,7 @@ use crate::spotify_url::SpotifyUrl;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::listview::ListView;
 use crate::ui::pagination::Pagination;
-use crate::ui::tabview::TabView;
+use crate::ui::tabbedview::TabbedView;
 use cursive::view::ViewWrapper;
 use cursive::Cursive;
 use rspotify::model::search::SearchResult;
@@ -35,7 +35,7 @@ pub struct SearchResultsView {
     pagination_shows: Pagination<Show>,
     results_episodes: Arc<RwLock<Vec<Episode>>>,
     pagination_episodes: Pagination<Episode>,
-    tabs: TabView,
+    tabs: TabbedView,
     spotify: Spotify,
     events: EventManager,
 }
@@ -71,13 +71,13 @@ impl SearchResultsView {
         let list_episodes = ListView::new(results_episodes.clone(), queue.clone(), library);
         let pagination_episodes = list_episodes.get_pagination().clone();
 
-        let tabs = TabView::new()
-            .tab("tracks", list_tracks.with_title("Tracks"))
-            .tab("albums", list_albums.with_title("Albums"))
-            .tab("artists", list_artists.with_title("Artists"))
-            .tab("playlists", list_playlists.with_title("Playlists"))
-            .tab("shows", list_shows.with_title("Podcasts"))
-            .tab("episodes", list_episodes.with_title("Podcast Episodes"));
+        let mut tabs = TabbedView::new();
+        tabs.add_tab("Tracks", list_tracks);
+        tabs.add_tab("Albums", list_albums);
+        tabs.add_tab("Artists", list_artists);
+        tabs.add_tab("Playlists", list_playlists);
+        tabs.add_tab("Shows", list_shows);
+        tabs.add_tab("Episodes", list_episodes);
 
         let mut view = Self {
             search_term,
@@ -403,7 +403,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(0);
+                    self.tabs.set_selected(0);
                 }
                 UriType::Album => {
                     self.perform_search(
@@ -412,7 +412,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(1);
+                    self.tabs.set_selected(1);
                 }
                 UriType::Artist => {
                     self.perform_search(
@@ -421,7 +421,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(2);
+                    self.tabs.set_selected(2);
                 }
                 UriType::Playlist => {
                     self.perform_search(
@@ -430,7 +430,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(3);
+                    self.tabs.set_selected(3);
                 }
                 UriType::Show => {
                     self.perform_search(
@@ -439,7 +439,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(4);
+                    self.tabs.set_selected(4);
                 }
                 UriType::Episode => {
                     self.perform_search(
@@ -448,7 +448,7 @@ impl SearchResultsView {
                         &query,
                         None,
                     );
-                    self.tabs.move_focus_to(5);
+                    self.tabs.set_selected(5);
                 }
             }
         // Is the query a spotify URL?
@@ -462,7 +462,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(0);
+                    self.tabs.set_selected(0);
                 }
                 UriType::Album => {
                     self.perform_search(
@@ -471,7 +471,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(1);
+                    self.tabs.set_selected(1);
                 }
                 UriType::Artist => {
                     self.perform_search(
@@ -480,7 +480,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(2);
+                    self.tabs.set_selected(2);
                 }
                 UriType::Playlist => {
                     self.perform_search(
@@ -489,7 +489,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(3);
+                    self.tabs.set_selected(3);
                 }
                 UriType::Show => {
                     self.perform_search(
@@ -498,7 +498,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(4);
+                    self.tabs.set_selected(4);
                 }
                 UriType::Episode => {
                     self.perform_search(
@@ -507,7 +507,7 @@ impl SearchResultsView {
                         &url.id,
                         None,
                     );
-                    self.tabs.move_focus_to(5);
+                    self.tabs.set_selected(5);
                 }
             }
         } else {
@@ -552,7 +552,7 @@ impl SearchResultsView {
 }
 
 impl ViewWrapper for SearchResultsView {
-    wrap_impl!(self.tabs: TabView);
+    wrap_impl!(self.tabs: TabbedView);
 }
 
 impl ViewExt for SearchResultsView {

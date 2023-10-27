@@ -104,3 +104,79 @@ impl<V: ViewExt> IntoBoxedViewExt for V {
         Box::new(self)
     }
 }
+
+pub struct BoxedViewExt {
+    boxed_view: Box<dyn ViewExt>,
+}
+
+impl BoxedViewExt {
+    pub fn new(view: Box<dyn ViewExt>) -> Self {
+        Self { boxed_view: view }
+    }
+}
+
+impl View for BoxedViewExt {
+    fn draw(&self, printer: &cursive::Printer) {
+        self.boxed_view.draw(printer);
+    }
+
+    fn layout(&mut self, xy: cursive::Vec2) {
+        self.boxed_view.layout(xy);
+    }
+
+    fn needs_relayout(&self) -> bool {
+        self.boxed_view.needs_relayout()
+    }
+
+    fn required_size(&mut self, constraint: cursive::Vec2) -> cursive::Vec2 {
+        self.boxed_view.required_size(constraint)
+    }
+
+    fn on_event(&mut self, event: cursive::event::Event) -> cursive::event::EventResult {
+        self.boxed_view.on_event(event)
+    }
+
+    fn call_on_any(&mut self, selector: &cursive::view::Selector, callback: cursive::event::AnyCb) {
+        self.boxed_view.call_on_any(selector, callback);
+    }
+
+    fn focus_view(
+        &mut self,
+        selector: &cursive::view::Selector,
+    ) -> Result<cursive::event::EventResult, cursive::view::ViewNotFound> {
+        self.boxed_view.focus_view(selector)
+    }
+
+    fn take_focus(
+        &mut self,
+        source: cursive::direction::Direction,
+    ) -> Result<cursive::event::EventResult, cursive::view::CannotFocus> {
+        self.boxed_view.take_focus(source)
+    }
+
+    fn important_area(&self, view_size: cursive::Vec2) -> cursive::Rect {
+        self.boxed_view.important_area(view_size)
+    }
+
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+}
+
+impl ViewExt for BoxedViewExt {
+    fn title(&self) -> String {
+        self.boxed_view.title()
+    }
+
+    fn title_sub(&self) -> String {
+        self.boxed_view.title_sub()
+    }
+
+    fn on_leave(&self) {
+        self.boxed_view.on_leave();
+    }
+
+    fn on_command(&mut self, s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
+        self.boxed_view.on_command(s, cmd)
+    }
+}

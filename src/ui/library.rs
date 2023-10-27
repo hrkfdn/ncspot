@@ -13,16 +13,16 @@ use crate::traits::ViewExt;
 use crate::ui::browse::BrowseView;
 use crate::ui::listview::ListView;
 use crate::ui::playlists::PlaylistsView;
-use crate::ui::tabview::TabView;
+use crate::ui::tabbedview::TabbedView;
 
 pub struct LibraryView {
-    tabs: TabView,
+    tabs: TabbedView,
     display_name: Option<String>,
 }
 
 impl LibraryView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
-        let mut tabview = TabView::new();
+        let mut tabview = TabbedView::new();
         let selected_tabs = library
             .cfg
             .values()
@@ -33,31 +33,27 @@ impl LibraryView {
         for tab in selected_tabs {
             match tab {
                 LibraryTab::Tracks => tabview.add_tab(
-                    "tracks",
-                    ListView::new(library.tracks.clone(), queue.clone(), library.clone())
-                        .with_title("Tracks"),
+                    "Tracks",
+                    ListView::new(library.tracks.clone(), queue.clone(), library.clone()),
                 ),
                 LibraryTab::Albums => tabview.add_tab(
-                    "albums",
-                    ListView::new(library.albums.clone(), queue.clone(), library.clone())
-                        .with_title("Albums"),
+                    "Albums",
+                    ListView::new(library.albums.clone(), queue.clone(), library.clone()),
                 ),
                 LibraryTab::Artists => tabview.add_tab(
-                    "artists",
-                    ListView::new(library.artists.clone(), queue.clone(), library.clone())
-                        .with_title("Artists"),
+                    "Artists",
+                    ListView::new(library.artists.clone(), queue.clone(), library.clone()),
                 ),
                 LibraryTab::Playlists => tabview.add_tab(
-                    "playlists",
+                    "Playlists",
                     PlaylistsView::new(queue.clone(), library.clone()),
                 ),
                 LibraryTab::Podcasts => tabview.add_tab(
-                    "podcasts",
-                    ListView::new(library.shows.clone(), queue.clone(), library.clone())
-                        .with_title("Podcasts"),
+                    "Podcasts",
+                    ListView::new(library.shows.clone(), queue.clone(), library.clone()),
                 ),
                 LibraryTab::Browse => {
-                    tabview.add_tab("browse", BrowseView::new(queue.clone(), library.clone()))
+                    tabview.add_tab("Browse", BrowseView::new(queue.clone(), library.clone()))
                 }
             }
         }
@@ -77,7 +73,7 @@ impl LibraryView {
 }
 
 impl ViewWrapper for LibraryView {
-    wrap_impl!(self.tabs: TabView);
+    wrap_impl!(self.tabs: TabbedView);
 }
 
 impl ViewExt for LibraryView {

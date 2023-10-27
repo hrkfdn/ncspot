@@ -11,11 +11,11 @@ use crate::model::artist::Artist;
 use crate::queue::Queue;
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
-use crate::ui::tabview::TabView;
+use crate::ui::tabbedview::TabbedView;
 
 pub struct AlbumView {
     album: Album,
-    tabs: TabView,
+    tabs: TabbedView,
 }
 
 impl AlbumView {
@@ -37,27 +37,26 @@ impl AlbumView {
             .map(|(id, name)| Artist::new(id.clone(), name.clone()))
             .collect();
 
-        let tabs = TabView::new()
-            .tab(
-                "tracks",
-                ListView::new(
-                    Arc::new(RwLock::new(tracks)),
-                    queue.clone(),
-                    library.clone(),
-                )
-                .with_title("Tracks"),
-            )
-            .tab(
-                "artists",
-                ListView::new(Arc::new(RwLock::new(artists)), queue, library).with_title("Artists"),
-            );
+        let mut tabs = TabbedView::new();
+        tabs.add_tab(
+            "Tracks",
+            ListView::new(
+                Arc::new(RwLock::new(tracks)),
+                queue.clone(),
+                library.clone(),
+            ),
+        );
+        tabs.add_tab(
+            "Artists",
+            ListView::new(Arc::new(RwLock::new(artists)), queue, library),
+        );
 
         Self { album, tabs }
     }
 }
 
 impl ViewWrapper for AlbumView {
-    wrap_impl!(self.tabs: TabView);
+    wrap_impl!(self.tabs: TabbedView);
 }
 
 impl ViewExt for AlbumView {

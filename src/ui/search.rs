@@ -26,7 +26,7 @@ use crate::ui::layout::Layout;
 use crate::ui::listview::ListView;
 use crate::ui::pagination::Pagination;
 use crate::ui::search_results::SearchResultsView;
-use crate::ui::tabview::TabView;
+use crate::ui::tabbedview::TabbedView;
 use rspotify::model::search::SearchResult;
 
 pub struct SearchView {
