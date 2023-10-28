@@ -180,10 +180,12 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `save [current]`                                                 | Save selected item, if `current` is passed the currently playing item will be saved                                                                                                                                                                             |
 
 ## Remote control (IPC)
-Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms
-(Linux, macOS, *BSD) at `~/.cache/ncspot/ncspot.sock`.  Applications or scripts
-can connect to this socket to send commands or be notified of the currently
-playing track, i.e. with `netcat`:
+Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms (Linux, macOS, *BSD).
+The socket will be created in the platform's runtime directory. If XDG_RUNTIME_DIR is set, it will
+be created under `$XDG_RUNTIME_DIR/ncspot`. If XDG_RUNTIME_DIR isn't set, it will be created under
+`/run/user/<uid>` for Linux if it exists. In all other cases, it will be created under
+`/tmp/ncspot-<uid>`. Applications or scripts can connect to this socket to send commands or be
+notified of the currently playing track, i.e. with `netcat`:
 
 ```
 % nc -U ~/.cache/ncspot/ncspot.sock
