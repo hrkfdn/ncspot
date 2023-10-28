@@ -36,6 +36,9 @@ mod utils;
 #[cfg(unix)]
 mod ipc;
 
+#[cfg(feature = "media_control")]
+mod media_control;
+
 #[cfg(feature = "mpris")]
 mod mpris;
 

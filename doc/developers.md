@@ -66,7 +66,7 @@ cargo build --no-default-features --features portaudio_backend,pancurses_backend
 
 Rodio for Windows
 ```sh
-cargo build --no-default-features --features rodio_backend,pancurses_backend
+cargo build --no-default-features --features rodio_backend,pancurses_backend,media_control
 ```
 
 ## Other Features
@@ -75,7 +75,8 @@ Here are some auxiliary features you may wish to enable:
 | Feature           | Default | Description                                                                                |
 |-------------------|---------|--------------------------------------------------------------------------------------------|
 | `cover`           | off     | Add a screen to show the album art.                                                        |
-| `mpris`           | on      | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
+| `media_control`   | on      | Control `ncspot` via media keys.                                                           |
+| `mpris`           | off     | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
 | `notify`          | on      | Send a notification to show what's playing.                                                |
 | `share_clipboard` | on      | Ability to copy the URL of a song/playlist/etc. to system clipboard.                       |
 

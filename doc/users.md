@@ -55,7 +55,7 @@ cargo install --locked ncspot
 
 ## Key Bindings
 The keybindings listed below are configured by default. Additionally, if you
-built `ncspot` with MPRIS support, you may be able to use media keys to control
+built `ncspot` with `media_control` or `mpris` feature, you may be able to use media keys to control
 playback depending on your desktop environment settings. Have a look at the
 [configuration section](#configuration) if you want to set custom bindings.
 

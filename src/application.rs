@@ -20,6 +20,9 @@ use crate::ui::create_cursive;
 use crate::{authentication, ui, utils};
 use crate::{command, queue, spotify};
 
+#[cfg(feature = "media_control")]
+use crate::media_control::{self, MediaControlManager};
+
 #[cfg(feature = "mpris")]
 use crate::mpris::{self, MprisManager};
 
@@ -67,6 +70,9 @@ pub struct Application {
     spotify: Spotify,
     /// Internally shared
     event_manager: EventManager,
+    /// Use media control keys using souvlaki. 
+    #[cfg(feature = "media_control")]
+    media_control_manager: MediaControlManager,
     /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
     #[cfg(feature = "mpris")]
     mpris_manager: MprisManager,
@@ -128,6 +134,12 @@ impl Application {
             configuration.clone(),
             library.clone(),
         ));
+
+        #[cfg(feature = "media_control")]
+        let media_control_manager = media_control::MediaControlManager::new(
+            spotify.clone(),
+            queue.clone(),
+        ).map_err(|err| -> String { format!("media_control error {err:?}") })?;
 
         #[cfg(feature = "mpris")]
         let mpris_manager = mpris::MprisManager::new(
@@ -200,6 +212,8 @@ impl Application {
             queue,
             spotify,
             event_manager,
+            #[cfg(feature = "media_control")]
+            media_control_manager,
             #[cfg(feature = "mpris")]
             mpris_manager,
             #[cfg(unix)]
@@ -231,6 +245,9 @@ impl Application {
                     Event::Player(state) => {
                         trace!("event received: {:?}", state);
                         self.spotify.update_status(state.clone());
+
+                        #[cfg(feature = "media_control")]
+                        self.media_control_manager.update();
 
                         #[cfg(feature = "mpris")]
                         self.mpris_manager.update();
