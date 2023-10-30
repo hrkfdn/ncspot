@@ -1,26 +1,18 @@
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
 use souvlaki::{
-    MediaControlEvent, 
-    MediaControls, 
-    MediaMetadata, 
-    MediaPlayback, 
-    MediaPosition, 
-    PlatformConfig, 
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
     SeekDirection,
 };
 
 use crate::application::ASYNC_RUNTIME;
-use crate::queue::Queue;
 use crate::model::playable::Playable;
-use crate::spotify::{
-    PlayerEvent,
-    Spotify,
-};
+use crate::queue::Queue;
+use crate::spotify::{PlayerEvent, Spotify};
 use crate::traits::ListItem;
 
 struct MediaControlPlayer {
@@ -63,23 +55,29 @@ impl MediaControlPlayer {
             MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Stop) => {
                 self.queue.stop();
             }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Seek(SeekDirection::Forward)) => {
-                self.seek(5i32)
-            }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Seek(SeekDirection::Backward)) => {
-                self.seek(-5i32)
-            }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SeekBy(SeekDirection::Forward, dur)) => {
-                self.seek(dur.as_secs() as i32)
-            }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SeekBy(SeekDirection::Backward, dur)) => {
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Seek(
+                SeekDirection::Forward,
+            )) => self.seek(5i32),
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Seek(
+                SeekDirection::Backward,
+            )) => self.seek(-5i32),
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SeekBy(
+                SeekDirection::Forward,
+                dur,
+            )) => self.seek(dur.as_secs() as i32),
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SeekBy(
+                SeekDirection::Backward,
+                dur,
+            )) => {
                 self.seek(-(dur.as_secs() as i32));
             }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SetPosition(MediaPosition(dur))) => {
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::SetPosition(
+                MediaPosition(dur),
+            )) => {
                 if let Some(current_track) = self.queue.get_current() {
                     let position = dur.as_secs() as u32;
                     let duration = current_track.duration();
-        
+
                     if position < duration {
                         self.spotify.seek(position);
                     }
@@ -88,10 +86,8 @@ impl MediaControlPlayer {
             MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::OpenUri(uri)) => {
                 self.queue.open_uri(uri.as_str());
             }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Raise) => {
-            }
-            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Quit) => {
-            }
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Raise) => {}
+            MediaControlPlayerEvent::SouvlakiEvent(MediaControlEvent::Quit) => {}
         }
     }
 
@@ -116,12 +112,10 @@ impl MediaControlPlayer {
             });
 
             let _ = self.controls.set_metadata(MediaMetadata {
-                title: playable
-                    .as_ref()
-                    .map(|t| match t {
-                        Playable::Track(t) => t.title.as_str(),
-                        Playable::Episode(ep) => ep.name.as_str(),
-                    }),
+                title: playable.as_ref().map(|t| match t {
+                    Playable::Track(t) => t.title.as_str(),
+                    Playable::Episode(ep) => ep.name.as_str(),
+                }),
                 album: playable
                     .as_ref()
                     .and_then(|p| p.track())
@@ -135,32 +129,32 @@ impl MediaControlPlayer {
                 duration: playable
                     .as_ref()
                     .map(|t| Duration::from_secs(t.duration() as u64)),
-                cover_url: playable
-                    .as_ref()
-                    .and_then(|t| t.cover_url())
-                    .as_deref(),
+                cover_url: playable.as_ref().and_then(|t| t.cover_url()).as_deref(),
             });
         }
 
-        let _ = self.controls.set_playback(
-            match self.spotify.get_current_status() {
+        let _ = self
+            .controls
+            .set_playback(match self.spotify.get_current_status() {
                 PlayerEvent::FinishedTrack => MediaPlayback::Playing { progress: None },
-                PlayerEvent::Paused(dur) => MediaPlayback::Paused { progress: Some(MediaPosition(dur)) },
-                PlayerEvent::Playing(_) => MediaPlayback::Playing { progress: Some(MediaPosition(self.spotify.get_current_progress())) },
+                PlayerEvent::Paused(dur) => MediaPlayback::Paused {
+                    progress: Some(MediaPosition(dur)),
+                },
+                PlayerEvent::Playing(_) => MediaPlayback::Playing {
+                    progress: Some(MediaPosition(self.spotify.get_current_progress())),
+                },
                 PlayerEvent::Stopped => MediaPlayback::Stopped,
-            }
-        );
+            });
     }
 
     fn seek(&self, secs_delta: i32) {
         if let Some(current_track) = self.queue.get_current() {
             let progress = self.spotify.get_current_progress();
-            let new_position = (progress.as_millis() as i32 + (secs_delta * 1000)) as i32;
+            let new_position = progress.as_millis() as i32 + (secs_delta * 1000);
 
             if new_position <= 0 {
                 self.queue.previous();
-            }
-            else if new_position < current_track.duration() as i32 {
+            } else if new_position < current_track.duration() as i32 {
                 self.spotify.seek(new_position as u32);
             } else {
                 self.queue.next(true);
@@ -177,11 +171,7 @@ pub struct MediaControlManager {
 }
 
 impl MediaControlManager {
-    pub fn new(
-        spotify: Spotify,
-        queue: Arc<Queue>,
-    ) -> Result<Self, souvlaki::Error> {
-        
+    pub fn new(spotify: Spotify, queue: Arc<Queue>) -> Result<Self, souvlaki::Error> {
         #[cfg(not(target_os = "windows"))]
         let hwnd = None;
 
@@ -199,20 +189,20 @@ impl MediaControlManager {
             display_name: "ncspot",
             hwnd,
         })?;
-        
-        controls.attach(move |e| { // TODO: probably better to use second channel for second message type
+
+        controls.attach(move |e| {
             if let Err(e) = txc.send(MediaControlPlayerEvent::SouvlakiEvent(e)) {
                 log::warn!("Could not process Media Control event: {e}");
             }
         })?;
 
         let player = MediaControlPlayer {
-            controls: controls,
+            controls,
             last_track: None,
-            queue: queue,
-            spotify: spotify,
+            queue,
+            spotify,
         };
-        
+
         ASYNC_RUNTIME.get().unwrap().spawn(async {
             let result = Self::serve(UnboundedReceiverStream::new(rx), player).await;
             if let Err(e) = result {
@@ -220,7 +210,7 @@ impl MediaControlManager {
             }
         });
 
-        Ok(Self { 
+        Ok(Self {
             tx,
             #[cfg(target_os = "windows")]
             window,
@@ -229,12 +219,12 @@ impl MediaControlManager {
 
     async fn serve(
         mut rx: UnboundedReceiverStream<MediaControlPlayerEvent>,
-        mut player: MediaControlPlayer
+        mut player: MediaControlPlayer,
     ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         loop {
             if let Some(e) = rx.next().await {
                 player.handle(e);
-                
+
                 #[cfg(target_os = "windows")]
                 windows::pump_event_queue();
             }

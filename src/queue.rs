@@ -490,7 +490,7 @@ impl Queue {
         self.spotify.clone()
     }
 
-    pub fn open_uri(&self, uri: &str) -> () {
+    pub fn open_uri(&self, uri: &str) {
         let spotify_url = if uri.contains("open.spotify.com") {
             SpotifyUrl::from_url(uri)
         } else if UriType::from_uri(uri).is_some() {

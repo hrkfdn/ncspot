@@ -70,7 +70,7 @@ pub struct Application {
     spotify: Spotify,
     /// Internally shared
     event_manager: EventManager,
-    /// Use media control keys using souvlaki. 
+    /// Use media control keys using souvlaki.
     #[cfg(feature = "media_control")]
     media_control_manager: MediaControlManager,
     /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
@@ -136,10 +136,9 @@ impl Application {
         ));
 
         #[cfg(feature = "media_control")]
-        let media_control_manager = media_control::MediaControlManager::new(
-            spotify.clone(),
-            queue.clone(),
-        ).map_err(|err| -> String { format!("media_control error {err:?}") })?;
+        let media_control_manager =
+            media_control::MediaControlManager::new(spotify.clone(), queue.clone())
+                .map_err(|err| -> String { format!("media_control error {err:?}") })?;
 
         #[cfg(feature = "mpris")]
         let mpris_manager = mpris::MprisManager::new(
