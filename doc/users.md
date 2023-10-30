@@ -55,7 +55,7 @@ cargo install --locked ncspot
 
 ## Key Bindings
 The keybindings listed below are configured by default. Additionally, if you
-built `ncspot` with `media_control` or `mpris` feature, you may be able to use media keys to control
+built `ncspot` with `media_control` feature, you may be able to use media keys to control
 playback depending on your desktop environment settings. Have a look at the
 [configuration section](#configuration) if you want to set custom bindings.
 
@@ -180,7 +180,7 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `save [current]`                                                 | Save selected item, if `current` is passed the currently playing item will be saved                                                                                                                                                                             |
 
 ## Remote control (IPC)
-Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms (Linux, macOS, *BSD).
+Application will create a domain socket on UNIX platforms (Linux, macOS, *BSD).
 The socket will be created in the platform's runtime directory. If XDG_RUNTIME_DIR is set, it will
 be created under `$XDG_RUNTIME_DIR/ncspot`. If XDG_RUNTIME_DIR isn't set, it will be created under
 `/run/user/<uid>` for Linux if it exists. In all other cases, it will be created under

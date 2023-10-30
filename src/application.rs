@@ -23,9 +23,6 @@ use crate::{command, queue, spotify};
 #[cfg(feature = "media_control")]
 use crate::media_control::{self, MediaControlManager};
 
-#[cfg(feature = "mpris")]
-use crate::mpris::{self, MprisManager};
-
 #[cfg(unix)]
 use crate::ipc::{self, IpcSocket};
 
@@ -73,9 +70,6 @@ pub struct Application {
     /// Use media control keys using souvlaki.
     #[cfg(feature = "media_control")]
     media_control_manager: MediaControlManager,
-    /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
-    #[cfg(feature = "mpris")]
-    mpris_manager: MprisManager,
     /// An IPC implementation using a Unix domain socket, used to control and inspect ncspot.
     #[cfg(unix)]
     ipc: IpcSocket,
@@ -139,14 +133,6 @@ impl Application {
         let media_control_manager =
             media_control::MediaControlManager::new(spotify.clone(), queue.clone())
                 .map_err(|err| -> String { format!("media_control error {err:?}") })?;
-
-        #[cfg(feature = "mpris")]
-        let mpris_manager = mpris::MprisManager::new(
-            event_manager.clone(),
-            queue.clone(),
-            library.clone(),
-            spotify.clone(),
-        );
 
         #[cfg(unix)]
         let ipc = ipc::IpcSocket::new(
@@ -213,8 +199,6 @@ impl Application {
             event_manager,
             #[cfg(feature = "media_control")]
             media_control_manager,
-            #[cfg(feature = "mpris")]
-            mpris_manager,
             #[cfg(unix)]
             ipc,
             cursive,
@@ -247,9 +231,6 @@ impl Application {
 
                         #[cfg(feature = "media_control")]
                         self.media_control_manager.update();
-
-                        #[cfg(feature = "mpris")]
-                        self.mpris_manager.update();
 
                         #[cfg(unix)]
                         self.ipc.publish(&state, self.queue.get_current());

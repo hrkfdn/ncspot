@@ -61,7 +61,6 @@ toml = "0.8"
 unicode-width = "0.1.9"
 url = "2.2"
 winit = { version = "0.28.6", optional = true }
-zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wl-clipboard-rs = {version = "0.8", optional = true}
@@ -81,7 +80,7 @@ version = "0.20.0"
 [dependencies.notify-rust]
 default-features = false
 version = "4"
-# Use zbus, which we already depend on, instead of dbus.
+# Use zbus
 features = ["z"]
 optional = true
 
@@ -100,7 +99,6 @@ alsa_backend = ["librespot-playback/alsa-backend"]
 cover = ["ioctl-rs"] # Support displaying the album cover
 default = ["share_clipboard", "pulseaudio_backend", "media_control", "notify", "crossterm_backend"]
 media_control = ["souvlaki", "winit", "windows"]
-mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
 ncurses_backend = ["cursive/ncurses-backend"]
 notify = ["notify-rust"] # Show what's playing via a notification
 crossterm_backend = ["cursive/crossterm-backend"]

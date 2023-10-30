@@ -72,13 +72,12 @@ cargo build --no-default-features --features rodio_backend,pancurses_backend,med
 ## Other Features
 Here are some auxiliary features you may wish to enable:
 
-| Feature           | Default | Description                                                                                |
-|-------------------|---------|--------------------------------------------------------------------------------------------|
-| `cover`           | off     | Add a screen to show the album art.                                                        |
-| `media_control`   | on      | Control `ncspot` via media keys.                                                           |
-| `mpris`           | off     | Control `ncspot` via dbus. See [Arch Wiki: MPRIS](https://wiki.archlinux.org/title/MPRIS). |
-| `notify`          | on      | Send a notification to show what's playing.                                                |
-| `share_clipboard` | on      | Ability to copy the URL of a song/playlist/etc. to system clipboard.                       |
+| Feature           | Default | Description                                                          |
+|-------------------|---------|----------------------------------------------------------------------|
+| `cover`           | off     | Add a screen to show the album art.                                  |
+| `media_control`   | on      | Control `ncspot` via media keys.                                     |
+| `notify`          | on      | Send a notification to show what's playing.                          |
+| `share_clipboard` | on      | Ability to copy the URL of a song/playlist/etc. to system clipboard. |
 
 Consult [Cargo.toml](/Cargo.toml) for the full list of supported features.
 
