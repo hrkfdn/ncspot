@@ -36,7 +36,10 @@ mod utils;
 #[cfg(unix)]
 mod ipc;
 
-#[cfg(feature = "mpris")]
+#[cfg(all(feature = "media_control", not(target_os = "linux")))]
+mod media_control;
+
+#[cfg(all(feature = "media_control", target_os = "linux"))]
 mod mpris;
 
 fn main() -> Result<(), String> {

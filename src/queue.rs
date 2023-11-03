@@ -10,9 +10,14 @@ use strum_macros::Display;
 
 use crate::config::{Config, PlaybackState};
 use crate::library::Library;
+use crate::model::album::Album;
+use crate::model::episode::Episode;
 use crate::model::playable::Playable;
-use crate::spotify::PlayerEvent;
-use crate::spotify::Spotify;
+use crate::model::playlist::Playlist;
+use crate::model::show::Show;
+use crate::model::track::Track;
+use crate::spotify::{PlayerEvent, Spotify, UriType};
+use crate::spotify_url::SpotifyUrl;
 
 /// Repeat behavior for the [Queue].
 #[derive(Display, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -483,6 +488,99 @@ impl Queue {
     /// Get the spotify session.
     pub fn get_spotify(&self) -> Spotify {
         self.spotify.clone()
+    }
+
+    pub fn open_uri(&self, uri: &str) {
+        let spotify_url = if uri.contains("open.spotify.com") {
+            SpotifyUrl::from_url(uri)
+        } else if UriType::from_uri(uri).is_some() {
+            let id = &uri[uri.rfind(':').unwrap_or(0) + 1..uri.len()];
+            let uri_type = UriType::from_uri(uri).unwrap();
+            Some(SpotifyUrl::new(id, uri_type))
+        } else {
+            None
+        };
+
+        let id = spotify_url
+            .as_ref()
+            .map(|s| s.id.clone())
+            .unwrap_or("".to_string());
+        let uri_type = spotify_url.map(|s| s.uri_type);
+        match uri_type {
+            Some(UriType::Album) => {
+                if let Some(a) = self.spotify.api.album(&id) {
+                    if let Some(t) = &Album::from(&a).tracks {
+                        let should_shuffle = self.get_shuffle();
+                        self.clear();
+                        let index = self.append_next(
+                            &t.iter()
+                                .map(|track| Playable::Track(track.clone()))
+                                .collect(),
+                        );
+                        self.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Track) => {
+                if let Some(t) = self.spotify.api.track(&id) {
+                    self.clear();
+                    self.append(Playable::Track(Track::from(&t)));
+                    self.play(0, false, false)
+                }
+            }
+            Some(UriType::Playlist) => {
+                if let Some(p) = self.spotify.api.playlist(&id) {
+                    let mut playlist = Playlist::from(&p);
+                    let spotify = self.spotify.clone();
+                    playlist.load_tracks(spotify);
+                    if let Some(tracks) = &playlist.tracks {
+                        let should_shuffle = self.get_shuffle();
+                        self.clear();
+                        let index = self.append_next(tracks);
+                        self.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Show) => {
+                if let Some(s) = self.spotify.api.get_show(&id) {
+                    let mut show: Show = (&s).into();
+                    let spotify = self.spotify.clone();
+                    show.load_all_episodes(spotify);
+                    if let Some(e) = &show.episodes {
+                        let should_shuffle = self.get_shuffle();
+                        self.clear();
+                        let mut ep = e.clone();
+                        ep.reverse();
+                        let index = self.append_next(
+                            &ep.iter()
+                                .map(|episode| Playable::Episode(episode.clone()))
+                                .collect(),
+                        );
+                        self.play(index, should_shuffle, should_shuffle)
+                    }
+                }
+            }
+            Some(UriType::Episode) => {
+                if let Some(e) = self.spotify.api.episode(&id) {
+                    self.clear();
+                    self.append(Playable::Episode(Episode::from(&e)));
+                    self.play(0, false, false)
+                }
+            }
+            Some(UriType::Artist) => {
+                if let Some(a) = self.spotify.api.artist_top_tracks(&id) {
+                    let should_shuffle = self.get_shuffle();
+                    self.clear();
+                    let index = self.append_next(
+                        &a.iter()
+                            .map(|track| Playable::Track(track.clone()))
+                            .collect(),
+                    );
+                    self.play(index, should_shuffle, should_shuffle)
+                }
+            }
+            None => {}
+        }
     }
 }
 

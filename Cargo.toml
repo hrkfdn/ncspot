@@ -33,7 +33,7 @@ chrono = "0.4"
 clap = "4.4.7"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
+cursive_buffered_backend = "0.6.1"
 fern = "0.6"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
@@ -53,13 +53,15 @@ serde_cbor = "0.11.2"
 serde_json = "1.0"
 strum = "0.25"
 strum_macros = "0.25"
+souvlaki = { version = "0.6.1", optional = true }
 tokio = {version = "1", features = ["rt-multi-thread", "sync", "time", "net"]}
 tokio-util = {version = "0.7.10", features = ["codec"]}
 tokio-stream = {version = "0.1.14", features = ["sync"]}
 toml = "0.8"
 unicode-width = "0.1.9"
 url = "2.2"
-cursive_buffered_backend = "0.6.1"
+winit = { version = "0.28.6", optional = true }
+zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wl-clipboard-rs = {version = "0.8", optional = true}
@@ -83,11 +85,21 @@ version = "4"
 features = ["z"]
 optional = true
 
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+version = "0.44"
+features = [
+	"Win32_Foundation",
+	"Win32_Graphics_Gdi",
+	"Win32_System_LibraryLoader",
+	"Win32_UI_WindowsAndMessaging"
+]
+optional = true
+
 [features]
 alsa_backend = ["librespot-playback/alsa-backend"]
 cover = ["ioctl-rs"] # Support displaying the album cover
-default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "crossterm_backend"]
-mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
+default = ["share_clipboard", "pulseaudio_backend", "media_control", "notify", "crossterm_backend"]
+media_control = ["zbus", "souvlaki", "winit", "windows"]
 ncurses_backend = ["cursive/ncurses-backend"]
 notify = ["notify-rust"] # Show what's playing via a notification
 crossterm_backend = ["cursive/crossterm-backend"]

@@ -228,3 +228,13 @@ impl ListItem for Playable {
         self.as_listitem()
     }
 }
+
+impl PartialEq for Playable {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Track(l0), Self::Track(r0)) => l0 == r0,
+            (Self::Episode(l0), Self::Episode(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}

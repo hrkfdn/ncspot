@@ -118,3 +118,9 @@ impl ListItem for Episode {
         Box::new(self.clone())
     }
 }
+
+impl PartialEq for Episode {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
