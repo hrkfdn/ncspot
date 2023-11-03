@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Special color for unavailable items
 - changelog with all the relevant user-facing changes to the project
-- Replaced `mpris` with `media_control` feature providing universal support for media keys
+- Media control keys support for Windows and macOS
 
 ### Changed
 
