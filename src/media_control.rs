@@ -177,7 +177,7 @@ impl MediaControlManager {
 
         #[cfg(target_os = "windows")]
         let (hwnd, window) = {
-            let window = windows::DummyWindow::new().unwrap();
+            let window = windows::DummyWindow::new(&instance_bus_name()).unwrap();
             (Some(window.handle.0 as _), window)
         };
 
@@ -185,7 +185,7 @@ impl MediaControlManager {
         let txc = tx.clone();
 
         let mut controls = MediaControls::new(PlatformConfig {
-            dbus_name: instance_bus_name().as_str(),
+            dbus_name: &instance_bus_name(),
             display_name: "ncspot",
             hwnd,
         })?;
@@ -255,6 +255,7 @@ mod windows {
     use std::io::Error;
     use std::mem;
 
+    use windows::core::{HSTRING, PCWSTR};
     use windows::w;
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -269,8 +270,8 @@ mod windows {
     }
 
     impl DummyWindow {
-        pub fn new() -> Result<DummyWindow, String> {
-            let class_name = w!("SimpleTray");
+        pub fn new(class_name: &str) -> Result<DummyWindow, String> {
+            let class_name = PCWSTR(HSTRING::from(class_name).as_ptr());
 
             let handle_result = unsafe {
                 let instance = GetModuleHandleW(None)
