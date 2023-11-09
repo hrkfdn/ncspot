@@ -36,7 +36,8 @@ and attach a debugger. On Linux this can be achieved with `gdb` or `lldb`. It is
 work. To disable it, execute `echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope`. This will allow
 any process to inspect the memory of another process. It is automatically re-enabled after a reboot.
 
-If ncspot has crashed you can find the latest backtrace at `~/.cache/ncspot/backtrace.log`.
+If ncspot has crashed you can find the latest backtrace at `$NCSPOT_CACHE_DIRECTORY/backtrace.log`.
+The cache directory can be shown by running `ncspot info`.
 
 ## Compiling
 Compile and install the latest release with `cargo-install`:

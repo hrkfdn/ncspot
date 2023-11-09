@@ -5,6 +5,7 @@ use cursive::utils::markup::StyledString;
 use cursive::view::ViewWrapper;
 use cursive::views::{ScrollView, TextView};
 use cursive::Cursive;
+use ncspot::CONFIGURATION_FILE_NAME;
 
 use crate::command::{Command, MoveAmount, MoveMode};
 use crate::commands::CommandResult;
@@ -22,7 +23,9 @@ impl HelpView {
 
         let note = format!(
             "Custom bindings can be set in {} within the [keybindings] section.\n\n",
-            config_path("config.toml").to_str().unwrap_or_default()
+            config_path(CONFIGURATION_FILE_NAME)
+                .to_str()
+                .unwrap_or_default()
         );
         text.append(StyledString::styled(note, Effect::Italic));
 

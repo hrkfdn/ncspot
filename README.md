@@ -33,8 +33,8 @@ ncspot is available on macOS (Homebrew), Windows (Scoop), Linux (native package 
 BSD's. Detailed installation instructions for each platform can be found [here](/doc/users.md).
 
 ## Configuration
-A configuration file can be provided at `$XDG_CONFIG_HOME/ncspot/config.toml`. Detailed
-configuration information can be found [here](/doc/users.md#configuration).
+A configuration file can be provided. Detailed configuration information can be found
+[here](/doc/users.md#configuration).
 
 ## Building
 Building ncspot requires a working [Rust installation](https://www.rust-lang.org/tools/install) and

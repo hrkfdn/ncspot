@@ -181,14 +181,12 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 
 ## Remote control (IPC)
 Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms (Linux, macOS, *BSD).
-The socket will be created in the platform's runtime directory. If XDG_RUNTIME_DIR is set, it will
-be created under `$XDG_RUNTIME_DIR/ncspot`. If XDG_RUNTIME_DIR isn't set, it will be created under
-`/run/user/<uid>` for Linux if it exists. In all other cases, it will be created under
-`/tmp/ncspot-<uid>`. Applications or scripts can connect to this socket to send commands or be
-notified of the currently playing track, i.e. with `netcat`:
+The socket will be created in the platform's runtime directory. Run `ncspot info` to show the
+location of this directory on your platform. Applications or scripts can connect to this socket to
+send commands or be notified of the currently playing track, i.e. with `netcat`:
 
 ```
-% nc -U ~/.cache/ncspot/ncspot.sock
+% nc -U $NCSPOT_CACHE_DIRECTORY/ncspot.sock
 play
 {"mode":{"Playing":{"secs_since_epoch":1672249086,"nanos_since_epoch":547517730}},"playable":{"type":"Track","id":"2wcrQZ7ZJolYEfIaPP9yL4","uri":"spotify:track:2wcrQZ7ZJolYEfIaPP9yL4","title":"Hit Me Where It Hurts","track_number":4,"disc_number":1,"duration":184132,"artists":["Caroline Polachek"],"artist_ids":["4Ge8xMJNwt6EEXOzVXju9a"],"album":"Pang","album_id":"4ClyeVlAKJJViIyfVW0yQD","album_artists":["Caroline Polachek"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2737d983e7bf67c2806218c2759","url":"https://open.spotify.com/track/2wcrQZ7ZJolYEfIaPP9yL4","added_at":"2022-12-19T22:41:05Z","list_index":0}}
 playpause
@@ -212,7 +210,7 @@ as they typically tend to keep the connection to the socket open. OpenBSD's
 specific number of packets have been received.
 
 ```
-% nc -W 1 -U ~/.cache/ncspot/ncspot.sock
+% nc -W 1 -U $NCSPOT_CACHE_DIRECTORY/ncspot.sock
 {"mode":{"Playing":{"secs_since_epoch":1675188934,"nanos_since_epoch":50913345}},"playable":{"type":"Track","id":"5Cp6a1h2VnuOtsh1Nqxfv6","uri":"spotify:track:5Cp6a1h2VnuOtsh1Nqxfv6","title":"New Track","track_number":1,"disc_number":1,"duration":498358,"artists":["Francis Bebey"],"artist_ids":["0mdmrbu5UZ32uRcRp2z6mr"],"album":"African Electronic Music (1975-1982)","album_id":"7w99Aae1tYSTSb1OiDnxYY","album_artists":["Francis Bebey"],"cover_url":"https://i.scdn.co/image/ab67616d0000b2736ab57cedf27177fae1eaed87","url":"https://open.spotify.com/track/5Cp6a1h2VnuOtsh1Nqxfv6","added_at":"2020-12-22T09:57:17Z","list_index":0}}
 ```
 
@@ -221,17 +219,17 @@ For example, you can get the currently playing artist and title in your
 terminal as follows:
 
 ```
-% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.title'
+% nc -W 1 -U $NCSPOT_CACHE_DIRECTORY/ncspot.sock | jq '.playable.title'
 "PUMPIN' JUMPIN'"
 
-% nc -W 1 -U ~/.cache/ncspot/ncspot.sock | jq '.playable.artists[0]'
+% nc -W 1 -U $NCSPOT_CACHE_DIRECTORY/ncspot.sock | jq '.playable.artists[0]'
 "Hideki Naganuma"
 ```
 
 ## Configuration
-Configuration is saved to `~/.config/ncspot/config.toml` (or
-`%AppData%\ncspot\config.toml` on Windows). To reload the configuration during
-runtime use the `reload` command.
+Configuration is saved to the `config.toml` file in the platform's standard configuration directory.
+Run `ncspot info` to show the location of this directory on your platform. To reload the
+configuration during runtime use the `reload` command.
 
 Possible configuration values are:
 
@@ -448,8 +446,8 @@ cover_max_scale = 2
 `ncspot` prompts for a Spotify username and password on first launch, uses this
 to generate an OAuth token, and stores it to disk.
 
-The credentials are stored in `~/.cache/ncspot/librespot/credentials.json`
-(unless the base path has been changed with the `--basepath` option).
+The credentials are stored in `librespot/credentials.json` in the user's cache directory. Run
+`ncspot info` to show the location of this directory.
 
 The `logout` command can be used to remove cached credentials. See
 [Vim-Like Commands](#vim-like-commands).
