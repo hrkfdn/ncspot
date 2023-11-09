@@ -6,13 +6,13 @@ pub fn info() -> Result<(), String> {
     let user_cache_directory = user_cache_directory();
 
     println!(
-        "USER CONFIGURATION PATH: {}",
+        "USER_CONFIGURATION_PATH {}",
         user_configuration_directory
             .map(|path| path.to_string_lossy().to_string())
             .unwrap_or("not found".into())
     );
     println!(
-        "USER CACHE PATH: {}",
+        "USER_CACHE_PATH {}",
         user_cache_directory
             .map(|path| path.to_string_lossy().to_string())
             .unwrap_or("not found".into())
@@ -24,7 +24,7 @@ pub fn info() -> Result<(), String> {
 
         let user_runtime_directory = user_runtime_directory();
         println!(
-            "USER RUNTIME PATH: {}",
+            "USER_RUNTIME_PATH {}",
             user_runtime_directory
                 .map(|path| path.to_string_lossy().to_string())
                 .unwrap_or("not found".into())
