@@ -72,20 +72,7 @@ pub fn create_runtime_directory() -> Result<PathBuf, Box<dyn std::error::Error>>
         os::unix::prelude::PermissionsExt,
     };
 
-    let linux_runtime_directory =
-        PathBuf::from(format!("/run/user/{}/", unsafe { libc::getuid() }));
-    let unix_runtime_directory = PathBuf::from("/tmp/");
-
-    let user_runtime_directory = if let Some(xdg_runtime_directory) = xdg_runtime_directory() {
-        Some(xdg_runtime_directory.join("ncspot"))
-    } else if cfg!(linux) && linux_runtime_directory.exists() {
-        Some(linux_runtime_directory.join("ncspot"))
-    } else if unix_runtime_directory.exists() {
-        Some(unix_runtime_directory.join(format!("ncspot-{}", unsafe { libc::getuid() })))
-    } else {
-        None
-    }
-    .ok_or("no runtime directory found")?;
+    let user_runtime_directory = user_runtime_directory().ok_or("no runtime directory found")?;
 
     let creation_result = fs::create_dir(&user_runtime_directory);
 
@@ -103,6 +90,25 @@ pub fn create_runtime_directory() -> Result<PathBuf, Box<dyn std::error::Error>>
     } else {
         #[allow(clippy::unnecessary_unwrap)]
         Err(Box::new(creation_result.unwrap_err()))
+    }
+}
+
+/// Return the path to the current user's runtime directory, or None if it couldn't be found.
+/// This function does not guarantee correct ownership or permissions of the directory.
+#[cfg(unix)]
+pub fn user_runtime_directory() -> Option<PathBuf> {
+    let linux_runtime_directory =
+        PathBuf::from(format!("/run/user/{}/", unsafe { libc::getuid() }));
+    let unix_runtime_directory = PathBuf::from("/tmp/");
+
+    if let Some(xdg_runtime_directory) = xdg_runtime_directory() {
+        Some(xdg_runtime_directory.join("ncspot"))
+    } else if cfg!(linux) && linux_runtime_directory.exists() {
+        Some(linux_runtime_directory.join("ncspot"))
+    } else if unix_runtime_directory.exists() {
+        Some(unix_runtime_directory.join(format!("ncspot-{}", unsafe { libc::getuid() })))
+    } else {
+        None
     }
 }
 
