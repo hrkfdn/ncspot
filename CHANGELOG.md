@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Special color for unavailable items
-- changelog with all the relevant user-facing changes to the project
+- Changelog with all the relevant user-facing changes to the project
 
 ### Changed
 
@@ -126,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug causing command prompt to appear after 'Connecting to Spotify..' startup message after quiting
   `ncspot`
 
-### [0.11.2] - 2022-10-15
+## [0.11.2] - 2022-10-15
 
 ### Added
 
@@ -141,7 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Crash when trying to play an empty, shuffled queue
 
-### [0.11.1] - 2022-09-17
+## [0.11.1] - 2022-09-17
 
 ### Changed
 
