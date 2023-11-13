@@ -30,14 +30,14 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.4.7"
+clap = "4.4.8"
 clipboard = {version = "0.5", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "3.11.1", default-features = false, features = ["tokio"], optional = true}
 fern = "0.6"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.149"
+libc = "0.2.150"
 librespot-core = "0.4.2"
 librespot-playback = "0.4.2"
 librespot-protocol = "0.4.2"
