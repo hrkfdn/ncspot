@@ -58,7 +58,7 @@ tokio-util = {version = "0.7.10", features = ["codec"]}
 tokio-stream = {version = "0.1.14", features = ["sync"]}
 toml = "0.8"
 unicode-width = "0.1.9"
-url = "2.2"
+url = "2.5"
 cursive_buffered_backend = "0.6.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
