@@ -3,6 +3,7 @@ use librespot_playback::audio_backend;
 
 pub const AUTHOR: &str = "Henrik Friedrichsen <henrik@affekt.org> and contributors";
 pub const BIN_NAME: &str = "ncspot";
+pub const CONFIGURATION_FILE_NAME: &str = "config.toml";
 
 /// Return the [Command](clap::Command) that models the program's command line arguments. The
 /// command can be used to parse the actual arguments passed to the program, or to automatically
@@ -40,6 +41,7 @@ pub fn program_arguments() -> clap::Command {
                 .long("config")
                 .value_name("FILE")
                 .help("Filename of config file in basepath")
-                .default_value("config.toml"),
+                .default_value(CONFIGURATION_FILE_NAME),
         )
+        .subcommands([clap::Command::new("info").about("Print platform information like paths")])
 }

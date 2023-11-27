@@ -13,6 +13,7 @@ use ncspot::program_arguments;
 
 mod application;
 mod authentication;
+mod cli;
 mod command;
 mod commands;
 mod config;
@@ -56,9 +57,15 @@ fn main() -> Result<(), String> {
     // path.
     set_configuration_base_path(matches.get_one::<PathBuf>("basepath").cloned());
 
-    // Create the application.
-    let mut application = Application::new(matches.get_one::<String>("config").cloned())?;
+    match matches.subcommand() {
+        Some(("info", _subcommand_matches)) => cli::info(),
+        Some((_, _)) => unreachable!(),
+        None => {
+            // Create the application.
+            let mut application = Application::new(matches.get_one::<String>("config").cloned())?;
 
-    // Start the application event loop.
-    application.run()
+            // Start the application event loop.
+            application.run()
+        }
+    }
 }

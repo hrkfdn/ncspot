@@ -5,6 +5,7 @@ use std::{fs, process};
 
 use cursive::theme::Theme;
 use log::{debug, error};
+use ncspot::CONFIGURATION_FILE_NAME;
 use platform_dirs::AppDirs;
 
 use crate::command::{SortDirection, SortKey};
@@ -192,7 +193,7 @@ impl Config {
     /// Generate the configuration from the user configuration file and the runtime state file.
     /// `filename` can be used to look for a differently named configuration file.
     pub fn new(filename: Option<String>) -> Self {
-        let filename = filename.unwrap_or("config.toml".to_owned());
+        let filename = filename.unwrap_or(CONFIGURATION_FILE_NAME.to_owned());
         let values = load(&filename).unwrap_or_else(|e| {
             eprintln!("could not load config: {e}");
             process::exit(1);
@@ -268,16 +269,6 @@ fn load(filename: &str) -> Result<ConfigValues, String> {
     TOML.load_or_generate_default(path, || Ok(ConfigValues::default()), false)
 }
 
-/// Returns the platform app directories for ncspot.
-///
-/// # Panics
-///
-/// This panics if the project directories could not be determined. Use `try_proj_dirs` for a
-/// non-panicking version.
-fn proj_dirs() -> AppDirs {
-    try_proj_dirs().unwrap()
-}
-
 /// Returns the plaform app directories for ncspot if they could be determined,
 /// or an error otherwise.
 pub fn try_proj_dirs() -> Result<AppDirs, String> {
@@ -296,19 +287,32 @@ pub fn try_proj_dirs() -> Result<AppDirs, String> {
     }
 }
 
+/// Return the path to the current user's configuration directory, or None if it couldn't be found.
+/// This function does not guarantee correct permissions or ownership of the directory!
+pub fn user_configuration_directory() -> Option<PathBuf> {
+    let project_directories = try_proj_dirs().ok()?;
+    Some(project_directories.config_dir)
+}
+
+/// Return the path to the current user's cache directory, or None if one couldn't be found. This
+/// function does not guarantee correct permissions or ownership of the directory!
+pub fn user_cache_directory() -> Option<PathBuf> {
+    let project_directories = try_proj_dirs().ok()?;
+    Some(project_directories.cache_dir)
+}
+
 /// Force create the configuration directory at the default project location, removing anything that
 /// isn't a directory but has the same name. Return the path to the configuration file inside the
 /// directory.
 ///
 /// This doesn't create the file, only the containing directory.
 pub fn config_path(file: &str) -> PathBuf {
-    let proj_dirs = proj_dirs();
-    let cfg_dir = &proj_dirs.config_dir;
+    let cfg_dir = user_configuration_directory().unwrap();
     if cfg_dir.exists() && !cfg_dir.is_dir() {
-        fs::remove_file(cfg_dir).expect("unable to remove old config file");
+        fs::remove_file(&cfg_dir).expect("unable to remove old config file");
     }
     if !cfg_dir.exists() {
-        fs::create_dir_all(cfg_dir).expect("can't create config folder");
+        fs::create_dir_all(&cfg_dir).expect("can't create config folder");
     }
     let mut cfg = cfg_dir.to_path_buf();
     cfg.push(file);
@@ -320,10 +324,9 @@ pub fn config_path(file: &str) -> PathBuf {
 ///
 /// This doesn't create the file, only the containing directory.
 pub fn cache_path(file: &str) -> PathBuf {
-    let proj_dirs = proj_dirs();
-    let cache_dir = &proj_dirs.cache_dir;
+    let cache_dir = user_cache_directory().unwrap();
     if !cache_dir.exists() {
-        fs::create_dir_all(cache_dir).expect("can't create cache folder");
+        fs::create_dir_all(&cache_dir).expect("can't create cache folder");
     }
     let mut pb = cache_dir.to_path_buf();
     pb.push(file);
