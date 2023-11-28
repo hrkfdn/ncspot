@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{fs, process};
@@ -195,7 +196,15 @@ impl Config {
     pub fn new(filename: Option<String>) -> Self {
         let filename = filename.unwrap_or(CONFIGURATION_FILE_NAME.to_owned());
         let values = load(&filename).unwrap_or_else(|e| {
-            eprintln!("could not load config: {e}");
+            eprint!(
+                "There is an error in your configuration file at {}:\n\n{e}",
+                user_configuration_directory()
+                    .map(|ref mut path| {
+                        path.push(CONFIGURATION_FILE_NAME);
+                        path.to_string_lossy().to_string()
+                    })
+                    .expect("configuration directory expected but not found")
+            );
             process::exit(1);
         });
 
@@ -256,10 +265,14 @@ impl Config {
         crate::theme::load(theme)
     }
 
-    /// Reload the configuration file.
-    pub fn reload(&self) {
-        let cfg = load(&self.filename).expect("could not reload config");
-        *self.values.write().expect("can't writelock config values") = cfg
+    /// Attempt to reload the configuration from the configuration file.
+    ///
+    /// This only updates the values stored in memory but doesn't perform any additional actions
+    /// like updating active keybindings.
+    pub fn reload(&self) -> Result<(), Box<dyn Error>> {
+        let cfg = load(&self.filename)?;
+        *self.values.write().unwrap() = cfg;
+        Ok(())
     }
 }
 
