@@ -6,7 +6,7 @@ use crate::application::UserData;
 use crate::command::{
     parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
 };
-use crate::config::Config;
+use crate::config::{user_configuration_directory, Config};
 use crate::events::EventManager;
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -25,6 +25,7 @@ use cursive::traits::View;
 use cursive::views::Dialog;
 use cursive::Cursive;
 use log::{debug, error, info};
+use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
 
 pub enum CommandResult {
@@ -213,7 +214,17 @@ impl CommandManager {
                 Ok(None)
             }
             Command::ReloadConfig => {
-                self.config.reload();
+                self.config.reload().map_err(|_| {
+                    format!(
+                        "Failed to reload configuration. Fix errors in {} and try again.",
+                        user_configuration_directory()
+                            .map(|ref mut path| {
+                                path.push(CONFIGURATION_FILE_NAME);
+                                path.to_string_lossy().to_string()
+                            })
+                            .expect("configuration directory expected but not found")
+                    )
+                })?;
 
                 // update theme
                 let theme = self.config.build_theme();
