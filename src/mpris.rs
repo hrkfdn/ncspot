@@ -269,13 +269,12 @@ impl MprisPlayer {
     }
 
     #[dbus_interface(property)]
-    fn set_volume(&self, volume: f64) {
+    fn set_volume(&self, mut volume: f64) {
         log::info!("set volume: {volume}");
-        if (0.0..=1.0).contains(&volume) {
-            let vol = (VOLUME_PERCENT as f64) * volume * 100.0;
-            self.spotify.set_volume(vol as u16);
-            self.event.trigger();
-        }
+        volume = volume.clamp(0.0, 1.0);
+        let vol = (VOLUME_PERCENT as f64) * volume * 100.0;
+        self.spotify.set_volume(vol as u16);
+        self.event.trigger();
     }
 
     #[dbus_interface(property)]
