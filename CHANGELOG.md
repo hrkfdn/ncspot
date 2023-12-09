@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An unlikely crash when the UNIX IPC socket is removed before `ncspot` is closed
 - Guaranteed crash while quiting `ncspot` when using MPRIS
 - MPRIS volume not being updated when given numbers smaller than 0 or larger than 1
+- Allow previous track via MPRIS if first track in queue is playing
 
 ## [0.13.4] - 2023-07-24
 
