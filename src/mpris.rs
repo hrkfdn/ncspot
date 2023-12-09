@@ -289,7 +289,7 @@ impl MprisPlayer {
 
     #[dbus_interface(property)]
     fn can_go_previous(&self) -> bool {
-        true
+        self.queue.get_current().is_some()
     }
 
     #[dbus_interface(property)]
