@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Special color for unavailable items
 - Changelog with all the relevant user-facing changes to the project
 - `info` command line subcommand to show platform specific information
+- Append Git commit hash to version string
 
 ### Changed
 

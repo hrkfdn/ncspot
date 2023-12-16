@@ -15,7 +15,7 @@ pub fn program_arguments() -> clap::Command {
     };
 
     clap::Command::new("ncspot")
-        .version(env!("CARGO_PKG_VERSION"))
+        .version(env!("VERSION"))
         .author(AUTHOR)
         .about("cross-platform ncurses Spotify client")
         .after_help(backends)
