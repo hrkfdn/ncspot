@@ -1,4 +1,3 @@
-use crate::application::ASYNC_RUNTIME;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::category::Category;
@@ -9,7 +8,6 @@ use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
-use futures::channel::oneshot;
 use log::{debug, error, info};
 
 use rspotify::http::HttpError;
@@ -71,6 +69,7 @@ impl WebApi {
         self.worker_channel = channel;
     }
 
+    /// Update the authentication token when it expires.
     pub fn update_token(&self) {
         {
             let token_expiration = self.token_expiration.read().unwrap();
@@ -85,7 +84,7 @@ impl WebApi {
             info!("Token will expire in {}, renewing", delta);
         }
 
-        let (token_tx, token_rx) = oneshot::channel();
+        let (token_tx, token_rx) = std::sync::mpsc::channel();
         let cmd = WorkerCommand::RequestToken(token_tx);
         if let Some(channel) = self
             .worker_channel
@@ -94,7 +93,7 @@ impl WebApi {
             .as_ref()
         {
             channel.send(cmd).expect("can't send message to worker");
-            let token_option = ASYNC_RUNTIME.get().unwrap().block_on(token_rx).unwrap();
+            let token_option = token_rx.recv().unwrap();
             if let Some(token) = token_option {
                 *self.api.token.lock().expect("can't writelock api token") = Some(Token {
                     access_token: token.access_token,
