@@ -1,4 +1,4 @@
-#![deny(clippy::use_self)]
+#![deny(clippy::use_self, clippy::multiple_inherent_impl)]
 
 #[macro_use]
 extern crate cursive;
