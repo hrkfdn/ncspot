@@ -37,7 +37,7 @@ impl From<&SimplifiedEpisode> for Episode {
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
-            cover_url: episode.images.get(0).map(|img| img.url.clone()),
+            cover_url: episode.images.first().map(|img| img.url.clone()),
             added_at: None,
             list_index: 0,
         }
@@ -53,7 +53,7 @@ impl From<&FullEpisode> for Episode {
             name: episode.name.clone(),
             description: episode.description.clone(),
             release_date: episode.release_date.clone(),
-            cover_url: episode.images.get(0).map(|img| img.url.clone()),
+            cover_url: episode.images.first().map(|img| img.url.clone()),
             added_at: None,
             list_index: 0,
         }

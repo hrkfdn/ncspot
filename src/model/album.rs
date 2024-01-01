@@ -87,7 +87,7 @@ impl From<&SimplifiedAlbum> for Album {
                 .next()
                 .unwrap()
                 .into(),
-            cover_url: sa.images.get(0).map(|i| i.url.clone()),
+            cover_url: sa.images.first().map(|i| i.url.clone()),
             url: sa.id.as_ref().map(|id| id.url()),
             tracks: None,
             added_at: None,
@@ -116,7 +116,7 @@ impl From<&FullAlbum> for Album {
                 .filter_map(|a| a.id.as_ref().map(|id| id.id().to_string()))
                 .collect(),
             year: fa.release_date.split('-').next().unwrap().into(),
-            cover_url: fa.images.get(0).map(|i| i.url.clone()),
+            cover_url: fa.images.first().map(|i| i.url.clone()),
             url: Some(fa.id.uri()),
             tracks,
             added_at: None,

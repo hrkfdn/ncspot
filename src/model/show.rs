@@ -45,7 +45,7 @@ impl From<&SimplifiedShow> for Show {
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
-            cover_url: show.images.get(0).map(|i| i.url.clone()),
+            cover_url: show.images.first().map(|i| i.url.clone()),
             episodes: None,
         }
     }
@@ -59,7 +59,7 @@ impl From<&FullShow> for Show {
             name: show.name.clone(),
             publisher: show.publisher.clone(),
             description: show.description.clone(),
-            cover_url: show.images.get(0).map(|i| i.url.clone()),
+            cover_url: show.images.first().map(|i| i.url.clone()),
             episodes: None,
         }
     }
