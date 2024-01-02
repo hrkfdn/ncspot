@@ -72,7 +72,7 @@ pub struct Application {
     mpris_manager: MprisManager,
     /// An IPC implementation using a Unix domain socket, used to control and inspect ncspot.
     #[cfg(unix)]
-    ipc: IpcSocket,
+    ipc: Option<IpcSocket>,
     /// The object to render to the terminal.
     cursive: CursiveRunner<Cursive>,
 }
@@ -138,14 +138,19 @@ impl Application {
         );
 
         #[cfg(unix)]
-        let ipc = ipc::IpcSocket::new(
-            ASYNC_RUNTIME.get().unwrap().handle(),
-            utils::create_runtime_directory()
-                .unwrap()
-                .join("ncspot.sock"),
-            event_manager.clone(),
-        )
-        .map_err(|e| e.to_string())?;
+        let ipc = if let Ok(runtime_directory) = utils::create_runtime_directory() {
+            Some(
+                ipc::IpcSocket::new(
+                    ASYNC_RUNTIME.get().unwrap().handle(),
+                    runtime_directory.join("ncspot.sock"),
+                    event_manager.clone(),
+                )
+                .map_err(|e| e.to_string())?,
+            )
+        } else {
+            error!("failed to create IPC socket: no suitable user runtime directory found");
+            None
+        };
 
         let mut cmd_manager = CommandManager::new(
             spotify.clone(),
@@ -236,7 +241,9 @@ impl Application {
                         self.mpris_manager.update();
 
                         #[cfg(unix)]
-                        self.ipc.publish(&state, self.queue.get_current());
+                        if let Some(ref ipc) = self.ipc {
+                            ipc.publish(&state, self.queue.get_current());
+                        }
 
                         if state == PlayerEvent::FinishedTrack {
                             self.queue.next(false);
