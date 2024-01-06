@@ -20,8 +20,8 @@ impl TryFrom<&ArgMatches> for XTaskSubcommand {
     fn try_from(value: &ArgMatches) -> Result<Self, Self::Error> {
         if let Some(subcommand) = value.subcommand() {
             match subcommand.0 {
-                "generate-manpage" => Ok(XTaskSubcommand::GenerateManpage),
-                "generate-shell-completion" => Ok(XTaskSubcommand::GenerateShellCompletion),
+                "generate-manpage" => Ok(Self::GenerateManpage),
+                "generate-shell-completion" => Ok(Self::GenerateShellCompletion),
                 _ => Err(Error::new(clap::error::ErrorKind::InvalidSubcommand)),
             }
         } else {

@@ -13,3 +13,6 @@ clap = "4.4.13"
 [dependencies.ncspot]
 default-features = false
 path = ".."
+
+[lints]
+workspace = true
