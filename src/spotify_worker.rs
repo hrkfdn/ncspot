@@ -63,7 +63,6 @@ impl Worker {
         }
     }
 
-impl Worker {
     fn get_token(&self, sender: Sender<Option<Token>>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
