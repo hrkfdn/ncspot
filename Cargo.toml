@@ -19,6 +19,13 @@ members = [
     "xtask"
 ]
 
+[workspace.lints.clippy]
+use_self = "deny"
+multiple_inherent_impl = "deny"
+
+[lints]
+workspace = true
+
 [profile.release]
 lto = true
 codegen-units = 1
