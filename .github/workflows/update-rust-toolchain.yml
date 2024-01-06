@@ -17,5 +17,4 @@ jobs:
           token: ${{ secrets.GH_TOKEN_FOR_UPDATES }}
           toolchain-path: ./rust-toolchain.toml
           commit-msg: 'chore(toolchain): update'
-          pr-branch: main
           pr-title: 'chore(toolchain): update'
