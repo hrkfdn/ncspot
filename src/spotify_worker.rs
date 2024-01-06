@@ -3,7 +3,6 @@ use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
-use futures::channel::oneshot;
 use futures::{Future, FutureExt};
 use librespot_core::keymaster::Token;
 use librespot_core::session::Session;
@@ -11,6 +10,7 @@ use librespot_core::spotify_id::{SpotifyAudioType, SpotifyId};
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 use log::{debug, error, info, warn};
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 use std::{pin::Pin, time::SystemTime};
 use tokio::sync::mpsc;
@@ -26,7 +26,7 @@ pub(crate) enum WorkerCommand {
     Stop,
     Seek(u32),
     SetVolume(u16),
-    RequestToken(oneshot::Sender<Option<Token>>),
+    RequestToken(Sender<Option<Token>>),
     Preload(Playable),
     Shutdown,
 }
@@ -63,10 +63,7 @@ impl Worker {
         }
     }
 
-    fn get_token(
-        &self,
-        sender: oneshot::Sender<Option<Token>>,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    fn get_token(&self, sender: Sender<Option<Token>>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let client_id = config::CLIENT_ID;
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
         let url =
@@ -85,7 +82,7 @@ impl Worker {
                         Some(token)
                     })
                 })
-                .map(|result| sender.send(result).unwrap()),
+                .map(move |result| sender.send(result).unwrap()),
         )
     }
 
