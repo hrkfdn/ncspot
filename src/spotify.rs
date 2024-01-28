@@ -31,7 +31,7 @@ use crate::spotify_worker::{Worker, WorkerCommand};
 /// percent.
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
-/// Events sent by the
+/// Events sent by the [Player].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum PlayerEvent {
     Playing(SystemTime),
