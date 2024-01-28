@@ -33,9 +33,8 @@ pub enum QueueEvent {
     PreloadTrackRequest,
 }
 
-/// The queue determines the playback order of
-/// [Playable](crate::model::playable::Playable) items, and is also used to
-/// control playback itself.
+/// The queue determines the playback order of [Playable] items, and is also used to control
+/// playback itself.
 pub struct Queue {
     /// The internal data, which doesn't change with shuffle or repeat. This is
     /// the raw data only.

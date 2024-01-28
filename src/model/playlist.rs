@@ -67,6 +67,7 @@ impl Playlist {
         match spotify
             .api
             .delete_tracks(&self.id, &self.snapshot_id, &[playable])
+            .is_ok()
         {
             false => false,
             true => {
@@ -83,7 +84,11 @@ impl Playlist {
     pub fn append_tracks(&mut self, new_tracks: &[Playable], spotify: &Spotify, library: &Library) {
         let mut has_modified = false;
 
-        if spotify.api.append_tracks(&self.id, new_tracks, None) {
+        if spotify
+            .api
+            .append_tracks(&self.id, new_tracks, None)
+            .is_ok()
+        {
             if let Some(tracks) = &mut self.tracks {
                 tracks.append(&mut new_tracks.to_vec());
                 has_modified = true;
@@ -304,6 +309,7 @@ impl ListItem for Playlist {
                 None,
                 Some(track_ids.iter().map(|t| t.as_ref()).collect()),
             )
+            .ok()
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
 

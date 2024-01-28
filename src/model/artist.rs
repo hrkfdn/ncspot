@@ -35,7 +35,7 @@ impl Artist {
     fn load_top_tracks(&mut self, spotify: Spotify) {
         if let Some(artist_id) = &self.id {
             if self.tracks.is_none() {
-                self.tracks = spotify.api.artist_top_tracks(artist_id);
+                self.tracks = spotify.api.artist_top_tracks(artist_id).ok();
             }
         }
     }
@@ -182,6 +182,7 @@ impl ListItem for Artist {
         let recommendations: Option<Vec<Track>> = spotify
             .api
             .recommendations(Some(vec![&id]), None, None)
+            .ok()
             .map(|r| r.tracks)
             .map(|tracks| tracks.iter().map(Track::from).collect());
 

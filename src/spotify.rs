@@ -1,27 +1,24 @@
+use std::env;
+use std::str::FromStr;
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, SystemTime};
+
+use futures::channel::oneshot;
 use librespot_core::authentication::Credentials;
 use librespot_core::cache::Cache;
 use librespot_core::config::SessionConfig;
 use librespot_core::session::Session;
 use librespot_core::session::SessionError;
+use librespot_playback::audio_backend;
 use librespot_playback::audio_backend::SinkBuilder;
+use librespot_playback::config::Bitrate;
 use librespot_playback::config::PlayerConfig;
 use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::mixer::MixerConfig;
-use log::{debug, error, info};
-
-use librespot_playback::audio_backend;
-use librespot_playback::config::Bitrate;
 use librespot_playback::player::Player;
-
-use futures::channel::oneshot;
+use log::{debug, error, info};
 use tokio::sync::mpsc;
-
 use url::Url;
-
-use std::env;
-use std::str::FromStr;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, SystemTime};
 
 use crate::application::ASYNC_RUNTIME;
 use crate::config;
@@ -30,8 +27,11 @@ use crate::model::playable::Playable;
 use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
 
+/// One percent of the maximum supported [Player] volume, used when setting the volume to a certain
+/// percent.
 pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
 
+/// Events sent by the
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum PlayerEvent {
     Playing(SystemTime),
@@ -40,18 +40,23 @@ pub enum PlayerEvent {
     FinishedTrack,
 }
 
-// TODO: Rename or document this as it isn't immediately clear what it represents/does from the
-// name.
+/// Wrapper around a worker thread that exposes methods to safely control it.
 #[derive(Clone)]
 pub struct Spotify {
     events: EventManager,
+    /// The credentials for the currently logged in user, used to authenticate to the Spotify API.
     credentials: Credentials,
     cfg: Arc<config::Config>,
+    /// Playback status of the [Player] owned by the worker thread.
     status: Arc<RwLock<PlayerEvent>>,
     pub api: WebApi,
+    /// The amount of the current [Playable] that had elapsed when last paused.
     elapsed: Arc<RwLock<Option<Duration>>>,
+    /// The amount of the current [Playable] that has been played in total.
     since: Arc<RwLock<Option<SystemTime>>>,
+    /// Channel to send commands to the worker thread.
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+    /// The username of the logged in user.
     user: Option<String>,
 }
 
@@ -83,6 +88,8 @@ impl Spotify {
         spotify
     }
 
+    /// Start the worker thread. If `user_tx` is given, it will receive the username of the logged
+    /// in user.
     pub fn start_worker(&self, user_tx: Option<oneshot::Sender<String>>) {
         let (tx, rx) = mpsc::unbounded_channel();
         *self
@@ -107,6 +114,7 @@ impl Spotify {
         }
     }
 
+    /// Generate the librespot [SessionConfig] used when creating a [Session].
     pub fn session_config() -> SessionConfig {
         let mut session_config = SessionConfig::default();
         match env::var("http_proxy") {
@@ -119,6 +127,7 @@ impl Spotify {
         session_config
     }
 
+    /// Test whether `credentials` are valid Spotify credentials.
     pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
         let config = Self::session_config();
         ASYNC_RUNTIME
@@ -128,6 +137,8 @@ impl Spotify {
             .map(|r| r.0)
     }
 
+    /// Create a [Session] that respects the user configuration in `cfg` and with the given
+    /// credentials.
     async fn create_session(
         cfg: &config::Config,
         credentials: Credentials,
@@ -153,6 +164,7 @@ impl Spotify {
             .map(|r| r.0)
     }
 
+    /// Create and initialize the requested audio backend.
     fn init_backend(desired_backend: Option<String>) -> Option<SinkBuilder> {
         let backend = if let Some(name) = desired_backend {
             audio_backend::BACKENDS
@@ -174,6 +186,7 @@ impl Spotify {
         Some(backend.1)
     }
 
+    /// Create and run the worker thread.
     async fn worker(
         worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
         events: EventManager,
@@ -236,6 +249,7 @@ impl Spotify {
         events.send(Event::SessionDied)
     }
 
+    /// Get the current playback status of the [Player].
     pub fn get_current_status(&self) -> PlayerEvent {
         let status = self
             .status
@@ -244,6 +258,7 @@ impl Spotify {
         (*status).clone()
     }
 
+    /// Get the total amount of the current [Playable] that has been played.
     pub fn get_current_progress(&self) -> Duration {
         self.get_elapsed().unwrap_or_else(|| Duration::from_secs(0))
             + self
@@ -284,6 +299,8 @@ impl Spotify {
         *since
     }
 
+    /// Load `track` into the [Player]. Start playing immediately if
+    /// `start_playing` is true. Start playing from `position_ms` in the song.
     pub fn load(&self, track: &Playable, start_playing: bool, position_ms: u32) {
         info!("loading track: {:?}", track);
         self.send_worker(WorkerCommand::Load(
@@ -293,6 +310,9 @@ impl Spotify {
         ));
     }
 
+    /// Update the cached status of the [Player]. This makes sure the status
+    /// doesn't have to be retrieved every time from the thread, which would be harder and more
+    /// expensive.
     pub fn update_status(&self, new_status: PlayerEvent) {
         match new_status {
             PlayerEvent::Paused(position) => {
@@ -316,16 +336,20 @@ impl Spotify {
         *status = new_status;
     }
 
+    /// Reset the time tracking stats for the current song. This should be called when a new song is
+    /// loaded.
     pub fn update_track(&self) {
         self.set_elapsed(None);
         self.set_since(None);
     }
 
+    /// Start playback of the [Player].
     pub fn play(&self) {
         info!("play()");
         self.send_worker(WorkerCommand::Play);
     }
 
+    /// Toggle playback (play/pause) of the [Player].
     pub fn toggleplayback(&self) {
         match self.get_current_status() {
             PlayerEvent::Playing(_) => self.pause(),
@@ -334,6 +358,7 @@ impl Spotify {
         }
     }
 
+    /// Send a [WorkerCommand] to the worker thread.
     fn send_worker(&self, cmd: WorkerCommand) {
         info!("sending command to worker: {:?}", cmd);
         let channel = self.channel.read().expect("can't readlock worker channel");
@@ -350,45 +375,55 @@ impl Spotify {
         }
     }
 
+    /// Pause playback of the [Player].
     pub fn pause(&self) {
         info!("pause()");
         self.send_worker(WorkerCommand::Pause);
     }
 
+    /// Stop playback of the [Player].
     pub fn stop(&self) {
         info!("stop()");
         self.send_worker(WorkerCommand::Stop);
     }
 
+    /// Seek in the currently played [Playable] played by the [Player].
     pub fn seek(&self, position_ms: u32) {
         self.send_worker(WorkerCommand::Seek(position_ms));
     }
 
+    /// Seek relatively to the current playback position of the [Player].
     pub fn seek_relative(&self, delta: i32) {
         let progress = self.get_current_progress();
         let new = (progress.as_secs() * 1000) as i32 + progress.subsec_millis() as i32 + delta;
         self.seek(std::cmp::max(0, new) as u32);
     }
 
+    /// Get the current volume of the [Player].
     pub fn volume(&self) -> u16 {
         self.cfg.state().volume
     }
 
+    /// Set the current volume of the [Player].
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
         self.cfg.with_state_mut(|mut s| s.volume = volume);
         self.send_worker(WorkerCommand::SetVolume(volume));
     }
 
+    /// Preload the given [Playable] in the [Player]. This makes sure it can be played immediately
+    /// after the current [Playable] is finished.
     pub fn preload(&self, track: &Playable) {
         self.send_worker(WorkerCommand::Preload(track.clone()));
     }
 
+    /// Shut down the worker thread.
     pub fn shutdown(&self) {
         self.send_worker(WorkerCommand::Shutdown);
     }
 }
 
+/// A type of Spotify URI.
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum UriType {
     Album,
@@ -400,6 +435,7 @@ pub enum UriType {
 }
 
 impl UriType {
+    /// Try to create a [UriType] from the given string.
     pub fn from_uri(s: &str) -> Option<Self> {
         if s.starts_with("spotify:album:") {
             Some(Self::Album)

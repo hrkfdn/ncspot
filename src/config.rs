@@ -233,14 +233,17 @@ impl Config {
         }
     }
 
+    /// Get the user configuration values.
     pub fn values(&self) -> RwLockReadGuard<ConfigValues> {
         self.values.read().expect("can't readlock config values")
     }
 
+    /// Get the runtime user state values.
     pub fn state(&self) -> RwLockReadGuard<UserState> {
         self.state.read().expect("can't readlock user state")
     }
 
+    /// Modify the internal user state through a shared reference using a closure.
     pub fn with_state_mut<F>(&self, cb: F)
     where
         F: Fn(RwLockWriteGuard<UserState>),
@@ -249,9 +252,15 @@ impl Config {
         cb(state_guard);
     }
 
-    pub fn save_state(&self) {
-        // update cache version number
+    /// Update the version number of the runtime user state. This should be done before saving it to
+    /// disk.
+    fn update_state_cache_version(&self) {
         self.with_state_mut(|mut state| state.cache_version = CACHE_VERSION);
+    }
+
+    /// Save runtime state to the user configuration directory.
+    pub fn save_state(&self) {
+        self.update_state_cache_version();
 
         let path = config_path("userstate.cbor");
         debug!("saving user state to {}", path.display());
@@ -260,9 +269,9 @@ impl Config {
         }
     }
 
+    /// Create a [Theme] from the user supplied theme in the configuration file.
     pub fn build_theme(&self) -> Theme {
-        let theme = &self.values().theme;
-        crate::theme::load(theme)
+        crate::theme::load(&self.values().theme)
     }
 
     /// Attempt to reload the configuration from the configuration file.

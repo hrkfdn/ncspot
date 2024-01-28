@@ -720,27 +720,33 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         UriType::Track => spotify
                             .api
                             .track(&url.id)
-                            .map(|track| Track::from(&track).as_listitem()),
+                            .map(|track| Track::from(&track).as_listitem())
+                            .ok(),
                         UriType::Album => spotify
                             .api
                             .album(&url.id)
-                            .map(|album| Album::from(&album).as_listitem()),
+                            .map(|album| Album::from(&album).as_listitem())
+                            .ok(),
                         UriType::Playlist => spotify
                             .api
                             .playlist(&url.id)
-                            .map(|playlist| Playlist::from(&playlist).as_listitem()),
+                            .map(|playlist| Playlist::from(&playlist).as_listitem())
+                            .ok(),
                         UriType::Artist => spotify
                             .api
                             .artist(&url.id)
-                            .map(|artist| Artist::from(&artist).as_listitem()),
+                            .map(|artist| Artist::from(&artist).as_listitem())
+                            .ok(),
                         UriType::Episode => spotify
                             .api
                             .episode(&url.id)
-                            .map(|episode| Episode::from(&episode).as_listitem()),
+                            .map(|episode| Episode::from(&episode).as_listitem())
+                            .ok(),
                         UriType::Show => spotify
                             .api
-                            .get_show(&url.id)
-                            .map(|show| Show::from(&show).as_listitem()),
+                            .show(&url.id)
+                            .map(|show| Show::from(&show).as_listitem())
+                            .ok(),
                     };
 
                     let queue = self.queue.clone();

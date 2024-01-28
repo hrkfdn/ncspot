@@ -109,7 +109,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.api.track(query) {
+        if let Ok(results) = spotify.api.track(query) {
             let t = vec![(&results).into()];
             let mut r = tracks.write().unwrap();
             *r = t;
@@ -125,7 +125,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Tracks(results)) =
+        if let Ok(SearchResult::Tracks(results)) =
             spotify
                 .api
                 .search(SearchType::Track, query, 50, offset as u32)
@@ -150,7 +150,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.api.album(query) {
+        if let Ok(results) = spotify.api.album(query) {
             let a = vec![(&results).into()];
             let mut r = albums.write().unwrap();
             *r = a;
@@ -166,7 +166,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Albums(results)) =
+        if let Ok(SearchResult::Albums(results)) =
             spotify
                 .api
                 .search(SearchType::Album, query, 50, offset as u32)
@@ -191,7 +191,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(results) = spotify.api.artist(query) {
+        if let Ok(results) = spotify.api.artist(query) {
             let a = vec![(&results).into()];
             let mut r = artists.write().unwrap();
             *r = a;
@@ -207,7 +207,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Artists(results)) =
+        if let Ok(SearchResult::Artists(results)) =
             spotify
                 .api
                 .search(SearchType::Artist, query, 50, offset as u32)
@@ -232,7 +232,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.api.playlist(query).as_ref() {
+        if let Ok(result) = spotify.api.playlist(query).as_ref() {
             let pls = vec![result.into()];
             let mut r = playlists.write().unwrap();
             *r = pls;
@@ -248,7 +248,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Playlists(results)) =
+        if let Ok(SearchResult::Playlists(results)) =
             spotify
                 .api
                 .search(SearchType::Playlist, query, 50, offset as u32)
@@ -273,7 +273,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.api.get_show(query).as_ref() {
+        if let Ok(result) = spotify.api.show(query).as_ref() {
             let pls = vec![result.into()];
             let mut r = shows.write().unwrap();
             *r = pls;
@@ -289,7 +289,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Shows(results)) =
+        if let Ok(SearchResult::Shows(results)) =
             spotify
                 .api
                 .search(SearchType::Show, query, 50, offset as u32)
@@ -314,7 +314,7 @@ impl SearchResultsView {
         _offset: usize,
         _append: bool,
     ) -> u32 {
-        if let Some(result) = spotify.api.episode(query).as_ref() {
+        if let Ok(result) = spotify.api.episode(query).as_ref() {
             let e = vec![result.into()];
             let mut r = episodes.write().unwrap();
             *r = e;
@@ -330,7 +330,7 @@ impl SearchResultsView {
         offset: usize,
         append: bool,
     ) -> u32 {
-        if let Some(SearchResult::Episodes(results)) =
+        if let Ok(SearchResult::Episodes(results)) =
             spotify
                 .api
                 .search(SearchType::Episode, query, 50, offset as u32)
