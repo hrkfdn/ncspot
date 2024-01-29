@@ -409,8 +409,7 @@ impl MprisPlayer {
             Some(UriType::Playlist) => {
                 if let Some(p) = self.spotify.api.playlist(&id) {
                     let mut playlist = Playlist::from(&p);
-                    let spotify = self.spotify.clone();
-                    playlist.load_tracks(spotify);
+                    playlist.load_tracks(&self.spotify);
                     if let Some(tracks) = &playlist.tracks {
                         let should_shuffle = self.queue.get_shuffle();
                         self.queue.clear();

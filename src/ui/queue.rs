@@ -67,7 +67,7 @@ impl QueueView {
         let mut list_select: SelectView<Option<String>> = SelectView::new().autojump();
         list_select.add_item("[Create new]", None);
 
-        for list in library.playlists().iter() {
+        for list in library.playlists.read().unwrap().iter() {
             list_select.add_item(list.name.clone(), Some(list.id.clone()));
         }
 

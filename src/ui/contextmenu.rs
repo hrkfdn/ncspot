@@ -61,7 +61,7 @@ impl ContextMenu {
         let mut list_select: SelectView<Playlist> = SelectView::new();
         let current_user_id = library.user_id.as_ref().unwrap();
 
-        for list in library.playlists().iter() {
+        for list in library.playlists.read().unwrap().iter() {
             if current_user_id == &list.owner_id || list.collaborative {
                 list_select.add_item(list.name.clone(), list.clone());
             }
