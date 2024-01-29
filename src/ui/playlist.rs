@@ -25,7 +25,7 @@ pub struct PlaylistView {
 impl PlaylistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, playlist: &Playlist) -> Self {
         let mut playlist = playlist.clone();
-        playlist.load_tracks(queue.get_spotify());
+        playlist.load_tracks(&queue.get_spotify());
 
         if let Some(order) = library.cfg.state().playlist_orders.get(&playlist.id) {
             playlist.sort(&order.key, &order.direction);

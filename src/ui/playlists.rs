@@ -27,7 +27,7 @@ impl PlaylistsView {
     }
 
     pub fn delete_dialog(&mut self) -> Option<Modal<Dialog>> {
-        let playlists = self.library.playlists();
+        let playlists = self.library.playlists.read().unwrap();
         let current = playlists.get(self.list.get_selected_index());
 
         if let Some(playlist) = current {

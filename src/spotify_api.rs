@@ -499,7 +499,7 @@ impl WebApi {
         self.api_with_retry(|api| api.get_saved_show_manual(Some(50), Some(offset)))
     }
 
-    pub fn save_shows(&self, ids: Vec<&str>) -> bool {
+    pub fn save_shows(&self, ids: &[&str]) -> bool {
         self.api_with_retry(|api| {
             api.save_shows(
                 ids.iter()
@@ -510,7 +510,7 @@ impl WebApi {
         .is_some()
     }
 
-    pub fn unsave_shows(&self, ids: Vec<&str>) -> bool {
+    pub fn unsave_shows(&self, ids: &[&str]) -> bool {
         self.api_with_retry(|api| {
             api.remove_users_saved_shows(
                 ids.iter()
