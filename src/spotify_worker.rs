@@ -186,6 +186,7 @@ impl Worker {
                     },
                     _ => {}
                 },
+                // Update animated parts of the UI (e.g. statusbar during playback).
                 _ = ui_refresh.tick() => {
                     if self.active {
                         self.events.trigger();
