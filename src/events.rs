@@ -39,14 +39,12 @@ impl EventManager {
 
     /// Send a new event to be handled.
     pub fn send(&self, event: Event) {
-        self.tx.send(event).expect("could not send event");
+        self.tx.send(event).unwrap();
         self.trigger();
     }
 
     /// Send a no-op to the Cursive event loop to trigger immediate processing of events.
     pub fn trigger(&self) {
-        self.cursive_sink
-            .send(Box::new(Cursive::noop))
-            .expect("could not send no-op event to cursive");
+        self.cursive_sink.send(Box::new(Cursive::noop)).unwrap();
     }
 }

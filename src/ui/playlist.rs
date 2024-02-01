@@ -93,7 +93,7 @@ impl ViewExt for PlaylistView {
         }
 
         if let Command::Sort(key, direction) = cmd {
-            self.library.cfg.with_state_mut(|mut state| {
+            self.library.cfg.with_state_mut(|state| {
                 let order = crate::config::SortingOrder {
                     key: key.clone(),
                     direction: direction.clone(),

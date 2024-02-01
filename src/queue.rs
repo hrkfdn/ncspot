@@ -423,7 +423,7 @@ impl Queue {
 
     /// Set the current repeat behavior and save it to the configuration.
     pub fn set_repeat(&self, new: RepeatSetting) {
-        self.cfg.with_state_mut(|mut s| s.repeat = new);
+        self.cfg.with_state_mut(|s| s.repeat = new);
     }
 
     /// Get the current shuffle behavior.
@@ -457,7 +457,7 @@ impl Queue {
 
     /// Set the current shuffle behavior.
     pub fn set_shuffle(&self, new: bool) {
-        self.cfg.with_state_mut(|mut s| s.shuffle = new);
+        self.cfg.with_state_mut(|s| s.shuffle = new);
         if new {
             self.generate_random_order();
         } else {

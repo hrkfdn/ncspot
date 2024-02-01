@@ -133,7 +133,7 @@ impl Library {
     /// Append `updated` to the local playlists or update the local version if it exists. Return the
     /// index of the appended/updated playlist.
     fn append_or_update(&self, updated: Playlist) -> usize {
-        let mut store = self.playlists.write().expect("can't writelock playlists");
+        let mut store = self.playlists.write().unwrap();
         for (index, local) in store.iter_mut().enumerate() {
             if local.id == updated.id {
                 *local = updated;
@@ -159,10 +159,7 @@ impl Library {
 
         if let Some(position) = position {
             if self.spotify.api.delete_playlist(id).is_ok() {
-                self.playlists
-                    .write()
-                    .expect("can't writelock playlists")
-                    .remove(position);
+                self.playlists.write().unwrap().remove(position);
                 self.save_cache(
                     &config::cache_path(CACHE_PLAYLISTS),
                     &self.playlists.read().unwrap(),
@@ -581,7 +578,7 @@ impl Library {
     /// If there is a local version of the playlist, update it and rewrite the cache.
     pub fn playlist_update(&self, updated: &Playlist) {
         {
-            let mut playlists = self.playlists.write().expect("can't writelock playlists");
+            let mut playlists = self.playlists.write().unwrap();
             if let Some(playlist) = playlists.iter_mut().find(|p| p.id == updated.id) {
                 *playlist = updated.clone();
             }
