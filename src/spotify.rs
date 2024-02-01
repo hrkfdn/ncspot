@@ -1,7 +1,8 @@
-use std::env;
+use std::error::Error;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
+use std::{env, fmt};
 
 use futures::channel::oneshot;
 use librespot_core::authentication::Credentials;
@@ -56,8 +57,6 @@ pub struct Spotify {
     since: Arc<RwLock<Option<SystemTime>>>,
     /// Channel to send commands to the worker thread.
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
-    /// The username of the logged in user.
-    user: Option<String>,
 }
 
 impl Spotify {
@@ -71,19 +70,18 @@ impl Spotify {
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
-            user: None,
         };
 
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx));
-        spotify.user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
+        let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
         spotify.api.update_token();
 
-        spotify.api.set_user(spotify.user.clone());
+        spotify.api.set_user(user);
 
         spotify
     }
@@ -92,10 +90,7 @@ impl Spotify {
     /// in user.
     pub fn start_worker(&self, user_tx: Option<oneshot::Sender<String>>) {
         let (tx, rx) = mpsc::unbounded_channel();
-        *self
-            .channel
-            .write()
-            .expect("can't writelock worker channel") = Some(tx);
+        *self.channel.write().unwrap() = Some(tx);
         {
             let worker_channel = self.channel.clone();
             let cfg = self.cfg.clone();
@@ -144,9 +139,10 @@ impl Spotify {
         credentials: Credentials,
     ) -> Result<Session, SessionError> {
         let librespot_cache_path = config::cache_path("librespot");
-        let audio_cache_path = match cfg.values().audio_cache.unwrap_or(true) {
-            true => Some(librespot_cache_path.join("files")),
-            false => None,
+        let audio_cache_path = if let Some(false) = cfg.values().audio_cache {
+            None
+        } else {
+            Some(librespot_cache_path.join("files"))
         };
         let cache = Cache::new(
             Some(librespot_cache_path.clone()),
@@ -243,18 +239,13 @@ impl Spotify {
         worker.run_loop().await;
 
         error!("worker thread died, requesting restart");
-        *worker_channel
-            .write()
-            .expect("can't writelock worker channel") = None;
+        *worker_channel.write().unwrap() = None;
         events.send(Event::SessionDied)
     }
 
     /// Get the current playback status of the [Player].
     pub fn get_current_status(&self) -> PlayerEvent {
-        let status = self
-            .status
-            .read()
-            .expect("could not acquire read lock on playback status");
+        let status = self.status.read().unwrap();
         (*status).clone()
     }
 
@@ -268,34 +259,22 @@ impl Spotify {
     }
 
     fn set_elapsed(&self, new_elapsed: Option<Duration>) {
-        let mut elapsed = self
-            .elapsed
-            .write()
-            .expect("could not acquire write lock on elapsed time");
+        let mut elapsed = self.elapsed.write().unwrap();
         *elapsed = new_elapsed;
     }
 
     fn get_elapsed(&self) -> Option<Duration> {
-        let elapsed = self
-            .elapsed
-            .read()
-            .expect("could not acquire read lock on elapsed time");
+        let elapsed = self.elapsed.read().unwrap();
         *elapsed
     }
 
     fn set_since(&self, new_since: Option<SystemTime>) {
-        let mut since = self
-            .since
-            .write()
-            .expect("could not acquire write lock on since time");
+        let mut since = self.since.write().unwrap();
         *since = new_since;
     }
 
     fn get_since(&self) -> Option<SystemTime> {
-        let since = self
-            .since
-            .read()
-            .expect("could not acquire read lock on since time");
+        let since = self.since.read().unwrap();
         *since
     }
 
@@ -329,10 +308,7 @@ impl Spotify {
             }
         }
 
-        let mut status = self
-            .status
-            .write()
-            .expect("could not acquire write lock on player status");
+        let mut status = self.status.write().unwrap();
         *status = new_status;
     }
 
@@ -361,7 +337,7 @@ impl Spotify {
     /// Send a [WorkerCommand] to the worker thread.
     fn send_worker(&self, cmd: WorkerCommand) {
         info!("sending command to worker: {:?}", cmd);
-        let channel = self.channel.read().expect("can't readlock worker channel");
+        let channel = self.channel.read().unwrap();
         match channel.as_ref() {
             Some(channel) => {
                 if let Err(e) = channel.send(cmd) {
@@ -407,7 +383,7 @@ impl Spotify {
     /// Set the current volume of the [Player].
     pub fn set_volume(&self, volume: u16) {
         info!("setting volume to {}", volume);
-        self.cfg.with_state_mut(|mut s| s.volume = volume);
+        self.cfg.with_state_mut(|s| s.volume = volume);
         self.send_worker(WorkerCommand::SetVolume(volume));
     }
 
@@ -434,23 +410,59 @@ pub enum UriType {
     Episode,
 }
 
-impl UriType {
-    /// Try to create a [UriType] from the given string.
-    pub fn from_uri(s: &str) -> Option<Self> {
+#[derive(Debug)]
+pub struct UriParseError;
+
+impl fmt::Display for UriParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid Spotify URI")
+    }
+}
+
+impl Error for UriParseError {}
+
+impl FromStr for UriType {
+    type Err = UriParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("spotify:album:") {
-            Some(Self::Album)
+            Ok(Self::Album)
         } else if s.starts_with("spotify:artist:") {
-            Some(Self::Artist)
+            Ok(Self::Artist)
         } else if s.starts_with("spotify:track:") {
-            Some(Self::Track)
+            Ok(Self::Track)
         } else if s.starts_with("spotify:") && s.contains(":playlist:") {
-            Some(Self::Playlist)
+            Ok(Self::Playlist)
         } else if s.starts_with("spotify:show:") {
-            Some(Self::Show)
+            Ok(Self::Show)
         } else if s.starts_with("spotify:episode:") {
-            Some(Self::Episode)
+            Ok(Self::Episode)
         } else {
-            None
+            Err(UriParseError)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_album_uri() {
+        let uri_type = "spotify:album:29F5MF6Q9VYlryDsYEQz6a".parse();
+        assert!(matches!(uri_type, Ok(UriType::Album)));
+    }
+
+    #[test]
+    fn parse_invalid_uri() {
+        let uri_type: Result<UriType, _> = "kayava".parse();
+        assert!(matches!(uri_type, Err(UriParseError)));
+    }
+
+    #[test]
+
+    fn parse_playlist_uri() {
+        let uri_type = "spotify:playlist:37i9dQZF1DX36Xw4IJIVKA".parse();
+        assert!(matches!(uri_type, Ok(UriType::Playlist)));
     }
 }

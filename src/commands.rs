@@ -113,8 +113,8 @@ impl CommandManager {
         match cmd {
             Command::Noop => Ok(None),
             Command::Quit => {
-                let queue = self.queue.queue.read().expect("can't readlock queue");
-                self.config.with_state_mut(move |mut s| {
+                let queue = self.queue.queue.read().unwrap();
+                self.config.with_state_mut(move |s| {
                     debug!(
                         "saving state, {} items, current track: {:?}",
                         queue.len(),

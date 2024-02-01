@@ -394,7 +394,7 @@ impl SearchResultsView {
         self.spotify.api.update_token();
 
         // is the query a Spotify URI?
-        if let Some(uritype) = UriType::from_uri(&query) {
+        if let Ok(uritype) = query.parse() {
             match uritype {
                 UriType::Track => {
                     self.perform_search(

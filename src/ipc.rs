@@ -70,7 +70,7 @@ impl IpcSocket {
             mode: event.clone(),
             playable,
         };
-        self.tx.send(status).expect("Error publishing IPC update");
+        self.tx.send(status).unwrap();
     }
 
     async fn worker(listener: UnixListener, ev: EventManager, tx: Receiver<Status>) {

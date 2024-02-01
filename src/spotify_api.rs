@@ -95,26 +95,18 @@ impl WebApi {
 
         let (token_tx, token_rx) = std::sync::mpsc::channel();
         let cmd = WorkerCommand::RequestToken(token_tx);
-        if let Some(channel) = self
-            .worker_channel
-            .read()
-            .expect("can't readlock worker channel")
-            .as_ref()
-        {
-            channel.send(cmd).expect("can't send message to worker");
+        if let Some(channel) = self.worker_channel.read().unwrap().as_ref() {
+            channel.send(cmd).unwrap();
             let token_option = token_rx.recv().unwrap();
             if let Some(token) = token_option {
-                *self.api.token.lock().expect("can't writelock api token") = Some(Token {
+                *self.api.token.lock().unwrap() = Some(Token {
                     access_token: token.access_token,
                     expires_in: chrono::Duration::seconds(token.expires_in.into()),
                     scopes: HashSet::from_iter(token.scope),
                     expires_at: None,
                     refresh_token: None,
                 });
-                *self
-                    .token_expiration
-                    .write()
-                    .expect("could not writelock token") =
+                *self.token_expiration.write().unwrap() =
                     Utc::now() + ChronoDuration::seconds(token.expires_in.into());
             } else {
                 error!("Failed to update token");
@@ -231,7 +223,7 @@ impl WebApi {
             None
         };
 
-        if let Some(()) = self.api_with_retry(|api| {
+        let replace_items = self.api_with_retry(|api| {
             let playable_ids: Vec<PlayableId> = tracks
                 .iter()
                 .filter_map(|playable| playable.into())
@@ -240,7 +232,9 @@ impl WebApi {
                 PlaylistId::from_id(id).unwrap(),
                 playable_ids.iter().map(|p| p.as_ref()),
             )
-        }) {
+        });
+
+        if replace_items.is_some() {
             debug!("saved {} tracks to playlist {}", tracks.len(), id);
             while let Some(ref mut tracks) = remainder.clone() {
                 // grab the next set of 100 tracks
