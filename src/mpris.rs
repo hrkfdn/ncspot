@@ -137,6 +137,7 @@ impl MprisPlayer {
                         .track(&track.id.unwrap_or_default())
                         .as_ref()
                         .map(|t| Playable::Track(t.into()))
+                        .ok()
                 }
             }
             Playable::Episode(episode) => Some(Playable::Episode(episode)),
@@ -386,7 +387,7 @@ impl MprisPlayer {
         let uri_type = spotify_url.map(|s| s.uri_type);
         match uri_type {
             Some(UriType::Album) => {
-                if let Some(a) = self.spotify.api.album(&id) {
+                if let Ok(a) = self.spotify.api.album(&id) {
                     if let Some(t) = &Album::from(&a).tracks {
                         let should_shuffle = self.queue.get_shuffle();
                         self.queue.clear();
@@ -400,14 +401,14 @@ impl MprisPlayer {
                 }
             }
             Some(UriType::Track) => {
-                if let Some(t) = self.spotify.api.track(&id) {
+                if let Ok(t) = self.spotify.api.track(&id) {
                     self.queue.clear();
                     self.queue.append(Playable::Track(Track::from(&t)));
                     self.queue.play(0, false, false)
                 }
             }
             Some(UriType::Playlist) => {
-                if let Some(p) = self.spotify.api.playlist(&id) {
+                if let Ok(p) = self.spotify.api.playlist(&id) {
                     let mut playlist = Playlist::from(&p);
                     playlist.load_tracks(&self.spotify);
                     if let Some(tracks) = &playlist.tracks {
@@ -419,7 +420,7 @@ impl MprisPlayer {
                 }
             }
             Some(UriType::Show) => {
-                if let Some(s) = self.spotify.api.get_show(&id) {
+                if let Ok(s) = self.spotify.api.show(&id) {
                     let mut show: Show = (&s).into();
                     let spotify = self.spotify.clone();
                     show.load_all_episodes(spotify);
@@ -438,14 +439,14 @@ impl MprisPlayer {
                 }
             }
             Some(UriType::Episode) => {
-                if let Some(e) = self.spotify.api.episode(&id) {
+                if let Ok(e) = self.spotify.api.episode(&id) {
                     self.queue.clear();
                     self.queue.append(Playable::Episode(Episode::from(&e)));
                     self.queue.play(0, false, false)
                 }
             }
             Some(UriType::Artist) => {
-                if let Some(a) = self.spotify.api.artist_top_tracks(&id) {
+                if let Ok(a) = self.spotify.api.artist_top_tracks(&id) {
                     let should_shuffle = self.queue.get_shuffle();
                     self.queue.clear();
                     let index = self.queue.append_next(
@@ -527,7 +528,7 @@ impl MprisManager {
 
 /// Get the D-Bus bus name for this instance according to the MPRIS specification.
 ///
-/// https://specifications.freedesktop.org/mpris-spec/2.2/#Bus-Name-Policy
+/// <https://specifications.freedesktop.org/mpris-spec/2.2/#Bus-Name-Policy>
 pub fn instance_bus_name() -> String {
     format!(
         "org.mpris.MediaPlayer2.ncspot.instance{}",

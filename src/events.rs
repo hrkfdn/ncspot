@@ -4,6 +4,7 @@ use cursive::{CbSink, Cursive};
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
 
+/// Events that can be sent to and handled by the main event loop (the one drawing the TUI).
 pub enum Event {
     Player(PlayerEvent),
     Queue(QueueEvent),
@@ -11,11 +12,10 @@ pub enum Event {
     IpcInput(String),
 }
 
-pub type EventSender = Sender<Event>;
-
+/// Manager that can be used to send and receive messages across threads.
 #[derive(Clone)]
 pub struct EventManager {
-    tx: EventSender,
+    tx: Sender<Event>,
     rx: Receiver<Event>,
     cursive_sink: CbSink,
 }
@@ -31,17 +31,20 @@ impl EventManager {
         }
     }
 
+    /// Return a non-blocking iterator over the messages awaiting handling. Calling `next()` on the
+    /// iterator never blocks.
     pub fn msg_iter(&self) -> TryIter<Event> {
         self.rx.try_iter()
     }
 
+    /// Send a new event to be handled.
     pub fn send(&self, event: Event) {
         self.tx.send(event).expect("could not send event");
         self.trigger();
     }
 
+    /// Send a no-op to the Cursive event loop to trigger immediate processing of events.
     pub fn trigger(&self) {
-        // send a no-op to trigger event loop processing
         self.cursive_sink
             .send(Box::new(Cursive::noop))
             .expect("could not send no-op event to cursive");

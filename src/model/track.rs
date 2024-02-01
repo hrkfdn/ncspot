@@ -278,6 +278,7 @@ impl ListItem for Track {
             spotify
                 .api
                 .recommendations(None, None, Some(vec![id]))
+                .ok()
                 .map(|r| r.tracks)
                 .map(|tracks| tracks.iter().map(Self::from).collect())
         } else {
@@ -309,7 +310,7 @@ impl ListItem for Track {
         let spotify = queue.get_spotify();
 
         match self.album_id {
-            Some(ref album_id) => spotify.api.album(album_id).map(|ref fa| fa.into()),
+            Some(ref album_id) => spotify.api.album(album_id).map(|ref fa| fa.into()).ok(),
             None => None,
         }
     }

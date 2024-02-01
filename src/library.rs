@@ -21,11 +21,20 @@ use crate::model::show::Show;
 use crate::model::track::Track;
 use crate::spotify::Spotify;
 
+/// Cached tracks database filename.
 const CACHE_TRACKS: &str = "tracks.db";
+
+/// Cached albums database filename.
 const CACHE_ALBUMS: &str = "albums.db";
+
+/// Cached artists database filename.
 const CACHE_ARTISTS: &str = "artists.db";
+
+/// Cached playlists database filename.
 const CACHE_PLAYLISTS: &str = "playlists.db";
 
+/// The user library with all their saved tracks, albums, playlists... High level interface to the
+/// Spotify API used to manage items in the user library.
 #[derive(Clone)]
 pub struct Library {
     pub tracks: Arc<RwLock<Vec<Track>>>,
@@ -43,7 +52,7 @@ pub struct Library {
 
 impl Library {
     pub fn new(ev: EventManager, spotify: Spotify, cfg: Arc<Config>) -> Self {
-        let current_user = spotify.api.current_user();
+        let current_user = spotify.api.current_user().ok();
         let user_id = current_user.as_ref().map(|u| u.id.id().to_string());
         let display_name = current_user.as_ref().and_then(|u| u.display_name.clone());
 
@@ -149,7 +158,7 @@ impl Library {
             .position(|i| i.id == id);
 
         if let Some(position) = position {
-            if self.spotify.api.delete_playlist(id) {
+            if self.spotify.api.delete_playlist(id).is_ok() {
                 self.playlists
                     .write()
                     .expect("can't writelock playlists")
@@ -163,7 +172,7 @@ impl Library {
     }
 
     /// Set the playlist with `id` to contain only `tracks`. If the playlist already contains
-    /// tracks, they will be removed.
+    /// tracks, they will be removed. Update the cache to match the new state.
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.api.overwrite_playlist(id, tracks);
@@ -179,12 +188,12 @@ impl Library {
     pub fn save_playlist(&self, name: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to new list {}", tracks.len(), name);
         match self.spotify.api.create_playlist(name, None, None) {
-            Some(id) => self.overwrite_playlist(&id, tracks),
-            None => error!("could not create new playlist.."),
+            Ok(id) => self.overwrite_playlist(&id, tracks),
+            Err(_) => error!("could not create new playlist.."),
         }
     }
 
-    /// Update the local copy and cache of the library with the remote data.
+    /// Update the local library and its cache on disk.
     pub fn update_library(&self) {
         *self.is_done.write().unwrap() = false;
 
@@ -278,7 +287,7 @@ impl Library {
         debug!("loading shows");
 
         let mut saved_shows: Vec<Show> = Vec::new();
-        let mut shows_result = self.spotify.api.get_saved_shows(0);
+        let mut shows_result = self.spotify.api.get_saved_shows(0).ok();
 
         while let Some(shows) = shows_result {
             saved_shows.extend(shows.items.iter().map(|show| (&show.show).into()));
@@ -290,6 +299,7 @@ impl Library {
                     self.spotify
                         .api
                         .get_saved_shows(shows.offset + shows.items.len() as u32)
+                        .ok()
                 }
                 None => None,
             }
@@ -364,7 +374,7 @@ impl Library {
             let page = self.spotify.api.current_user_followed_artists(last);
             debug!("artists page: {}", i);
             i += 1;
-            if page.is_none() {
+            if page.is_err() {
                 error!("Failed to fetch artists.");
                 return;
             }
@@ -422,7 +432,7 @@ impl Library {
 
             i += 1;
 
-            if page.is_none() {
+            if page.is_err() {
                 error!("Failed to fetch albums.");
                 return;
             }
@@ -465,7 +475,7 @@ impl Library {
             debug!("tracks page: {}", i);
             i += 1;
 
-            if page.is_none() {
+            if page.is_err() {
                 error!("Failed to fetch tracks.");
                 return;
             }
@@ -604,7 +614,7 @@ impl Library {
             .api
             .current_user_saved_tracks_add(tracks.iter().filter_map(|t| t.id.as_deref()).collect());
 
-        if save_tracks_result.is_none() {
+        if save_tracks_result.is_err() {
             return;
         }
 
@@ -645,7 +655,7 @@ impl Library {
             .current_user_saved_tracks_delete(
                 tracks.iter().filter_map(|t| t.id.as_deref()).collect(),
             )
-            .is_none()
+            .is_err()
         {
             return;
         }
@@ -692,7 +702,7 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_albums_add(vec![album_id.as_str()])
-                .is_none()
+                .is_err()
             {
                 return;
             }
@@ -725,7 +735,7 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_albums_delete(vec![album_id.as_str()])
-                .is_none()
+                .is_err()
             {
                 return;
             }
@@ -763,7 +773,7 @@ impl Library {
                 .spotify
                 .api
                 .user_follow_artists(vec![artist_id.as_str()])
-                .is_none()
+                .is_err()
             {
                 return;
             }
@@ -799,7 +809,7 @@ impl Library {
                 .spotify
                 .api
                 .user_unfollow_artists(vec![artist_id.as_str()])
-                .is_none()
+                .is_err()
             {
                 return;
             }
@@ -846,7 +856,7 @@ impl Library {
 
         let follow_playlist_result = self.spotify.api.user_playlist_follow_playlist(&playlist.id);
 
-        if follow_playlist_result.is_none() {
+        if follow_playlist_result.is_err() {
             return;
         }
 
@@ -881,7 +891,7 @@ impl Library {
             return;
         }
 
-        if self.spotify.api.save_shows(&[show.id.as_str()]) {
+        if self.spotify.api.save_shows(&[show.id.as_str()]).is_ok() {
             {
                 let mut store = self.shows.write().unwrap();
                 if !store.iter().any(|s| s.id == show.id) {
@@ -897,7 +907,7 @@ impl Library {
             return;
         }
 
-        if self.spotify.api.unsave_shows(&[show.id.as_str()]) {
+        if self.spotify.api.unsave_shows(&[show.id.as_str()]).is_ok() {
             let mut store = self.shows.write().unwrap();
             *store = store.iter().filter(|s| s.id != show.id).cloned().collect();
         }

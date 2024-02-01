@@ -35,6 +35,7 @@ pub trait ListItem: Sync + Send + 'static {
     }
     fn share_url(&self) -> Option<String>;
 
+    /// Get the album that contains this [ListItem].
     fn album(&self, _queue: &Queue) -> Option<Album> {
         None
     }

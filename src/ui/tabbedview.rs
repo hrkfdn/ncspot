@@ -32,7 +32,7 @@ impl TabbedView {
         Default::default()
     }
 
-    /// Add `view` as a new tab to the end of this [TabsView].
+    /// Add `view` as a new tab to the end of this [TabbedView].
     pub fn add_tab(&mut self, title: impl Into<String>, view: impl IntoBoxedViewExt) {
         let tab = BoxedViewExt::new(view.into_boxed_view_ext()).with_name(title);
         self.tabs.push(tab);
@@ -54,7 +54,7 @@ impl TabbedView {
         self.tabs.len()
     }
 
-    /// Check whether there are tabs in this [TabsView].
+    /// Check whether there are tabs in this [TabbedView].
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
