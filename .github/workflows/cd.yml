@@ -43,6 +43,11 @@ jobs:
             os: macos-latest
             target: x86_64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
+          - build_target: macos-aarch64
+            os: macos-14
+            target: aarch64-apple-darwin
+            artifact_suffix: macos-aarch64
+            features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
           - build_target: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
