@@ -52,11 +52,18 @@ jobs:
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-          toolchain: stable
+      - uses: actions/checkout@v4
+        name: Checkout src
+      - name: Install rustup
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if ! command -v rustup &>/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
+          fi
+      - name: Add cross-compilation target
+        run: rustup target add ${{ matrix.target }}
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
@@ -71,8 +78,6 @@ jobs:
         run: |
           apt update
           apt install -y ${{ matrix.dependencies }}
-      - uses: actions/checkout@v4
-        name: Checkout src
       - uses: actions/cache@v4
         with:
           path: |

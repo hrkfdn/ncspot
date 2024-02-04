@@ -41,11 +41,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-          components: clippy, rustfmt
+      - name: Install rustup
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if ! command -v rustup &>/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --target ${{ matrix.target }} -y
+            echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
+          fi
+      - name: Install clippy + rustfmt
+        run: rustup component add clippy rustfmt
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
@@ -65,11 +70,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-unknown-linux-gnu
-          components: clippy, rustfmt
+      - name: Install rustup
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install clippy + rustfmt
+        run: rustup component add rustfmt
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
@@ -90,11 +94,10 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-unknown-linux-gnu
-          components: clippy, rustfmt
+      - name: Install rustup
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install clippy + rustfmt
+        run: rustup component add clippy
       - name: Install Linux dependencies
         run: |
           sudo apt update
