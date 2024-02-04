@@ -13,19 +13,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build_target: [linux, macos, windows]
+        build_target: [linux, macos-x86_64, macos-aarch64, windows]
         include:
           - build_target: linux
             os: ubuntu-latest
             artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
             features: ''
-          - build_target: macos
+          - build_target: macos-x86_64
             os: macos-latest
             artifact_suffix: macos-x86_64
             target: x86_64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
-          - build_target: macos
+          - build_target: macos-aarch64
             os: macos-14
             artifact_suffix: macos-aarch64
             target: aarch64-apple-darwin

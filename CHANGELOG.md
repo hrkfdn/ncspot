@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Instructions for installation with winget
 - Run tests in CI workflow
+- Add macOS arm64 builds to CI/CD
 
 ### Changed
 
