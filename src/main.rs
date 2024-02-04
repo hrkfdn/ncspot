@@ -3,10 +3,11 @@ extern crate cursive;
 #[macro_use]
 extern crate serde;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, process::exit};
 
 use application::{setup_logging, Application};
 use config::set_configuration_base_path;
+use log::error;
 use ncspot::program_arguments;
 
 mod application;
@@ -60,10 +61,20 @@ fn main() -> Result<(), String> {
         Some((_, _)) => unreachable!(),
         None => {
             // Create the application.
-            let mut application = Application::new(matches.get_one::<String>("config").cloned())?;
+            let mut application =
+                match Application::new(matches.get_one::<String>("config").cloned()) {
+                    Ok(application) => application,
+                    Err(error) => {
+                        eprintln!("{error}");
+                        error!("{error}");
+                        exit(-1);
+                    }
+                };
 
             // Start the application event loop.
             application.run()
         }
-    }
+    }?;
+
+    Ok(())
 }

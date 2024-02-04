@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
@@ -83,7 +84,7 @@ impl Application {
     /// # Arguments
     ///
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
-    pub fn new(configuration_file_path: Option<String>) -> Result<Self, String> {
+    pub fn new(configuration_file_path: Option<String>) -> Result<Self, Box<dyn Error>> {
         // Things here may cause the process to abort; we must do them before creating curses
         // windows otherwise the error message will not be seen by a user
 
@@ -115,7 +116,7 @@ impl Application {
         let event_manager = EventManager::new(cursive.cb_sink().clone());
 
         let spotify =
-            spotify::Spotify::new(event_manager.clone(), credentials, configuration.clone());
+            spotify::Spotify::new(event_manager.clone(), credentials, configuration.clone())?;
 
         let library = Arc::new(Library::new(
             event_manager.clone(),
@@ -252,7 +253,16 @@ impl Application {
                     Event::Queue(event) => {
                         self.queue.handle_event(event);
                     }
-                    Event::SessionDied => self.spotify.start_worker(None),
+                    Event::SessionDied => {
+                        if self.spotify.start_worker(None).is_err() {
+                            let data: UserData = self
+                                .cursive
+                                .user_data()
+                                .cloned()
+                                .expect("user data should be set");
+                            data.cmd.handle(&mut self.cursive, Command::Quit);
+                        };
+                    }
                     Event::IpcInput(input) => match command::parse(&input) {
                         Ok(commands) => {
                             if let Some(data) = self.cursive.user_data::<UserData>().cloned() {

@@ -60,7 +60,11 @@ pub struct Spotify {
 }
 
 impl Spotify {
-    pub fn new(events: EventManager, credentials: Credentials, cfg: Arc<config::Config>) -> Self {
+    pub fn new(
+        events: EventManager,
+        credentials: Credentials,
+        cfg: Arc<config::Config>,
+    ) -> Result<Self, Box<dyn Error>> {
         let mut spotify = Self {
             events,
             credentials,
@@ -73,7 +77,7 @@ impl Spotify {
         };
 
         let (user_tx, user_rx) = oneshot::channel();
-        spotify.start_worker(Some(user_tx));
+        spotify.start_worker(Some(user_tx))?;
         let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
         spotify.set_volume(volume);
@@ -83,30 +87,35 @@ impl Spotify {
 
         spotify.api.set_user(user);
 
-        spotify
+        Ok(spotify)
     }
 
     /// Start the worker thread. If `user_tx` is given, it will receive the username of the logged
     /// in user.
-    pub fn start_worker(&self, user_tx: Option<oneshot::Sender<String>>) {
+    pub fn start_worker(
+        &self,
+        user_tx: Option<oneshot::Sender<String>>,
+    ) -> Result<(), Box<dyn Error>> {
         let (tx, rx) = mpsc::unbounded_channel();
         *self.channel.write().unwrap() = Some(tx);
-        {
-            let worker_channel = self.channel.clone();
-            let cfg = self.cfg.clone();
-            let events = self.events.clone();
-            let volume = self.volume();
-            let credentials = self.credentials.clone();
-            ASYNC_RUNTIME.get().unwrap().spawn(Self::worker(
-                worker_channel,
-                events,
-                rx,
-                cfg,
-                credentials,
-                user_tx,
-                volume,
-            ));
-        }
+        let worker_channel = self.channel.clone();
+        let cfg = self.cfg.clone();
+        let events = self.events.clone();
+        let volume = self.volume();
+        let credentials = self.credentials.clone();
+        let backend_name = cfg.values().backend.clone();
+        let backend = Self::init_backend(backend_name)?;
+        ASYNC_RUNTIME.get().unwrap().spawn(Self::worker(
+            worker_channel,
+            events,
+            rx,
+            cfg,
+            credentials,
+            user_tx,
+            volume,
+            backend,
+        ));
+        Ok(())
     }
 
     /// Generate the librespot [SessionConfig] used when creating a [Session].
@@ -161,14 +170,19 @@ impl Spotify {
     }
 
     /// Create and initialize the requested audio backend.
-    fn init_backend(desired_backend: Option<String>) -> Option<SinkBuilder> {
+    fn init_backend(desired_backend: Option<String>) -> Result<SinkBuilder, Box<dyn Error>> {
         let backend = if let Some(name) = desired_backend {
             audio_backend::BACKENDS
                 .iter()
                 .find(|backend| name == backend.0)
+                .ok_or(format!(
+                    r#"configured audio backend "{name}" can't be found"#
+                ))?
         } else {
-            audio_backend::BACKENDS.first()
-        }?;
+            audio_backend::BACKENDS
+                .first()
+                .ok_or("no available audio backends found")?
+        };
 
         let backend_name = backend.0;
 
@@ -179,10 +193,11 @@ impl Spotify {
             env::set_var("PULSE_PROP_media.role", "music");
         }
 
-        Some(backend.1)
+        Ok(backend.1)
     }
 
     /// Create and run the worker thread.
+    #[allow(clippy::too_many_arguments)]
     async fn worker(
         worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
         events: EventManager,
@@ -191,6 +206,7 @@ impl Spotify {
         credentials: Credentials,
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
+        backend: SinkBuilder,
     ) {
         let bitrate_str = cfg.values().bitrate.unwrap_or(320).to_string();
         let bitrate = Bitrate::from_str(&bitrate_str);
@@ -216,9 +232,6 @@ impl Spotify {
         let mixer = create_mixer(MixerConfig::default());
         mixer.set_volume(volume);
 
-        let backend_name = cfg.values().backend.clone();
-        let backend =
-            Self::init_backend(backend_name).expect("Could not find an audio playback backend");
         let audio_format: librespot_playback::config::AudioFormat = Default::default();
         let (player, player_events) = Player::new(
             player_config,
