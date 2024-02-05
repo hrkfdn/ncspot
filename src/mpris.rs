@@ -1,3 +1,4 @@
+use log::info;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -274,7 +275,7 @@ impl MprisPlayer {
         log::info!("set volume: {volume}");
         volume = volume.clamp(0.0, 1.0);
         let vol = (VOLUME_PERCENT as f64) * volume * 100.0;
-        self.spotify.set_volume(vol as u16);
+        self.spotify.set_volume(vol as u16, false);
         self.event.trigger();
     }
 
@@ -461,8 +462,19 @@ impl MprisPlayer {
     }
 }
 
+/// Commands to control the [MprisManager] worker thread.
+pub enum MprisCommand {
+    /// Notify about playback status and metadata updates.
+    NotifyPlaybackUpdate,
+    /// Notify about volume updates.
+    NotifyVolumeUpdate,
+}
+
+/// An MPRIS server that internally manager a thread which can be sent commands. This is internally
+/// shared and cloning it will yield a reference to the same server.
+#[derive(Clone)]
 pub struct MprisManager {
-    tx: mpsc::UnboundedSender<()>,
+    tx: mpsc::UnboundedSender<MprisCommand>,
 }
 
 impl MprisManager {
@@ -480,7 +492,7 @@ impl MprisManager {
             spotify,
         };
 
-        let (tx, rx) = mpsc::unbounded_channel::<()>();
+        let (tx, rx) = mpsc::unbounded_channel::<MprisCommand>();
 
         ASYNC_RUNTIME.get().unwrap().spawn(async {
             let result = Self::serve(UnboundedReceiverStream::new(rx), root, player).await;
@@ -493,7 +505,7 @@ impl MprisManager {
     }
 
     async fn serve(
-        mut rx: UnboundedReceiverStream<()>,
+        mut rx: UnboundedReceiverStream<MprisCommand>,
         root: MprisRoot,
         player: MprisPlayer,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
@@ -511,15 +523,24 @@ impl MprisManager {
         let player_iface = player_iface_ref.get().await;
 
         loop {
-            rx.next().await;
             let ctx = player_iface_ref.signal_context();
-            player_iface.playback_status_changed(ctx).await?;
-            player_iface.metadata_changed(ctx).await?;
+            match rx.next().await {
+                Some(MprisCommand::NotifyPlaybackUpdate) => {
+                    player_iface.playback_status_changed(ctx).await?;
+                    player_iface.metadata_changed(ctx).await?;
+                }
+                Some(MprisCommand::NotifyVolumeUpdate) => {
+                    info!("sending MPRIS volume update signal");
+                    player_iface.volume_changed(ctx).await?;
+                }
+                None => break,
+            }
         }
+        Err("MPRIS server command channel closed".into())
     }
 
-    pub fn update(&self) {
-        if let Err(e) = self.tx.send(()) {
+    pub fn send(&self, command: MprisCommand) {
+        if let Err(e) = self.tx.send(command) {
             log::warn!("Could not update MPRIS state: {e}");
         }
     }

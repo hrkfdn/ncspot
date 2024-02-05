@@ -22,7 +22,7 @@ use crate::{authentication, ui, utils};
 use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
-use crate::mpris::{self, MprisManager};
+use crate::mpris::{self, MprisCommand, MprisManager};
 
 #[cfg(unix)]
 use crate::ipc::{self, IpcSocket};
@@ -115,7 +115,7 @@ impl Application {
 
         let event_manager = EventManager::new(cursive.cb_sink().clone());
 
-        let spotify =
+        let mut spotify =
             spotify::Spotify::new(event_manager.clone(), credentials, configuration.clone())?;
 
         let library = Arc::new(Library::new(
@@ -137,6 +137,9 @@ impl Application {
             library.clone(),
             spotify.clone(),
         );
+
+        #[cfg(feature = "mpris")]
+        spotify.set_mpris(mpris_manager.clone());
 
         #[cfg(unix)]
         let ipc = if let Ok(runtime_directory) = utils::create_runtime_directory() {
@@ -239,7 +242,7 @@ impl Application {
                         self.spotify.update_status(state.clone());
 
                         #[cfg(feature = "mpris")]
-                        self.mpris_manager.update();
+                        self.mpris_manager.send(MprisCommand::NotifyPlaybackUpdate);
 
                         #[cfg(unix)]
                         if let Some(ref ipc) = self.ipc {
