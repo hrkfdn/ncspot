@@ -36,6 +36,9 @@ inherits = "release"
 lto = false
 codegen-units = 16
 
+[lib]
+name = "ncspot_common"
+
 [dependencies]
 chrono = "0.4"
 clap = "4.5.4"
