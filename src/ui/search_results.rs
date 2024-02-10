@@ -1,3 +1,4 @@
+use crate::application::ASYNC_RUNTIME;
 use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::events::EventManager;
@@ -20,7 +21,6 @@ use cursive::Cursive;
 use rspotify::model::search::SearchResult;
 use rspotify::model::SearchType;
 use std::sync::{Arc, RwLock};
-use crate::application::ASYNC_RUNTIME;
 
 pub struct SearchResultsView {
     search_term: String,
@@ -392,7 +392,11 @@ impl SearchResultsView {
         // check if API token refresh is necessary before commencing multiple
         // requests to avoid deadlock, as the parallel requests might
         // simultaneously try to refresh the token
-        ASYNC_RUNTIME.get().unwrap().block_on(self.spotify.api.update_token().unwrap()).ok();
+        ASYNC_RUNTIME
+            .get()
+            .unwrap()
+            .block_on(self.spotify.api.update_token().unwrap())
+            .ok();
 
         // is the query a Spotify URI?
         if let Ok(uritype) = query.parse() {

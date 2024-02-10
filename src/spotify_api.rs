@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
+use crate::application::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use log::{debug, error, info};
 use rspotify::http::HttpError;
@@ -16,7 +17,6 @@ use rspotify::model::{
 use rspotify::{prelude::*, AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use crate::application::ASYNC_RUNTIME;
 
 use crate::model::album::Album;
 use crate::model::artist::Artist;
@@ -145,7 +145,8 @@ impl WebApi {
                         }
                         401 => {
                             debug!("token unauthorized. trying refresh..");
-                            self.update_token().and_then(move |_| {api_call(&self.api).ok()})
+                            self.update_token()
+                                .and_then(move |_| api_call(&self.api).ok())
                         }
                         _ => {
                             error!("unhandled api error: {:?}", response);
