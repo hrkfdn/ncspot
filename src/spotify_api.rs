@@ -101,9 +101,8 @@ impl WebApi {
             channel.send(cmd).unwrap();
             let api_token = self.api.token.clone();
             let api_token_expiration = self.token_expiration.clone();
-            let token_option = token_rx.recv().unwrap();
             Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-                if let Some(token) = token_option {
+                if let Some(token) = token_rx.recv().unwrap() {
                     *api_token.lock().unwrap() = Some(Token {
                         access_token: token.access_token,
                         expires_in: chrono::Duration::seconds(token.expires_in.into()),
