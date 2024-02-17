@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
+use crate::application::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use log::{debug, error, info};
 use rspotify::http::HttpError;
@@ -15,6 +16,7 @@ use rspotify::model::{
 };
 use rspotify::{prelude::*, AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::model::album::Album;
 use crate::model::artist::Artist;
@@ -79,7 +81,7 @@ impl WebApi {
     }
 
     /// Update the authentication token when it expires.
-    pub fn update_token(&self) {
+    pub fn update_token(&self) -> Option<JoinHandle<()>> {
         {
             let token_expiration = self.token_expiration.read().unwrap();
             let now = Utc::now();
@@ -87,7 +89,7 @@ impl WebApi {
 
             // token is valid for 5 more minutes, renewal is not necessary yet
             if delta.num_seconds() > 60 * 5 {
-                return;
+                return None;
             }
 
             info!("Token will expire in {}, renewing", delta);
@@ -97,22 +99,26 @@ impl WebApi {
         let cmd = WorkerCommand::RequestToken(token_tx);
         if let Some(channel) = self.worker_channel.read().unwrap().as_ref() {
             channel.send(cmd).unwrap();
-            let token_option = token_rx.recv().unwrap();
-            if let Some(token) = token_option {
-                *self.api.token.lock().unwrap() = Some(Token {
-                    access_token: token.access_token,
-                    expires_in: chrono::Duration::seconds(token.expires_in.into()),
-                    scopes: HashSet::from_iter(token.scope),
-                    expires_at: None,
-                    refresh_token: None,
-                });
-                *self.token_expiration.write().unwrap() =
-                    Utc::now() + ChronoDuration::seconds(token.expires_in.into());
-            } else {
-                error!("Failed to update token");
-            }
+            let api_token = self.api.token.clone();
+            let api_token_expiration = self.token_expiration.clone();
+            Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
+                if let Some(token) = token_rx.recv().unwrap() {
+                    *api_token.lock().unwrap() = Some(Token {
+                        access_token: token.access_token,
+                        expires_in: chrono::Duration::seconds(token.expires_in.into()),
+                        scopes: HashSet::from_iter(token.scope),
+                        expires_at: None,
+                        refresh_token: None,
+                    });
+                    *api_token_expiration.write().unwrap() =
+                        Utc::now() + ChronoDuration::seconds(token.expires_in.into());
+                } else {
+                    error!("Failed to update token");
+                }
+            }))
         } else {
             error!("worker channel is not set");
+            None
         }
     }
 
@@ -138,8 +144,8 @@ impl WebApi {
                         }
                         401 => {
                             debug!("token unauthorized. trying refresh..");
-                            self.update_token();
-                            api_call(&self.api).ok()
+                            self.update_token()
+                                .and_then(move |_| api_call(&self.api).ok())
                         }
                         _ => {
                             error!("unhandled api error: {:?}", response);
