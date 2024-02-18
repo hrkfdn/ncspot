@@ -17,6 +17,12 @@ brew install ncspot
 scoop install ncspot
 ```
 
+or via [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/):
+
+```powershell
+winget install hrkfdn.ncspot
+```
+
 ### On Linux
 <div>
 <a href="https://flathub.org/apps/details/io.github.hrkfdn.ncspot"><img width="130" alt="Download on Flathub" src="https://flathub.org/assets/badges/flathub-badge-en.png"/></a>
