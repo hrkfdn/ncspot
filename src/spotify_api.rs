@@ -117,8 +117,7 @@ impl WebApi {
                 }
             }))
         } else {
-            error!("worker channel is not set");
-            None
+            panic!("worker channel is not set");
         }
     }
 

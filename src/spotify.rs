@@ -83,11 +83,10 @@ impl Spotify {
         spotify.set_volume(volume);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
-        ASYNC_RUNTIME
-            .get()
-            .unwrap()
-            .block_on(spotify.api.update_token().unwrap())
-            .ok();
+        spotify
+            .api
+            .update_token()
+            .map(move |h| ASYNC_RUNTIME.get().unwrap().block_on(h).ok());
 
         spotify.api.set_user(user);
 
