@@ -392,11 +392,10 @@ impl SearchResultsView {
         // check if API token refresh is necessary before commencing multiple
         // requests to avoid deadlock, as the parallel requests might
         // simultaneously try to refresh the token
-        ASYNC_RUNTIME
-            .get()
-            .unwrap()
-            .block_on(self.spotify.api.update_token().unwrap())
-            .ok();
+        self.spotify
+            .api
+            .update_token()
+            .map(move |h| ASYNC_RUNTIME.get().unwrap().block_on(h).ok());
 
         // is the query a Spotify URI?
         if let Ok(uritype) = query.parse() {
