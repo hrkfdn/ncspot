@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Crash on Android (Termux) due to unknown user runtime directory
 - Crash due to misconfigured or unavailable audio backend
+- Missing MPRIS signal for volume changes when volume is changed from inside `ncspot`
 
 ## [1.0.0] - 2023-12-16
 

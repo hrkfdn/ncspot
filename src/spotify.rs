@@ -25,6 +25,8 @@ use crate::application::ASYNC_RUNTIME;
 use crate::config;
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
+#[cfg(feature = "mpris")]
+use crate::mpris::{MprisCommand, MprisManager};
 use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
 
@@ -46,6 +48,8 @@ pub enum PlayerEvent {
 pub struct Spotify {
     events: EventManager,
     /// The credentials for the currently logged in user, used to authenticate to the Spotify API.
+    #[cfg(feature = "mpris")]
+    mpris: Arc<std::sync::Mutex<Option<MprisManager>>>,
     credentials: Credentials,
     cfg: Arc<config::Config>,
     /// Playback status of the [Player] owned by the worker thread.
@@ -67,6 +71,8 @@ impl Spotify {
     ) -> Result<Self, Box<dyn Error>> {
         let mut spotify = Self {
             events,
+            #[cfg(feature = "mpris")]
+            mpris: Default::default(),
             credentials,
             cfg: cfg.clone(),
             status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
@@ -80,7 +86,7 @@ impl Spotify {
         spotify.start_worker(Some(user_tx))?;
         let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
-        spotify.set_volume(volume);
+        spotify.set_volume(volume, true);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
         spotify
@@ -396,11 +402,21 @@ impl Spotify {
         self.cfg.state().volume
     }
 
-    /// Set the current volume of the [Player].
-    pub fn set_volume(&self, volume: u16) {
+    /// Set the current volume of the [Player]. If `notify` is true, also notify MPRIS clients about
+    /// the update.
+    pub fn set_volume(&self, volume: u16, notify: bool) {
         info!("setting volume to {}", volume);
         self.cfg.with_state_mut(|s| s.volume = volume);
         self.send_worker(WorkerCommand::SetVolume(volume));
+        // HACK: This is a bit of a hack to prevent duplicate update signals when updating from the
+        // MPRIS implementation.
+        if notify {
+            #[cfg(feature = "mpris")]
+            if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
+                info!("updating MPRIS volume");
+                mpris_manager.send(MprisCommand::NotifyVolumeUpdate);
+            }
+        }
     }
 
     /// Preload the given [Playable] in the [Player]. This makes sure it can be played immediately
@@ -412,6 +428,11 @@ impl Spotify {
     /// Shut down the worker thread.
     pub fn shutdown(&self) {
         self.send_worker(WorkerCommand::Shutdown);
+    }
+
+    #[cfg(feature = "mpris")]
+    pub fn set_mpris(&mut self, mpris: MprisManager) {
+        *self.mpris.lock().unwrap() = Some(mpris);
     }
 }
 

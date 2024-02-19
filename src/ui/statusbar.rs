@@ -238,7 +238,7 @@ impl View for StatusBar {
                         .volume()
                         .saturating_add(crate::spotify::VOLUME_PERCENT);
 
-                    self.spotify.set_volume(volume);
+                    self.spotify.set_volume(volume, true);
                 }
 
                 if event == MouseEvent::WheelDown {
@@ -247,7 +247,7 @@ impl View for StatusBar {
                         .volume()
                         .saturating_sub(crate::spotify::VOLUME_PERCENT);
 
-                    self.spotify.set_volume(volume);
+                    self.spotify.set_volume(volume, true);
                 }
             } else if event == MouseEvent::Press(MouseButton::Left) {
                 self.queue.toggleplayback();
