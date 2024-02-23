@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use zbus::zvariant::{ObjectPath, Value};
-use zbus::{dbus_interface, ConnectionBuilder};
+use zbus::{interface, ConnectionBuilder};
 
 use crate::application::ASYNC_RUNTIME;
 use crate::library::Library;
@@ -29,34 +29,34 @@ use crate::{
 
 struct MprisRoot {}
 
-#[dbus_interface(name = "org.mpris.MediaPlayer2")]
+#[interface(name = "org.mpris.MediaPlayer2")]
 impl MprisRoot {
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_quit(&self) -> bool {
         false
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_raise(&self) -> bool {
         false
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn has_tracklist(&self) -> bool {
         true
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn identity(&self) -> &str {
         "ncspot"
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn supported_uri_schemes(&self) -> Vec<String> {
         vec!["spotify".to_string()]
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn supported_mime_types(&self) -> Vec<String> {
         Vec::new()
     }
@@ -73,9 +73,9 @@ struct MprisPlayer {
     spotify: Spotify,
 }
 
-#[dbus_interface(name = "org.mpris.MediaPlayer2.Player")]
+#[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn playback_status(&self) -> &str {
         match self.spotify.get_current_status() {
             PlayerEvent::Playing(_) | PlayerEvent::FinishedTrack => "Playing",
@@ -84,7 +84,7 @@ impl MprisPlayer {
         }
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn loop_status(&self) -> &str {
         match self.queue.get_repeat() {
             RepeatSetting::None => "None",
@@ -93,7 +93,7 @@ impl MprisPlayer {
         }
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn set_loop_status(&self, loop_status: &str) {
         let setting = match loop_status {
             "Track" => RepeatSetting::RepeatTrack,
@@ -104,22 +104,22 @@ impl MprisPlayer {
         self.event.trigger();
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn rate(&self) -> f64 {
         1.0
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn minimum_rate(&self) -> f64 {
         1.0
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn maximum_rate(&self) -> f64 {
         1.0
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn metadata(&self) -> HashMap<String, Value> {
         let mut hm = HashMap::new();
 
@@ -254,23 +254,23 @@ impl MprisPlayer {
         hm
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn shuffle(&self) -> bool {
         self.queue.get_shuffle()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn set_shuffle(&self, shuffle: bool) {
         self.queue.set_shuffle(shuffle);
         self.event.trigger();
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn volume(&self) -> f64 {
         self.spotify.volume() as f64 / 65535_f64
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn set_volume(&self, mut volume: f64) {
         log::info!("set volume: {volume}");
         volume = volume.clamp(0.0, 1.0);
@@ -279,37 +279,37 @@ impl MprisPlayer {
         self.event.trigger();
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn position(&self) -> i64 {
         self.spotify.get_current_progress().as_micros() as i64
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_go_next(&self) -> bool {
         self.queue.next_index().is_some()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_go_previous(&self) -> bool {
         self.queue.get_current().is_some()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_play(&self) -> bool {
         self.queue.get_current().is_some()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_pause(&self) -> bool {
         self.queue.get_current().is_some()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_seek(&self) -> bool {
         self.queue.get_current().is_some()
     }
 
-    #[dbus_interface(property)]
+    #[zbus(property)]
     fn can_control(&self) -> bool {
         self.queue.get_current().is_some()
     }
