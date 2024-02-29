@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Instructions for installation with winget
+
 ### Fixed
 
 - Crash on Android (Termux) due to unknown user runtime directory
 - Crash due to misconfigured or unavailable audio backend
 - Missing MPRIS signal for volume changes when volume is changed from inside `ncspot`
+- Crash when `ncspot` tried to update an API token that was still valid
+- Complete freeze when `ncspot` was running for a long time
 
 ## [1.0.0] - 2023-12-16
 
