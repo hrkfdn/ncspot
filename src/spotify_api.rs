@@ -102,7 +102,7 @@ impl WebApi {
             let api_token = self.api.token.clone();
             let api_token_expiration = self.token_expiration.clone();
             Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-                if let Some(token) = token_rx.recv().unwrap() {
+                if let Ok(Some(token)) = token_rx.recv() {
                     *api_token.lock().unwrap() = Some(Token {
                         access_token: token.access_token,
                         expires_in: chrono::Duration::seconds(token.expires_in.into()),

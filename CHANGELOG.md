@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash due to misconfigured or unavailable audio backend
 - Missing MPRIS signal for volume changes when volume is changed from inside `ncspot`
 - Crash when `ncspot` tried to update an API token that was still valid
+- Panic when token update attempt fails
 - Complete freeze when `ncspot` was running for a long time
 
 ## [1.0.0] - 2023-12-16
