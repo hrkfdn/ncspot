@@ -44,7 +44,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
           components: clippy, rustfmt
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
