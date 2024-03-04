@@ -15,7 +15,6 @@ jobs:
     container: ${{ matrix.container }}
     strategy:
       matrix:
-        build_target: [linux-x86_64, linux-arm64, linux-armhf, macos-x86_64, macos-aarch64, windows-x86_64]
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
