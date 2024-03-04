@@ -247,7 +247,7 @@ impl ViewExt for CoverView {
                     .and_then(|t| t.as_listitem().share_url());
 
                 if let Some(url) = url {
-                    crate::sharing::write_share(url);
+                    crate::sharing::write_share(url).ok();
                 }
 
                 return Ok(CommandResult::Consumed(None));

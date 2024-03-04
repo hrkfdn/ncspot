@@ -565,7 +565,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 };
 
                 if let Some(url) = url {
-                    write_share(url);
+                    write_share(url).ok();
                 }
 
                 return Ok(CommandResult::Consumed(None));
@@ -708,9 +708,9 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let url = match source {
                     InsertSource::Input(url) => Some(url.clone()),
                     #[cfg(feature = "share_clipboard")]
-                    InsertSource::Clipboard => {
-                        read_share().and_then(crate::spotify_url::SpotifyUrl::from_url)
-                    }
+                    InsertSource::Clipboard => read_share()
+                        .ok()
+                        .and_then(crate::spotify_url::SpotifyUrl::from_url),
                 };
 
                 let spotify = self.queue.get_spotify();
