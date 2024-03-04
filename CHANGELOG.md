@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Instructions for installation with winget
 
+### Changed
+
+- Switch to `arboard` for clipboard access as it is still maintained
+
 ### Fixed
 
 - Crash on Android (Termux) due to unknown user runtime directory

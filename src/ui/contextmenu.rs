@@ -305,7 +305,7 @@ impl ContextMenu {
                     }
                     #[cfg(feature = "share_clipboard")]
                     ContextMenuAction::ShareUrl(url) => {
-                        write_share(url.to_string());
+                        write_share(url.to_string()).ok();
                     }
                     ContextMenuAction::AddToPlaylist(track) => {
                         let dialog =
