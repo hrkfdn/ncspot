@@ -48,7 +48,7 @@ libc = "0.2.153"
 librespot-core = "0.4.2"
 librespot-playback = "0.4.2"
 librespot-protocol = "0.4.2"
-log = "0.4.16"
+log = "0.4.21"
 pancurses = {version = "0.17.0", optional = true}
 parse_duration = "2.1.1"
 platform-dirs = "0.3.0"
