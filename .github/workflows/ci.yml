@@ -13,19 +13,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build_target: [linux, macos, windows]
         include:
-          - build_target: linux
+          - build_target: linux-x86_64
             os: ubuntu-latest
             artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
             features: ''
-          - build_target: macos
-            os: macos-latest
-            artifact_suffix: macos-x86_64
-            target: x86_64-apple-darwin
-            features: '--no-default-features --features rodio_backend,cursive/pancurses-backend'
-          - build_target: windows
+          - build_target: macos-aarch64
+            os: macos-14
+            artifact_suffix: macos-aarch64
+            target: aarch64-apple-darwin
+            features: '--no-default-features --features rodio_backend,pancurses_backend'
+          - build_target: windows-x86_64
             os: windows-latest
             artifact_suffix: windows-x86_64
             target: x86_64-pc-windows-msvc
@@ -42,11 +41,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: ${{ matrix.target }}
-          components: clippy, rustfmt
+      - name: Install rustup
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if ! command -v rustup &>/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --target ${{ matrix.target }} -y
+            echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
+          fi
+      - name: Install clippy + rustfmt
+        run: rustup component add clippy rustfmt
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
@@ -56,7 +60,9 @@ jobs:
           sudo apt update
           sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Running cargo build
-        run: cargo check --locked --target ${{ matrix.target }} ${{ matrix.features }}
+        run: cargo build --locked --target ${{ matrix.target }} ${{ matrix.features }}
+      - name: Running cargo test
+        run: cargo test --locked --target ${{ matrix.target }} ${{ matrix.features }}
 
   # Check Rust code formatting.
   fmt:
@@ -64,11 +70,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-unknown-linux-gnu
-          components: clippy, rustfmt
+      - name: Install rustup
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install clippy + rustfmt
+        run: rustup component add rustfmt
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
@@ -89,11 +94,10 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-unknown-linux-gnu
-          components: clippy, rustfmt
+      - name: Install rustup
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install clippy + rustfmt
+        run: rustup component add clippy
       - name: Install Linux dependencies
         run: |
           sudo apt update
