@@ -2,6 +2,7 @@ use cursive::view::scroll::Scroller;
 use log::info;
 use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
+use std::time::{Instant, Duration};
 
 use cursive::align::HAlign;
 use cursive::event::{Callback, Event, EventResult, MouseButton, MouseEvent};
@@ -32,6 +33,8 @@ use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::pagination::Pagination;
 
+const DOUBLE_CLICK_TIME: Duration = Duration::from_millis(200);
+
 pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
     last_content_len: usize,
@@ -45,6 +48,7 @@ pub struct ListView<I: ListItem> {
     library: Arc<Library>,
     pagination: Pagination<I>,
     title: String,
+    last_click_time: Instant,
 }
 
 impl<I: ListItem> Scroller for ListView<I> {
@@ -72,6 +76,7 @@ impl<I: ListItem + Clone> ListView<I> {
             library,
             pagination: Pagination::default(),
             title: "".to_string(),
+            last_click_time: Instant::now(),
         };
         result.try_paginate();
         result
@@ -388,7 +393,8 @@ impl<I: ListItem + Clone> View for ListView<I> {
                         let currently_selected_is_individual = currently_selected_listitem
                             .filter(|item| item.track().is_some())
                             .is_some();
-                        if self.selected == clicked_row_index && currently_selected_is_individual {
+                        if self.selected == clicked_row_index && currently_selected_is_individual 
+                        && self.last_click_time.elapsed() < DOUBLE_CLICK_TIME {
                             // The selected position was already focused. Play the item at the
                             // position as if Enter was pressed. This sort of emulates double
                             // clicking, which isn't supported by Cursive.
@@ -404,6 +410,8 @@ impl<I: ListItem + Clone> View for ListView<I> {
                             let content = self.content.read().unwrap();
                             let clicked_list_item =
                                 content.get(self.selected).map(ListItem::as_listitem);
+
+                            self.last_click_time = Instant::now();
 
                             if let Some(target) = clicked_list_item {
                                 if let Some(view) =
