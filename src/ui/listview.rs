@@ -2,7 +2,7 @@ use cursive::view::scroll::Scroller;
 use log::info;
 use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, RwLock};
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use cursive::align::HAlign;
 use cursive::event::{Callback, Event, EventResult, MouseButton, MouseEvent};
@@ -393,8 +393,10 @@ impl<I: ListItem + Clone> View for ListView<I> {
                         let currently_selected_is_individual = currently_selected_listitem
                             .filter(|item| item.track().is_some())
                             .is_some();
-                        if self.selected == clicked_row_index && currently_selected_is_individual 
-                        && self.last_click_time.elapsed() < DOUBLE_CLICK_TIME {
+                        if self.selected == clicked_row_index
+                            && currently_selected_is_individual
+                            && self.last_click_time.elapsed() < DOUBLE_CLICK_TIME
+                        {
                             // The selected position was already focused. Play the item at the
                             // position as if Enter was pressed. This sort of emulates double
                             // clicking, which isn't supported by Cursive.
