@@ -102,6 +102,7 @@ pub struct ConfigValues {
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
     pub credentials: Option<Credentials>,
+    pub ap_port: Option<u16>,
 }
 
 /// Commands used to obtain user credentials automatically.

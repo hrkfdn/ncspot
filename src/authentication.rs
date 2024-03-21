@@ -45,7 +45,7 @@ pub fn get_credentials(configuration: &Config) -> Result<RespotCredentials, Stri
         }
     };
 
-    while let Err(error) = Spotify::test_credentials(credentials.clone()) {
+    while let Err(error) = Spotify::test_credentials(configuration, credentials.clone()) {
         let error_msg = format!("{error}");
         credentials = credentials_prompt(Some(error_msg))?;
     }
