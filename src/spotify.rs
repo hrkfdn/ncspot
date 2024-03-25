@@ -128,7 +128,7 @@ impl Spotify {
     }
 
     /// Generate the librespot [SessionConfig] used when creating a [Session].
-    pub fn session_config() -> SessionConfig {
+    pub fn session_config(cfg: &config::Config) -> SessionConfig {
         let mut session_config = SessionConfig::default();
         match env::var("http_proxy") {
             Ok(proxy) => {
@@ -137,12 +137,19 @@ impl Spotify {
             }
             Err(_) => debug!("No HTTP proxy set"),
         }
+        let ap_port = cfg.values().ap_port.unwrap_or(0);
+        if ap_port != 0 {
+            session_config.ap_port = Some(ap_port);
+        }
         session_config
     }
 
     /// Test whether `credentials` are valid Spotify credentials.
-    pub fn test_credentials(credentials: Credentials) -> Result<Session, SessionError> {
-        let config = Self::session_config();
+    pub fn test_credentials(
+        cfg: &config::Config,
+        credentials: Credentials,
+    ) -> Result<Session, SessionError> {
+        let config = Self::session_config(cfg);
         ASYNC_RUNTIME
             .get()
             .unwrap()
@@ -172,7 +179,7 @@ impl Spotify {
         )
         .expect("Could not create cache");
         debug!("opening spotify session");
-        let session_config = Self::session_config();
+        let session_config = Self::session_config(cfg);
         Session::connect(session_config, credentials, Some(cache), true)
             .await
             .map(|r| r.0)
