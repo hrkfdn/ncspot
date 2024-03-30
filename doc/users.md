@@ -266,7 +266,7 @@ Possible configuration values are:
 | `[notification_format]`         | Set the text displayed in notifications<sup>[4]</sup>          | See [notification formatting](#notification-formatting)                               |                     |
 | `[theme]`                       | Custom theme                                                   | See [custom theme](#theming)                                                          |                     |
 | `[keybindings]`                 | Custom keybindings                                             | See [custom keybindings](#custom-keybindings)                                         |                     |
-| `ap-port`                       | Set ap-port for librespot                                      | `0` (no port selected), `80`, `443`, `4070`                                           | `0`                 |
+| `ap-port`                       | Set ap-port for librespot (for restrictive firewalls)          | `80`, `443`, `4070`                                                                   |                     |
 
 1. If built with the `cover` feature.
 2. By default the statusbar will show a play icon when a track is playing and

@@ -137,9 +137,8 @@ impl Spotify {
             }
             Err(_) => debug!("No HTTP proxy set"),
         }
-        let ap_port = cfg.values().ap_port.unwrap_or(0);
-        if ap_port != 0 {
-            session_config.ap_port = Some(ap_port);
+        if let Some(ap_port) = cfg.values().ap_port {
+            session_config.ap_port = Some(ap_port)
         }
         session_config
     }
