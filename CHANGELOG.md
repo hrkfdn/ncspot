@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - All requests are correctly proxied when the relevant environment variables are set
+- `ncspot` binary is simultaneously linked with the system TLS library (native-tls) and Rustls - only native-tls is used now
 
 ## [1.1.0] - 2024-03-05
 
