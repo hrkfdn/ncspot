@@ -3394,9 +3394,9 @@ checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 
 [[package]]
 name = "rspotify"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f2cc614b66373d845df09177f6466457e5501cf593380c908ad91f0883afaf9"
+checksum = "efe9fecaed050e72eefa9a07702c3734abb0e82b70d7c867b32789e6f8fb5663"
 dependencies = [
  "base64 0.22.0",
  "chrono",
@@ -3415,9 +3415,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify-http"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ffede62dc961e7bccfbb93dbd3584bfa6b9d419aeff0a5eeeb776990d69284e"
+checksum = "612220388516c12ab0fc23917dd02a6693488dbb5ac615436ff60e7e88130ec1"
 dependencies = [
  "log",
  "maybe-async",
@@ -3428,15 +3428,15 @@ dependencies = [
 
 [[package]]
 name = "rspotify-macros"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e395720e0f07420e28b17ce7e6a1626d9574c42d5696a930c028d6dc44d23337"
+checksum = "6396935068e8615651966a7e44f1dbcfab7be02544862fb3ae65f1e086ad9a93"
 
 [[package]]
 name = "rspotify-model"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e741b3a6325998e117bb064b992ec5cc404d923ca3d25a5d226889997fc2878"
+checksum = "b94f104ee213b5cb53e6d797efc7e1825bb42981213265a2db7268efd51ecaff"
 dependencies = [
  "chrono",
  "enum_dispatch",
