@@ -401,13 +401,14 @@ impl Library {
         }
     }
 
-    // TODO: Add documentation
-    fn insert_artist(&self, id: &str, name: &str) {
+    /// Add the artist with `id` and `name` to the user library, but don't sync with the API.
+    /// This does not add if there is already an artist with `id`.
+    fn insert_artist(&self, id: String, name: String) {
         let mut artists = self.artists.write().unwrap();
 
         if !artists
             .iter()
-            .any(|a| a.id.clone().unwrap_or_default() == id)
+            .any(|a| a.id.as_ref().is_some_and(|value| *value == id))
         {
             let mut artist = Artist::new(id.to_string(), name.to_string());
             artist.tracks = Some(Vec::new());
@@ -522,7 +523,7 @@ impl Library {
             track_artists.dedup_by(|a, b| a.0 == b.0);
 
             for (id, name) in track_artists.iter() {
-                self.insert_artist(id, name);
+                self.insert_artist(id.to_string(), name.to_string());
             }
         }
 
