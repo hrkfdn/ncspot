@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add configuration variable to set Librespot AP port
+- Instructions for installation with `snap`
 
 ### Fixed
 - All requests are correctly proxied when the relevant environment variables are set
