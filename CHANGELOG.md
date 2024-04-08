@@ -5,35 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 
 ### Added
-- Add configuration variable to set Librespot AP port
+- `ap-port` configuration variable to choose what Spotify access point port to use
 - Instructions for installation with `snap`
 
 ### Fixed
-- All requests are correctly proxied when the relevant environment variables are set
-- `ncspot` binary is simultaneously linked with the system TLS library (native-tls) and Rustls - only native-tls is used now
+
+- Not all requests respecting proxy settings as configured with environment variables
 
 ## [1.1.0] - 2024-03-05
 
 ### Added
 
-- Instructions for installation with winget
-- Run tests in CI workflow
-- Add macOS arm64 builds to CI/CD
-
-### Changed
-
-- Switch to `arboard` for clipboard access as it is still maintained
+- Instructions for installation with `winget`
+- Automatic macOS arm64 builds to releases
 
 ### Fixed
 
 - Crash on Android (Termux) due to unknown user runtime directory
 - Crash due to misconfigured or unavailable audio backend
-- Missing MPRIS signal for volume changes when volume is changed from inside `ncspot`
-- Crash when `ncspot` tried to update an API token that was still valid
-- Panic when token update attempt fails
+- Volume changes from within `ncspot` not being reflected in the desktop notification
+- Crash when `ncspot` tried to update a valid API token or the update failed
 - Complete freeze when `ncspot` was running for a long time
 
 ## [1.0.0] - 2023-12-16
@@ -43,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Special color for unavailable items
 - Changelog with all the relevant user-facing changes to the project
 - `info` command line subcommand to show platform specific information
-- Append Git commit hash to version string
+- Git commit hash to version string to simplify determining the exact version
 
 ### Changed
 
@@ -60,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An unlikely crash when the UNIX IPC socket is removed before `ncspot` is closed
 - Guaranteed crash while quiting `ncspot` when using MPRIS
 - MPRIS volume not being updated when given numbers smaller than 0 or larger than 1
-- Allow previous track via MPRIS if first track in queue is playing
+- Play previous song command not working when first item in the queue was playing
 
 ## [0.13.4] - 2023-07-24
 
@@ -193,7 +187,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Albums with more than 50 songs not showing all the songs when viewed in the library
 - Bug that could cause items to not load until the screen is filled on bigger screens
 
-[Unreleased]: https://github.com/hrkfdn/ncspot/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/hrkfdn/ncspot/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/hrkfdn/ncspot/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/hrkfdn/ncspot/compare/v0.13.4...v1.0.0
 [0.13.4]: https://github.com/hrkfdn/ncspot/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/hrkfdn/ncspot/compare/v0.13.2...v0.13.3
