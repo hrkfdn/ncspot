@@ -339,17 +339,16 @@ pub enum CommandParseError {
 
 impl fmt::Display for CommandParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use CommandParseError::*;
         let formatted = match self {
-            NoSuchCommand { cmd } => format!("No such command \"{cmd}\""),
-            InsufficientArgs { cmd, hint } => {
+            Self::NoSuchCommand { cmd } => format!("No such command \"{cmd}\""),
+            Self::InsufficientArgs { cmd, hint } => {
                 if let Some(hint_str) = hint {
                     format!("\"{cmd}\" requires additional arguments: {hint_str}")
                 } else {
                     format!("\"{cmd}\" requires additional arguments")
                 }
             }
-            BadEnumArg {
+            Self::BadEnumArg {
                 arg,
                 accept,
                 optional,
@@ -361,7 +360,7 @@ impl fmt::Display for CommandParseError {
                     format!("Argument \"{arg}\" should be one of {accept}")
                 }
             }
-            ArgParseError { arg, err } => format!("Error with argument \"{arg}\": {err}"),
+            Self::ArgParseError { arg, err } => format!("Error with argument \"{arg}\": {err}"),
         };
         write!(f, "{formatted}")
     }
@@ -399,7 +398,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
 
         if let Some((command, args)) = components.split_first() {
             let command = handle_aliases(command);
-            use CommandParseError::*;
+            use CommandParseError as E;
             let command = match command {
                 "quit" => Command::Quit,
                 "playpause" => Command::TogglePlay,
@@ -413,7 +412,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "update" => Command::UpdateLibrary,
                 "add" => match args.first().cloned() {
                     Some("current") => Ok(Command::AddCurrent),
-                    Some(arg) => Err(BadEnumArg {
+                    Some(arg) => Err(E::BadEnumArg {
                         arg: arg.into(),
                         accept: vec!["current".into()],
                         optional: true,
@@ -423,7 +422,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "save" => match args.first().cloned() {
                     Some("queue") => Ok(Command::SaveQueue),
                     Some("current") => Ok(Command::SaveCurrent),
-                    Some(arg) => Err(BadEnumArg {
+                    Some(arg) => Err(E::BadEnumArg {
                         arg: arg.into(),
                         accept: vec!["queue".into(), "current".into()],
                         optional: true,
@@ -432,7 +431,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }?,
                 "delete" => Command::Delete,
                 "focus" => {
-                    let &target = args.first().ok_or(InsufficientArgs {
+                    let &target = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("queue|search|library".into()),
                     })?;
@@ -441,7 +440,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 "seek" => {
                     if args.is_empty() {
-                        return Err(InsufficientArgs {
+                        return Err(E::InsufficientArgs {
                             cmd: command.into(),
                             hint: Some("a duration".into()),
                         });
@@ -460,12 +459,12 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         // accept raw milliseconds
                         Ok(millis) => millis,
                         Err(_) => parse_duration::parse(&duration_raw) // accept fancy duration
-                            .map_err(|err| ArgParseError {
+                            .map_err(|err| E::ArgParseError {
                                 arg: duration_raw.clone(),
                                 err: err.to_string(),
                             })
                             .and_then(|dur| {
-                                dur.as_millis().try_into().map_err(|_| ArgParseError {
+                                dur.as_millis().try_into().map_err(|_| E::ArgParseError {
                                     arg: duration_raw.clone(),
                                     err: "Duration value too large".into(),
                                 })
@@ -478,7 +477,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                             .map(|millis| SeekDirection::Relative(-millis)),
                         _ => Ok(SeekDirection::Absolute(unsigned_millis)),
                     }
-                    .map_err(|_| ArgParseError {
+                    .map_err(|_| E::ArgParseError {
                         arg: duration_raw,
                         err: "Duration value too large".into(),
                     })?;
@@ -487,7 +486,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "volup" => {
                     let amount = match args.first() {
                         Some(&amount_raw) => {
-                            amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            amount_raw.parse::<u16>().map_err(|err| E::ArgParseError {
                                 arg: amount_raw.into(),
                                 err: err.to_string(),
                             })?
@@ -499,7 +498,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "voldown" => {
                     let amount = match args.first() {
                         Some(&amount_raw) => {
-                            amount_raw.parse::<u16>().map_err(|err| ArgParseError {
+                            amount_raw.parse::<u16>().map_err(|err| E::ArgParseError {
                                 arg: amount_raw.into(),
                                 err: err.to_string(),
                             })?
@@ -515,7 +514,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         }
                         Some("track" | "once" | "single") => Ok(Some(RepeatSetting::RepeatTrack)),
                         Some("none" | "off") => Ok(Some(RepeatSetting::None)),
-                        Some(arg) => Err(BadEnumArg {
+                        Some(arg) => Err(E::BadEnumArg {
                             arg: arg.into(),
                             accept: vec![
                                 "list".into(),
@@ -537,7 +536,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let switch = match args.first().cloned() {
                         Some("on") => Ok(Some(true)),
                         Some("off") => Ok(Some(false)),
-                        Some(arg) => Err(BadEnumArg {
+                        Some(arg) => Err(E::BadEnumArg {
                             arg: arg.into(),
                             accept: vec!["on".into(), "off".into()],
                             optional: true,
@@ -548,14 +547,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 #[cfg(feature = "share_clipboard")]
                 "share" => {
-                    let &target_mode_raw = args.first().ok_or(InsufficientArgs {
+                    let &target_mode_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("selected|current".into()),
                     })?;
                     let target_mode = match target_mode_raw {
                         "selected" => Ok(TargetMode::Selected),
                         "current" => Ok(TargetMode::Current),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
                             optional: false,
@@ -565,14 +564,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 "back" => Command::Back,
                 "open" => {
-                    let &target_mode_raw = args.first().ok_or(InsufficientArgs {
+                    let &target_mode_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("selected|current".into()),
                     })?;
                     let target_mode = match target_mode_raw {
                         "selected" => Ok(TargetMode::Selected),
                         "current" => Ok(TargetMode::Current),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
                             optional: false,
@@ -581,14 +580,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     Command::Open(target_mode)
                 }
                 "goto" => {
-                    let &goto_mode_raw = args.first().ok_or(InsufficientArgs {
+                    let &goto_mode_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("album|artist".into()),
                     })?;
                     let goto_mode = match goto_mode_raw {
                         "album" => Ok(GotoMode::Album),
                         "artist" => Ok(GotoMode::Artist),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: goto_mode_raw.into(),
                             accept: vec!["album".into(), "artist".into()],
                             optional: false,
@@ -597,19 +596,19 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     Command::Goto(goto_mode)
                 }
                 "move" => {
-                    let &move_mode_raw = args.first().ok_or(InsufficientArgs {
+                    let &move_mode_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("a direction".into()),
                     })?;
                     let move_mode = {
-                        use MoveMode::*;
+                        use MoveMode as M;
                         match move_mode_raw {
-                            "playing" => Ok(Playing),
-                            "top" | "pageup" | "up" => Ok(Up),
-                            "bottom" | "pagedown" | "down" => Ok(Down),
-                            "leftmost" | "pageleft" | "left" => Ok(Left),
-                            "rightmost" | "pageright" | "right" => Ok(Right),
-                            _ => Err(BadEnumArg {
+                            "playing" => Ok(M::Playing),
+                            "top" | "pageup" | "up" => Ok(M::Up),
+                            "bottom" | "pagedown" | "down" => Ok(M::Down),
+                            "leftmost" | "pageleft" | "left" => Ok(M::Left),
+                            "rightmost" | "pageright" | "right" => Ok(M::Right),
+                            _ => Err(E::BadEnumArg {
                                 arg: move_mode_raw.into(),
                                 accept: vec![
                                     "playing".into(),
@@ -638,7 +637,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 Some(&amount_raw) => amount_raw
                                     .parse::<f32>()
                                     .map(MoveAmount::Float)
-                                    .map_err(|err| ArgParseError {
+                                    .map_err(|err| E::ArgParseError {
                                         arg: amount_raw.into(),
                                         err: err.to_string(),
                                     })?,
@@ -651,7 +650,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 Some(&amount_raw) => amount_raw
                                     .parse::<i32>()
                                     .map(MoveAmount::Integer)
-                                    .map_err(|err| ArgParseError {
+                                    .map_err(|err| E::ArgParseError {
                                         arg: amount_raw.into(),
                                         err: err.to_string(),
                                     })?,
@@ -664,14 +663,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     Command::Move(move_mode, move_amount)
                 }
                 "shift" => {
-                    let &shift_dir_raw = args.first().ok_or(InsufficientArgs {
+                    let &shift_dir_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("up|down".into()),
                     })?;
                     let shift_dir = match shift_dir_raw {
                         "up" => Ok(ShiftMode::Up),
                         "down" => Ok(ShiftMode::Down),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: shift_dir_raw.into(),
                             accept: vec!["up".into(), "down".into()],
                             optional: false,
@@ -680,7 +679,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let amount = match args.get(1) {
                         Some(&amount_raw) => {
                             let amount =
-                                amount_raw.parse::<i32>().map_err(|err| ArgParseError {
+                                amount_raw.parse::<i32>().map_err(|err| E::ArgParseError {
                                     arg: amount_raw.into(),
                                     err: err.to_string(),
                                 })?;
@@ -703,12 +702,12 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         Some("") | None => Ok(InsertSource::Clipboard),
                         // if clipboard feature is disabled and args is empty
                         #[cfg(not(feature = "share_clipboard"))]
-                        None => Err(InsufficientArgs {
+                        None => Err(E::InsufficientArgs {
                             cmd: command.into(),
                             hint: Some("a Spotify URL".into()),
                         }),
                         Some(url) => SpotifyUrl::from_url(url).map(InsertSource::Input).ok_or(
-                            ArgParseError {
+                            E::ArgParseError {
                                 arg: url.into(),
                                 err: "Invalid Spotify URL".into(),
                             },
@@ -720,14 +719,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     if !args.is_empty() {
                         Ok(Command::NewPlaylist(args.join(" ")))
                     } else {
-                        Err(InsufficientArgs {
+                        Err(E::InsufficientArgs {
                             cmd: command.into(),
                             hint: Some("a name".into()),
                         })
                     }?
                 }
                 "sort" => {
-                    let &key_raw = args.first().ok_or(InsufficientArgs {
+                    let &key_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("a sort key".into()),
                     })?;
@@ -737,7 +736,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         "album" => Ok(SortKey::Album),
                         "added" => Ok(SortKey::Added),
                         "artist" => Ok(SortKey::Artist),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: key_raw.into(),
                             accept: vec![
                                 "title".into(),
@@ -752,7 +751,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     let direction = match args.get(1).copied() {
                         Some("a" | "asc" | "ascending") => Ok(SortDirection::Ascending),
                         Some("d" | "desc" | "descending") => Ok(SortDirection::Descending),
-                        Some(direction_raw) => Err(BadEnumArg {
+                        Some(direction_raw) => Err(E::BadEnumArg {
                             arg: direction_raw.into(),
                             accept: vec![
                                 "a".into(),
@@ -770,14 +769,14 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 }
                 "logout" => Command::Logout,
                 "similar" => {
-                    let &target_mode_raw = args.first().ok_or(InsufficientArgs {
+                    let &target_mode_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some("selected|current".into()),
                     })?;
                     let target_mode = match target_mode_raw {
                         "selected" => Ok(TargetMode::Selected),
                         "current" => Ok(TargetMode::Current),
-                        _ => Err(BadEnumArg {
+                        _ => Err(E::BadEnumArg {
                             arg: target_mode_raw.into(),
                             accept: vec!["selected".into(), "current".into()],
                             optional: false,
@@ -789,7 +788,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "exec" => Command::Execute(args.join(" ")),
                 "reconnect" => Command::Reconnect,
                 _ => {
-                    return Err(NoSuchCommand {
+                    return Err(E::NoSuchCommand {
                         cmd: command.into(),
                     })
                 }

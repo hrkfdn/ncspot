@@ -1,3 +1,5 @@
+#![allow(clippy::enum_glob_use)]
+
 use cursive::theme::BaseColor::*;
 use cursive::theme::Color::*;
 use cursive::theme::PaletteColor::*;
