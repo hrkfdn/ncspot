@@ -39,7 +39,7 @@ codegen-units = 16
 [dependencies]
 chrono = "0.4"
 clap = "4.5.4"
-arboard = {version = "3.3", optional = true}
+arboard = {version = "3.4", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "4.1.2", default-features = false, features = ["tokio"], optional = true}
 fern = "0.6"
@@ -65,7 +65,7 @@ tokio = {version = "1", features = ["rt-multi-thread", "sync", "time", "net"]}
 tokio-util = {version = "0.7.10", features = ["codec"]}
 tokio-stream = {version = "0.1.15", features = ["sync"]}
 toml = "0.8"
-unicode-width = "0.1.9"
+unicode-width = "0.1.12"
 url = "2.5"
 cursive_buffered_backend = "0.6.1"
 
