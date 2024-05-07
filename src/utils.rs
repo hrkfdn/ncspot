@@ -103,7 +103,7 @@ pub fn user_runtime_directory() -> Option<PathBuf> {
 
     if let Some(xdg_runtime_directory) = xdg_runtime_directory() {
         Some(xdg_runtime_directory.join("ncspot"))
-    } else if cfg!(linux) && linux_runtime_directory.exists() {
+    } else if cfg!(target_os = "linux") && linux_runtime_directory.exists() {
         Some(linux_runtime_directory.join("ncspot"))
     } else if unix_runtime_directory.exists() {
         Some(unix_runtime_directory.join(format!("ncspot-{}", unsafe { libc::getuid() })))
