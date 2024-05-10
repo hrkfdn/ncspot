@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Not all requests respecting proxy settings as configured with environment variables
+- MPRIS controls showing unknown artist/title on GNOME
 
 ## [1.1.0] - 2024-03-05
 
