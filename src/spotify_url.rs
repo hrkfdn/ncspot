@@ -98,7 +98,7 @@ mod tests {
         );
         test_cases.insert(
             "https://open.spotify.com/intl-pt/track/3Kj2M9gRU1Lwf5eiNjBtBp",
-            SpotifyUrl::new("3Kj2M9gRU1Lwf5eiNjBtBp", UriType::Track)
+            SpotifyUrl::new("3Kj2M9gRU1Lwf5eiNjBtBp", UriType::Track),
         );
         test_cases.insert(
             "https://open.spotify.com/user/~villainy~/playlist/0OgoSs65CLDPn6AF6tsZVg",
