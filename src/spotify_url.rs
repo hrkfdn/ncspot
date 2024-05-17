@@ -47,8 +47,11 @@ impl SpotifyUrl {
 
         let mut path_segments = url.path_segments()?;
 
-        let entity = path_segments.next()?;
+        let mut entity = path_segments.next()?;
 
+        if entity.to_lowercase().as_str().starts_with("intl-") {
+            entity = path_segments.next()?
+        }
         let uri_type = match entity.to_lowercase().as_str() {
             "album" => Some(UriType::Album),
             "artist" => Some(UriType::Artist),
@@ -92,6 +95,10 @@ mod tests {
         test_cases.insert(
             "https://open.spotify.com/track/6fRJg3R90w0juYoCJXxj2d",
             SpotifyUrl::new("6fRJg3R90w0juYoCJXxj2d", UriType::Track),
+        );
+        test_cases.insert(
+            "https://open.spotify.com/intl-pt/track/3Kj2M9gRU1Lwf5eiNjBtBp",
+            SpotifyUrl::new("3Kj2M9gRU1Lwf5eiNjBtBp", UriType::Track),
         );
         test_cases.insert(
             "https://open.spotify.com/user/~villainy~/playlist/0OgoSs65CLDPn6AF6tsZVg",
