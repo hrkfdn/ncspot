@@ -10,8 +10,6 @@
 
 tags
 
-/.vscode/
-
 # Ignore generated resources
 *.1
 /misc/_ncspot
