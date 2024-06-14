@@ -6,7 +6,7 @@ use std::{fs, process};
 
 use cursive::theme::Theme;
 use log::{debug, error};
-use ncspot::{CONFIGURATION_FILE_NAME, USER_STATE_FILE_NAME};
+use ncspot_common::{CONFIGURATION_FILE_NAME, USER_STATE_FILE_NAME};
 use platform_dirs::AppDirs;
 
 use crate::command::{SortDirection, SortKey};
