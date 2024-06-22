@@ -32,7 +32,7 @@ use crate::spotify_worker::{Worker, WorkerCommand};
 
 /// One percent of the maximum supported [Player] volume, used when setting the volume to a certain
 /// percent.
-pub const VOLUME_PERCENT: u16 = ((u16::max_value() as f64) * 1.0 / 100.0) as u16;
+pub const VOLUME_PERCENT: u16 = ((u16::MAX as f64) * 1.0 / 100.0) as u16;
 
 /// Events sent by the [Player].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
