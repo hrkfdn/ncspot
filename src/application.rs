@@ -18,7 +18,7 @@ use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::create_cursive;
-use crate::{authentication, ui, utils};
+use crate::{authentication, ui, lyrics, lyrics_fetcher, utils};
 use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
@@ -130,6 +130,15 @@ impl Application {
             library.clone(),
         ));
 
+        println!("Building lyrics manager");
+
+        let lyrics_manager = Arc::new(lyrics::LyricsManager::new(
+            queue.clone(),
+            lyrics_fetcher::default_fetcher(configuration.clone()),
+        ));
+
+        println!("Built lyrics manager");
+
         #[cfg(feature = "mpris")]
         let mpris_manager = mpris::MprisManager::new(
             event_manager.clone(),
@@ -176,6 +185,8 @@ impl Application {
 
         let queueview = ui::queue::QueueView::new(queue.clone(), library.clone());
 
+        let lyricsview = ui::lyrics::LyricsView::new(lyrics_manager.clone());
+
         #[cfg(feature = "cover")]
         let coverview = ui::cover::CoverView::new(queue.clone(), library.clone(), &configuration);
 
@@ -185,6 +196,7 @@ impl Application {
             ui::layout::Layout::new(status, &event_manager, theme, Arc::clone(&configuration))
                 .screen("search", search.with_name("search"))
                 .screen("library", libraryview.with_name("library"))
+                .screen("lyrics", lyricsview.with_name("lyrics"))
                 .screen("queue", queueview);
 
         #[cfg(feature = "cover")]

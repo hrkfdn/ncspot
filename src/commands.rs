@@ -473,6 +473,7 @@ impl CommandManager {
         kb.insert("F1".into(), vec![Command::Focus("queue".into())]);
         kb.insert("F2".into(), vec![Command::Focus("search".into())]);
         kb.insert("F3".into(), vec![Command::Focus("library".into())]);
+        kb.insert("F4".into(), vec![Command::Focus("lyrics".into())]);
         #[cfg(feature = "cover")]
         kb.insert("F8".into(), vec![Command::Focus("cover".into())]);
         kb.insert("?".into(), vec![Command::Help]);
