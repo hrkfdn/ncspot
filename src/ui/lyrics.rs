@@ -6,7 +6,7 @@ use cursive::{
     views::{DummyView, LinearLayout, ResizedView, ScrollView, TextContent, TextView},
 };
 
-use crate::{commands::CommandResult, lyrics::LyricsManager, traits::ViewExt, command::Command};
+use crate::{command::Command, commands::CommandResult, lyrics::LyricsManager, traits::ViewExt};
 
 pub struct LyricsView {
     manager: Arc<LyricsManager>,
