@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] - 2024-05-10
 
 ### Added
-- `ap-port` configuration variable to choose what Spotify access point port to use
+- `ap_port` configuration variable to choose what Spotify access point port to use
 - Instructions for installation with `snap`
 
 ### Fixed
