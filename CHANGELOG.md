@@ -210,4 +210,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.12.0]: https://github.com/hrkfdn/ncspot/compare/v0.11.2...v0.12.0
 [0.11.2]: https://github.com/hrkfdn/ncspot/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/hrkfdn/ncspot/compare/v0.11.0...v0.11.1
-[0.11.2]: https://github.com/hrkfdn/ncspot/compare/v0.11.1...v0.11.2
