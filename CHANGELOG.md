@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.2] - 2024-07-16
 
+### Added
+
+- Add maximum delay required for two consecutive clicks to be interpreted as a double-click
+
 ### Fixed
 
 - Handling localized Spotify URLs
