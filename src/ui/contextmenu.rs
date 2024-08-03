@@ -375,7 +375,7 @@ impl ViewExt for SelectArtistActionMenu {
     }
 }
 
-fn handle_move_command<T: 'static>(
+fn handle_move_command<T: Send + Sync + 'static>(
     sel: &mut Modal<Dialog>,
     s: &mut Cursive,
     cmd: &Command,

@@ -67,7 +67,6 @@ tokio-stream = {version = "0.1.15", features = ["sync"]}
 toml = "0.8"
 unicode-width = "0.1.13"
 url = "2.5"
-cursive_buffered_backend = "0.6.1"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.0"
@@ -79,7 +78,7 @@ version = "0.13.2"
 
 [dependencies.cursive]
 default-features = false
-version = "0.20.0"
+version = "0.21.0"
 
 [dependencies.notify-rust]
 default-features = false
