@@ -29,7 +29,7 @@ pub trait SelectViewExt {
     fn handle_command(&mut self, cmd: &Command) -> Result<CommandResult, String>;
 }
 
-impl<T: 'static> SelectViewExt for cursive::views::SelectView<T> {
+impl<T: Send + Sync + 'static> SelectViewExt for cursive::views::SelectView<T> {
     fn handle_command(&mut self, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Move(mode, amount) => {

@@ -26,8 +26,7 @@ pub mod cover;
 /// Create a CursiveRunner which implements the drawing logic and event loop.
 pub fn create_cursive() -> Result<CursiveRunner<Cursive>, Box<dyn std::error::Error>> {
     let backend = cursive::backends::try_default()?;
-    let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
-    let mut cursive_runner = CursiveRunner::new(cursive::Cursive::new(), buffered_backend);
+    let mut cursive_runner = CursiveRunner::new(cursive::Cursive::new(), backend);
 
     cursive_runner.set_window_title(BIN_NAME);
 
