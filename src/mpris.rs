@@ -1,3 +1,5 @@
+#![allow(clippy::use_self)]
+
 use log::info;
 use std::collections::HashMap;
 use std::error::Error;
@@ -6,6 +8,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
+use zbus::object_server::SignalContext;
 use zbus::zvariant::{ObjectPath, Value};
 use zbus::{interface, ConnectionBuilder};
 
@@ -314,6 +317,9 @@ impl MprisPlayer {
         self.queue.get_current().is_some()
     }
 
+    #[zbus(signal)]
+    async fn seeked(context: &SignalContext<'_>, position: &i64) -> zbus::Result<()>;
+
     fn next(&self) {
         self.queue.next(true)
     }
@@ -472,6 +478,8 @@ pub enum MprisCommand {
     EmitVolumeStatus,
     /// Emit metadata
     EmitMetadataStatus,
+    /// Emit seeked position
+    EmitSeekedStatus(i64),
 }
 
 /// An MPRIS server that internally manager a thread which can be sent commands. This is internally
@@ -538,6 +546,10 @@ impl MprisManager {
                 }
                 Some(MprisCommand::EmitMetadataStatus) => {
                     player_iface.metadata_changed(ctx).await?;
+                }
+                Some(MprisCommand::EmitSeekedStatus(pos)) => {
+                    info!("sending MPRIS seeked signal");
+                    MprisPlayer::seeked(ctx, &pos).await?;
                 }
                 None => break,
             }

@@ -313,6 +313,10 @@ impl Queue {
                     move || send_notification(&summary_txt, &body_txt, cover_url)
                 });
             }
+
+            // Send a Seeked signal at start of new track
+            #[cfg(feature = "mpris")]
+            self.spotify.notify_seeked(0);
         }
 
         if reshuffle && self.get_shuffle() {
