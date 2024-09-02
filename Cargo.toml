@@ -74,7 +74,7 @@ signal-hook = "0.3.0"
 [dependencies.rspotify]
 default-features = false
 features = ["client-ureq", "ureq-native-tls"]
-version = "0.13.2"
+version = "0.13.3"
 
 [dependencies.cursive]
 default-features = false
