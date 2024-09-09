@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 clap_mangen = "0.2.23"
-clap_complete = "4.5.24"
-clap = "4.5.16"
+clap_complete = "4.5.26"
+clap = "4.5.17"
 
 [dependencies.ncspot]
 default-features = false
