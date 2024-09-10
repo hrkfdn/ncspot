@@ -12,7 +12,7 @@ use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
 
 use crate::command::Command;
 use crate::commands::CommandManager;
-use crate::config::Config;
+use crate::config::{Config, PlaybackState};
 use crate::events::{Event, EventManager};
 use crate::library::Library;
 use crate::queue::Queue;
@@ -140,6 +140,27 @@ impl Application {
         #[cfg(feature = "mpris")]
         spotify.set_mpris(mpris_manager.clone());
 
+        // Load the last played track into the player
+        let playback_state = configuration.state().playback_state.clone();
+        let queue_state = configuration.state().queuestate.clone();
+
+        if let Some(playable) = queue.get_current() {
+            spotify.load(
+                &playable,
+                playback_state == PlaybackState::Playing,
+                queue_state.track_progress.as_millis() as u32,
+            );
+            spotify.update_track();
+            match playback_state {
+                PlaybackState::Stopped => {
+                    spotify.stop();
+                }
+                PlaybackState::Paused | PlaybackState::Playing | PlaybackState::Default => {
+                    spotify.pause();
+                }
+            }
+        }
+
         #[cfg(unix)]
         let ipc = if let Ok(runtime_directory) = utils::create_runtime_directory() {
             Some(
@@ -239,9 +260,6 @@ impl Application {
                     Event::Player(state) => {
                         trace!("event received: {:?}", state);
                         self.spotify.update_status(state.clone());
-
-                        #[cfg(feature = "mpris")]
-                        self.mpris_manager.send(MprisCommand::NotifyPlaybackUpdate);
 
                         #[cfg(unix)]
                         if let Some(ref ipc) = self.ipc {

@@ -463,11 +463,13 @@ impl MprisPlayer {
 }
 
 /// Commands to control the [MprisManager] worker thread.
+#[derive(Debug)]
 pub enum MprisCommand {
     /// Notify about playback status and metadata updates.
     NotifyPlaybackUpdate,
     /// Notify about volume updates.
     NotifyVolumeUpdate,
+    NotifyMetadataUpdate,
 }
 
 /// An MPRIS server that internally manager a thread which can be sent commands. This is internally
@@ -527,11 +529,13 @@ impl MprisManager {
             match rx.next().await {
                 Some(MprisCommand::NotifyPlaybackUpdate) => {
                     player_iface.playback_status_changed(ctx).await?;
-                    player_iface.metadata_changed(ctx).await?;
                 }
                 Some(MprisCommand::NotifyVolumeUpdate) => {
                     info!("sending MPRIS volume update signal");
                     player_iface.volume_changed(ctx).await?;
+                }
+                Some(MprisCommand::NotifyMetadataUpdate) => {
+                    player_iface.metadata_changed(ctx).await?;
                 }
                 None => break,
             }

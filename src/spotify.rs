@@ -17,7 +17,7 @@ use librespot_playback::config::PlayerConfig;
 use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::mixer::MixerConfig;
 use librespot_playback::player::Player;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use tokio::sync::mpsc;
 use url::Url;
 
@@ -315,6 +315,9 @@ impl Spotify {
             start_playing,
             position_ms,
         ));
+
+        #[cfg(feature = "mpris")]
+        self.send_mpris(MprisCommand::NotifyMetadataUpdate);
     }
 
     /// Update the cached status of the [Player]. This makes sure the status
@@ -338,6 +341,9 @@ impl Spotify {
 
         let mut status = self.status.write().unwrap();
         *status = new_status;
+
+        #[cfg(feature ="mpris")]
+        self.send_mpris(MprisCommand::NotifyPlaybackUpdate);
     }
 
     /// Reset the time tracking stats for the current song. This should be called when a new song is
@@ -359,6 +365,17 @@ impl Spotify {
             PlayerEvent::Playing(_) => self.pause(),
             PlayerEvent::Paused(_) => self.play(),
             _ => (),
+        }
+    }
+
+    /// Send an [MprisCommand] to the mpris thread.
+    #[cfg(feature ="mpris")]
+    fn send_mpris(&self, cmd: MprisCommand) {
+        debug!("Sending mpris command: {:?}", cmd);
+        if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
+            mpris_manager.send(cmd);
+        } else {
+            warn!("mpris context is unitialized");
         }
     }
 
@@ -418,10 +435,7 @@ impl Spotify {
         // MPRIS implementation.
         if notify {
             #[cfg(feature = "mpris")]
-            if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
-                info!("updating MPRIS volume");
-                mpris_manager.send(MprisCommand::NotifyVolumeUpdate);
-            }
+            self.send_mpris(MprisCommand::NotifyVolumeUpdate)
         }
     }
 
