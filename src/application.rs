@@ -22,7 +22,7 @@ use crate::{authentication, ui, utils};
 use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
-use crate::mpris::{self, MprisCommand, MprisManager};
+use crate::mpris::{self, MprisManager};
 
 #[cfg(unix)]
 use crate::ipc::{self, IpcSocket};
