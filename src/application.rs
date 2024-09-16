@@ -22,7 +22,7 @@ use crate::{authentication, ui, utils};
 use crate::{command, queue, spotify};
 
 #[cfg(feature = "mpris")]
-use crate::mpris::{self, MprisManager};
+use crate::mpris::MprisManager;
 
 #[cfg(unix)]
 use crate::ipc::{self, IpcSocket};
@@ -68,9 +68,6 @@ pub struct Application {
     /// Internally shared
     event_manager: EventManager,
     /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
-    #[cfg(feature = "mpris")]
-    mpris_manager: MprisManager,
-    /// An IPC implementation using a Unix domain socket, used to control and inspect ncspot.
     #[cfg(unix)]
     ipc: Option<IpcSocket>,
     /// The object to render to the terminal.
@@ -130,7 +127,7 @@ impl Application {
         ));
 
         #[cfg(feature = "mpris")]
-        let mpris_manager = mpris::MprisManager::new(
+        let mpris_manager = MprisManager::new(
             event_manager.clone(),
             queue.clone(),
             library.clone(),
@@ -229,8 +226,6 @@ impl Application {
             queue,
             spotify,
             event_manager,
-            #[cfg(feature = "mpris")]
-            mpris_manager,
             #[cfg(unix)]
             ipc,
             cursive,

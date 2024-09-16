@@ -317,7 +317,7 @@ impl Spotify {
         ));
 
         #[cfg(feature = "mpris")]
-        self.send_mpris(MprisCommand::MetadataUpdate);
+        self.send_mpris(MprisCommand::Metadata);
     }
 
     /// Update the cached status of the [Player]. This makes sure the status
@@ -342,8 +342,8 @@ impl Spotify {
         let mut status = self.status.write().unwrap();
         *status = new_status;
 
-        #[cfg(feature ="mpris")]
-        self.send_mpris(MprisCommand::PlaybackUpdate);
+        #[cfg(feature = "mpris")]
+        self.send_mpris(MprisCommand::Playback);
     }
 
     /// Reset the time tracking stats for the current song. This should be called when a new song is
@@ -369,7 +369,7 @@ impl Spotify {
     }
 
     /// Send an [MprisCommand] to the mpris thread.
-    #[cfg(feature ="mpris")]
+    #[cfg(feature = "mpris")]
     fn send_mpris(&self, cmd: MprisCommand) {
         debug!("Sending mpris command: {:?}", cmd);
         if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
@@ -435,7 +435,7 @@ impl Spotify {
         // MPRIS implementation.
         if notify {
             #[cfg(feature = "mpris")]
-            self.send_mpris(MprisCommand::VolumeUpdate)
+            self.send_mpris(MprisCommand::Volume)
         }
     }
 
