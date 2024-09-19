@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Switch to OAuth2 login mechanism
+
 ## [1.1.2] - 2024-07-16
 
 ### Fixed
