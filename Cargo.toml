@@ -47,6 +47,7 @@ futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.158"
 librespot-core = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
+librespot-oauth = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-playback = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-protocol = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 log = "0.4.22"
