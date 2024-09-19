@@ -21,6 +21,7 @@ use tokio::sync::mpsc;
 use url::Url;
 
 use crate::application::ASYNC_RUNTIME;
+use crate::authentication::SPOTIFY_CLIENT_ID;
 use crate::config;
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
@@ -129,7 +130,7 @@ impl Spotify {
     /// Generate the librespot [SessionConfig] used when creating a [Session].
     pub fn session_config(cfg: &config::Config) -> SessionConfig {
         let mut session_config = librespot_core::SessionConfig {
-            client_id: config::CLIENT_ID.to_string(),
+            client_id: SPOTIFY_CLIENT_ID.to_string(),
             ..Default::default()
         };
         match env::var("http_proxy") {
