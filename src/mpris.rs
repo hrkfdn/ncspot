@@ -463,11 +463,15 @@ impl MprisPlayer {
 }
 
 /// Commands to control the [MprisManager] worker thread.
+#[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum MprisCommand {
-    /// Notify about playback status and metadata updates.
-    NotifyPlaybackUpdate,
-    /// Notify about volume updates.
-    NotifyVolumeUpdate,
+    /// Emit playback status
+    EmitPlaybackStatus,
+    /// Emit volume
+    EmitVolumeStatus,
+    /// Emit metadata
+    EmitMetadataStatus,
 }
 
 /// An MPRIS server that internally manager a thread which can be sent commands. This is internally
@@ -525,13 +529,15 @@ impl MprisManager {
         loop {
             let ctx = player_iface_ref.signal_context();
             match rx.next().await {
-                Some(MprisCommand::NotifyPlaybackUpdate) => {
+                Some(MprisCommand::EmitPlaybackStatus) => {
                     player_iface.playback_status_changed(ctx).await?;
-                    player_iface.metadata_changed(ctx).await?;
                 }
-                Some(MprisCommand::NotifyVolumeUpdate) => {
+                Some(MprisCommand::EmitVolumeStatus) => {
                     info!("sending MPRIS volume update signal");
                     player_iface.volume_changed(ctx).await?;
+                }
+                Some(MprisCommand::EmitMetadataStatus) => {
+                    player_iface.metadata_changed(ctx).await?;
                 }
                 None => break,
             }
