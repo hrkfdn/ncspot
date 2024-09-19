@@ -317,7 +317,7 @@ impl Spotify {
         ));
 
         #[cfg(feature = "mpris")]
-        self.send_mpris(MprisCommand::Metadata);
+        self.send_mpris(MprisCommand::EmitMetadataStatus);
     }
 
     /// Update the cached status of the [Player]. This makes sure the status
@@ -343,7 +343,7 @@ impl Spotify {
         *status = new_status;
 
         #[cfg(feature = "mpris")]
-        self.send_mpris(MprisCommand::Playback);
+        self.send_mpris(MprisCommand::EmitPlaybackStatus);
     }
 
     /// Reset the time tracking stats for the current song. This should be called when a new song is
@@ -435,7 +435,7 @@ impl Spotify {
         // MPRIS implementation.
         if notify {
             #[cfg(feature = "mpris")]
-            self.send_mpris(MprisCommand::Volume)
+            self.send_mpris(MprisCommand::EmitVolumeStatus)
         }
     }
 
