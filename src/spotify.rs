@@ -415,6 +415,8 @@ impl Spotify {
     /// Seek in the currently played [Playable] played by the [Player].
     pub fn seek(&self, position_ms: u32) {
         self.send_worker(WorkerCommand::Seek(position_ms));
+        #[cfg(feature = "mpris")]
+        self.notify_seeked(position_ms);
     }
 
     /// Seek relatively to the current playback position of the [Player].
@@ -427,6 +429,19 @@ impl Spotify {
     /// Get the current volume of the [Player].
     pub fn volume(&self) -> u16 {
         self.cfg.state().volume
+    }
+
+    /// Send a Seeked signal on Mpris interface
+    #[cfg(feature = "mpris")]
+    pub fn notify_seeked(&self, position_ms: u32) {
+        let new_position = Duration::from_millis(position_ms.into());
+        let command = MprisCommand::EmitSeekedStatus(
+            new_position
+                .as_micros()
+                .try_into()
+                .expect("track position exceeds MPRIS datatype"),
+        );
+        self.send_mpris(command);
     }
 
     /// Set the current volume of the [Player]. If `notify` is true, also notify MPRIS clients about
