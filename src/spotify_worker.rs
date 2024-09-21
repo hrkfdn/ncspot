@@ -32,6 +32,12 @@ pub(crate) enum WorkerCommand {
     Shutdown,
 }
 
+enum PlayerStatus {
+    Playing,
+    Paused,
+    Stopped,
+}
+
 pub struct Worker {
     events: EventManager,
     player_events: UnboundedReceiverStream<LibrespotPlayerEvent>,
@@ -39,7 +45,7 @@ pub struct Worker {
     session: Session,
     player: Arc<Player>,
     token_task: Pin<Box<dyn Future<Output = ()> + Send>>,
-    active: bool,
+    player_status: PlayerStatus,
     mixer: Arc<dyn Mixer>,
 }
 
@@ -59,7 +65,7 @@ impl Worker {
             player,
             session,
             token_task: Box::pin(futures::future::pending()),
-            active: false,
+            player_status: PlayerStatus::Stopped,
             mixer,
         }
     }
@@ -142,7 +148,7 @@ impl Worker {
                         let playback_start = SystemTime::now() - position;
                         self.events
                             .send(Event::Player(PlayerEvent::Playing(playback_start)));
-                        self.active = true;
+                        self.player_status = PlayerStatus::Playing;
                     }
                     Some(LibrespotPlayerEvent::Paused {
                         play_request_id: _,
@@ -152,11 +158,11 @@ impl Worker {
                         let position = Duration::from_millis(position_ms as u64);
                         self.events
                             .send(Event::Player(PlayerEvent::Paused(position)));
-                        self.active = false;
+                        self.player_status = PlayerStatus::Paused;
                     }
                     Some(LibrespotPlayerEvent::Stopped { .. }) => {
                         self.events.send(Event::Player(PlayerEvent::Stopped));
-                        self.active = false;
+                        self.player_status = PlayerStatus::Stopped;
                     }
                     Some(LibrespotPlayerEvent::EndOfTrack { .. }) => {
                         self.events.send(Event::Player(PlayerEvent::FinishedTrack));
@@ -165,15 +171,29 @@ impl Worker {
                         self.events
                             .send(Event::Queue(QueueEvent::PreloadTrackRequest));
                     }
+                    Some(LibrespotPlayerEvent::Seeked { play_request_id: _, track_id: _, position_ms}) => {
+                        let position = Duration::from_millis(position_ms as u64);
+                        let event = match self.player_status {
+                            PlayerStatus::Playing => {
+                                let playback_start = SystemTime::now() - position;
+                                PlayerEvent::Playing(playback_start)
+                            },
+                            PlayerStatus::Paused => PlayerEvent::Paused(position),
+                            PlayerStatus::Stopped => PlayerEvent::Stopped,
+                        };
+                        self.events.send(Event::Player(event));
+                    }
+                    Some(event) => {
+                        debug!("Unhandled player event: {event:?}");
+                    }
                     None => {
                         warn!("Librespot player event channel died, terminating worker");
                         break
                     },
-                    _ => {}
                 },
                 // Update animated parts of the UI (e.g. statusbar during playback).
                 _ = ui_refresh.tick() => {
-                    if self.active {
+                    if !matches!(self.player_status, PlayerStatus::Stopped) {
                         self.events.trigger();
                     }
                 },
