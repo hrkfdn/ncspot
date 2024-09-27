@@ -2069,9 +2069,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.158"
+version = "0.2.159"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
+checksum = "561d97a539a36e26a9a5fad1ea11a3039a67714694aaa379433e580854bc3dc5"
 
 [[package]]
 name = "libloading"
@@ -2161,7 +2161,7 @@ dependencies = [
 [[package]]
 name = "librespot-audio"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "aes",
  "byteorder",
@@ -2183,7 +2183,7 @@ dependencies = [
 [[package]]
 name = "librespot-core"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -2237,7 +2237,7 @@ dependencies = [
 [[package]]
 name = "librespot-metadata"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -2255,7 +2255,7 @@ dependencies = [
 [[package]]
 name = "librespot-oauth"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "log",
  "oauth2",
@@ -2266,7 +2266,7 @@ dependencies = [
 [[package]]
 name = "librespot-playback"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "alsa",
  "byteorder",
@@ -2293,7 +2293,7 @@ dependencies = [
 [[package]]
 name = "librespot-protocol"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?branch=dev#e02e4ae224173fe63612e7542d656b0eadabc719"
+source = "git+https://github.com/librespot-org/librespot?branch=dev#118a9e1a516028b75f2dbf7c50ed8a4f28fe20f5"
 dependencies = [
  "protobuf",
  "protobuf-codegen",
