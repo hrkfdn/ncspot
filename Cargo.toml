@@ -28,12 +28,10 @@ multiple_inherent_impl = "deny"
 workspace = true
 
 [profile.release]
-lto = true
 codegen-units = 1
 
 [profile.optimized]
 inherits = "release"
-lto = false
 codegen-units = 16
 
 [dependencies]
