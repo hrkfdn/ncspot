@@ -23,22 +23,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
             features: ''
             dependencies: 'libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev'
-          - build_target: linux-arm64
-            os: ubuntu-latest
-            container: ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main
-            target: aarch64-unknown-linux-gnu
-            features: '--no-default-features --features alsa_backend,cursive/crossterm-backend'
-            dependencies: 'libasound2-dev:arm64 libssl-dev:arm64'
-            cross_arch: 'arm64'
-            pkg_config_path: '/usr/lib/aarch64-linux-gnu/pkgconfig/'
-          - build_target: linux-armhf
-            os: ubuntu-latest
-            container: ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main
-            target: armv7-unknown-linux-gnueabihf
-            features: '--no-default-features --features alsa_backend,cursive/crossterm-backend'
-            dependencies: 'libasound2-dev:armhf libssl-dev:armhf'
-            cross_arch: 'armhf'
-            pkg_config_path: '/usr/lib/arm-linux-gnueabihf/pkgconfig/'
           - build_target: macos-x86_64
             os: macos-latest
             target: x86_64-apple-darwin
@@ -68,12 +52,6 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
-      - name: Set up cross compilation
-        if: matrix.cross_arch
-        run: |
-          dpkg --add-architecture ${{ matrix.cross_arch }}
-          echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
       - name: Install Linux dependencies
         if: startsWith(matrix.build_target, 'linux-')
         run: |
