@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Switch to OAuth2 login mechanism
+- Uses librespot 0.5.0 which containts many bugfixes, including:
+  - Files are downloaded via CDN, which should fix playback of some podcasts
+  - Better access point connection handling, hopefully resulting in faster startups
+  - Fix frequent disconnections for some users
 
 ## [1.1.2] - 2024-07-16
 
