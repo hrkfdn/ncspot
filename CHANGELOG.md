@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Emit MPRIS `Seeked` signal
 
+### Added
+
+- Add maximum delay required for two consecutive clicks to be interpreted as a double-click
+
 ### Fixed
 
 - Switch to OAuth2 login mechanism
