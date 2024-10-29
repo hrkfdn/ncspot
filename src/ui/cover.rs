@@ -33,8 +33,8 @@ impl CoverView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, config: &Config) -> Self {
         // Determine size of window both in pixels and chars
         let (rows, cols, mut xpixels, mut ypixels) = unsafe {
-            let query: (u16, u16, u16, u16) = (0, 0, 0, 0);
-            ioctl(1, TIOCGWINSZ, &query);
+            let mut query: (u16, u16, u16, u16) = (0, 0, 0, 0);
+            ioctl(1, TIOCGWINSZ, &mut query);
             query
         };
 
