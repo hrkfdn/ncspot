@@ -5,7 +5,7 @@ use clap::builder::PathBufValueParser;
 use clap::error::{Error, ErrorKind};
 use clap::ArgMatches;
 use clap_complete::Shell;
-use ncspot::{AUTHOR, BIN_NAME};
+use ncspot_common::{AUTHOR, BIN_NAME};
 
 static DEFAULT_OUTPUT_DIRECTORY: &str = "misc";
 
@@ -109,7 +109,7 @@ fn generate_manpage(subcommand_arguments: &ArgMatches) -> Result<(), DynError> {
     let output_directory = subcommand_arguments
         .get_one::<PathBuf>("output")
         .unwrap_or(&default_output_directory);
-    let cmd = ncspot::program_arguments();
+    let cmd = ncspot_common::program_arguments();
     let man = clap_mangen::Man::new(cmd);
     let mut buffer: Vec<u8> = Default::default();
 
@@ -154,7 +154,7 @@ fn generate_shell_completion(subcommand_arguments: &ArgMatches) -> Result<(), Dy
     for shell in shells {
         clap_complete::generate_to(
             shell,
-            &mut ncspot::program_arguments(),
+            &mut ncspot_common::program_arguments(),
             BIN_NAME,
             output_directory,
         )?;
