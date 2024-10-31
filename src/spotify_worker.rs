@@ -1,3 +1,4 @@
+use crate::authentication;
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
@@ -74,7 +75,7 @@ impl Worker {
         let scopes = "user-read-private,playlist-read-private,playlist-read-collaborative,playlist-modify-public,playlist-modify-private,user-follow-modify,user-follow-read,user-library-read,user-library-modify,user-top-read,user-read-recently-played";
         session
             .token_provider()
-            .get_token(scopes)
+            .get_token_with_client_id(scopes, authentication::NCSPOT_CLIENT_ID)
             .map(|response| sender.send(response.ok()).expect("token channel is closed"))
             .await;
     }
