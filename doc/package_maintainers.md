@@ -18,7 +18,7 @@ generated. Execute `cargo xtask --help` for more information.
 - LICENSE
 - images/logo.svg (optional)
 - misc/ncspot.desktop (for Linux systems)
-- misc/ncspot.1 (for Linux systems)
+- misc/*.1 (for Linux systems)
 - misc/ncspot.bash (bash completions)
 - misc/\_ncspot (zsh completions)
 - misc/ncspot.fish (fish completions)
