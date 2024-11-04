@@ -2453,7 +2453,7 @@ dependencies = [
  "toml",
  "unicode-width 0.2.0",
  "url",
- "zbus 5.0.1",
+ "zbus 5.1.0",
 ]
 
 [[package]]
@@ -5592,9 +5592,9 @@ dependencies = [
 
 [[package]]
 name = "zbus"
-version = "5.0.1"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "333be40ef37976542e10832ba961e3e44ea215a6b1e2673066b303ee3e0ede10"
+checksum = "4e0c8d6fdd4c4ac401fd298fd169d538a386e9df3c32ff136e8745dfa443dbd8"
 dependencies = [
  "async-broadcast",
  "async-process",
@@ -5614,8 +5614,9 @@ dependencies = [
  "tracing",
  "uds_windows",
  "windows-sys 0.59.0",
+ "winnow",
  "xdg-home",
- "zbus_macros 5.0.1",
+ "zbus_macros 5.1.0",
  "zbus_names 4.0.0",
  "zvariant 5.0.1",
 ]
@@ -5635,14 +5636,16 @@ dependencies = [
 
 [[package]]
 name = "zbus_macros"
-version = "5.0.1"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "381be624000c82e716c2a45d9213fabacf82177591fa8a6ff655d2825450601a"
+checksum = "ed1f3cc6313cbefd539b4eee6de36a990897ab6cc2c30a82b3ac29ef9099e6c0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.85",
+ "zbus_names 4.0.0",
+ "zvariant 5.0.1",
  "zvariant_utils 3.0.1",
 ]
 
