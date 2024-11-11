@@ -41,11 +41,11 @@ chrono = "0.4"
 clap = "4.5.20"
 arboard = {version = "3.4", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "5.1.0", default-features = false, features = ["tokio"], optional = true}
+zbus = {version = "5.1.1", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.161"
+libc = "0.2.162"
 librespot-core = "0.6.0"
 librespot-oauth = "0.6.0"
 librespot-playback = "0.6.0"
