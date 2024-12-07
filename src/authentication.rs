@@ -7,7 +7,6 @@ use crate::config::{self, Config};
 use crate::spotify::Spotify;
 
 pub const SPOTIFY_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
-pub const NCSPOT_CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 pub const CLIENT_REDIRECT_URI: &str = "http://127.0.0.1:8989/login";
 
 static OAUTH_SCOPES: &[&str] = &[
