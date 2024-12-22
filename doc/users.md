@@ -459,17 +459,3 @@ The credentials are stored in `librespot/credentials.json` in the user's cache d
 
 The `logout` command can be used to remove cached credentials. See
 [Vim-Like Commands](#vim-like-commands).
-
-### Using a Password Manager
-If you would like ncspot to retrieve your login data from command results,
-i.e. because you use a password manager like `pass`, you can add the following
-configuration:
-
-```toml
-[credentials]
-username_cmd = "echo username"
-password_cmd = "pass spotify.com/username"
-```
-
-Do note that this is only required for the initial login or when your credential
-token has expired.
