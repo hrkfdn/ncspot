@@ -45,7 +45,7 @@ zbus = {version = "5.2.0", default-features = false, features = ["tokio"], optio
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.168"
+libc = "0.2.169"
 librespot-core = "0.6.0"
 librespot-oauth = "0.6.0"
 librespot-playback = "0.6.0"
