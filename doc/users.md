@@ -362,8 +362,8 @@ statusbar, whereas `statusbar_format` will hold the statusbar formatting and
 `[track_format]` the formatting for tracks in list views.
 If you don't define `center` for example, the default value will be used.
 Available options for tracks: `%artists`, `%artist`, `%title`, `%album`, `%saved`,
-`%duration`
-`%artists` will show all contributing artists, while `%artist` only shows the first listed artist
+`%duration`.
+`%artists` will show all contributing artists, while `%artist` only shows the first listed artist.
 
 Default configuration:
 
