@@ -36,6 +36,15 @@ impl Playable {
                 .as_str(),
             )
             .replace(
+                "%artist",
+                if let Some(artists) = playable.artists() {
+                    artists.first().unwrap().clone().name
+                } else {
+                    String::new()
+                }
+                .as_str(),
+            )
+            .replace(
                 "%title",
                 match playable.clone() {
                     Self::Episode(episode) => episode.name,
