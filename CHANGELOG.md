@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `%artist` formatting option to only show single artist name
+
 ### Fixed
 
 - Missing automatic man page generation for subcommands
