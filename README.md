@@ -26,7 +26,6 @@ free accounts.
 - Support for a lot of platforms
 - Vim keybindings out of the box
 - IPC socket for remote control
-- Automatic authentication using a password manager
 
 ## Installation
 ncspot is available on macOS (Homebrew), Windows (Scoop, WinGet), Linux (native package, Flathub and

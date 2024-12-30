@@ -452,8 +452,10 @@ cover_max_scale = 2
 ```
 
 ## Authentication
-`ncspot` prompts for a Spotify username and password on first launch, uses this
-to generate an OAuth token, and stores it to disk.
+`ncspot` uses OAuth2 for authentication. When launched for the first time, a link will be generated
+that can be opened in any browser. After logging in on the displayed page, you can start to use
+`ncspot`. The OAuth2 flow is the only supported one, as username/password authentication has been
+removed by Spotify.
 
 The credentials are stored in `librespot/credentials.json` in the user's cache directory. Run
 `ncspot info` to show the location of this directory.
