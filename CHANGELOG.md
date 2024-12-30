@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `%artist` formatting option to only show single artist name
 
+### Removed
+
+- Support for basic password managers as OAuth2 is now the only supported authentication flow
+
 ### Fixed
 
 - Missing automatic man page generation for subcommands
-- Users were forced to reset password when using ncspot
+- Bug causing forced password reset after using `ncpsot`
 
 ## [1.2.1] - 2024-10-31
 
