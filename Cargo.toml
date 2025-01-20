@@ -38,10 +38,10 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.5.23"
+clap = "4.5.26"
 arboard = {version = "3.4", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "5.2.0", default-features = false, features = ["tokio"], optional = true}
+zbus = {version = "5.3.0", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
@@ -50,7 +50,7 @@ librespot-core = "0.6.0"
 librespot-oauth = "0.6.0"
 librespot-playback = "0.6.0"
 librespot-protocol = "0.6.0"
-log = "0.4.22"
+log = "0.4.25"
 pancurses = {version = "0.17.0", optional = true}
 parse_duration = "2.1.1"
 platform-dirs = "0.3.0"
@@ -75,7 +75,7 @@ signal-hook = "0.3.0"
 [dependencies.rspotify]
 default-features = false
 features = ["client-ureq", "ureq-native-tls"]
-version = "0.13.3"
+version = "0.14.0"
 
 [dependencies.cursive]
 default-features = false
