@@ -680,6 +680,7 @@ impl WebApi {
 
     /// Get artists related to the artist with the given `id`.
     pub fn artist_related_artists(&self, id: &str) -> Result<Vec<Artist>, ()> {
+        #[allow(deprecated)]
         self.api_with_retry(|api| api.artist_related_artists(ArtistId::from_id(id).unwrap()))
             .map(|fa| fa.iter().map(|a| a.into()).collect())
             .ok_or(())
