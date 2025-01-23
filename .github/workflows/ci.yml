@@ -19,17 +19,18 @@ jobs:
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
-            artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
+            features: ''
+          - build_target: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
             features: ''
           - build_target: macos-aarch64
             os: macos-14
-            artifact_suffix: macos-aarch64
             target: aarch64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
           - build_target: windows-x86_64
             os: windows-latest
-            artifact_suffix: windows-x86_64
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
@@ -43,7 +44,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Install rustup
         if: runner.os != 'Windows'
         shell: bash
@@ -58,7 +59,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev

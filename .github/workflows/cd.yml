@@ -13,14 +13,17 @@ jobs:
   publish:
     name: Publishing ${{ matrix.build_target }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
     strategy:
       matrix:
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
-            container: rust
             target: x86_64-unknown-linux-gnu
+            features: ''
+            dependencies: 'libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev'
+          - build_target: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
             features: ''
             dependencies: 'libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev'
           - build_target: macos-x86_64
@@ -53,17 +56,17 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install portaudio pkg-config
       - name: Install Linux dependencies
-        if: startsWith(matrix.build_target, 'linux-')
+        if: runner.os == 'Linux'
         run: |
-          apt update
-          apt install -y ${{ matrix.dependencies }}
+          sudo apt update
+          sudo apt install -y ${{ matrix.dependencies }}
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
             ~/.cargo/registry/
             ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Running cargo build
         run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
       - name: Extract git tag
