@@ -19,22 +19,18 @@ jobs:
         include:
           - build_target: linux-x86_64
             os: ubuntu-latest
-            artifact_suffix: linux-x86_64
             target: x86_64-unknown-linux-gnu
             features: ''
           - build_target: linux-arm64
             os: ubuntu-24.04-arm
-            artifact_suffix: linux-aarch64
             target: aarch64-unknown-linux-gnu
             features: ''
           - build_target: macos-aarch64
             os: macos-14
-            artifact_suffix: macos-aarch64
             target: aarch64-apple-darwin
             features: '--no-default-features --features rodio_backend,pancurses_backend'
           - build_target: windows-x86_64
             os: windows-latest
-            artifact_suffix: windows-x86_64
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
