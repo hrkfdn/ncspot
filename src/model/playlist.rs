@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::{cmp::Ordering, iter::Iterator};
 
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::{rng, seq::IteratorRandom};
 
 use log::{debug, warn};
 use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
@@ -295,7 +295,7 @@ impl ListItem for Playlist {
             .collect::<HashSet<_>>()
             .into_iter()
             // spotify allows at max 5 seed items, so choose them at random
-            .choose_multiple(&mut thread_rng(), MAX_SEEDS);
+            .choose_multiple(&mut rng(), MAX_SEEDS);
 
         if track_ids.is_empty() {
             return None;

@@ -1,4 +1,4 @@
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::{rng, seq::IteratorRandom};
 use rspotify::model::Id;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -255,14 +255,14 @@ impl ListItem for Album {
             .iter()
             .filter_map(|t| t.id.as_deref())
             // spotify allows at max 5 seed items, so choose 4 random tracks...
-            .choose_multiple(&mut thread_rng(), MAX_SEEDS - 1);
+            .choose_multiple(&mut rng(), MAX_SEEDS - 1);
 
         let artist_id: Option<String> = self
             .artist_ids
             .iter()
             .cloned()
             // ...and one artist
-            .choose(&mut thread_rng());
+            .choose(&mut rng());
 
         if track_ids.is_empty() && artist_id.is_some() {
             return None;
