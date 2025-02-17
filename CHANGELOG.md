@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for basic password managers as OAuth2 is now the only supported authentication flow
 
+### Added
+
+- Add maximum delay required for two consecutive clicks to be interpreted as a double-click
+
 ### Fixed
 
 - Missing automatic man page generation for subcommands
