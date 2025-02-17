@@ -281,8 +281,8 @@ impl Queue {
         let queue_length = self.queue.read().unwrap().len();
         // The length of the queue must be bigger than 0 or gen_range panics!
         if queue_length > 0 && shuffle_index && self.get_shuffle() {
-            let mut rng = rand::thread_rng();
-            index = rng.gen_range(0..queue_length);
+            let mut rng = rand::rng();
+            index = rng.random_range(0..queue_length);
         }
 
         if let Some(track) = &self.queue.read().unwrap().get(index) {
@@ -432,7 +432,7 @@ impl Queue {
             random.remove(current);
         }
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         random.shuffle(&mut rng);
         order.extend(random);
 
