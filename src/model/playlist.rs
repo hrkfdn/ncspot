@@ -48,7 +48,7 @@ impl Playlist {
     }
 
     pub fn has_track(&self, track_id: &str) -> bool {
-        self.tracks.as_ref().map_or(false, |tracks| {
+        self.tracks.as_ref().is_some_and(|tracks| {
             tracks
                 .iter()
                 .any(|track| track.id() == Some(track_id.to_string()))

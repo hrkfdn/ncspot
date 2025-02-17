@@ -274,10 +274,10 @@ impl MprisPlayer {
     }
 
     #[zbus(property)]
-    fn set_volume(&self, mut volume: f64) {
+    fn set_volume(&self, volume: f64) {
         log::info!("set volume: {volume}");
-        volume = volume.clamp(0.0, 1.0);
-        let vol = (VOLUME_PERCENT as f64) * volume * 100.0;
+        let clamped = volume.clamp(0.0, 1.0);
+        let vol = (VOLUME_PERCENT as f64) * clamped * 100.0;
         self.spotify.set_volume(vol as u16, false);
         self.event.trigger();
     }
