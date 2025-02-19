@@ -158,7 +158,7 @@ impl Queue {
     }
 
     /// Append `tracks` after the currently playing item, taking into account
-    /// shuffle status. Returns the amount of added items.
+    /// shuffle status. Returns the first index(in `self.queue`) of added items.
     pub fn append_next(&self, tracks: &Vec<Playable>) -> usize {
         let mut q = self.queue.write().unwrap();
 
