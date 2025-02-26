@@ -382,7 +382,6 @@ impl WebApi {
                 Some(offset),
             )
         })
-        .take()
         .ok_or(())
     }
 
