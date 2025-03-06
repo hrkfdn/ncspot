@@ -167,11 +167,11 @@ impl Spotify {
         credentials: Credentials,
     ) -> Result<Session, librespot_core::Error> {
         let librespot_cache_path = config::cache_path("librespot");
-        let audio_cache_path = if let Some(false) = cfg.values().audio_cache {
+        let audio_cache_path = match cfg.values().audio_cache { Some(false) => {
             None
-        } else {
+        } _ => {
             Some(librespot_cache_path.join("files"))
-        };
+        }};
         let cache = Cache::new(
             Some(librespot_cache_path.clone()),
             Some(librespot_cache_path.join("volume")),
@@ -206,9 +206,12 @@ impl Spotify {
 
         info!("Initializing audio backend {}", backend_name);
         if backend_name == "pulseaudio" {
-            env::set_var("PULSE_PROP_application.name", "ncspot");
-            env::set_var("PULSE_PROP_stream.description", "ncurses Spotify client");
-            env::set_var("PULSE_PROP_media.role", "music");
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_application.name", "ncspot") };
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_stream.description", "ncurses Spotify client") };
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_media.role", "music") };
         }
 
         Ok(backend.1)
@@ -376,11 +379,11 @@ impl Spotify {
     #[cfg(feature = "mpris")]
     fn send_mpris(&self, cmd: MprisCommand) {
         debug!("Sending mpris command: {:?}", cmd);
-        if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
+        match self.mpris.lock().unwrap().as_ref() { Some(mpris_manager) => {
             mpris_manager.send(cmd);
-        } else {
+        } _ => {
             warn!("mpris context is unitialized");
-        }
+        }}
     }
 
     /// Send a [WorkerCommand] to the worker thread.

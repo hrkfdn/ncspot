@@ -20,7 +20,7 @@ use crate::config::ConfigTheme;
 /// load_color!(config_theme, primary, TerminalDefault)
 /// ```
 macro_rules! load_color {
-    ( $theme: expr, $member: ident, $default: expr ) => {
+    ( $theme: expr_2021, $member: ident, $default: expr_2021 ) => {
         $theme
             .as_ref()
             .and_then(|t| t.$member.clone())

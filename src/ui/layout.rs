@@ -367,7 +367,7 @@ impl View for Layout {
                     .map(|view| view.on_event(event))
                     .unwrap_or(EventResult::Ignored);
 
-                if let EventResult::Ignored = result {
+                match result { EventResult::Ignored => {
                     let command_key = self
                         .configuration
                         .values()
@@ -383,9 +383,9 @@ impl View for Layout {
                     } else {
                         EventResult::Ignored
                     }
-                } else {
+                } _ => {
                     result
-                }
+                }}
             }
             Event::Mouse {
                 position,

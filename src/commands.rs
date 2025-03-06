@@ -332,34 +332,33 @@ impl CommandManager {
     }
 
     fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
-        let local = if let Some(mut contextmenu) = s.find_name::<ContextMenu>("contextmenu") {
+        let local = match s.find_name::<ContextMenu>("contextmenu") { Some(mut contextmenu) => {
             contextmenu.on_command(s, cmd)?
-        } else if let Some(mut add_track_menu) = s.find_name::<AddToPlaylistMenu>("addtrackmenu") {
+        } _ => { match s.find_name::<AddToPlaylistMenu>("addtrackmenu") { Some(mut add_track_menu) => {
             add_track_menu.on_command(s, cmd)?
-        } else if let Some(mut select_artist) = s.find_name::<SelectArtistMenu>("selectartist") {
+        } _ => { match s.find_name::<SelectArtistMenu>("selectartist") { Some(mut select_artist) => {
             select_artist.on_command(s, cmd)?
-        } else if let Some(mut select_artist_action) =
-            s.find_name::<SelectArtistActionMenu>("selectartistaction")
-        {
+        } _ => { match s.find_name::<SelectArtistActionMenu>("selectartistaction")
+        { Some(mut select_artist_action) => {
             select_artist_action.on_command(s, cmd)?
-        } else {
+        } _ => {
             s.on_layout(|siv, mut l| l.on_command(siv, cmd))?
-        };
+        }}}}}}}};
 
-        if let CommandResult::Consumed(output) = local {
+        match local { CommandResult::Consumed(output) => {
             Ok(output)
-        } else if let CommandResult::Modal(modal) = local {
+        } _ => { match local { CommandResult::Modal(modal) => {
             s.add_layer(modal);
             Ok(None)
-        } else if let CommandResult::View(view) = local {
+        } _ => { match local { CommandResult::View(view) => {
             s.call_on_name("main", move |v: &mut Layout| {
                 v.push_view(view);
             });
 
             Ok(None)
-        } else {
+        } _ => {
             self.handle_default_commands(s, cmd)
-        }
+        }}}}}}
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: Command) {

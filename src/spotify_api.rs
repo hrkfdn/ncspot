@@ -97,12 +97,12 @@ impl WebApi {
 
         let (token_tx, token_rx) = std::sync::mpsc::channel();
         let cmd = WorkerCommand::RequestToken(token_tx);
-        if let Some(channel) = self.worker_channel.read().unwrap().as_ref() {
+        match self.worker_channel.read().unwrap().as_ref() { Some(channel) => {
             channel.send(cmd).unwrap();
             let api_token = self.api.token.clone();
             let api_token_expiration = self.token_expiration.clone();
             Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-                if let Ok(Some(token)) = token_rx.recv() {
+                match token_rx.recv() { Ok(Some(token)) => {
                     *api_token.lock().unwrap() = Some(Token {
                         access_token: token.access_token,
                         expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
@@ -112,13 +112,13 @@ impl WebApi {
                     });
                     *api_token_expiration.write().unwrap() =
                         Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
-                } else {
+                } _ => {
                     error!("Failed to update token");
-                }
+                }}
             }))
-        } else {
+        } _ => {
             panic!("worker channel is not set");
-        }
+        }}
     }
 
     /// Execute `api_call` and retry once if a rate limit occurs.
@@ -131,7 +131,7 @@ impl WebApi {
             Ok(v) => Some(v),
             Err(ClientError::Http(error)) => {
                 debug!("http error: {:?}", error);
-                if let HttpError::StatusCode(response) = error.as_ref() {
+                match error.as_ref() { HttpError::StatusCode(response) => {
                     match response.status() {
                         429 => {
                             let waiting_duration = response
@@ -151,9 +151,9 @@ impl WebApi {
                             None
                         }
                     }
-                } else {
+                } _ => {
                     None
-                }
+                }}
             }
             Err(e) => {
                 error!("unhandled api error: {}", e);

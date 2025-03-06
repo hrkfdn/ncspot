@@ -20,7 +20,7 @@ pub struct ApiResult<I> {
 impl<I: ListItem + Clone> ApiResult<I> {
     pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> Self {
         let items = Arc::new(RwLock::new(Vec::new()));
-        if let Some(first_page) = fetch_page(0) {
+        match fetch_page(0) { Some(first_page) => {
             debug!(
                 "fetched first page, items: {}, total: {}",
                 first_page.items.len(),
@@ -34,7 +34,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 items,
                 fetch_page: fetch_page.clone(),
             }
-        } else {
+        } _ => {
             Self {
                 offset: Arc::new(RwLock::new(0)),
                 limit,
@@ -42,7 +42,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 items,
                 fetch_page: fetch_page.clone(),
             }
-        }
+        }}
     }
 
     fn offset(&self) -> u32 {
@@ -69,13 +69,13 @@ impl<I: ListItem + Clone> ApiResult<I> {
         let offset = self.offset() + self.limit;
         debug!("fetching next page at offset {}", offset);
         if !self.at_end() {
-            if let Some(next_page) = (self.fetch_page)(offset) {
+            match (self.fetch_page)(offset) { Some(next_page) => {
                 *self.offset.write().unwrap() = next_page.offset;
                 self.items.write().unwrap().extend(next_page.items.clone());
                 Some(next_page.items)
-            } else {
+            } _ => {
                 None
-            }
+            }}
         } else {
             debug!("paginator is at end");
             None
