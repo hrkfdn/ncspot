@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use cursive::Cursive;
 use cursive::view::{View, ViewWrapper};
 use cursive::views::NamedView;
-use cursive::Cursive;
 
 use crate::command::Command;
 use crate::commands::CommandResult;

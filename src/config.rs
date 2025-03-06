@@ -12,7 +12,7 @@ use platform_dirs::AppDirs;
 use crate::command::{SortDirection, SortKey};
 use crate::model::playable::Playable;
 use crate::queue;
-use crate::serialization::{Serializer, CBOR, TOML};
+use crate::serialization::{CBOR, Serializer, TOML};
 
 pub const CACHE_VERSION: u16 = 1;
 pub const DEFAULT_COMMAND_KEY: char = ':';

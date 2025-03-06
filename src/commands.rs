@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use crate::application::UserData;
 use crate::command::{
-    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode, parse,
 };
-use crate::config::{user_configuration_directory, Config};
+use crate::config::{Config, user_configuration_directory};
 use crate::events::EventManager;
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -20,10 +20,10 @@ use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 use crate::ui::search_results::SearchResultsView;
+use cursive::Cursive;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::Dialog;
-use cursive::Cursive;
 use log::{debug, error, info};
 use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
@@ -332,33 +332,41 @@ impl CommandManager {
     }
 
     fn handle_callbacks(&self, s: &mut Cursive, cmd: &Command) -> Result<Option<String>, String> {
-        let local = match s.find_name::<ContextMenu>("contextmenu") { Some(mut contextmenu) => {
-            contextmenu.on_command(s, cmd)?
-        } _ => { match s.find_name::<AddToPlaylistMenu>("addtrackmenu") { Some(mut add_track_menu) => {
-            add_track_menu.on_command(s, cmd)?
-        } _ => { match s.find_name::<SelectArtistMenu>("selectartist") { Some(mut select_artist) => {
-            select_artist.on_command(s, cmd)?
-        } _ => { match s.find_name::<SelectArtistActionMenu>("selectartistaction")
-        { Some(mut select_artist_action) => {
-            select_artist_action.on_command(s, cmd)?
-        } _ => {
-            s.on_layout(|siv, mut l| l.on_command(siv, cmd))?
-        }}}}}}}};
+        let local = match s.find_name::<ContextMenu>("contextmenu") {
+            Some(mut contextmenu) => contextmenu.on_command(s, cmd)?,
+            _ => match s.find_name::<AddToPlaylistMenu>("addtrackmenu") {
+                Some(mut add_track_menu) => add_track_menu.on_command(s, cmd)?,
+                _ => match s.find_name::<SelectArtistMenu>("selectartist") {
+                    Some(mut select_artist) => select_artist.on_command(s, cmd)?,
+                    _ => match s.find_name::<SelectArtistActionMenu>("selectartistaction") {
+                        Some(mut select_artist_action) => {
+                            select_artist_action.on_command(s, cmd)?
+                        }
+                        _ => s.on_layout(|siv, mut l| l.on_command(siv, cmd))?,
+                    },
+                },
+            },
+        };
 
-        match local { CommandResult::Consumed(output) => {
-            Ok(output)
-        } _ => { match local { CommandResult::Modal(modal) => {
-            s.add_layer(modal);
-            Ok(None)
-        } _ => { match local { CommandResult::View(view) => {
-            s.call_on_name("main", move |v: &mut Layout| {
-                v.push_view(view);
-            });
+        match local {
+            CommandResult::Consumed(output) => Ok(output),
+            _ => match local {
+                CommandResult::Modal(modal) => {
+                    s.add_layer(modal);
+                    Ok(None)
+                }
+                _ => match local {
+                    CommandResult::View(view) => {
+                        s.call_on_name("main", move |v: &mut Layout| {
+                            v.push_view(view);
+                        });
 
-            Ok(None)
-        } _ => {
-            self.handle_default_commands(s, cmd)
-        }}}}}}
+                        Ok(None)
+                    }
+                    _ => self.handle_default_commands(s, cmd),
+                },
+            },
+        }
     }
 
     pub fn handle(&self, s: &mut Cursive, cmd: Command) {

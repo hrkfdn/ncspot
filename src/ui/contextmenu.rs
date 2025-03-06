@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use cursive::Cursive;
 use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, NamedView, ScrollView, SelectView};
-use cursive::Cursive;
 
 use crate::commands::CommandResult;
 use crate::ext_traits::SelectViewExt;

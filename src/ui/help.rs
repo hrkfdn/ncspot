@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
+use cursive::Cursive;
 use cursive::theme::Effect;
 use cursive::utils::markup::StyledString;
 use cursive::view::ViewWrapper;
 use cursive::views::{ScrollView, TextView};
-use cursive::Cursive;
 use ncspot::CONFIGURATION_FILE_NAME;
 
 use crate::command::{Command, MoveAmount, MoveMode};

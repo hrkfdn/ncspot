@@ -7,8 +7,8 @@ use std::thread;
 
 use log::{debug, error, info};
 use rspotify::model::Id;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::config::Config;
 use crate::config::{self, CACHE_VERSION};
@@ -779,13 +779,16 @@ impl Library {
 
         {
             let mut store = self.artists.write().unwrap();
-            match store.iter().position(|a| a.id == artist.id) { Some(i) => {
-                store[i].is_followed = true;
-            } _ => {
-                let mut artist = artist.clone();
-                artist.is_followed = true;
-                store.push(artist);
-            }}
+            match store.iter().position(|a| a.id == artist.id) {
+                Some(i) => {
+                    store[i].is_followed = true;
+                }
+                _ => {
+                    let mut artist = artist.clone();
+                    artist.is_followed = true;
+                    store.push(artist);
+                }
+            }
         }
 
         self.populate_artists();

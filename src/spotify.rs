@@ -13,8 +13,8 @@ use librespot_playback::audio_backend;
 use librespot_playback::audio_backend::SinkBuilder;
 use librespot_playback::config::Bitrate;
 use librespot_playback::config::PlayerConfig;
-use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::mixer::MixerConfig;
+use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::player::Player;
 use log::{debug, error, info, warn};
 use tokio::sync::mpsc;
@@ -167,11 +167,10 @@ impl Spotify {
         credentials: Credentials,
     ) -> Result<Session, librespot_core::Error> {
         let librespot_cache_path = config::cache_path("librespot");
-        let audio_cache_path = match cfg.values().audio_cache { Some(false) => {
-            None
-        } _ => {
-            Some(librespot_cache_path.join("files"))
-        }};
+        let audio_cache_path = match cfg.values().audio_cache {
+            Some(false) => None,
+            _ => Some(librespot_cache_path.join("files")),
+        };
         let cache = Cache::new(
             Some(librespot_cache_path.clone()),
             Some(librespot_cache_path.join("volume")),
@@ -379,11 +378,14 @@ impl Spotify {
     #[cfg(feature = "mpris")]
     fn send_mpris(&self, cmd: MprisCommand) {
         debug!("Sending mpris command: {:?}", cmd);
-        match self.mpris.lock().unwrap().as_ref() { Some(mpris_manager) => {
-            mpris_manager.send(cmd);
-        } _ => {
-            warn!("mpris context is unitialized");
-        }}
+        match self.mpris.lock().unwrap().as_ref() {
+            Some(mpris_manager) => {
+                mpris_manager.send(cmd);
+            }
+            _ => {
+                warn!("mpris context is unitialized");
+            }
+        }
     }
 
     /// Send a [WorkerCommand] to the worker thread.

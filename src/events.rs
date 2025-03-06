@@ -1,4 +1,4 @@
-use crossbeam_channel::{unbounded, Receiver, Sender, TryIter};
+use crossbeam_channel::{Receiver, Sender, TryIter, unbounded};
 use cursive::{CbSink, Cursive};
 
 use crate::queue::QueueEvent;

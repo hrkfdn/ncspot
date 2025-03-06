@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use cursive::Printer;
 use cursive::align::HAlign;
 use cursive::event::{Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::vec::Vec2;
-use cursive::Printer;
 use unicode_width::UnicodeWidthStr;
 
 use crate::library::Library;

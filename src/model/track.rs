@@ -4,9 +4,9 @@ use std::sync::{Arc, RwLock};
 use crate::config;
 use crate::utils::ms_to_hms;
 use chrono::{DateTime, Utc};
+use rspotify::model::Id;
 use rspotify::model::album::FullAlbum;
 use rspotify::model::track::{FullTrack, SavedTrack, SimplifiedTrack};
-use rspotify::model::Id;
 
 use crate::library::Library;
 use crate::model::album::Album;
