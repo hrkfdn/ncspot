@@ -790,7 +790,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 _ => {
                     return Err(E::NoSuchCommand {
                         cmd: command.into(),
-                    })
+                    });
                 }
             };
             commands.push(command);

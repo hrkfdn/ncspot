@@ -1,14 +1,14 @@
 [package]
-authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
-description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
-edition = "2021"
-exclude = ["images/**"]
-keywords = ["spotify", "ncurses", "librespot", "terminal"]
-license = "BSD-2-Clause"
 name = "ncspot"
 readme = "README.md"
-repository = "https://github.com/hrkfdn/ncspot"
 version = "1.2.2"
+description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
+exclude = ["images/**"]
+keywords = ["spotify", "ncurses", "librespot", "terminal"]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [badges]
 maintenance = {status = "actively-developed"}
@@ -18,6 +18,12 @@ members = [
     ".",
     "xtask"
 ]
+
+[workspace.package]
+authors = ["Henrik Friedrichsen <henrik@affekt.org>"]
+edition = "2024"
+license = "BSD-2-Clause"
+repository = "https://github.com/hrkfdn/ncspot"
 
 [workspace.lints.clippy]
 enum_glob_use = "warn"

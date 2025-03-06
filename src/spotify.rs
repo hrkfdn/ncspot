@@ -13,8 +13,8 @@ use librespot_playback::audio_backend;
 use librespot_playback::audio_backend::SinkBuilder;
 use librespot_playback::config::Bitrate;
 use librespot_playback::config::PlayerConfig;
-use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::mixer::MixerConfig;
+use librespot_playback::mixer::softmixer::SoftMixer;
 use librespot_playback::player::Player;
 use log::{debug, error, info, warn};
 use tokio::sync::mpsc;
@@ -167,10 +167,9 @@ impl Spotify {
         credentials: Credentials,
     ) -> Result<Session, librespot_core::Error> {
         let librespot_cache_path = config::cache_path("librespot");
-        let audio_cache_path = if let Some(false) = cfg.values().audio_cache {
-            None
-        } else {
-            Some(librespot_cache_path.join("files"))
+        let audio_cache_path = match cfg.values().audio_cache {
+            Some(false) => None,
+            _ => Some(librespot_cache_path.join("files")),
         };
         let cache = Cache::new(
             Some(librespot_cache_path.clone()),
@@ -206,9 +205,12 @@ impl Spotify {
 
         info!("Initializing audio backend {}", backend_name);
         if backend_name == "pulseaudio" {
-            env::set_var("PULSE_PROP_application.name", "ncspot");
-            env::set_var("PULSE_PROP_stream.description", "ncurses Spotify client");
-            env::set_var("PULSE_PROP_media.role", "music");
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_application.name", "ncspot") };
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_stream.description", "ncurses Spotify client") };
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var("PULSE_PROP_media.role", "music") };
         }
 
         Ok(backend.1)
@@ -376,10 +378,13 @@ impl Spotify {
     #[cfg(feature = "mpris")]
     fn send_mpris(&self, cmd: MprisCommand) {
         debug!("Sending mpris command: {:?}", cmd);
-        if let Some(mpris_manager) = self.mpris.lock().unwrap().as_ref() {
-            mpris_manager.send(cmd);
-        } else {
-            warn!("mpris context is unitialized");
+        match self.mpris.lock().unwrap().as_ref() {
+            Some(mpris_manager) => {
+                mpris_manager.send(cmd);
+            }
+            _ => {
+                warn!("mpris context is unitialized");
+            }
         }
     }
 

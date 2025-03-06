@@ -10,14 +10,14 @@ use librespot_core::token::Token;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 use log::{debug, error, info, warn};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 use std::{pin::Pin, time::SystemTime};
 use tokio::sync::mpsc;
 use tokio::time;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 #[derive(Debug)]
 pub(crate) enum WorkerCommand {

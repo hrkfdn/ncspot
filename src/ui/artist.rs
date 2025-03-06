@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use cursive::view::ViewWrapper;
 use cursive::Cursive;
+use cursive::view::ViewWrapper;
 use rspotify::model::AlbumType;
 
 use crate::command::Command;

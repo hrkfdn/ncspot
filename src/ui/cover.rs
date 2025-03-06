@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::{Cursive, Printer, Vec2, View};
-use ioctl_rs::{ioctl, TIOCGWINSZ};
+use ioctl_rs::{TIOCGWINSZ, ioctl};
 use log::{debug, error};
 
 use crate::command::{Command, GotoMode};
@@ -117,9 +117,12 @@ impl CoverView {
         draw_offset.x += (draw_size.x - size.x) / 2;
         draw_offset.y += (draw_size.y - size.y) - (draw_size.y - size.y) / 2;
 
-        let cmd = format!("{{\"action\":\"add\",\"scaler\":\"fit_contain\",\"identifier\":\"cover\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"path\":\"{}\"}}\n",
-            draw_offset.x, draw_offset.y,
-            size.x, size.y,
+        let cmd = format!(
+            "{{\"action\":\"add\",\"scaler\":\"fit_contain\",\"identifier\":\"cover\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"path\":\"{}\"}}\n",
+            draw_offset.x,
+            draw_offset.y,
+            size.x,
+            size.y,
             path.to_str().unwrap()
         );
 

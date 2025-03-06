@@ -367,24 +367,25 @@ impl View for Layout {
                     .map(|view| view.on_event(event))
                     .unwrap_or(EventResult::Ignored);
 
-                if let EventResult::Ignored = result {
-                    let command_key = self
-                        .configuration
-                        .values()
-                        .command_key
-                        .unwrap_or(config::DEFAULT_COMMAND_KEY);
+                match result {
+                    EventResult::Ignored => {
+                        let command_key = self
+                            .configuration
+                            .values()
+                            .command_key
+                            .unwrap_or(config::DEFAULT_COMMAND_KEY);
 
-                    if character == command_key {
-                        self.enable_cmdline(command_key);
-                        EventResult::consumed()
-                    } else if character == '/' {
-                        self.enable_jump();
-                        EventResult::consumed()
-                    } else {
-                        EventResult::Ignored
+                        if character == command_key {
+                            self.enable_cmdline(command_key);
+                            EventResult::consumed()
+                        } else if character == '/' {
+                            self.enable_jump();
+                            EventResult::consumed()
+                        } else {
+                            EventResult::Ignored
+                        }
                     }
-                } else {
-                    result
+                    _ => result,
                 }
             }
             Event::Mouse {

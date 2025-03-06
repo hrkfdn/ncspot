@@ -16,10 +16,10 @@ use crate::traits::{ListItem, ViewExt};
 use crate::ui::listview::ListView;
 use crate::ui::pagination::Pagination;
 use crate::ui::tabbedview::TabbedView;
-use cursive::view::ViewWrapper;
 use cursive::Cursive;
-use rspotify::model::search::SearchResult;
+use cursive::view::ViewWrapper;
 use rspotify::model::SearchType;
+use rspotify::model::search::SearchResult;
 use std::sync::{Arc, RwLock};
 
 pub struct SearchResultsView {

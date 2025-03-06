@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use cursive::view::ViewWrapper;
 use cursive::Cursive;
+use cursive::view::ViewWrapper;
 
 use crate::command::Command;
 use crate::commands::CommandResult;

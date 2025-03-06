@@ -5,7 +5,7 @@ extern crate serde;
 
 use std::{path::PathBuf, process::exit};
 
-use application::{setup_logging, Application};
+use application::{Application, setup_logging};
 use config::set_configuration_base_path;
 use log::error;
 use ncspot::program_arguments;

@@ -1,6 +1,6 @@
 use cursive::view::scroll::Scroller;
 use log::info;
-use std::cmp::{max, min, Ordering};
+use std::cmp::{Ordering, max, min};
 use std::sync::{Arc, RwLock};
 
 use cursive::align::HAlign;
