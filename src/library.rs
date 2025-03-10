@@ -779,15 +779,12 @@ impl Library {
 
         {
             let mut store = self.artists.write().unwrap();
-            match store.iter().position(|a| a.id == artist.id) {
-                Some(i) => {
-                    store[i].is_followed = true;
-                }
-                _ => {
-                    let mut artist = artist.clone();
-                    artist.is_followed = true;
-                    store.push(artist);
-                }
+            if let Some(i) = store.iter().position(|a| a.id == artist.id) {
+                store[i].is_followed = true;
+            } else {
+                let mut artist = artist.clone();
+                artist.is_followed = true;
+                store.push(artist);
             }
         }
 

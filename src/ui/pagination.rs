@@ -20,29 +20,28 @@ pub struct ApiResult<I> {
 impl<I: ListItem + Clone> ApiResult<I> {
     pub fn new(limit: u32, fetch_page: Arc<FetchPageFn<I>>) -> Self {
         let items = Arc::new(RwLock::new(Vec::new()));
-        match fetch_page(0) {
-            Some(first_page) => {
-                debug!(
-                    "fetched first page, items: {}, total: {}",
-                    first_page.items.len(),
-                    first_page.total
-                );
-                items.write().unwrap().extend(first_page.items);
-                Self {
-                    offset: Arc::new(RwLock::new(first_page.offset)),
-                    limit,
-                    total: first_page.total,
-                    items,
-                    fetch_page: fetch_page.clone(),
-                }
+        if let Some(first_page) = fetch_page(0) {
+            debug!(
+                "fetched first page, items: {}, total: {}",
+                first_page.items.len(),
+                first_page.total
+            );
+            items.write().unwrap().extend(first_page.items);
+            Self {
+                offset: Arc::new(RwLock::new(first_page.offset)),
+                limit,
+                total: first_page.total,
+                items,
+                fetch_page: fetch_page.clone(),
             }
-            _ => Self {
+        } else {
+            Self {
                 offset: Arc::new(RwLock::new(0)),
                 limit,
                 total: 0,
                 items,
                 fetch_page: fetch_page.clone(),
-            },
+            }
         }
     }
 
@@ -70,13 +69,12 @@ impl<I: ListItem + Clone> ApiResult<I> {
         let offset = self.offset() + self.limit;
         debug!("fetching next page at offset {}", offset);
         if !self.at_end() {
-            match (self.fetch_page)(offset) {
-                Some(next_page) => {
-                    *self.offset.write().unwrap() = next_page.offset;
-                    self.items.write().unwrap().extend(next_page.items.clone());
-                    Some(next_page.items)
-                }
-                _ => None,
+            if let Some(next_page) = (self.fetch_page)(offset) {
+                *self.offset.write().unwrap() = next_page.offset;
+                self.items.write().unwrap().extend(next_page.items.clone());
+                Some(next_page.items)
+            } else {
+                None
             }
         } else {
             debug!("paginator is at end");

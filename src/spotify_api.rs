@@ -97,37 +97,33 @@ impl WebApi {
 
         let (token_tx, token_rx) = std::sync::mpsc::channel();
         let cmd = WorkerCommand::RequestToken(token_tx);
-        match self.worker_channel.read().unwrap().as_ref() {
-            Some(channel) => {
-                channel.send(cmd).unwrap();
-                let api_token = self.api.token.clone();
-                let api_token_expiration = self.token_expiration.clone();
-                Some(
-                    ASYNC_RUNTIME
-                        .get()
-                        .unwrap()
-                        .spawn_blocking(move || match token_rx.recv() {
-                            Ok(Some(token)) => {
-                                *api_token.lock().unwrap() = Some(Token {
-                                    access_token: token.access_token,
-                                    expires_in: chrono::Duration::from_std(token.expires_in)
-                                        .unwrap(),
-                                    scopes: HashSet::from_iter(token.scopes),
-                                    expires_at: None,
-                                    refresh_token: None,
-                                });
-                                *api_token_expiration.write().unwrap() = Utc::now()
-                                    + ChronoDuration::from_std(token.expires_in).unwrap();
-                            }
-                            _ => {
-                                error!("Failed to update token");
-                            }
-                        }),
-                )
-            }
-            _ => {
-                panic!("worker channel is not set");
-            }
+        if let Some(channel) = self.worker_channel.read().unwrap().as_ref() {
+            channel.send(cmd).unwrap();
+            let api_token = self.api.token.clone();
+            let api_token_expiration = self.token_expiration.clone();
+            Some(
+                ASYNC_RUNTIME
+                    .get()
+                    .unwrap()
+                    .spawn_blocking(move || match token_rx.recv() {
+                        Ok(Some(token)) => {
+                            *api_token.lock().unwrap() = Some(Token {
+                                access_token: token.access_token,
+                                expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
+                                scopes: HashSet::from_iter(token.scopes),
+                                expires_at: None,
+                                refresh_token: None,
+                            });
+                            *api_token_expiration.write().unwrap() =
+                                Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
+                        }
+                        _ => {
+                            error!("Failed to update token");
+                        }
+                    }),
+            )
+        } else {
+            panic!("worker channel is not set");
         }
     }
 

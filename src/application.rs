@@ -159,19 +159,18 @@ impl Application {
         }
 
         #[cfg(unix)]
-        let ipc = match utils::create_runtime_directory() {
-            Ok(runtime_directory) => Some(
+        let ipc = if let Ok(runtime_directory) = utils::create_runtime_directory() {
+            Some(
                 ipc::IpcSocket::new(
                     ASYNC_RUNTIME.get().unwrap().handle(),
                     runtime_directory.join("ncspot.sock"),
                     event_manager.clone(),
                 )
                 .map_err(|e| e.to_string())?,
-            ),
-            _ => {
-                error!("failed to create IPC socket: no suitable user runtime directory found");
-                None
-            }
+            )
+        } else {
+            error!("failed to create IPC socket: no suitable user runtime directory found");
+            None
         };
 
         let mut cmd_manager = CommandManager::new(
