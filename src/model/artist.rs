@@ -1,8 +1,8 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
-use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 use rspotify::model::Id;
+use rspotify::model::artist::{FullArtist, SimplifiedArtist};
 
 use crate::library::Library;
 use crate::model::playable::Playable;

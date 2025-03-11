@@ -4,8 +4,8 @@ use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 use crate::utils::ms_to_hms;
 use chrono::{DateTime, Utc};
-use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
 use rspotify::model::Id;
+use rspotify::model::show::{FullEpisode, SimplifiedEpisode};
 use std::fmt;
 use std::sync::Arc;
 

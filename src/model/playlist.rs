@@ -5,8 +5,8 @@ use std::{cmp::Ordering, iter::Iterator};
 use rand::{rng, seq::IteratorRandom};
 
 use log::{debug, warn};
-use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 use rspotify::model::Id;
+use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use crate::model::playable::Playable;
 use crate::model::track::Track;

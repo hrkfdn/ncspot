@@ -7,8 +7,8 @@ use std::thread;
 
 use log::{debug, error, info};
 use rspotify::model::Id;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::config::Config;
 use crate::config::{self, CACHE_VERSION};

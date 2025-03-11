@@ -14,7 +14,7 @@ use rspotify::model::{
     PlaylistResult, PrivateUser, Recommendations, SavedAlbum, SavedTrack, SearchResult, SearchType,
     Show, ShowId, SimplifiedTrack, TrackId, UserId,
 };
-use rspotify::{prelude::*, AuthCodeSpotify, ClientError, ClientResult, Config, Token};
+use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, Token, prelude::*};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -101,21 +101,27 @@ impl WebApi {
             channel.send(cmd).unwrap();
             let api_token = self.api.token.clone();
             let api_token_expiration = self.token_expiration.clone();
-            Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-                if let Ok(Some(token)) = token_rx.recv() {
-                    *api_token.lock().unwrap() = Some(Token {
-                        access_token: token.access_token,
-                        expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
-                        scopes: HashSet::from_iter(token.scopes),
-                        expires_at: None,
-                        refresh_token: None,
-                    });
-                    *api_token_expiration.write().unwrap() =
-                        Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
-                } else {
-                    error!("Failed to update token");
-                }
-            }))
+            Some(
+                ASYNC_RUNTIME
+                    .get()
+                    .unwrap()
+                    .spawn_blocking(move || match token_rx.recv() {
+                        Ok(Some(token)) => {
+                            *api_token.lock().unwrap() = Some(Token {
+                                access_token: token.access_token,
+                                expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
+                                scopes: HashSet::from_iter(token.scopes),
+                                expires_at: None,
+                                refresh_token: None,
+                            });
+                            *api_token_expiration.write().unwrap() =
+                                Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
+                        }
+                        _ => {
+                            error!("Failed to update token");
+                        }
+                    }),
+            )
         } else {
             panic!("worker channel is not set");
         }
@@ -131,8 +137,8 @@ impl WebApi {
             Ok(v) => Some(v),
             Err(ClientError::Http(error)) => {
                 debug!("http error: {:?}", error);
-                if let HttpError::StatusCode(response) = error.as_ref() {
-                    match response.status() {
+                match error.as_ref() {
+                    HttpError::StatusCode(response) => match response.status() {
                         429 => {
                             let waiting_duration = response
                                 .header("Retry-After")
@@ -150,9 +156,8 @@ impl WebApi {
                             error!("unhandled api error: {:?}", response);
                             None
                         }
-                    }
-                } else {
-                    None
+                    },
+                    _ => None,
                 }
             }
             Err(e) => {

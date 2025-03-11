@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::{env, fs};
 
+use clap::ArgMatches;
 use clap::builder::PathBufValueParser;
 use clap::error::{Error, ErrorKind};
-use clap::ArgMatches;
 use clap_complete::Shell;
 use ncspot::{AUTHOR, BIN_NAME};
 

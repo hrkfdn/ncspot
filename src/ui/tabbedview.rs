@@ -1,12 +1,12 @@
 use std::cmp::min;
 
 use cursive::{
+    Cursive, Printer, Vec2, View,
     align::HAlign,
     event::{Event, EventResult, MouseButton, MouseEvent},
     theme::ColorStyle,
     view::Nameable,
     views::NamedView,
-    Cursive, Printer, Vec2, View,
 };
 use unicode_width::UnicodeWidthStr;
 

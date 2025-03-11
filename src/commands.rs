@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use crate::application::UserData;
 use crate::command::{
-    parse, Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode,
+    Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode, parse,
 };
-use crate::config::{user_configuration_directory, Config};
+use crate::config::{Config, user_configuration_directory};
 use crate::events::EventManager;
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
@@ -20,10 +20,10 @@ use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 use crate::ui::search_results::SearchResultsView;
+use cursive::Cursive;
 use cursive::event::{Event, Key};
 use cursive::traits::View;
 use cursive::views::Dialog;
-use cursive::Cursive;
 use log::{debug, error, info};
 use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
