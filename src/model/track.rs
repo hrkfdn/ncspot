@@ -336,7 +336,7 @@ impl ListItem for Track {
 
     #[inline]
     fn is_playable(&self) -> bool {
-        true
+        self.is_playable == Some(true)
     }
 
     fn as_listitem(&self) -> Box<dyn ListItem> {
