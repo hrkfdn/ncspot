@@ -29,6 +29,7 @@ use crate::model::playable::Playable;
 use crate::mpris::{MprisCommand, MprisManager};
 use crate::spotify_api::WebApi;
 use crate::spotify_worker::{Worker, WorkerCommand};
+use crate::traits::ListItem;
 
 /// One percent of the maximum supported [Player] volume, used when setting the volume to a certain
 /// percent.
@@ -316,6 +317,13 @@ impl Spotify {
     /// `start_playing` is true. Start playing from `position_ms` in the song.
     pub fn load(&self, track: &Playable, start_playing: bool, position_ms: u32) {
         info!("loading track: {:?}", track);
+
+        if !track.is_playable() {
+            warn!("track {:?} can not be played, skipping..", track);
+            self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+            return;
+        }
+
         self.send_worker(WorkerCommand::Load(
             track.clone(),
             start_playing,

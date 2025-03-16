@@ -173,6 +173,10 @@ impl fmt::Display for Playable {
 }
 
 impl ListItem for Playable {
+    fn is_playable(&self) -> bool {
+        self.as_listitem().is_playable()
+    }
+
     fn is_playing(&self, queue: &Queue) -> bool {
         self.as_listitem().is_playing(queue)
     }
