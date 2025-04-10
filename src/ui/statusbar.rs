@@ -58,8 +58,8 @@ impl StatusBar {
         };
 
         match status {
-            PlayerEvent::Playing(_) => indicators.0,
-            PlayerEvent::Paused(_) => indicators.1,
+            PlayerEvent::Playing(_) => indicators.1,
+            PlayerEvent::Paused(_) => indicators.0,
             PlayerEvent::Stopped | PlayerEvent::FinishedTrack => indicators.2,
         }
     }
