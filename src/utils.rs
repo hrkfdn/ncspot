@@ -45,7 +45,7 @@ pub fn ms_to_hms(duration: u32) -> String {
 
 pub fn cache_path_for_url(url: String) -> std::path::PathBuf {
     let mut path = crate::config::cache_path("covers");
-    path.push(url.split('/').last().unwrap());
+    path.push(url.split('/').next_back().unwrap());
     path
 }
 

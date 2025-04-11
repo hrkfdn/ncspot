@@ -188,7 +188,7 @@ impl Queue {
     pub fn remove(&self, index: usize) {
         {
             let mut q = self.queue.write().unwrap();
-            if q.len() == 0 {
+            if q.is_empty() {
                 info!("queue is empty");
                 return;
             }
@@ -365,7 +365,7 @@ impl Queue {
             if repeat == RepeatSetting::RepeatTrack && manual {
                 self.set_repeat(RepeatSetting::RepeatPlaylist);
             }
-        } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
+        } else if repeat == RepeatSetting::RepeatPlaylist && !q.is_empty() {
             let random_order = self.random_order.read().unwrap();
             self.play(
                 random_order.as_ref().map(|o| o[0]).unwrap_or(0),
@@ -385,7 +385,7 @@ impl Queue {
 
         if let Some(index) = self.previous_index() {
             self.play(index, false, false);
-        } else if repeat == RepeatSetting::RepeatPlaylist && q.len() > 0 {
+        } else if repeat == RepeatSetting::RepeatPlaylist && !q.is_empty() {
             if self.get_shuffle() {
                 let random_order = self.random_order.read().unwrap();
                 self.play(
