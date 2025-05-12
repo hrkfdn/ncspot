@@ -44,7 +44,7 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.5.37"
+clap = "4.5.38"
 arboard = {version = "3.5", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "5.6.0", default-features = false, features = ["tokio"], optional = true}
@@ -76,7 +76,7 @@ unicode-width = "0.2.0"
 url = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.3.0"
+signal-hook = "0.3.18"
 
 [dependencies.rspotify]
 default-features = false
