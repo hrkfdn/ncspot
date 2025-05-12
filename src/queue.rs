@@ -13,6 +13,7 @@ use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::spotify::PlayerEvent;
 use crate::spotify::Spotify;
+use crate::traits::ListItem;
 
 /// Repeat behavior for the [Queue].
 #[derive(Display, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -346,7 +347,8 @@ impl Queue {
         self.spotify.stop();
     }
 
-    /// Play the next song in the queue.
+    /// Play the next song in the queue. Stops playback if there are no playable tracks
+    /// remaining.
     ///
     /// `manual`: If this is true, normal queue logic like repeat will not be
     /// used, and the next track will actually be played. This should be used
@@ -358,14 +360,19 @@ impl Queue {
 
         if repeat == RepeatSetting::RepeatTrack && !manual {
             if let Some(index) = current {
-                self.play(index, false, false);
+                if q[index].is_playable() {
+                    self.play(index, false, false);
+                }
             }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
             if repeat == RepeatSetting::RepeatTrack && manual {
                 self.set_repeat(RepeatSetting::RepeatPlaylist);
             }
-        } else if repeat == RepeatSetting::RepeatPlaylist && !q.is_empty() {
+        } else if repeat == RepeatSetting::RepeatPlaylist
+            && !q.is_empty()
+            && q.iter().any(|track| track.is_playable())
+        {
             let random_order = self.random_order.read().unwrap();
             self.play(
                 random_order.as_ref().map(|o| o[0]).unwrap_or(0),
