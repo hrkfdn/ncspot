@@ -15,6 +15,8 @@ use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 use crate::ui::modal::Modal;
 
+use super::listview::MouseHandleResult;
+
 pub struct QueueView {
     list: ListView<Playable>,
     library: Arc<Library>,
@@ -86,6 +88,22 @@ impl QueueView {
 
 impl ViewWrapper for QueueView {
     wrap_impl!(self.list: ListView<Playable>);
+
+    fn wrap_on_event(&mut self, ch: cursive::event::Event) -> cursive::event::EventResult {
+        let mouse_result = self.with_view_mut(|v| v.handle_mouse_event(ch));
+        mouse_result
+            .map(|result| match result {
+                MouseHandleResult::Handled(event_result) => event_result,
+                MouseHandleResult::Unhandled(command) => match command {
+                    Command::Play => {
+                        self.queue.play(self.list.get_selected_index(), true, false);
+                        cursive::event::EventResult::consumed()
+                    }
+                    _ => cursive::event::EventResult::Ignored,
+                },
+            })
+            .unwrap_or_else(|| cursive::event::EventResult::Ignored)
+    }
 }
 
 impl ViewExt for QueueView {
