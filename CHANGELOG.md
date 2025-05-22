@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Skip unplayable tracks
+- Queue UI correctly plays a track when clicking on an already selected item
 
 ## [1.2.2]
 

@@ -8,7 +8,7 @@ use cursive::event::{Callback, Event, EventResult, MouseButton, MouseEvent};
 use cursive::theme::{ColorStyle, ColorType, PaletteColor};
 use cursive::traits::View;
 use cursive::view::scroll;
-use cursive::{Cursive, Printer, Rect, Vec2};
+use cursive::{Cursive, Printer, Rect, Vec2, XY};
 use unicode_width::UnicodeWidthStr;
 
 use crate::command::{Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, TargetMode};
@@ -31,6 +31,11 @@ use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::pagination::Pagination;
+
+pub enum MouseHandleResult {
+    Handled(EventResult),
+    Unhandled(Command),
+}
 
 pub struct ListView<I: ListItem> {
     content: Arc<RwLock<Vec<I>>>,
@@ -200,6 +205,134 @@ impl<I: ListItem + Clone> ListView<I> {
             self.selected = self.selected.saturating_sub(1);
         }
     }
+
+    /// Get the selected row from a mouse position and offset
+    fn get_selected_row(&self, position: XY<usize>, offset: XY<usize>) -> Option<usize> {
+        let viewport = self.scroller.content_viewport().top_left();
+        let selected_row = position.checked_sub(offset).map(|p| p.y + viewport.y);
+        selected_row.filter(|row| *row < self.content_len(false))
+    }
+
+    fn run_play_command(&mut self) {
+        self.queue.clear();
+
+        if !self.attempt_play_all_tracks() {
+            self.play_current_item();
+        }
+    }
+
+    /// Takes an incoming mouse event from Cursive and tries to act appropriately.
+    ///
+    /// Returns a MouseHandleResult which indicates whether the event has been handled by
+    /// the function or if a command needs further processing.
+    pub fn handle_mouse_event(&mut self, e: Event) -> MouseHandleResult {
+        match e {
+            Event::Mouse {
+                event: MouseEvent::WheelUp,
+                ..
+            } => self.scroller.scroll_up(3),
+            Event::Mouse {
+                event: MouseEvent::WheelDown,
+                ..
+            } => {
+                self.scroller.scroll_down(3);
+                self.try_paginate();
+            }
+            Event::Mouse {
+                event: MouseEvent::Press(MouseButton::Left),
+                position,
+                offset,
+            } => {
+                // This is safe as a mouse event is only propagated to a view when it is inside the
+                // view. Therefore underflow shouldn't occur.
+                let view_coordinates_click_position = position - offset;
+
+                let drag_started = if self.has_visible_scrollbars() {
+                    self.scroller.start_drag(view_coordinates_click_position)
+                } else {
+                    false
+                };
+
+                if drag_started {
+                    log::debug!("grabbing scroller");
+                } else if let Some(clicked_row_index) = self.get_selected_row(position, offset) {
+                    let currently_selected_listitem = self
+                        .content
+                        .read()
+                        .unwrap()
+                        .get(clicked_row_index)
+                        .map(ListItem::as_listitem);
+                    let currently_selected_is_individual = currently_selected_listitem
+                        .filter(|item| item.track().is_some())
+                        .is_some();
+                    if self.selected == clicked_row_index && currently_selected_is_individual {
+                        return MouseHandleResult::Unhandled(Command::Play);
+                    } else {
+                        // The clicked position wasn't focused yet or the item is a collection
+                        // that can be opened.
+                        self.move_focus_to(clicked_row_index);
+                        let content = self.content.read().unwrap();
+                        let clicked_list_item =
+                            content.get(self.selected).map(ListItem::as_listitem);
+
+                        if let Some(target) = clicked_list_item {
+                            if let Some(view) =
+                                target.open(self.queue.clone(), self.library.clone())
+                            {
+                                return MouseHandleResult::Handled(EventResult::Consumed(Some(
+                                    Callback::from_fn_once(move |s| {
+                                        s.on_layout(|_, mut l| l.push_view(view));
+                                    }),
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+            Event::Mouse {
+                event: MouseEvent::Press(MouseButton::Right),
+                position,
+                offset,
+            } => {
+                if let Some(y) = self.get_selected_row(position, offset) {
+                    self.move_focus_to(y);
+
+                    let queue = self.queue.clone();
+                    let library = self.library.clone();
+                    if let Some(target) = {
+                        let content = self.content.read().unwrap();
+                        content.get(self.selected).map(|t| t.as_listitem())
+                    } {
+                        let contextmenu = ContextMenu::new(&*target, queue, library);
+                        return MouseHandleResult::Handled(EventResult::Consumed(Some(
+                            Callback::from_fn_once(move |s| s.add_layer(contextmenu)),
+                        )));
+                    }
+                }
+            }
+            Event::Mouse {
+                event: MouseEvent::Hold(MouseButton::Left),
+                position,
+                offset,
+            } => {
+                if self.has_visible_scrollbars() {
+                    self.scroller.drag(position.saturating_sub(offset));
+                }
+            }
+            Event::Mouse {
+                event: MouseEvent::Release(MouseButton::Left),
+                ..
+            } => {
+                log::debug!("releasing scroller");
+                self.scroller.release_grab();
+            }
+            _ => {
+                return MouseHandleResult::Handled(EventResult::Ignored);
+            }
+        }
+
+        MouseHandleResult::Handled(EventResult::Consumed(None))
+    }
 }
 
 impl<I: ListItem + Clone> View for ListView<I> {
@@ -344,127 +477,16 @@ impl<I: ListItem + Clone> View for ListView<I> {
     }
 
     fn on_event(&mut self, e: Event) -> EventResult {
-        match e {
-            Event::Mouse {
-                event: MouseEvent::WheelUp,
-                ..
-            } => self.scroller.scroll_up(3),
-            Event::Mouse {
-                event: MouseEvent::WheelDown,
-                ..
-            } => {
-                self.scroller.scroll_down(3);
-                self.try_paginate();
-            }
-            Event::Mouse {
-                event: MouseEvent::Press(MouseButton::Left),
-                position,
-                offset,
-            } => {
-                // This is safe as a mouse event is only propagated to a view when it is inside the
-                // view. Therefore underflow shouldn't occur.
-                let view_coordinates_click_position = position - offset;
-
-                let drag_started = if self.has_visible_scrollbars() {
-                    self.scroller.start_drag(view_coordinates_click_position)
-                } else {
-                    false
-                };
-
-                if drag_started {
-                    log::debug!("grabbing scroller");
-                } else {
-                    let viewport = self.scroller.content_viewport().top_left();
-                    let selected_row = position.checked_sub(offset).map(|p| p.y + viewport.y);
-                    if let Some(clicked_row_index) =
-                        selected_row.filter(|row| *row < self.content_len(false))
-                    {
-                        let currently_selected_listitem = self
-                            .content
-                            .read()
-                            .unwrap()
-                            .get(clicked_row_index)
-                            .map(ListItem::as_listitem);
-                        let currently_selected_is_individual = currently_selected_listitem
-                            .filter(|item| item.track().is_some())
-                            .is_some();
-                        if self.selected == clicked_row_index && currently_selected_is_individual {
-                            // The selected position was already focused. Play the item at the
-                            // position as if Enter was pressed. This sort of emulates double
-                            // clicking, which isn't supported by Cursive.
-                            self.queue.clear();
-
-                            if !self.attempt_play_all_tracks() {
-                                self.play_current_item();
-                            }
-                        } else {
-                            // The clicked position wasn't focused yet or the item is a collection
-                            // that can be opened.
-                            self.move_focus_to(clicked_row_index);
-                            let content = self.content.read().unwrap();
-                            let clicked_list_item =
-                                content.get(self.selected).map(ListItem::as_listitem);
-
-                            if let Some(target) = clicked_list_item {
-                                if let Some(view) =
-                                    target.open(self.queue.clone(), self.library.clone())
-                                {
-                                    return EventResult::Consumed(Some(Callback::from_fn_once(
-                                        move |s| {
-                                            s.on_layout(|_, mut l| l.push_view(view));
-                                        },
-                                    )));
-                                }
-                            }
-                        }
-                    }
+        match self.handle_mouse_event(e) {
+            MouseHandleResult::Handled(event_result) => event_result,
+            MouseHandleResult::Unhandled(command) => match command {
+                Command::Play => {
+                    self.run_play_command();
+                    EventResult::consumed()
                 }
-            }
-            Event::Mouse {
-                event: MouseEvent::Press(MouseButton::Right),
-                position,
-                offset,
-            } => {
-                let viewport = self.scroller.content_viewport().top_left();
-                let selected_row = position.checked_sub(offset).map(|p| p.y + viewport.y);
-                if let Some(y) = selected_row.filter(|row| row < &self.content_len(false)) {
-                    self.move_focus_to(y);
-
-                    let queue = self.queue.clone();
-                    let library = self.library.clone();
-                    if let Some(target) = {
-                        let content = self.content.read().unwrap();
-                        content.get(self.selected).map(|t| t.as_listitem())
-                    } {
-                        let contextmenu = ContextMenu::new(&*target, queue, library);
-                        return EventResult::Consumed(Some(Callback::from_fn_once(move |s| {
-                            s.add_layer(contextmenu)
-                        })));
-                    }
-                }
-            }
-            Event::Mouse {
-                event: MouseEvent::Hold(MouseButton::Left),
-                position,
-                offset,
-            } => {
-                if self.has_visible_scrollbars() {
-                    self.scroller.drag(position.saturating_sub(offset));
-                }
-            }
-            Event::Mouse {
-                event: MouseEvent::Release(MouseButton::Left),
-                ..
-            } => {
-                log::debug!("releasing scroller");
-                self.scroller.release_grab();
-            }
-            _ => {
-                return EventResult::Ignored;
-            }
+                _ => EventResult::Ignored,
+            },
         }
-
-        EventResult::Consumed(None)
     }
 
     fn important_area(&self, view_size: Vec2) -> Rect {
@@ -484,12 +506,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
     fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {
         match cmd {
             Command::Play => {
-                self.queue.clear();
-
-                if !self.attempt_play_all_tracks() {
-                    self.play_current_item();
-                }
-
+                self.run_play_command();
                 return Ok(CommandResult::Consumed(None));
             }
             Command::PlayNext => {
