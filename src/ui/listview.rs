@@ -255,37 +255,35 @@ impl<I: ListItem + Clone> ListView<I> {
 
                 if drag_started {
                     log::debug!("grabbing scroller");
-                } else {
-                    if let Some(clicked_row_index) = self.get_selected_row(position, offset) {
-                        let currently_selected_listitem = self
-                            .content
-                            .read()
-                            .unwrap()
-                            .get(clicked_row_index)
-                            .map(ListItem::as_listitem);
-                        let currently_selected_is_individual = currently_selected_listitem
-                            .filter(|item| item.track().is_some())
-                            .is_some();
-                        if self.selected == clicked_row_index && currently_selected_is_individual {
-                            return MouseHandleResult::Unhandled(Command::Play);
-                        } else {
-                            // The clicked position wasn't focused yet or the item is a collection
-                            // that can be opened.
-                            self.move_focus_to(clicked_row_index);
-                            let content = self.content.read().unwrap();
-                            let clicked_list_item =
-                                content.get(self.selected).map(ListItem::as_listitem);
+                } else if let Some(clicked_row_index) = self.get_selected_row(position, offset) {
+                    let currently_selected_listitem = self
+                        .content
+                        .read()
+                        .unwrap()
+                        .get(clicked_row_index)
+                        .map(ListItem::as_listitem);
+                    let currently_selected_is_individual = currently_selected_listitem
+                        .filter(|item| item.track().is_some())
+                        .is_some();
+                    if self.selected == clicked_row_index && currently_selected_is_individual {
+                        return MouseHandleResult::Unhandled(Command::Play);
+                    } else {
+                        // The clicked position wasn't focused yet or the item is a collection
+                        // that can be opened.
+                        self.move_focus_to(clicked_row_index);
+                        let content = self.content.read().unwrap();
+                        let clicked_list_item =
+                            content.get(self.selected).map(ListItem::as_listitem);
 
-                            if let Some(target) = clicked_list_item {
-                                if let Some(view) =
-                                    target.open(self.queue.clone(), self.library.clone())
-                                {
-                                    return MouseHandleResult::Handled(EventResult::Consumed(
-                                        Some(Callback::from_fn_once(move |s| {
-                                            s.on_layout(|_, mut l| l.push_view(view));
-                                        })),
-                                    ));
-                                }
+                        if let Some(target) = clicked_list_item {
+                            if let Some(view) =
+                                target.open(self.queue.clone(), self.library.clone())
+                            {
+                                return MouseHandleResult::Handled(EventResult::Consumed(Some(
+                                    Callback::from_fn_once(move |s| {
+                                        s.on_layout(|_, mut l| l.push_view(view));
+                                    }),
+                                )));
                             }
                         }
                     }
