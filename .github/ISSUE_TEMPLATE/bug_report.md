@@ -32,11 +32,12 @@ If applicable, add screenshots to help explain your problem.
 **Backtrace/Debug log**
 Please attach a debug log and backtrace if ncspot has crashed.
 
-Instructions on how to capture debug logs: https://github.com/hrkfdn/ncspot#debugging
+Instructions on how to capture debug logs can be found in the [developers
+manual](https://github.com/hrkfdn/ncspot/blob/main/doc/developers.md#debugging).
 
 For backtraces, make sure you run a debug build of ncspot, e.g. by running the
 command mentioned in the [compilation
-instructions](https://github.com/hrkfdn/ncspot#compiling).  You can find the
+instructions](https://github.com/hrkfdn/ncspot/blob/main/doc/developers.md#compiling).  You can find the
 latest backtrace at `~/.cache/ncspot/backtrace.log`.
 
 **Additional context**
