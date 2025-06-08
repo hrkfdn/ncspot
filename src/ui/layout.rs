@@ -44,8 +44,8 @@ impl Layout {
         configuration: Arc<Config>,
     ) -> Self {
         let style = ColorStyle::new(
-            ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
             ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
+            ColorType::Color(*theme.palette.custom("cmdline_bg").unwrap()),
         );
         let mut command_line_input = EditView::new().filler(" ").style(style);
 
