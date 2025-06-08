@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skip unplayable tracks
 - Queue UI correctly plays a track when clicking on an already selected item
 - Swap foreground and background colors for command line input
+- Do not crash due to unavailable tracks in queue
 
 ## [1.2.2]
 
