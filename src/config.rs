@@ -101,6 +101,7 @@ pub struct ConfigValues {
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
     pub ap_port: Option<u16>,
+    pub auth_port: Option<u16>,
 }
 
 /// The ncspot theme.
