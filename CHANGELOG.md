@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a configuration option to change the authentication port
+
 ### Fixed
 
 - Skip unplayable tracks
