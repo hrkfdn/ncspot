@@ -7,7 +7,6 @@ use crate::config::{self, Config};
 use crate::spotify::Spotify;
 
 pub const SPOTIFY_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
-pub const CLIENT_REDIRECT_URI: &str = "http://127.0.0.1:8989/login";
 
 static OAUTH_SCOPES: &[&str] = &[
     "playlist-modify",
@@ -35,6 +34,12 @@ static OAUTH_SCOPES: &[&str] = &[
     "user-top-read",
 ];
 
+pub fn get_client_redirect_uri(configuration: &Config) -> String {
+    let auth_port = configuration.values().auth_port.unwrap_or(8989).to_string();
+    let redirect_url = format!("http://127.0.0.1:{auth_port}/login");
+    redirect_url
+}
+
 /// Get credentials for use with librespot. This first tries to get cached credentials. If no cached
 /// credentials are available it will initiate the OAuth2 login process.
 pub fn get_credentials(configuration: &Config) -> Result<RespotCredentials, String> {
@@ -49,31 +54,34 @@ pub fn get_credentials(configuration: &Config) -> Result<RespotCredentials, Stri
             }
             None => {
                 info!("Attempting to login via OAuth2");
-                credentials_prompt(None)?
+                credentials_prompt(configuration, None)?
             }
         }
     };
 
     while let Err(error) = Spotify::test_credentials(configuration, credentials.clone()) {
         let error_msg = format!("{error}");
-        credentials = credentials_prompt(Some(error_msg))?;
+        credentials = credentials_prompt(configuration, Some(error_msg))?;
     }
     Ok(credentials)
 }
 
-fn credentials_prompt(error_message: Option<String>) -> Result<RespotCredentials, String> {
+fn credentials_prompt(
+    configuration: &Config,
+    error_message: Option<String>,
+) -> Result<RespotCredentials, String> {
     if let Some(message) = error_message {
         eprintln!("Connection error: {message}");
     }
 
-    create_credentials()
+    create_credentials(configuration)
 }
 
-pub fn create_credentials() -> Result<RespotCredentials, String> {
+pub fn create_credentials(configuration: &Config) -> Result<RespotCredentials, String> {
     println!("To login you need to perform OAuth2 authorization using your web browser\n");
     get_access_token(
         SPOTIFY_CLIENT_ID,
-        CLIENT_REDIRECT_URI,
+        &get_client_redirect_uri(configuration),
         OAUTH_SCOPES.to_vec(),
     )
     .map(|token| RespotCredentials::with_access_token(token.access_token))
