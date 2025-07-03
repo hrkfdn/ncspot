@@ -94,7 +94,7 @@ impl Worker {
                     Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
                         match SpotifyId::from_uri(&playable.uri()) {
                             Ok(id) => {
-                                info!("player loading track: {:?}", id);
+                                info!("player loading track: {id:?}");
                                 if !id.is_playable() {
                                     warn!("track is not playable");
                                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
@@ -103,7 +103,7 @@ impl Worker {
                                 }
                             }
                             Err(e) => {
-                                error!("error parsing uri: {:?}", e);
+                                error!("error parsing uri: {e:?}");
                                 self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                             }
                         }
@@ -128,7 +128,7 @@ impl Worker {
                     }
                     Some(WorkerCommand::Preload(playable)) => {
                         if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
-                            debug!("Preloading {:?}", id);
+                            debug!("Preloading {id:?}");
                             self.player.preload(id);
                         }
                     }

@@ -92,7 +92,7 @@ impl WebApi {
                 return None;
             }
 
-            info!("Token will expire in {}, renewing", delta);
+            info!("Token will expire in {delta}, renewing");
         }
 
         let (token_tx, token_rx) = std::sync::mpsc::channel();
@@ -136,14 +136,14 @@ impl WebApi {
         match result {
             Ok(v) => Some(v),
             Err(ClientError::Http(error)) => {
-                debug!("http error: {:?}", error);
+                debug!("http error: {error:?}");
                 match error.as_ref() {
                     HttpError::StatusCode(response) => match response.status() {
                         429 => {
                             let waiting_duration = response
                                 .header("Retry-After")
                                 .and_then(|v| v.parse::<u64>().ok());
-                            debug!("rate limit hit. waiting {:?} seconds", waiting_duration);
+                            debug!("rate limit hit. waiting {waiting_duration:?} seconds");
                             thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
                             api_call(&self.api).ok()
                         }
@@ -153,7 +153,7 @@ impl WebApi {
                                 .and_then(move |_| api_call(&self.api).ok())
                         }
                         _ => {
-                            error!("unhandled api error: {:?}", response);
+                            error!("unhandled api error: {response:?}");
                             None
                         }
                     },
@@ -161,7 +161,7 @@ impl WebApi {
                 }
             }
             Err(e) => {
-                error!("unhandled api error: {}", e);
+                error!("unhandled api error: {e}");
                 None
             }
         }
@@ -258,12 +258,12 @@ impl WebApi {
                 if self.append_tracks(id, tracks, None).is_ok() {
                     debug!("{} tracks successfully added", tracks.len());
                 } else {
-                    error!("error saving tracks to playlists {}", id);
+                    error!("error saving tracks to playlists {id}");
                     return;
                 }
             }
         } else {
-            error!("error saving tracks to playlist {}", id);
+            error!("error saving tracks to playlist {id}");
         }
     }
 
@@ -295,7 +295,7 @@ impl WebApi {
 
     /// Fetch the album with the given `album_id`.
     pub fn album(&self, album_id: &str) -> Result<FullAlbum, ()> {
-        debug!("fetching album {}", album_id);
+        debug!("fetching album {album_id}");
         let aid = AlbumId::from_id(album_id).map_err(|_| ())?;
         self.api_with_retry(|api| api.album(aid.clone(), Some(Market::FromToken)))
             .ok_or(())
@@ -395,7 +395,7 @@ impl WebApi {
         const MAX_LIMIT: u32 = 50;
         let spotify = self.clone();
         let fetch_page = move |offset: u32| {
-            debug!("fetching user playlists, offset: {}", offset);
+            debug!("fetching user playlists, offset: {offset}");
             spotify.api_with_retry(|api| {
                 match api.current_user_playlists_manual(Some(MAX_LIMIT), Some(offset)) {
                     Ok(page) => Ok(ApiPage {
@@ -416,10 +416,7 @@ impl WebApi {
         let spotify = self.clone();
         let playlist_id = playlist_id.to_string();
         let fetch_page = move |offset: u32| {
-            debug!(
-                "fetching playlist {} tracks, offset: {}",
-                playlist_id, offset
-            );
+            debug!("fetching playlist {playlist_id} tracks, offset: {offset}");
             spotify.api_with_retry(|api| {
                 match api.playlist_items_manual(
                     PlaylistId::from_id(&playlist_id).unwrap(),
@@ -461,7 +458,7 @@ impl WebApi {
         limit: u32,
         offset: u32,
     ) -> Result<Page<SimplifiedTrack>, ()> {
-        debug!("fetching album tracks {}", album_id);
+        debug!("fetching album tracks {album_id}");
         self.api_with_retry(|api| {
             api.album_track_manual(
                 AlbumId::from_id(album_id).unwrap(),
@@ -484,7 +481,7 @@ impl WebApi {
         let spotify = self.clone();
         let artist_id = artist_id.to_string();
         let fetch_page = move |offset: u32| {
-            debug!("fetching artist {} albums, offset: {}", artist_id, offset);
+            debug!("fetching artist {artist_id} albums, offset: {offset}");
             spotify.api_with_retry(|api| {
                 match api.artist_albums_manual(
                     ArtistId::from_id(&artist_id).unwrap(),
@@ -695,7 +692,7 @@ impl WebApi {
         const MAX_LIMIT: u32 = 50;
         let spotify = self.clone();
         let fetch_page = move |offset: u32| {
-            debug!("fetching categories, offset: {}", offset);
+            debug!("fetching categories, offset: {offset}");
             spotify.api_with_retry(|api| {
                 match api.categories_manual(
                     None,
@@ -721,7 +718,7 @@ impl WebApi {
         let spotify = self.clone();
         let category_id = category_id.to_string();
         let fetch_page = move |offset: u32| {
-            debug!("fetching category playlists, offset: {}", offset);
+            debug!("fetching category playlists, offset: {offset}");
             spotify.api_with_retry(|api| {
                 match api.category_playlists_manual(
                     &category_id,

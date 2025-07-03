@@ -216,7 +216,7 @@ impl Application {
         if layout.has_screen(&initial_screen) {
             layout.set_screen(initial_screen);
         } else {
-            error!("Invalid screen name: {}", initial_screen);
+            error!("Invalid screen name: {initial_screen}");
             layout.set_screen("library");
         }
 
@@ -244,7 +244,7 @@ impl Application {
             #[cfg(unix)]
             for signal in signals.pending() {
                 if signal == SIGTERM || signal == SIGHUP {
-                    info!("Caught {}, cleaning up and closing", signal);
+                    info!("Caught {signal}, cleaning up and closing");
                     if let Some(data) = self.cursive.user_data::<UserData>().cloned() {
                         data.cmd.handle(&mut self.cursive, Command::Quit);
                     }
@@ -253,7 +253,7 @@ impl Application {
             for event in self.event_manager.msg_iter() {
                 match event {
                     Event::Player(state) => {
-                        trace!("event received: {:?}", state);
+                        trace!("event received: {state:?}");
                         self.spotify.update_status(state.clone());
 
                         #[cfg(unix)]

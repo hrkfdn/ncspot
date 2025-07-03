@@ -38,10 +38,7 @@ impl CoverView {
             query
         };
 
-        debug!(
-            "Determined window dimensions: {}x{}, {}x{}",
-            xpixels, ypixels, cols, rows
-        );
+        debug!("Determined window dimensions: {xpixels}x{ypixels}, {cols}x{rows}");
 
         // Determine font size, considering max scale to prevent tiny covers on HiDPI screens
         let scale = config.values().cover_max_scale.unwrap_or(1.0);
@@ -127,7 +124,7 @@ impl CoverView {
         );
 
         if let Err(e) = self.run_ueberzug_cmd(&cmd) {
-            error!("Failed to run Ueberzug: {}", e);
+            error!("Failed to run Ueberzug: {e}");
             return;
         }
 
@@ -144,7 +141,7 @@ impl CoverView {
 
         let cmd = "{\"action\": \"remove\", \"identifier\": \"cover\"}\n";
         if let Err(e) = self.run_ueberzug_cmd(cmd) {
-            error!("Failed to run Ueberzug: {}", e);
+            error!("Failed to run Ueberzug: {e}");
         }
     }
 
@@ -184,7 +181,7 @@ impl CoverView {
         let loading_thread = self.loading.clone();
         std::thread::spawn(move || {
             if let Err(e) = crate::utils::download(url.clone(), path.clone()) {
-                error!("Failed to download cover: {}", e);
+                error!("Failed to download cover: {e}");
             }
             let mut loading = loading_thread.write().unwrap();
             loading.remove(&url.clone());

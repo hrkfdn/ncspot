@@ -77,14 +77,11 @@ impl CommandManager {
         for (key, commands) in custom_bindings.unwrap_or_default() {
             match parse(&commands) {
                 Ok(cmds) => {
-                    info!("Custom keybinding: {} -> {:?}", key, cmds);
+                    info!("Custom keybinding: {key} -> {cmds:?}");
                     kb.insert(key, cmds);
                 }
                 Err(err) => {
-                    error!(
-                        "Invalid command(s) for key {}-\"{}\": {}",
-                        key, commands, err
-                    );
+                    error!("Invalid command(s) for key {key}-\"{commands}\": {err}");
                 }
             }
         }
@@ -204,7 +201,7 @@ impl CommandManager {
                     .spotify
                     .volume()
                     .saturating_sub(VOLUME_PERCENT * amount);
-                debug!("vol {}", volume);
+                debug!("vol {volume}");
                 self.spotify.set_volume(volume, true);
                 Ok(None)
             }
@@ -239,7 +236,7 @@ impl CommandManager {
             Command::NewPlaylist(name) => {
                 match self.spotify.api.create_playlist(name, None, None) {
                     Ok(_) => self.library.update_library(),
-                    Err(_) => error!("could not create playlist {}", name),
+                    Err(_) => error!("could not create playlist {name}"),
                 }
                 Ok(None)
             }
@@ -273,10 +270,10 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Execute(cmd) => {
-                log::info!("Executing command: {}", cmd);
+                log::info!("Executing command: {cmd}");
                 let cmd = std::ffi::CString::new(cmd.clone()).unwrap();
                 let result = unsafe { libc::system(cmd.as_ptr()) };
-                log::info!("Exit code: {}", result);
+                log::info!("Exit code: {result}");
                 Ok(None)
             }
             Command::Reconnect => {
@@ -404,7 +401,7 @@ impl CommandManager {
             if let Some(binding) = Self::parse_keybinding(k) {
                 self.register_keybinding(cursive, binding, v.clone());
             } else {
-                error!("Could not parse keybinding: \"{}\"", k);
+                error!("Could not parse keybinding: \"{k}\"");
             }
         }
     }

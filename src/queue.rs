@@ -464,7 +464,7 @@ impl Queue {
             QueueEvent::PreloadTrackRequest => {
                 if let Some(next_index) = self.next_index() {
                     let track = self.queue.read().unwrap()[next_index].clone();
-                    debug!("Preloading track {} as requested by librespot", track);
+                    debug!("Preloading track {track} as requested by librespot");
                     self.spotify.preload(&track);
                 }
             }
@@ -494,7 +494,7 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
         let path = crate::utils::cache_path_for_url(u.to_string());
         if !path.exists() {
             if let Err(e) = crate::utils::download(u, path.clone()) {
-                log::error!("Failed to download cover: {}", e);
+                log::error!("Failed to download cover: {e}");
             }
         }
         n.icon(path.to_str().unwrap());
@@ -512,6 +512,6 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
             #[cfg(all(unix, not(target_os = "macos")))]
             info!("Created notification: {}", handle.id());
         }
-        Err(e) => log::error!("Failed to send notification cover: {}", e),
+        Err(e) => log::error!("Failed to send notification cover: {e}"),
     }
 }

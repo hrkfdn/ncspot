@@ -257,7 +257,7 @@ impl Config {
         let path = config_path(USER_STATE_FILE_NAME);
         debug!("saving user state to {}", path.display());
         if let Err(e) = CBOR.write(path, &*self.state()) {
-            error!("Could not save user state: {}", e);
+            error!("Could not save user state: {e}");
         }
     }
 

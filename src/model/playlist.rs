@@ -57,7 +57,7 @@ impl Playlist {
 
     pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: &Library) -> bool {
         let playable = self.tracks.as_ref().unwrap()[index].clone();
-        debug!("deleting track: {} {:?}", index, playable);
+        debug!("deleting track: {index} {playable:?}");
 
         if playable.track().map(|t| t.is_local) == Some(true) {
             warn!("track is a local file, can't delete");

@@ -77,7 +77,7 @@ impl IpcSocket {
         loop {
             match listener.accept().await {
                 Ok((stream, sockaddr)) => {
-                    debug!("Connection from {:?}", sockaddr);
+                    debug!("Connection from {sockaddr:?}");
                     tokio::spawn(Self::stream_handler(
                         stream,
                         ev.clone(),

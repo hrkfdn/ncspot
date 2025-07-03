@@ -67,7 +67,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
 
     pub fn next(&self) -> Option<Vec<I>> {
         let offset = self.offset() + self.limit;
-        debug!("fetching next page at offset {}", offset);
+        debug!("fetching next page at offset {offset}");
         if !self.at_end() {
             if let Some(next_page) = (self.fetch_page)(offset) {
                 *self.offset.write().unwrap() = next_page.offset;
