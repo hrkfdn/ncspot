@@ -34,7 +34,7 @@ type DynError = Box<dyn std::error::Error>;
 
 fn main() {
     if let Err(e) = try_main() {
-        eprintln!("{}", e);
+        eprintln!("{e}");
         std::process::exit(-1);
     }
 }
@@ -136,7 +136,7 @@ fn generate_shell_completion(subcommand_arguments: &ArgMatches) -> Result<(), Dy
                     "elvish" => Shell::Elvish,
                     "powershell" => Shell::PowerShell,
                     _ => {
-                        eprintln!("Unrecognized shell: {}", shell);
+                        eprintln!("Unrecognized shell: {shell}");
                         std::process::exit(-1);
                     }
                 })

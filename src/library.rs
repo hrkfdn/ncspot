@@ -79,8 +79,7 @@ impl Library {
         let saved_cache_version = self.cfg.state().cache_version;
         if saved_cache_version < CACHE_VERSION {
             debug!(
-                "Cache version for {:?} has changed from {} to {}, ignoring cache",
-                cache_path, saved_cache_version, CACHE_VERSION
+                "Cache version for {cache_path:?} has changed from {saved_cache_version} to {CACHE_VERSION}, ignoring cache"
             );
             return;
         }
@@ -103,7 +102,7 @@ impl Library {
                     self.trigger_redraw();
                 }
                 Err(e) => {
-                    error!("can't parse cache: {}", e);
+                    error!("can't parse cache: {e}");
                 }
             }
         }
@@ -369,7 +368,7 @@ impl Library {
 
         loop {
             let page = self.spotify.api.current_user_followed_artists(last);
-            debug!("artists page: {}", i);
+            debug!("artists page: {i}");
             i += 1;
             if page.is_err() {
                 error!("Failed to fetch artists.");
@@ -426,7 +425,7 @@ impl Library {
                 .spotify
                 .api
                 .current_user_saved_albums(albums.len() as u32);
-            debug!("albums page: {}", i);
+            debug!("albums page: {i}");
 
             i += 1;
 
@@ -470,7 +469,7 @@ impl Library {
                 .api
                 .current_user_saved_tracks(tracks.len() as u32);
 
-            debug!("tracks page: {}", i);
+            debug!("tracks page: {i}");
             i += 1;
 
             if page.is_err() {
