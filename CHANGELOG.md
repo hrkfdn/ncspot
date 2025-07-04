@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automatically find free port for OAuth2 login flow
+
 ### Fixed
 
 - Skip unplayable tracks
