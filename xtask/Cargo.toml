@@ -9,9 +9,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-clap_mangen = "0.2.28"
+clap_mangen = "0.2.29"
 clap_complete = "4.5.55"
-clap = "4.5.41"
+clap = "4.5.42"
 
 [dependencies.ncspot]
 default-features = false
