@@ -114,7 +114,7 @@ impl ViewExt for PlaylistView {
         }
 
         if let Command::Reverse = cmd {
-            self.playlist.reverse();
+            self.playlist.reverse(&self.library);
             let tracks = self.playlist.tracks.as_ref().unwrap_or(&Vec::new()).clone();
             self.list = ListView::new(
                 Arc::new(RwLock::new(tracks)),

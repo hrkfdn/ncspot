@@ -99,10 +99,15 @@ impl Playlist {
         }
     }
 
-    pub fn reverse(&mut self) {
+    pub fn reverse(&mut self, library: &Library) {
         if let Some(tracks) = &mut self.tracks {
             tracks.reverse();
         }
+
+        // Clear any stored sort order for this playlist
+        library.cfg.with_state_mut(|state| {
+            state.playlist_orders.remove(&self.id);
+        });
     }
 
     pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
