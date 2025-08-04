@@ -102,6 +102,7 @@ playback depending on your desktop environment settings. Have a look at the
 | <kbd>[</kbd>                  | Decrease volume by 5%.                                         |
 | <kbd>]</kbd>                  | Increase volume by 5%.                                         |
 | <kbd>R</kbd>                  | Toggle _Repeat_ mode.                                          |
+| <kbd>Shift</kbd>+<kbd>R</kbd> | Reverse the current playlist order.                            |
 | <kbd>Z</kbd>                  | Toggle _Shuffle_ state.                                        |
 
 ### Context Menus
@@ -179,6 +180,7 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `share` \<ITEM\>                                                 | Copy a shareable URL of the item to the system clipboard. Requires the `share_clipboard` feature.<br/>\* Valid values for ITEM: `selected`, `current`                                                                                                           |
 | `newplaylist` \<NAME\>                                           | Create a new playlist.                                                                                                                                                                                                                                          |
 | `sort` \<SORT_KEY\> [SORT_DIRECTION]                             | Sort a playlist.<br/>\* Valid values for SORT_KEY: `title`, `album`, `artist`, `duration`, `added`<br/>\* Valid values for SORT_DIRECTION: `ascending` (default; aliases: `a`, `asc`), `descending` (aliases: `d`, `desc`)                                      |
+| `reverse`                                                        | Reverse the current playlist order and clear any stored sort preferences for that playlist.                                                                                                                                                                        |
 | `exec` \<CMD\>                                                   | Execute a command in the system shell.<br/>\* Command output is printed to the terminal, so redirection (`2> /dev/null`) may be necessary.                                                                                                                      |
 | `noop`                                                           | Do nothing. Useful for disabling default keybindings. See [custom keybindings](#custom-keybindings).                                                                                                                                                            |
 | `reload`                                                         | Reload the configuration from disk. See [Configuration](#configuration).                                                                                                                                                                                        |

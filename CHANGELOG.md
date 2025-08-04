@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bug preventing any type of playback due to spotify API changes.
 - Bug preventing retrieval of new song metadata from spotify.
+## [Unreleased]
+
+### Changed
+
+- Playlist `reverse` command with keybinding `Shift+R`
 
 ## [1.3.0]
 

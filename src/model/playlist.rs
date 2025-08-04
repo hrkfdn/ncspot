@@ -99,6 +99,12 @@ impl Playlist {
         }
     }
 
+    pub fn reverse(&mut self) {
+        if let Some(tracks) = &mut self.tracks {
+            tracks.reverse();
+        }
+    }
+
     pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
         fn compare_artists(a: &[String], b: &[String]) -> Ordering {
             let sanitize_artists_name = |x: &[String]| -> Vec<String> {
