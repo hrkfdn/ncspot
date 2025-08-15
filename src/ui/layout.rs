@@ -166,9 +166,10 @@ impl Layout {
 
     fn get_result(&self) -> Result<Option<String>, String> {
         if let Some(t) = self.result_time
-            && t.elapsed().unwrap() > Duration::from_secs(5) {
-                return Ok(None);
-            }
+            && t.elapsed().unwrap() > Duration::from_secs(5)
+        {
+            return Ok(None);
+        }
         self.result.clone()
     }
 
@@ -467,10 +468,12 @@ impl ViewExt for Layout {
                 // Clear search results and return to search bar
                 // If trying to focus search screen while already on it
                 let search_view_name = "search";
-                if view == search_view_name && self.focus == Some(search_view_name.into())
-                    && let Some(stack) = self.stack.get_mut(search_view_name) {
-                        stack.clear();
-                    }
+                if view == search_view_name
+                    && self.focus == Some(search_view_name.into())
+                    && let Some(stack) = self.stack.get_mut(search_view_name)
+                {
+                    stack.clear();
+                }
 
                 if self.screens.keys().any(|k| k == view) {
                     self.set_screen(view.clone());

@@ -227,11 +227,12 @@ impl View for StatusBar {
                 }
 
                 if event == MouseEvent::Press(MouseButton::Left)
-                    && let Some(playable) = self.queue.get_current() {
-                        let f: f32 = position.x as f32 / self.last_size.x as f32;
-                        let new = playable.duration() as f32 * f;
-                        self.spotify.seek(new as u32);
-                    }
+                    && let Some(playable) = self.queue.get_current()
+                {
+                    let f: f32 = position.x as f32 / self.last_size.x as f32;
+                    let new = playable.duration() as f32 * f;
+                    self.spotify.seek(new as u32);
+                }
             } else if self.last_size.x - position.x < volume_len {
                 if event == MouseEvent::WheelUp {
                     let volume = self
