@@ -156,15 +156,14 @@ impl Library {
             .iter()
             .position(|i| i.id == id);
 
-        if let Some(position) = position {
-            if self.spotify.api.delete_playlist(id).is_ok() {
+        if let Some(position) = position
+            && self.spotify.api.delete_playlist(id).is_ok() {
                 self.playlists.write().unwrap().remove(position);
                 self.save_cache(
                     &config::cache_path(CACHE_PLAYLISTS),
                     &self.playlists.read().unwrap(),
                 );
             }
-        }
     }
 
     /// Set the playlist with `id` to contain only `tracks`. If the playlist already contains
@@ -694,8 +693,8 @@ impl Library {
             return;
         }
 
-        if let Some(ref album_id) = album.id {
-            if self
+        if let Some(ref album_id) = album.id
+            && self
                 .spotify
                 .api
                 .current_user_saved_albums_add(vec![album_id.as_str()])
@@ -703,7 +702,6 @@ impl Library {
             {
                 return;
             }
-        }
 
         {
             let mut store = self.albums.write().unwrap();
@@ -727,8 +725,8 @@ impl Library {
             return;
         }
 
-        if let Some(ref album_id) = album.id {
-            if self
+        if let Some(ref album_id) = album.id
+            && self
                 .spotify
                 .api
                 .current_user_saved_albums_delete(vec![album_id.as_str()])
@@ -736,7 +734,6 @@ impl Library {
             {
                 return;
             }
-        }
 
         {
             let mut store = self.albums.write().unwrap();
@@ -765,8 +762,8 @@ impl Library {
             return;
         }
 
-        if let Some(ref artist_id) = artist.id {
-            if self
+        if let Some(ref artist_id) = artist.id
+            && self
                 .spotify
                 .api
                 .user_follow_artists(vec![artist_id.as_str()])
@@ -774,7 +771,6 @@ impl Library {
             {
                 return;
             }
-        }
 
         {
             let mut store = self.artists.write().unwrap();
@@ -801,8 +797,8 @@ impl Library {
             return;
         }
 
-        if let Some(ref artist_id) = artist.id {
-            if self
+        if let Some(ref artist_id) = artist.id
+            && self
                 .spotify
                 .api
                 .user_unfollow_artists(vec![artist_id.as_str()])
@@ -810,7 +806,6 @@ impl Library {
             {
                 return;
             }
-        }
 
         {
             let mut store = self.artists.write().unwrap();
