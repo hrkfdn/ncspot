@@ -88,12 +88,10 @@ impl Playlist {
             .api
             .append_tracks(&self.id, new_tracks, None)
             .is_ok()
-        {
-            if let Some(tracks) = &mut self.tracks {
+            && let Some(tracks) = &mut self.tracks {
                 tracks.append(&mut new_tracks.to_vec());
                 has_modified = true;
             }
-        }
 
         if has_modified {
             library.playlist_update(self);

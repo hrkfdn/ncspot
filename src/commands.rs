@@ -281,8 +281,8 @@ impl CommandManager {
                 Ok(None)
             }
             Command::AddCurrent => {
-                if let Some(track) = self.queue.get_current() {
-                    if let Some(track) = track.track() {
+                if let Some(track) = self.queue.get_current()
+                    && let Some(track) = track.track() {
                         let dialog = ContextMenu::add_track_dialog(
                             self.library.clone(),
                             self.queue.get_spotify(),
@@ -290,7 +290,6 @@ impl CommandManager {
                         );
                         s.add_layer(dialog);
                     }
-                }
                 Ok(None)
             }
             Command::SaveCurrent => {

@@ -275,8 +275,8 @@ impl<I: ListItem + Clone> ListView<I> {
                         let clicked_list_item =
                             content.get(self.selected).map(ListItem::as_listitem);
 
-                        if let Some(target) = clicked_list_item {
-                            if let Some(view) =
+                        if let Some(target) = clicked_list_item
+                            && let Some(view) =
                                 target.open(self.queue.clone(), self.library.clone())
                             {
                                 return MouseHandleResult::Handled(EventResult::Consumed(Some(
@@ -285,7 +285,6 @@ impl<I: ListItem + Clone> ListView<I> {
                                     }),
                                 )));
                             }
-                        }
                     }
                 }
             }
@@ -544,8 +543,8 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                     content.get(self.selected).cloned()
                 };
 
-                if let Some(track) = item {
-                    if let Some(track) = track.track() {
+                if let Some(track) = item
+                    && let Some(track) = track.track() {
                         let dialog = ContextMenu::add_track_dialog(
                             self.library.clone(),
                             self.queue.get_spotify(),
@@ -553,7 +552,6 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                         );
                         return Ok(CommandResult::Modal(Box::new(dialog)));
                     }
-                }
 
                 return Ok(CommandResult::Consumed(None));
             }

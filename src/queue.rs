@@ -359,11 +359,10 @@ impl Queue {
         let repeat = self.cfg.state().repeat;
 
         if repeat == RepeatSetting::RepeatTrack && !manual {
-            if let Some(index) = current {
-                if q[index].is_playable() {
+            if let Some(index) = current
+                && q[index].is_playable() {
                     self.play(index, false, false);
                 }
-            }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
             if repeat == RepeatSetting::RepeatTrack && manual {
@@ -492,11 +491,10 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
     // album cover image
     if let Some(u) = cover_url {
         let path = crate::utils::cache_path_for_url(u.to_string());
-        if !path.exists() {
-            if let Err(e) = crate::utils::download(u, path.clone()) {
+        if !path.exists()
+            && let Err(e) = crate::utils::download(u, path.clone()) {
                 log::error!("Failed to download cover: {e}");
             }
-        }
         n.icon(path.to_str().unwrap());
     }
 
