@@ -33,7 +33,7 @@ impl EventManager {
 
     /// Return a non-blocking iterator over the messages awaiting handling. Calling `next()` on the
     /// iterator never blocks.
-    pub fn msg_iter(&self) -> TryIter<Event> {
+    pub fn msg_iter(&self) -> TryIter<'_, Event> {
         self.rx.try_iter()
     }
 

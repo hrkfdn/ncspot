@@ -226,12 +226,12 @@ impl Config {
     }
 
     /// Get the user configuration values.
-    pub fn values(&self) -> RwLockReadGuard<ConfigValues> {
+    pub fn values(&self) -> RwLockReadGuard<'_, ConfigValues> {
         self.values.read().unwrap()
     }
 
     /// Get the runtime user state values.
-    pub fn state(&self) -> RwLockReadGuard<UserState> {
+    pub fn state(&self) -> RwLockReadGuard<'_, UserState> {
         self.state.read().unwrap()
     }
 
