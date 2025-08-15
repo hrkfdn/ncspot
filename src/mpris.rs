@@ -123,7 +123,7 @@ impl MprisPlayer {
     }
 
     #[zbus(property)]
-    fn metadata(&self) -> HashMap<String, Value> {
+    fn metadata(&self) -> HashMap<String, Value<'_>> {
         let mut hm = HashMap::new();
 
         let playable = self.queue.get_current();
