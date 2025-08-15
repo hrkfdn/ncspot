@@ -38,10 +38,11 @@ impl ArtistView {
             let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id
-                    && let Ok(tracks) = spotify.api.artist_top_tracks(&id) {
-                        top_tracks.write().unwrap().extend(tracks);
-                        library.trigger_redraw();
-                    }
+                    && let Ok(tracks) = spotify.api.artist_top_tracks(&id)
+                {
+                    top_tracks.write().unwrap().extend(tracks);
+                    library.trigger_redraw();
+                }
             });
         }
 
@@ -52,10 +53,11 @@ impl ArtistView {
             let library = library.clone();
             thread::spawn(move || {
                 if let Some(id) = id
-                    && let Ok(artists) = spotify.api.artist_related_artists(&id) {
-                        related.write().unwrap().extend(artists);
-                        library.trigger_redraw();
-                    }
+                    && let Ok(artists) = spotify.api.artist_related_artists(&id)
+                {
+                    related.write().unwrap().extend(artists);
+                    library.trigger_redraw();
+                }
             });
         }
 

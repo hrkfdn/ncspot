@@ -394,16 +394,17 @@ impl MprisPlayer {
         match uri_type {
             Some(UriType::Album) => {
                 if let Ok(a) = self.spotify.api.album(&id)
-                    && let Some(t) = &Album::from(&a).tracks {
-                        let should_shuffle = self.queue.get_shuffle();
-                        self.queue.clear();
-                        let index = self.queue.append_next(
-                            &t.iter()
-                                .map(|track| Playable::Track(track.clone()))
-                                .collect(),
-                        );
-                        self.queue.play(index, should_shuffle, should_shuffle)
-                    }
+                    && let Some(t) = &Album::from(&a).tracks
+                {
+                    let should_shuffle = self.queue.get_shuffle();
+                    self.queue.clear();
+                    let index = self.queue.append_next(
+                        &t.iter()
+                            .map(|track| Playable::Track(track.clone()))
+                            .collect(),
+                    );
+                    self.queue.play(index, should_shuffle, should_shuffle)
+                }
             }
             Some(UriType::Track) => {
                 if let Ok(t) = self.spotify.api.track(&id) {
