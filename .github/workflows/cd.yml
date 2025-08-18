@@ -40,7 +40,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             features: '--no-default-features --features rodio_backend,pancurses_backend,share_clipboard,notify'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         name: Checkout src
       - name: Install rustup
         if: runner.os != 'Windows'
