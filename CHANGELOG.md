@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Playlist `reverse` command with keybinding `Shift+R`
+### Added
 
 ## [1.3.0]
 
