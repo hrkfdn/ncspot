@@ -248,9 +248,10 @@ impl Spotify {
             .expect("Could not create session");
         user_tx.map(|tx| tx.send(session.username()));
 
-        let create_mixer = librespot_playback::mixer::find(Some(SoftMixer::NAME))
-            .expect("could not create softvol mixer");
-        let mixer = create_mixer(MixerConfig::default());
+        let mixer_factory_opt = librespot_playback::mixer::find(Some(SoftMixer::NAME));
+        let factory = mixer_factory_opt.expect("could not find softvol mixer factory");
+        let mixer = factory(MixerConfig::default()).expect("could not create softvol mixer");
+
         mixer.set_volume(volume);
 
         let audio_format: librespot_playback::config::AudioFormat = Default::default();
