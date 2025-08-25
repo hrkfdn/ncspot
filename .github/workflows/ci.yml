@@ -62,7 +62,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt update
-          sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev
+          sudo apt install libpulse-dev libdbus-1-dev libncursesw5-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Running cargo build
         run: cargo build --locked --target ${{ matrix.target }} ${{ matrix.features }}
       - name: Running cargo test

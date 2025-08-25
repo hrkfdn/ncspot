@@ -54,7 +54,7 @@ ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.175"
 librespot-core = "0.7.0"
 librespot-oauth = "0.7.0"
-librespot-playback = "0.7.0"
+librespot-playback = {version = "0.7.0", default-features = false, features = ["native-tls"]}
 librespot-protocol = "0.7.0"
 log = "0.4.27"
 pancurses = {version = "0.17.0", optional = true}

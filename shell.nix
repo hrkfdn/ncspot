@@ -5,6 +5,5 @@ pkgs.mkShell {
     pkg-config
     openssl
     pulseaudio
-    alsa-lib
   ];
 }
