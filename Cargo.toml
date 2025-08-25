@@ -47,15 +47,15 @@ chrono = "0.4"
 clap = "4.5.45"
 arboard = {version = "3.6", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "5.9.0", default-features = false, features = ["tokio"], optional = true}
+zbus = {version = "5.10.0", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.175"
 librespot-core = "0.6.0"
-librespot-oauth = "0.6.0"
+librespot-oauth = "0.7.0"
 librespot-playback = "0.6.0"
-librespot-protocol = "0.6.0"
+librespot-protocol = "0.7.0"
 log = "0.4.27"
 pancurses = {version = "0.17.0", optional = true}
 parse_duration = "2.1.1"
