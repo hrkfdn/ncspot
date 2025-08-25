@@ -1,7 +1,7 @@
 [package]
 name = "ncspot"
 readme = "README.md"
-version = "1.3.0"
+version = "1.3.1"
 description = "ncurses Spotify client written in Rust using librespot, inspired by ncmpc and the likes."
 exclude = ["images/**"]
 keywords = ["spotify", "ncurses", "librespot", "terminal"]
