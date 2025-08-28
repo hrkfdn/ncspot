@@ -431,6 +431,16 @@ impl WebApi {
                         items: page
                             .items
                             .iter()
+                            .filter(|pt| {
+                                if let Some(t) = pt.track.as_ref()
+                                    && !t.is_unknown()
+                                {
+                                    true
+                                } else {
+                                    error!("Could not process item {pt:?}, ignoring");
+                                    false
+                                }
+                            })
                             .enumerate()
                             .flat_map(|(index, pt)| {
                                 pt.track.as_ref().map(|t| {

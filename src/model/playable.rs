@@ -144,6 +144,7 @@ impl From<&PlayableItem> for Playable {
         match item {
             PlayableItem::Episode(episode) => Self::Episode(episode.into()),
             PlayableItem::Track(track) => Self::Track(track.into()),
+            PlayableItem::Unknown(value) => panic!("Unknown playable item {value:?}"),
         }
     }
 }
