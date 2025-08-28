@@ -2012,6 +2012,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "librespot-connect"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ee65534c5bb1e2179a8b4aefe2ec21021f17ea88917be7dfd264491725e663b"
+dependencies = [
+ "futures-util",
+ "librespot-core",
+ "librespot-playback",
+ "librespot-protocol",
+ "log",
+ "protobuf",
+ "rand 0.9.2",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+]
+
+[[package]]
 name = "librespot-core"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2296,6 +2316,7 @@ dependencies = [
  "futures",
  "ioctl-rs",
  "libc",
+ "librespot-connect",
  "librespot-core",
  "librespot-oauth",
  "librespot-playback",
@@ -4549,6 +4570,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
 dependencies = [
  "getrandom 0.3.3",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
