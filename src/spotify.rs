@@ -163,10 +163,7 @@ impl Spotify {
 
     /// Create a [Session] that respects the user configuration in `cfg` and with the given
     /// credentials.
-    async fn create_session(
-        cfg: &config::Config,
-        credentials: Credentials,
-    ) -> Result<Session, librespot_core::Error> {
+    async fn create_session(cfg: &config::Config) -> Session {
         let librespot_cache_path = config::cache_path("librespot");
         let audio_cache_path = match cfg.values().audio_cache {
             Some(false) => None,
@@ -183,8 +180,7 @@ impl Spotify {
         .expect("Could not create cache");
         debug!("opening spotify session");
         let session_config = Self::session_config(cfg);
-        let session = Session::new(session_config, Some(cache));
-        session.connect(credentials, true).await.map(|_| session)
+        Session::new(session_config, Some(cache))
     }
 
     /// Create and initialize the requested audio backend.
@@ -243,9 +239,7 @@ impl Spotify {
             ..Default::default()
         };
 
-        let session = Self::create_session(&cfg, credentials)
-            .await
-            .expect("Could not create session");
+        let session = Self::create_session(&cfg).await;
         user_tx.map(|tx| tx.send(session.username()));
 
         let mixer_factory_opt = librespot_playback::mixer::find(Some(SoftMixer::NAME));
@@ -265,12 +259,14 @@ impl Spotify {
 
         let mut worker = Worker::new(
             events.clone(),
+            credentials,
             player_events,
             commands,
             session,
             player,
             mixer,
-        );
+        )
+        .await;
         debug!("worker thread ready.");
         worker.run_loop().await;
 
