@@ -243,7 +243,7 @@ impl Spotify {
             ..Default::default()
         };
 
-        let session = Self::create_session(&cfg, credentials)
+        let session = Self::create_session(&cfg, credentials.clone())
             .await
             .expect("Could not create session");
         user_tx.map(|tx| tx.send(session.username()));
@@ -265,12 +265,13 @@ impl Spotify {
 
         let mut worker = Worker::new(
             events.clone(),
+            credentials,
             player_events,
             commands,
             session,
             player,
             mixer,
-        );
+        ).await;
         debug!("worker thread ready.");
         worker.run_loop().await;
 
