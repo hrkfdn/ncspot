@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.1]
 
+### Added
+
+- Playlist `reverse` command with keybinding `Shift+R`
+
 ### Fixed
 
 - Bug preventing any type of playback due to spotify API changes.
