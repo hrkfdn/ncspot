@@ -193,7 +193,7 @@ impl CommandManager {
                     .spotify
                     .volume()
                     .saturating_add(VOLUME_PERCENT * amount);
-                self.spotify.set_volume(volume, true);
+                self.spotify.set_volume(volume);
                 Ok(None)
             }
             Command::VolumeDown(amount) => {
@@ -202,7 +202,7 @@ impl CommandManager {
                     .volume()
                     .saturating_sub(VOLUME_PERCENT * amount);
                 debug!("vol {volume}");
-                self.spotify.set_volume(volume, true);
+                self.spotify.set_volume(volume);
                 Ok(None)
             }
             Command::Help => {

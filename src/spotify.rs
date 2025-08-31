@@ -35,12 +35,18 @@ use crate::traits::ListItem;
 /// percent.
 pub const VOLUME_PERCENT: u16 = ((u16::MAX as f64) * 1.0 / 100.0) as u16;
 
-/// Events sent by the [Player].
+/// Player status
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub enum PlayerEvent {
+pub enum PlayerStatus {
     Playing(SystemTime),
     Paused(Duration),
     Stopped,
+}
+
+/// Events sent by the [Player].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub enum PlayerEvent {
+    StatusChanged(PlayerStatus),
     FinishedTrack,
 }
 
@@ -54,7 +60,7 @@ pub struct Spotify {
     credentials: Credentials,
     cfg: Arc<config::Config>,
     /// Playback status of the [Player] owned by the worker thread.
-    status: Arc<RwLock<PlayerEvent>>,
+    status: Arc<RwLock<PlayerStatus>>,
     pub api: WebApi,
     /// The amount of the current [Playable] that had elapsed when last paused.
     elapsed: Arc<RwLock<Option<Duration>>>,
@@ -76,7 +82,7 @@ impl Spotify {
             mpris: Default::default(),
             credentials,
             cfg: cfg.clone(),
-            status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
+            status: Arc::new(RwLock::new(PlayerStatus::Stopped)),
             api: WebApi::new(),
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
@@ -87,7 +93,7 @@ impl Spotify {
         spotify.start_worker(Some(user_tx))?;
         let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
-        spotify.set_volume(volume, true);
+        spotify.set_volume(volume);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
         spotify
@@ -276,7 +282,7 @@ impl Spotify {
     }
 
     /// Get the current playback status of the [Player].
-    pub fn get_current_status(&self) -> PlayerEvent {
+    pub fn get_current_status(&self) -> PlayerStatus {
         let status = self.status.read().unwrap();
         (*status).clone()
     }
@@ -334,24 +340,26 @@ impl Spotify {
     /// Update the cached status of the [Player]. This makes sure the status
     /// doesn't have to be retrieved every time from the thread, which would be harder and more
     /// expensive.
-    pub fn update_status(&self, new_status: PlayerEvent) {
-        match new_status {
-            PlayerEvent::Paused(position) => {
+    pub fn handle_player_event(&self, event: PlayerEvent) {
+        match event {
+            PlayerEvent::StatusChanged(PlayerStatus::Paused(position)) => {
                 self.set_elapsed(Some(position));
                 self.set_since(None);
             }
-            PlayerEvent::Playing(playback_start) => {
+            PlayerEvent::StatusChanged(PlayerStatus::Playing(playback_start)) => {
                 self.set_since(Some(playback_start));
                 self.set_elapsed(None);
             }
-            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => {
+            PlayerEvent::StatusChanged(PlayerStatus::Stopped) | PlayerEvent::FinishedTrack => {
                 self.set_elapsed(None);
                 self.set_since(None);
             }
         }
 
-        let mut status = self.status.write().unwrap();
-        *status = new_status;
+        if let PlayerEvent::StatusChanged(new_status) = event {
+            let mut status = self.status.write().unwrap();
+            *status = new_status;
+        };
 
         #[cfg(feature = "mpris")]
         self.send_mpris(MprisCommand::EmitPlaybackStatus);
@@ -373,8 +381,8 @@ impl Spotify {
     /// Toggle playback (play/pause) of the [Player].
     pub fn toggleplayback(&self) {
         match self.get_current_status() {
-            PlayerEvent::Playing(_) => self.pause(),
-            PlayerEvent::Paused(_) => self.play(),
+            PlayerStatus::Playing(_) => self.pause(),
+            PlayerStatus::Paused(_) => self.play(),
             _ => (),
         }
     }
@@ -438,6 +446,14 @@ impl Spotify {
         self.cfg.state().volume
     }
 
+    pub fn update_volume(&self, volume: u16) {
+        info!("setting volume to {volume}");
+        self.cfg.with_state_mut(|s| s.volume = volume);
+
+        #[cfg(feature = "mpris")]
+        self.send_mpris(MprisCommand::EmitVolumeStatus)
+    }
+
     /// Send a Seeked signal on Mpris interface
     #[cfg(feature = "mpris")]
     pub fn notify_seeked(&self, position_ms: u32) {
@@ -453,16 +469,8 @@ impl Spotify {
 
     /// Set the current volume of the [Player]. If `notify` is true, also notify MPRIS clients about
     /// the update.
-    pub fn set_volume(&self, volume: u16, notify: bool) {
-        info!("setting volume to {volume}");
-        self.cfg.with_state_mut(|s| s.volume = volume);
+    pub fn set_volume(&self, volume: u16) {
         self.send_worker(WorkerCommand::SetVolume(volume));
-        // HACK: This is a bit of a hack to prevent duplicate update signals when updating from the
-        // MPRIS implementation.
-        if notify {
-            #[cfg(feature = "mpris")]
-            self.send_mpris(MprisCommand::EmitVolumeStatus)
-        }
     }
 
     /// Preload the given [Playable] in the [Player]. This makes sure it can be played immediately
