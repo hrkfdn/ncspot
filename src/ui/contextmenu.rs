@@ -14,7 +14,7 @@ use crate::model::track::Track;
 use crate::queue::Queue;
 #[cfg(feature = "share_clipboard")]
 use crate::sharing::write_share;
-use crate::spotify::PlayerEvent;
+use crate::spotify::PlayerStatus;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
@@ -205,7 +205,7 @@ impl ContextMenu {
         if item.is_playable() {
             if item.is_playing(&queue)
                 && queue.get_spotify().get_current_status()
-                    == PlayerEvent::Paused(queue.get_spotify().get_current_progress())
+                    == PlayerStatus::Paused(queue.get_spotify().get_current_progress())
             {
                 // the item is the current track, but paused
                 content.insert_item(0, "Resume", ContextMenuAction::TogglePlayback);
