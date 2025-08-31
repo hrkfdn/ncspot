@@ -1,8 +1,9 @@
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
-use crate::spotify::PlayerEvent;
+use crate::spotify::{PlayerEvent, PlayerStatus};
 use futures::Future;
+use librespot_connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot_core::session::Session;
 use librespot_core::spotify_id::SpotifyId;
 use librespot_core::token::Token;
@@ -31,7 +32,7 @@ pub(crate) enum WorkerCommand {
     Shutdown,
 }
 
-enum PlayerStatus {
+enum LibrespotPlayerStatus {
     Playing,
     Paused,
     Stopped,
@@ -41,31 +42,39 @@ pub struct Worker {
     events: EventManager,
     player_events: UnboundedReceiverStream<LibrespotPlayerEvent>,
     commands: UnboundedReceiverStream<WorkerCommand>,
-    session: Session,
-    player: Arc<Player>,
     token_task: Pin<Box<dyn Future<Output = ()> + Send>>,
-    player_status: PlayerStatus,
-    mixer: Arc<dyn Mixer>,
+    player_status: LibrespotPlayerStatus,
+    session: Session,
+    spirc: Spirc,
+    spirc_task: Pin<Box<dyn Future<Output = ()> + Send>>,
 }
 
 impl Worker {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         events: EventManager,
+        credentials: librespot_core::authentication::Credentials,
         player_events: mpsc::UnboundedReceiver<LibrespotPlayerEvent>,
         commands: mpsc::UnboundedReceiver<WorkerCommand>,
         session: Session,
         player: Arc<Player>,
         mixer: Arc<dyn Mixer>,
     ) -> Self {
+        let config = ConnectConfig {
+            name: "ncspot".to_string(),
+            ..Default::default()
+        };
+        let (spirc, spirc_task) = Spirc::new(config, session.clone(), credentials, player, mixer)
+            .await
+            .expect("Spirc should be initialized");
         Self {
             events,
             player_events: UnboundedReceiverStream::new(player_events),
             commands: UnboundedReceiverStream::new(commands),
-            player,
-            session,
             token_task: Box::pin(futures::future::pending()),
-            player_status: PlayerStatus::Stopped,
-            mixer,
+            player_status: LibrespotPlayerStatus::Stopped,
+            session,
+            spirc,
+            spirc_task: Box::pin(spirc_task),
         }
     }
 
@@ -91,13 +100,16 @@ impl Worker {
         loop {
             if self.session.is_invalid() {
                 info!("Librespot session invalidated, terminating worker");
-                self.events.send(Event::Player(PlayerEvent::Stopped));
+                self.events.send(Event::Player(PlayerEvent::StatusChanged(
+                    PlayerStatus::Stopped,
+                )));
                 break;
             }
 
             tokio::select! {
                 cmd = self.commands.next() => match cmd {
                     Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
+                        self.spirc.activate();
                         match SpotifyId::from_uri(&playable.uri()) {
                             Ok(id) => {
                                 info!("player loading track: {id:?}");
@@ -105,7 +117,14 @@ impl Worker {
                                     warn!("track is not playable");
                                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                                 } else {
-                                    self.player.load(id, start_playing, position_ms);
+                                    let options = LoadRequestOptions {
+                                        start_playing,
+                                        seek_to: position_ms,
+                                        context_options: None,
+                                        playing_track: None,
+                                    };
+                                    let req = LoadRequest::from_tracks(vec![id.to_uri().expect("uri")], options);
+                                    self.spirc.load(req);
                                 }
                             }
                             Err(e) => {
@@ -115,19 +134,19 @@ impl Worker {
                         }
                     }
                     Some(WorkerCommand::Play) => {
-                        self.player.play();
+                        self.spirc.play();
                     }
                     Some(WorkerCommand::Pause) => {
-                        self.player.pause();
+                        self.spirc.pause();
                     }
                     Some(WorkerCommand::Stop) => {
-                        self.player.stop();
+                        //todo!("stop spirc");
                     }
                     Some(WorkerCommand::Seek(pos)) => {
-                        self.player.seek(pos);
+                        self.spirc.set_position_ms(pos);
                     }
                     Some(WorkerCommand::SetVolume(volume)) => {
-                        self.mixer.set_volume(volume);
+                        self.spirc.set_volume(volume);
                     }
                     Some(WorkerCommand::RequestToken(sender)) => {
                         self.token_task = Box::pin(Self::get_token(self.session.clone(), sender));
@@ -135,12 +154,11 @@ impl Worker {
                     Some(WorkerCommand::Preload(playable)) => {
                         if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
                             debug!("Preloading {id:?}");
-                            self.player.preload(id);
+                            // self.player.preload(id);
                         }
                     }
                     Some(WorkerCommand::Shutdown) => {
-                        self.player.stop();
-                        self.session.shutdown();
+                        self.spirc.shutdown();
                     }
                     None => info!("empty stream")
                 },
@@ -153,8 +171,8 @@ impl Worker {
                         let position = Duration::from_millis(position_ms as u64);
                         let playback_start = SystemTime::now() - position;
                         self.events
-                            .send(Event::Player(PlayerEvent::Playing(playback_start)));
-                        self.player_status = PlayerStatus::Playing;
+                            .send(Event::Player(PlayerEvent::StatusChanged(PlayerStatus::Playing(playback_start))));
+                        self.player_status = LibrespotPlayerStatus::Playing;
                     }
                     Some(LibrespotPlayerEvent::Paused {
                         play_request_id: _,
@@ -163,12 +181,12 @@ impl Worker {
                     }) => {
                         let position = Duration::from_millis(position_ms as u64);
                         self.events
-                            .send(Event::Player(PlayerEvent::Paused(position)));
-                        self.player_status = PlayerStatus::Paused;
+                            .send(Event::Player(PlayerEvent::StatusChanged(PlayerStatus::Paused(position))));
+                        self.player_status = LibrespotPlayerStatus::Paused;
                     }
                     Some(LibrespotPlayerEvent::Stopped { .. }) => {
-                        self.events.send(Event::Player(PlayerEvent::Stopped));
-                        self.player_status = PlayerStatus::Stopped;
+                        self.events.send(Event::Player(PlayerEvent::StatusChanged(PlayerStatus::Stopped)));
+                        self.player_status = LibrespotPlayerStatus::Stopped;
                     }
                     Some(LibrespotPlayerEvent::EndOfTrack { .. }) => {
                         self.events.send(Event::Player(PlayerEvent::FinishedTrack));
@@ -179,14 +197,18 @@ impl Worker {
                     }
                     Some(LibrespotPlayerEvent::Seeked { play_request_id: _, track_id: _, position_ms}) => {
                         let position = Duration::from_millis(position_ms as u64);
-                        let event = match self.player_status {
-                            PlayerStatus::Playing => {
+                        let status = match self.player_status {
+                            LibrespotPlayerStatus::Playing => {
                                 let playback_start = SystemTime::now() - position;
-                                PlayerEvent::Playing(playback_start)
+                                PlayerStatus::Playing(playback_start)
                             },
-                            PlayerStatus::Paused => PlayerEvent::Paused(position),
-                            PlayerStatus::Stopped => PlayerEvent::Stopped,
+                            LibrespotPlayerStatus::Paused => PlayerStatus::Paused(position),
+                            LibrespotPlayerStatus::Stopped => PlayerStatus::Stopped,
                         };
+                        self.events.send(Event::Player(PlayerEvent::StatusChanged(status)));
+                    }
+                    Some(LibrespotPlayerEvent::VolumeChanged { volume }) => {
+                        let event = PlayerEvent::VolumeChanged(volume);
                         self.events.send(Event::Player(event));
                     }
                     Some(event) => {
@@ -197,9 +219,12 @@ impl Worker {
                         break
                     },
                 },
+                _ = self.spirc_task.as_mut() => {
+                    info!("spirc task tick");
+                },
                 // Update animated parts of the UI (e.g. statusbar during playback).
                 _ = ui_refresh.tick() => {
-                    if !matches!(self.player_status, PlayerStatus::Stopped) {
+                    if !matches!(self.player_status, LibrespotPlayerStatus::Stopped) {
                         self.events.trigger();
                     }
                 },
@@ -215,6 +240,6 @@ impl Worker {
 impl Drop for Worker {
     fn drop(&mut self) {
         debug!("Worker thread is shutting down, stopping player");
-        self.player.stop();
+        self.spirc.shutdown();
     }
 }

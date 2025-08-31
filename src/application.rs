@@ -252,16 +252,18 @@ impl Application {
             }
             for event in self.event_manager.msg_iter() {
                 match event {
-                    Event::Player(state) => {
-                        trace!("event received: {state:?}");
-                        self.spotify.update_status(state.clone());
+                    Event::Player(event) => {
+                        trace!("player event received: {event:?}");
+                        self.spotify.handle_player_event(event.clone());
 
                         #[cfg(unix)]
-                        if let Some(ref ipc) = self.ipc {
-                            ipc.publish(&state, self.queue.get_current());
+                        if let Some(ref ipc) = self.ipc
+                            && let PlayerEvent::StatusChanged(ref status) = event
+                        {
+                            ipc.publish(status, self.queue.get_current());
                         }
 
-                        if state == PlayerEvent::FinishedTrack {
+                        if event == PlayerEvent::FinishedTrack {
                             self.queue.next(false);
                         }
                     }

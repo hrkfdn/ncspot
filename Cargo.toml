@@ -52,6 +52,7 @@ fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.175"
+librespot-connect = "0.7.0"
 librespot-core = "0.7.0"
 librespot-oauth = "0.7.0"
 librespot-playback = {version = "0.7.0", default-features = false, features = ["native-tls"]}

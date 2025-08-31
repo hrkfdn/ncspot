@@ -11,7 +11,7 @@ use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 
 use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
-use crate::spotify::PlayerEvent;
+use crate::spotify::PlayerStatus;
 
 pub struct IpcSocket {
     tx: Sender<Status>,
@@ -20,7 +20,7 @@ pub struct IpcSocket {
 
 #[derive(Clone, Debug, Serialize)]
 struct Status {
-    mode: PlayerEvent,
+    mode: PlayerStatus,
     playable: Option<Playable>,
 }
 
@@ -46,7 +46,7 @@ impl IpcSocket {
         info!("Creating IPC domain socket at {path:?}");
 
         let status = Status {
-            mode: PlayerEvent::Stopped,
+            mode: PlayerStatus::Stopped,
             playable: None,
         };
 
@@ -65,7 +65,7 @@ impl IpcSocket {
         std::os::unix::net::UnixStream::connect(path).is_ok()
     }
 
-    pub fn publish(&self, event: &PlayerEvent, playable: Option<Playable>) {
+    pub fn publish(&self, event: &PlayerStatus, playable: Option<Playable>) {
         let status = Status {
             mode: event.clone(),
             playable,

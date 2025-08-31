@@ -11,7 +11,7 @@ use strum_macros::Display;
 use crate::config::Config;
 use crate::library::Library;
 use crate::model::playable::Playable;
-use crate::spotify::PlayerEvent;
+use crate::spotify::PlayerStatus;
 use crate::spotify::Spotify;
 use crate::traits::ListItem;
 
@@ -329,14 +329,13 @@ impl Queue {
     /// play the next song if one is available, or restart from the start.
     pub fn toggleplayback(&self) {
         match self.spotify.get_current_status() {
-            PlayerEvent::Playing(_) | PlayerEvent::Paused(_) => {
+            PlayerStatus::Playing(_) | PlayerStatus::Paused(_) => {
                 self.spotify.toggleplayback();
             }
-            PlayerEvent::Stopped => match self.next_index() {
+            PlayerStatus::Stopped => match self.next_index() {
                 Some(_) => self.next(false),
                 None => self.play(0, false, false),
             },
-            _ => (),
         }
     }
 

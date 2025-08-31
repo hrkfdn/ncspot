@@ -11,7 +11,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
-use crate::spotify::{PlayerEvent, Spotify};
+use crate::spotify::{PlayerStatus, Spotify};
 use crate::utils::ms_to_hms;
 
 pub struct StatusBar {
@@ -58,9 +58,9 @@ impl StatusBar {
         };
 
         match status {
-            PlayerEvent::Playing(_) => indicators.0,
-            PlayerEvent::Paused(_) => indicators.1,
-            PlayerEvent::Stopped | PlayerEvent::FinishedTrack => indicators.2,
+            PlayerStatus::Playing(_) => indicators.0,
+            PlayerStatus::Paused(_) => indicators.1,
+            PlayerStatus::Stopped => indicators.2,
         }
     }
 
@@ -240,7 +240,7 @@ impl View for StatusBar {
                         .volume()
                         .saturating_add(crate::spotify::VOLUME_PERCENT);
 
-                    self.spotify.set_volume(volume, true);
+                    self.spotify.set_volume(volume);
                 }
 
                 if event == MouseEvent::WheelDown {
@@ -249,7 +249,7 @@ impl View for StatusBar {
                         .volume()
                         .saturating_sub(crate::spotify::VOLUME_PERCENT);
 
-                    self.spotify.set_volume(volume, true);
+                    self.spotify.set_volume(volume);
                 }
             } else if event == MouseEvent::Press(MouseButton::Left) {
                 self.queue.toggleplayback();
