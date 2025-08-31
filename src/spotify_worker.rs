@@ -207,6 +207,10 @@ impl Worker {
                         };
                         self.events.send(Event::Player(PlayerEvent::StatusChanged(status)));
                     }
+                    Some(LibrespotPlayerEvent::VolumeChanged { volume }) => {
+                        let event = PlayerEvent::VolumeChanged(volume);
+                        self.events.send(Event::Player(event));
+                    }
                     Some(event) => {
                         debug!("Unhandled player event: {event:?}");
                     }
