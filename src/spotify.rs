@@ -48,6 +48,7 @@ pub enum PlayerStatus {
 pub enum PlayerEvent {
     StatusChanged(PlayerStatus),
     FinishedTrack,
+    VolumeChanged(u16),
 }
 
 /// Wrapper around a worker thread that exposes methods to safely control it.
@@ -371,6 +372,9 @@ impl Spotify {
             PlayerEvent::StatusChanged(PlayerStatus::Stopped) | PlayerEvent::FinishedTrack => {
                 self.set_elapsed(None);
                 self.set_since(None);
+            }
+            PlayerEvent::VolumeChanged(volume) => {
+                self.update_volume(volume);
             }
         }
 
