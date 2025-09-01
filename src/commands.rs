@@ -316,7 +316,8 @@ impl CommandManager {
             | Command::Jump(_)
             | Command::Insert(_)
             | Command::ShowRecommendations(_)
-            | Command::Sort(_, _) => Err(format!(
+            | Command::Sort(_, _)
+            | Command::Reverse => Err(format!(
                 "The command \"{}\" is unsupported in this view",
                 cmd.basename()
             )),
@@ -459,6 +460,7 @@ impl CommandManager {
         kb.insert("[".into(), vec![Command::VolumeDown(5)]);
 
         kb.insert("r".into(), vec![Command::Repeat(None)]);
+        kb.insert("Shift+r".into(), vec![Command::Reverse]);
         kb.insert("z".into(), vec![Command::Shuffle(None)]);
 
         #[cfg(feature = "share_clipboard")]
