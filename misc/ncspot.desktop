@@ -6,5 +6,5 @@ TryExec=ncspot
 Exec=ncspot
 Icon=ncspot
 Terminal=true
-Categories=AudioVideo;Audio;Player;ConsoleOnly
+Categories=AudioVideo;Audio;Player
 Keywords=spotify;music;player
