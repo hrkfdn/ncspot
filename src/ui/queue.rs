@@ -162,13 +162,21 @@ impl ViewExt for QueueView {
                     _ => 1,
                 };
 
+                let mode = match mode {
+                    &ShiftMode::Up if amount.is_negative() => &ShiftMode::Down,
+                    &ShiftMode::Down if amount.is_negative() => &ShiftMode::Up,
+                    m => m,
+                };
+
+                let amount = amount.abs();
+
                 let selected = self.list.get_selected_index();
                 let len = self.queue.len();
 
                 match mode {
                     ShiftMode::Up if selected > 0 => {
                         self.queue
-                            .shift(selected, (selected as i32).saturating_sub(amount) as usize);
+                            .shift(selected, selected.saturating_sub(amount as usize));
                         self.list.move_focus(-amount);
                         return Ok(CommandResult::Consumed(None));
                     }
