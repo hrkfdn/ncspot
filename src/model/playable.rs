@@ -10,6 +10,7 @@ use crate::queue::Queue;
 use crate::traits::{ListItem, ViewExt};
 use crate::utils::ms_to_hms;
 use std::fmt;
+use std::fmt::Display;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -19,8 +20,26 @@ pub enum Playable {
     Episode(Episode),
 }
 
+fn fmt_number<T: Display>(num_fmt: &str, num: T) -> String {
+    match num_fmt {
+        "{:01}" => format!("{:01}", num),
+        "{:02}" => format!("{:02}", num),
+        "{:03}" => format!("{:03}", num),
+        "{:04}" => format!("{:04}", num),
+        "{:05}" => format!("{:05}", num),
+        "{:>1}" => format!("{:>1}", num),
+        "{:>2}" => format!("{:>2}", num),
+        "{:>3}" => format!("{:>3}", num),
+        "{:>4}" => format!("{:>4}", num),
+        "{:>5}" => format!("{:>5}", num),
+        _ => {
+            num.to_string()
+        }
+    }
+}
+
 impl Playable {
-    pub fn format(playable: &Self, formatting: &str, library: &Library) -> String {
+    pub fn format(playable: &Self, formatting: &str, number_format: &str, library: &Library) -> String {
         formatting
             .replace(
                 "%artists",
@@ -56,7 +75,7 @@ impl Playable {
                 "%track_number",
                 match playable.clone() {
                     Self::Episode(episode) => episode.list_index.to_string(),
-                    Self::Track(track) => track.track_number.to_string(),
+                    Self::Track(track) => fmt_number(&number_format, &track.track_number),
                 }
                 .as_str(),
             )
