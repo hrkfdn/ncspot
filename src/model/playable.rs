@@ -53,6 +53,22 @@ impl Playable {
                 .as_str(),
             )
             .replace(
+                "%track_number",
+                match playable.clone() {
+                    Self::Episode(episode) => episode.list_index.to_string(),
+                    Self::Track(track) => track.track_number.to_string(),
+                }
+                .as_str(),
+            )
+            .replace(
+                "%disc_number",
+                match playable.clone() {
+                    Self::Track(track) => track.disc_number.to_string(),
+                    Self::Episode(_episode) => String::new(),
+                }
+                .as_str(),
+            )
+            .replace(
                 "%album",
                 match playable.clone() {
                     Self::Track(track) => track.album.unwrap_or_default(),
