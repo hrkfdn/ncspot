@@ -6,13 +6,6 @@ use std::sync::OnceLock;
 
 use strum_macros::Display;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum SeekInterval {
-    Forward,
-    Backwards,
-    Custom(usize),
-}
-
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
 #[strum(serialize_all = "lowercase")]
 pub enum TargetMode {
