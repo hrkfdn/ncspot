@@ -178,7 +178,7 @@ impl Spotify {
             audio_cache_path,
             cfg.values()
                 .audio_cache_size
-                .map(|size| (size as u64 * 1048576)),
+                .map(|size| size as u64 * 1048576),
         )
         .expect("Could not create cache");
         debug!("opening spotify session");

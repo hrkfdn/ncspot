@@ -99,9 +99,3 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         .map(|token| RespotCredentials::with_access_token(token.access_token))
         .map_err(|e| e.to_string())
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuthResponse {
-    pub credentials: RespotCredentials,
-    pub error: Option<String>,
-}
