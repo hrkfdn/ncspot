@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Playlist retrieval crashing when list contains podcast episodes
 - Crash when shifting a song by an amount greater than the queue's length
+- Crash when displaying songs that do not have an (available) artist
 
 ## [1.3.1]
 

@@ -38,7 +38,9 @@ impl Playable {
             .replace(
                 "%artist",
                 if let Some(artists) = playable.artists() {
-                    artists.first().unwrap().clone().name
+                    artists
+                        .first()
+                        .map_or(String::from(""), |artist| artist.name.clone())
                 } else {
                     String::new()
                 }
