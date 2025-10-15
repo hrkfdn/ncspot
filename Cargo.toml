@@ -51,7 +51,7 @@ zbus = {version = "5.11.0", default-features = false, features = ["tokio"], opti
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.176"
+libc = "0.2.177"
 librespot-core = "0.7.1"
 librespot-oauth = "0.7.1"
 librespot-playback = {version = "0.7.1", default-features = false, features = ["native-tls"]}
@@ -72,7 +72,7 @@ tokio = {version = "1", features = ["rt-multi-thread", "sync", "time", "net"]}
 tokio-util = {version = "0.7.16", features = ["codec"]}
 tokio-stream = {version = "0.1.17", features = ["sync"]}
 toml = "0.9"
-unicode-width = "0.2.1"
+unicode-width = "0.2.2"
 url = "2.5"
 
 [target.'cfg(unix)'.dependencies]
