@@ -52,10 +52,10 @@ fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.177"
-librespot-core = { git = "https://github.com/librespot-org/librespot.git", rev = "a9122dcbf430bc0c690191cf245dac0cb038035e" }
-librespot-oauth = { git = "https://github.com/librespot-org/librespot.git", rev = "a9122dcbf430bc0c690191cf245dac0cb038035e" }
-librespot-playback = { git = "https://github.com/librespot-org/librespot.git", rev = "a9122dcbf430bc0c690191cf245dac0cb038035e", default-features = false, features = ["native-tls"] }
-librespot-protocol = { git = "https://github.com/librespot-org/librespot.git", rev = "a9122dcbf430bc0c690191cf245dac0cb038035e" }
+librespot-core = "0.8.0"
+librespot-oauth = "0.8.0"
+librespot-playback = {version = "0.8.0", default-features = false, features = ["native-tls"]}
+librespot-protocol = "0.8.0"
 log = "0.4.28"
 pancurses = {version = "0.17.0", optional = true}
 parse_duration = "2.1.1"
