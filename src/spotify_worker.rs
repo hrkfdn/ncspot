@@ -3,8 +3,8 @@ use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
 use futures::Future;
+use librespot_core::SpotifyUri;
 use librespot_core::session::Session;
-use librespot_core::spotify_id::SpotifyId;
 use librespot_core::token::Token;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
@@ -98,14 +98,14 @@ impl Worker {
             tokio::select! {
                 cmd = self.commands.next() => match cmd {
                     Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
-                        match SpotifyId::from_uri(&playable.uri()) {
-                            Ok(id) => {
-                                info!("player loading track: {id:?}");
-                                if !id.is_playable() {
+                        match SpotifyUri::from_uri(&playable.uri()) {
+                            Ok(uri) => {
+                                info!("player loading track: {uri:?}");
+                                if !uri.is_playable() {
                                     warn!("track is not playable");
                                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
                                 } else {
-                                    self.player.load(id, start_playing, position_ms);
+                                    self.player.load(uri, start_playing, position_ms);
                                 }
                             }
                             Err(e) => {
@@ -133,9 +133,9 @@ impl Worker {
                         self.token_task = Box::pin(Self::get_token(self.session.clone(), sender));
                     }
                     Some(WorkerCommand::Preload(playable)) => {
-                        if let Ok(id) = SpotifyId::from_uri(&playable.uri()) {
-                            debug!("Preloading {id:?}");
-                            self.player.preload(id);
+                        if let Ok(uri) = SpotifyUri::from_uri(&playable.uri()) {
+                            debug!("Preloading {uri:?}");
+                            self.player.preload(uri);
                         }
                     }
                     Some(WorkerCommand::Shutdown) => {
