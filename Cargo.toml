@@ -44,7 +44,7 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.5.48"
+clap = "4.5.53"
 arboard = {version = "3.6", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "5.11.0", default-features = false, features = ["tokio"], optional = true}
