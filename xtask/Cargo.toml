@@ -10,8 +10,8 @@ repository.workspace = true
 
 [dependencies]
 clap_mangen = "0.2.29"
-clap_complete = "4.5.58"
-clap = "4.5.48"
+clap_complete = "4.5.61"
+clap = "4.5.53"
 
 [dependencies.ncspot]
 default-features = false
