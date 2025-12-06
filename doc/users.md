@@ -78,6 +78,8 @@ playback depending on your desktop environment settings. Have a look at the
 | <kbd>:</kbd>      | Open a Vim-like command prompt (See [specific commands](#vim-like-commands)). |
 | <kbd>Escape</kbd> | Close Vim-like search bar or command prompt.                                  |
 | <kbd>Q</kbd>      | Quit `ncspot`.                                                                |
+| <kbd>gg</kbd>     | Go to the top of the current view (Vim motion: double-press <kbd>g</kbd>).     |
+| <kbd>G</kbd>      | Go to the bottom of the current view (Vim motion).                            |
 
 ### Playback
 | Key                           | Command                                                        |

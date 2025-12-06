@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::application::UserData;
 use crate::command::{
@@ -43,6 +43,7 @@ pub struct CommandManager {
     library: Arc<Library>,
     config: Arc<Config>,
     events: EventManager,
+    last_g_press: Arc<Mutex<Option<Instant>>>,
 }
 
 impl CommandManager {
@@ -62,7 +63,12 @@ impl CommandManager {
             library,
             config,
             events,
+            last_g_press: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn get_commands_for_key(&self, key: &str) -> Option<Vec<Command>> {
+        self.bindings.borrow().get(key).cloned()
     }
 
     pub fn get_bindings(config: &Config) -> HashMap<String, Vec<Command>> {
@@ -387,6 +393,9 @@ impl CommandManager {
     pub fn unregister_keybindings(&self, cursive: &mut Cursive) {
         let kb = self.bindings.borrow();
 
+        // Clear the special 'g' callback
+        cursive.clear_global_callbacks(Event::Char('g'));
+
         for (k, _v) in kb.iter() {
             if let Some(binding) = Self::parse_keybinding(k) {
                 cursive.clear_global_callbacks(binding);
@@ -396,8 +405,44 @@ impl CommandManager {
 
     pub fn register_keybindings(&self, cursive: &mut Cursive) {
         let kb = self.bindings.borrow();
+        let last_g_press = Arc::clone(&self.last_g_press);
+
+        // Register 'g' keybinding with special double-press handling for 'gg'
+        let last_g_press_for_g = Arc::clone(&last_g_press);
+        cursive.add_global_callback(Event::Char('g'), move |s| {
+            let now = Instant::now();
+            let mut last_g = last_g_press_for_g.lock().unwrap();
+            
+            // Check if this is a double-press within 500ms
+            if let Some(last_press) = *last_g {
+                if now.duration_since(last_press) < Duration::from_millis(500) {
+                    // Double-press detected: go to top
+                    if let Some(data) = s.user_data::<UserData>().cloned() {
+                        data.cmd.handle(s, Command::Move(MoveMode::Up, MoveAmount::Extreme));
+                    }
+                    *last_g = None; // Reset after handling
+                    return;
+                }
+            }
+            
+            // Update last press time
+            *last_g = Some(now);
+            
+            // If 'g' has a binding in the config, execute it (for custom keybindings)
+            if let Some(data) = s.user_data::<UserData>().cloned() {
+                if let Some(commands) = data.cmd.get_commands_for_key("g") {
+                    for cmd in commands {
+                        data.cmd.handle(s, cmd);
+                    }
+                }
+            }
+        });
 
         for (k, v) in kb.iter() {
+            // Skip 'g' as it's handled specially above
+            if k == "g" {
+                continue;
+            }
             if let Some(binding) = Self::parse_keybinding(k) {
                 self.register_keybinding(cursive, binding, v.clone());
             } else {
@@ -563,6 +608,12 @@ impl CommandManager {
         kb.insert(
             "Shift+Down".into(),
             vec![Command::Shift(ShiftMode::Down, None)],
+        );
+
+        // Vim motions: G for go to bottom, gg for go to top
+        kb.insert(
+            "Shift+g".into(),
+            vec![Command::Move(MoveMode::Down, MoveAmount::Extreme)],
         );
 
         #[cfg(feature = "share_clipboard")]
