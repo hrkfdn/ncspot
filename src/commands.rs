@@ -414,27 +414,25 @@ impl CommandManager {
             let mut last_g = last_g_press_for_g.lock().unwrap();
 
             // Check if this is a double-press within 500ms
-            if let Some(last_press) = *last_g {
-                if now.duration_since(last_press) < Duration::from_millis(500) {
-                    // Double-press detected: go to top
-                    if let Some(data) = s.user_data::<UserData>().cloned() {
-                        data.cmd
-                            .handle(s, Command::Move(MoveMode::Up, MoveAmount::Extreme));
-                    }
-                    *last_g = None; // Reset after handling
-                    return;
+            if let Some(last_press) = *last_g
+                && now.duration_since(last_press) < Duration::from_millis(500) {
+                // Double-press detected: go to top
+                if let Some(data) = s.user_data::<UserData>().cloned() {
+                    data.cmd
+                        .handle(s, Command::Move(MoveMode::Up, MoveAmount::Extreme));
                 }
+                *last_g = None; // Reset after handling
+                return;
             }
 
             // Update last press time
             *last_g = Some(now);
 
             // If 'g' has a binding in the config, execute it (for custom keybindings)
-            if let Some(data) = s.user_data::<UserData>().cloned() {
-                if let Some(commands) = data.cmd.get_commands_for_key("g") {
-                    for cmd in commands {
-                        data.cmd.handle(s, cmd);
-                    }
+            if let Some(data) = s.user_data::<UserData>().cloned()
+                && let Some(commands) = data.cmd.get_commands_for_key("g") {
+                for cmd in commands {
+                    data.cmd.handle(s, cmd);
                 }
             }
         });
