@@ -415,7 +415,8 @@ impl CommandManager {
 
             // Check if this is a double-press within 500ms
             if let Some(last_press) = *last_g
-                && now.duration_since(last_press) < Duration::from_millis(500) {
+                && now.duration_since(last_press) < Duration::from_millis(500)
+            {
                 // Double-press detected: go to top
                 if let Some(data) = s.user_data::<UserData>().cloned() {
                     data.cmd
@@ -430,7 +431,8 @@ impl CommandManager {
 
             // If 'g' has a binding in the config, execute it (for custom keybindings)
             if let Some(data) = s.user_data::<UserData>().cloned()
-                && let Some(commands) = data.cmd.get_commands_for_key("g") {
+                && let Some(commands) = data.cmd.get_commands_for_key("g")
+            {
                 for cmd in commands {
                     data.cmd.handle(s, cmd);
                 }
