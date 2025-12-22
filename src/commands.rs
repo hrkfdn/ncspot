@@ -565,6 +565,15 @@ impl CommandManager {
             vec![Command::Shift(ShiftMode::Down, None)],
         );
 
+        kb.insert(
+            "g".into(),
+            vec![Command::Move(MoveMode::Up, MoveAmount::Extreme)],
+        );
+        kb.insert(
+            "Shift+g".into(),
+            vec![Command::Move(MoveMode::Down, MoveAmount::Extreme)],
+        );
+
         #[cfg(feature = "share_clipboard")]
         kb.insert(
             "Ctrl+v".into(),
