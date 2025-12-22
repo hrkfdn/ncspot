@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Added new Vim motions** for moving to the top/bottom of a page (`gg` and `G`)
+- **Added new Vim motions** for moving to the top/bottom of a page (`g` and `G`)
 
 ## [1.3.2]
 
