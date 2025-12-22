@@ -567,7 +567,7 @@ impl CommandManager {
 
         kb.insert(
             "g".into(),
-            vect![Command::Move(MoveMode::Up, MoveAmount::Extreme)],
+            vec![Command::Move(MoveMode::Up, MoveAmount::Extreme)],
         );
         kb.insert(
             "Shift+g".into(),
