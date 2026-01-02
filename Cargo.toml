@@ -76,7 +76,7 @@ unicode-width = "0.2.2"
 url = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.3.18"
+signal-hook = "0.4.1"
 
 [dependencies.rspotify]
 default-features = false
