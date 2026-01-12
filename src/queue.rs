@@ -458,6 +458,23 @@ impl Queue {
         }
     }
 
+    /// Reverse the current queue order.
+    pub fn reverse(&self) {
+        let mut queue = self.queue.write().unwrap();
+        queue.reverse();
+
+        // If we have a current track, update its index to the new position
+        let mut current = self.current_track.write().unwrap();
+        if let Some(index) = *current {
+            let new_index = queue.len().saturating_sub(1).saturating_sub(index);
+            *current = Some(new_index);
+        }
+
+        // Clear random order since reversing changes the logical order
+        let mut random_order = self.random_order.write().unwrap();
+        *random_order = None;
+    }
+
     /// Handle events that are specific to the queue.
     pub fn handle_event(&self, event: QueueEvent) {
         match event {
