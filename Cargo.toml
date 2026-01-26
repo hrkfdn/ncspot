@@ -47,7 +47,7 @@ chrono = "0.4"
 clap = "4.5.54"
 arboard = {version = "3.6", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "5.13.1", default-features = false, features = ["tokio"], optional = true}
+zbus = {version = "5.13.2", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
@@ -76,7 +76,7 @@ unicode-width = "0.2.2"
 url = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.4.1"
+signal-hook = "0.4.3"
 
 [dependencies.rspotify]
 default-features = false
