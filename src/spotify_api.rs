@@ -95,21 +95,20 @@ impl WebApi {
 
         let api_token = self.api.token.clone();
         let api_token_expiration = self.token_expiration.clone();
-        Some(
-            ASYNC_RUNTIME
-                .get()
-                .unwrap()
-                .spawn_blocking(move || match crate::authentication::get_rspotify_token() {
-                    Ok(token) => {
-                        let expires_at = token.expires_at.unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
-                        *api_token.lock().unwrap() = Some(token);
-                        *api_token_expiration.write().unwrap() = expires_at;
-                    }
-                    Err(e) => {
-                        error!("Failed to update token: {e}");
-                    }
-                }),
-        )
+        Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
+            match crate::authentication::get_rspotify_token() {
+                Ok(token) => {
+                    let expires_at = token
+                        .expires_at
+                        .unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
+                    *api_token.lock().unwrap() = Some(token);
+                    *api_token_expiration.write().unwrap() = expires_at;
+                }
+                Err(e) => {
+                    error!("Failed to update token: {e}");
+                }
+            }
+        }))
     }
 
     /// Execute `api_call` and retry once if a rate limit occurs.

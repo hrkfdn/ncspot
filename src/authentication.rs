@@ -162,7 +162,9 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
 }
 
 pub fn create_rspotify_token() -> Result<rspotify::Token, String> {
-    println!("To fully enable Web API features, you need to perform a second OAuth2 authorization\n");
+    println!(
+        "To fully enable Web API features, you need to perform a second OAuth2 authorization\n"
+    );
 
     let client_builder = OAuthClientBuilder::new(
         NCSPOT_CLIENT_ID,
