@@ -97,7 +97,7 @@ optional = true
 [features]
 alsa_backend = ["librespot-playback/alsa-backend"]
 cover = ["ioctl-rs"] # Support displaying the album cover
-default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "crossterm_backend"]
+default = ["share_clipboard", "pulseaudio_backend", "alsa_backend", "mpris", "notify", "crossterm_backend"]
 mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
 ncurses_backend = ["cursive/ncurses-backend"]
 notify = ["notify-rust"] # Show what's playing via a notification

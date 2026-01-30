@@ -97,6 +97,10 @@ impl Application {
         let credentials = authentication::get_credentials(&configuration)?;
         let theme = configuration.build_theme();
 
+        if let Err(e) = authentication::get_rspotify_token() {
+            error!("Failed to get rspotify token: {e}");
+        }
+
         println!("Connecting to Spotify..");
 
         // DON'T USE STDOUT AFTER THIS CALL!

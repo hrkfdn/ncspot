@@ -2,17 +2,14 @@ use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::PlayerEvent;
-use futures::Future;
 use librespot_core::SpotifyUri;
 use librespot_core::session::Session;
-use librespot_core::token::Token;
 use librespot_playback::mixer::Mixer;
 use librespot_playback::player::{Player, PlayerEvent as LibrespotPlayerEvent};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
 use std::time::Duration;
-use std::{pin::Pin, time::SystemTime};
+use std::time::SystemTime;
 use tokio::sync::mpsc;
 use tokio::time;
 use tokio_stream::StreamExt;
@@ -26,7 +23,6 @@ pub(crate) enum WorkerCommand {
     Stop,
     Seek(u32),
     SetVolume(u16),
-    RequestToken(Sender<Option<Token>>),
     Preload(Playable),
     Shutdown,
 }
@@ -43,7 +39,6 @@ pub struct Worker {
     commands: UnboundedReceiverStream<WorkerCommand>,
     session: Session,
     player: Arc<Player>,
-    token_task: Pin<Box<dyn Future<Output = ()> + Send>>,
     player_status: PlayerStatus,
     mixer: Arc<dyn Mixer>,
 }
@@ -63,25 +58,8 @@ impl Worker {
             commands: UnboundedReceiverStream::new(commands),
             player,
             session,
-            token_task: Box::pin(futures::future::pending()),
             player_status: PlayerStatus::Stopped,
             mixer,
-        }
-    }
-
-    async fn get_token(session: Session, sender: Sender<Option<Token>>) {
-        match session.login5().auth_token().await {
-            Ok(token) => {
-                if let Err(e) = sender.send(Some(token)) {
-                    error!("could not send token: {e}")
-                }
-            }
-            Err(e) => {
-                error!("login5 token acquisition failed {e}");
-                if let Err(e) = sender.send(None) {
-                    error!("could not send token failure {e}");
-                }
-            }
         }
     }
 
@@ -128,9 +106,6 @@ impl Worker {
                     }
                     Some(WorkerCommand::SetVolume(volume)) => {
                         self.mixer.set_volume(volume);
-                    }
-                    Some(WorkerCommand::RequestToken(sender)) => {
-                        self.token_task = Box::pin(Self::get_token(self.session.clone(), sender));
                     }
                     Some(WorkerCommand::Preload(playable)) => {
                         if let Ok(uri) = SpotifyUri::from_uri(&playable.uri()) {
@@ -203,10 +178,6 @@ impl Worker {
                         self.events.trigger();
                     }
                 },
-                _ = self.token_task.as_mut() => {
-                    info!("token updated!");
-                    self.token_task = Box::pin(futures::future::pending());
-                }
             }
         }
     }
