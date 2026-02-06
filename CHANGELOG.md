@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix token generation issues after Spotify API changes
+
 ### Added
 
 - **Added new Vim motions** for moving to the top/bottom of a page (`g` and `G`)
