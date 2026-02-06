@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -14,7 +12,7 @@ use rspotify::model::{
     PlaylistResult, PrivateUser, Recommendations, SavedAlbum, SavedTrack, SearchResult, SearchType,
     Show, ShowId, SimplifiedTrack, TrackId, UserId,
 };
-use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, Token, prelude::*};
+use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, prelude::*};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -48,7 +46,7 @@ impl Default for WebApi {
             ..Default::default()
         };
         let api = AuthCodeSpotify::with_config(
-            rspotify::Credentials::default(),
+            rspotify::Credentials::new(crate::authentication::NCSPOT_CLIENT_ID, ""),
             rspotify::OAuth::default(),
             config,
         );
@@ -95,36 +93,22 @@ impl WebApi {
             info!("Token will expire in {delta}, renewing");
         }
 
-        let (token_tx, token_rx) = std::sync::mpsc::channel();
-        let cmd = WorkerCommand::RequestToken(token_tx);
-        if let Some(channel) = self.worker_channel.read().unwrap().as_ref() {
-            channel.send(cmd).unwrap();
-            let api_token = self.api.token.clone();
-            let api_token_expiration = self.token_expiration.clone();
-            Some(
-                ASYNC_RUNTIME
-                    .get()
-                    .unwrap()
-                    .spawn_blocking(move || match token_rx.recv() {
-                        Ok(Some(token)) => {
-                            *api_token.lock().unwrap() = Some(Token {
-                                access_token: token.access_token,
-                                expires_in: chrono::Duration::from_std(token.expires_in).unwrap(),
-                                scopes: HashSet::from_iter(token.scopes),
-                                expires_at: None,
-                                refresh_token: None,
-                            });
-                            *api_token_expiration.write().unwrap() =
-                                Utc::now() + ChronoDuration::from_std(token.expires_in).unwrap();
-                        }
-                        _ => {
-                            error!("Failed to update token");
-                        }
-                    }),
-            )
-        } else {
-            panic!("worker channel is not set");
-        }
+        let api_token = self.api.token.clone();
+        let api_token_expiration = self.token_expiration.clone();
+        Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
+            match crate::authentication::get_rspotify_token() {
+                Ok(token) => {
+                    let expires_at = token
+                        .expires_at
+                        .unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
+                    *api_token.lock().unwrap() = Some(token);
+                    *api_token_expiration.write().unwrap() = expires_at;
+                }
+                Err(e) => {
+                    error!("Failed to update token: {e}");
+                }
+            }
+        }))
     }
 
     /// Execute `api_call` and retry once if a rate limit occurs.
