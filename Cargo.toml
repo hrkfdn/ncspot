@@ -44,7 +44,7 @@ codegen-units = 16
 
 [dependencies]
 chrono = "0.4"
-clap = "4.5.56"
+clap = "4.5.57"
 arboard = {version = "3.6", optional = true}
 crossbeam-channel = "0.5"
 zbus = {version = "5.13.2", default-features = false, features = ["tokio"], optional = true}
@@ -60,7 +60,7 @@ log = "0.4.29"
 pancurses = {version = "0.17.0", optional = true}
 parse_duration = "2.1.1"
 platform-dirs = "0.3.0"
-rand = "0.9"
+rand = "0.10"
 regex = "1"
 reqwest = {version = "0.13", features = ["blocking", "json"]}
 serde = "1.0"
