@@ -294,7 +294,7 @@ impl ListItem for Playlist {
             .collect::<HashSet<_>>()
             .into_iter()
             // spotify allows at max 5 seed items, so choose them at random
-            .choose_multiple(&mut rng(), MAX_SEEDS);
+            .sample(&mut rng(), MAX_SEEDS);
 
         if track_ids.is_empty() {
             return None;
