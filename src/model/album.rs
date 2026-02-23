@@ -255,7 +255,7 @@ impl ListItem for Album {
             .iter()
             .filter_map(|t| t.id.as_deref())
             // spotify allows at max 5 seed items, so choose 4 random tracks...
-            .choose_multiple(&mut rng(), MAX_SEEDS - 1);
+            .sample(&mut rng(), MAX_SEEDS - 1);
 
         let artist_id: Option<String> = self
             .artist_ids
