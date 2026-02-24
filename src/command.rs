@@ -152,6 +152,7 @@ pub enum Command {
     Insert(InsertSource),
     NewPlaylist(String),
     Sort(SortKey, SortDirection),
+    Reverse,
     Logout,
     ShowRecommendations(TargetMode),
     Redraw,
@@ -219,6 +220,7 @@ impl fmt::Display for Command {
             | Self::Help
             | Self::ReloadConfig
             | Self::Noop
+            | Self::Reverse
             | Self::Logout
             | Self::Reconnect
             | Self::Redraw => vec![],
@@ -270,6 +272,7 @@ impl Command {
             Self::Insert(_) => "insert",
             Self::NewPlaylist(_) => "newplaylist",
             Self::Sort(_, _) => "sort",
+            Self::Reverse => "reverse",
             Self::Logout => "logout",
             Self::ShowRecommendations(_) => "similar",
             Self::Redraw => "redraw",
@@ -760,6 +763,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                     }?;
                     Command::Sort(key, direction)
                 }
+                "reverse" => Command::Reverse,
                 "logout" => Command::Logout,
                 "similar" => {
                     let &target_mode_raw = args.first().ok_or(E::InsufficientArgs {
