@@ -183,6 +183,16 @@ pub struct Config {
 }
 
 impl Config {
+    /// Create a default configuration from in-memory defaults, without touching the filesystem.
+    #[cfg(test)]
+    pub fn new_for_test() -> std::sync::Arc<Self> {
+        std::sync::Arc::new(Self {
+            filename: String::new(),
+            values: RwLock::new(ConfigValues::default()),
+            state: RwLock::new(UserState::default()),
+        })
+    }
+
     /// Generate the configuration from the user configuration file and the runtime state file.
     /// `filename` can be used to look for a differently named configuration file.
     pub fn new(filename: Option<String>) -> Self {

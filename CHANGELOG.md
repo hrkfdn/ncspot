@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix crashing when attempting to add a song to a playlist
+- Fix incorrect shuffle order after appending a track while shuffle is enabled
 
 ## [1.3.3]
 

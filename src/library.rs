@@ -51,6 +51,24 @@ pub struct Library {
 }
 
 impl Library {
+    /// Create an empty library for use in tests. No cache is loaded and no API calls are made.
+    #[cfg(test)]
+    pub fn new_for_test(ev: EventManager, spotify: Spotify, cfg: Arc<Config>) -> Arc<Self> {
+        Arc::new(Self {
+            tracks: Arc::new(RwLock::new(Vec::new())),
+            albums: Arc::new(RwLock::new(Vec::new())),
+            artists: Arc::new(RwLock::new(Vec::new())),
+            playlists: Arc::new(RwLock::new(Vec::new())),
+            shows: Arc::new(RwLock::new(Vec::new())),
+            is_done: Arc::new(RwLock::new(false)),
+            user_id: None,
+            display_name: None,
+            ev,
+            spotify,
+            cfg,
+        })
+    }
+
     pub fn new(ev: EventManager, spotify: Spotify, cfg: Arc<Config>) -> Self {
         let current_user = spotify.api.current_user().ok();
         let user_id = current_user.as_ref().map(|u| u.id.id().to_string());

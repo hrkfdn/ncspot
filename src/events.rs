@@ -21,6 +21,14 @@ pub struct EventManager {
 }
 
 impl EventManager {
+    /// Create an EventManager backed by a discarded crossbeam channel, for use in tests where no
+    /// events need to be processed.
+    #[cfg(test)]
+    pub fn new_for_test() -> Self {
+        let (cb_sink, _): (CbSink, _) = crossbeam_channel::unbounded();
+        Self::new(cb_sink)
+    }
+
     pub fn new(cursive_sink: CbSink) -> Self {
         let (tx, rx) = unbounded();
 
