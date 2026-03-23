@@ -3687,9 +3687,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd6b781f7f2b4afac99cd6cb9506a427a128601cd3206a59156fad095c7280e1"
+checksum = "1e731e399d4d7d7874e81d2ea1438fd5cdcb94090f58fb699fecaa2a042b2e7c"
 dependencies = [
  "base64",
  "chrono",
@@ -3708,9 +3708,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify-http"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13dc03fb2b9aa31f484f1d47ab62a70b836e26477d1ab1a97559c5ca43af186d"
+checksum = "82de318f57084b084779e4111f1de982380b67355985a0cf636630b5af61bb2e"
 dependencies = [
  "log",
  "maybe-async",
@@ -3722,15 +3722,15 @@ dependencies = [
 
 [[package]]
 name = "rspotify-macros"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10364677556c46b4e9e922360979db311cd0d7e598eaf7861497b56068fdc9e4"
+checksum = "7f1fcd8df7d47c14f3cb46634f4a61506b303b305077e8d26ba19d8b7d353b0d"
 
 [[package]]
 name = "rspotify-model"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17695906aa54f120d1e43bcf5e8b19c64b1a9194d446af39e8f486107e7bbc1a"
+checksum = "c1f55c05fbb7a22d50438457228c5b64c1b9a9476395abc2142c883ccd92ee1a"
 dependencies = [
  "chrono",
  "enum_dispatch",
@@ -4642,17 +4642,17 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.0.6+spec-1.1.0"
+version = "1.0.7+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "399b1124a3c9e16766831c6bba21e50192572cdd98706ea114f9502509686ffc"
+checksum = "dd28d57d8a6f6e458bc0b8784f8fdcc4b99a437936056fa122cb234f18656a96"
 dependencies = [
  "indexmap",
  "serde_core",
  "serde_spanned",
- "toml_datetime 1.0.0+spec-1.1.0",
+ "toml_datetime 1.0.1+spec-1.1.0",
  "toml_parser",
  "toml_writer",
- "winnow",
+ "winnow 1.0.0",
 ]
 
 [[package]]
@@ -4666,9 +4666,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.0.0+spec-1.1.0"
+version = "1.0.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
+checksum = "9b320e741db58cac564e26c607d3cc1fdc4a88fd36c879568c07856ed83ff3e9"
 dependencies = [
  "serde_core",
 ]
@@ -4682,23 +4682,23 @@ dependencies = [
  "indexmap",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 0.7.13",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.0.9+spec-1.1.0"
+version = "1.0.10+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702d4415e08923e7e1ef96cd5727c0dfed80b4d2fa25db9647fe5eb6f7c5a4c4"
+checksum = "7df25b4befd31c4816df190124375d5a20c6b6921e2cad937316de3fccd63420"
 dependencies = [
- "winnow",
+ "winnow 1.0.0",
 ]
 
 [[package]]
 name = "toml_writer"
-version = "1.0.6+spec-1.1.0"
+version = "1.0.7+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
+checksum = "f17aaa1c6e3dc22b1da4b6bba97d066e354c7945cac2f7852d4e4e7ca7a6b56d"
 
 [[package]]
 name = "tower"
@@ -5697,6 +5697,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "winnow"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a90e88e4667264a994d34e6d1ab2d26d398dcdca8b7f52bec8668957517fc7d8"
+
+[[package]]
 name = "winreg"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5910,7 +5916,7 @@ dependencies = [
  "uds_windows",
  "uuid",
  "windows-sys 0.61.2",
- "winnow",
+ "winnow 0.7.13",
  "zbus_macros",
  "zbus_names",
  "zvariant",
@@ -5938,7 +5944,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffd8af6d5b78619bab301ff3c560a5bd22426150253db278f164d6cf3b72c50f"
 dependencies = [
  "serde",
- "winnow",
+ "winnow 0.7.13",
  "zvariant",
 ]
 
@@ -6052,7 +6058,7 @@ dependencies = [
  "endi",
  "enumflags2",
  "serde",
- "winnow",
+ "winnow 0.7.13",
  "zvariant_derive",
  "zvariant_utils",
 ]
@@ -6080,5 +6086,5 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "winnow",
+ "winnow 0.7.13",
 ]
