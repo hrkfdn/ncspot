@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix crashing when attempting to add a song to a playlist
 - Fix incorrect shuffle order after appending a track while shuffle is enabled
 
+### Changed
+
+- Sort albums by date they were added in the library view, rather than lexically.
+
 ## [1.3.3]
 
 ### Fixed
