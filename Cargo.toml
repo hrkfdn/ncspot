@@ -51,7 +51,7 @@ zbus = {version = "5.14.0", default-features = false, features = ["tokio"], opti
 fern = "0.7"
 futures = "0.3"
 ioctl-rs = {version = "0.2", optional = true}
-libc = "0.2.183"
+libc = "0.2.184"
 librespot-core = "0.8.0"
 librespot-oauth = "0.8.0"
 librespot-playback = {version = "0.8.0", default-features = false, features = ["native-tls"]}
@@ -71,17 +71,17 @@ strum_macros = "0.28"
 tokio = {version = "1", features = ["rt-multi-thread", "sync", "time", "net"]}
 tokio-util = {version = "0.7.18", features = ["codec"]}
 tokio-stream = {version = "0.1.18", features = ["sync"]}
-toml = "1.0"
+toml = "1.1"
 unicode-width = "0.2.2"
 url = "2.5"
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.4.3"
+signal-hook = "0.4.4"
 
 [dependencies.rspotify]
 default-features = false
 features = ["client-ureq", "ureq-native-tls"]
-version = "0.15.0"
+version = "0.16.0"
 
 [dependencies.cursive]
 default-features = false
