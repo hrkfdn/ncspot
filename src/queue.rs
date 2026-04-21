@@ -501,7 +501,7 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
 
     // XDG desktop entry hints
     #[cfg(all(unix, not(target_os = "macos")))]
-    n.urgency(notify_rust::Urgency::Low)
+    n.urgency(notify_rust::Urgency::Normal)
         .hint(notify_rust::Hint::Transient(true))
         .hint(notify_rust::Hint::DesktopEntry("ncspot".into()));
 
