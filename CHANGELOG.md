@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4]
+
 ### Changed
 
 - Update `rspotify` to 0.16.1 and use Spotify's Library API for saving and following items
@@ -283,6 +285,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Albums with more than 50 songs not showing all the songs when viewed in the library
 - Bug that could cause items to not load until the screen is filled on bigger screens
 
+[Unreleased]: https://github.com/hrkfdn/ncspot/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/hrkfdn/ncspot/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/hrkfdn/ncspot/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/hrkfdn/ncspot/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/hrkfdn/ncspot/compare/v1.3.0...v1.3.1
