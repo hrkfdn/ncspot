@@ -174,10 +174,8 @@ impl Queue {
             None => q.len(),
         };
 
-        let mut i = first;
-        for track in tracks {
+        for (i, track) in (first..).zip(tracks.iter()) {
             q.insert(i, track.clone());
-            i += 1;
         }
 
         first
