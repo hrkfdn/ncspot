@@ -8,9 +8,9 @@ use log::{debug, error, info};
 use rspotify::http::HttpError;
 use rspotify::model::{
     AlbumId, AlbumType, ArtistId, CursorBasedPage, EpisodeId, FullAlbum, FullArtist, FullEpisode,
-    FullPlaylist, FullShow, FullTrack, ItemPositions, Market, Page, PlayableId, PlaylistId,
-    PlaylistResult, PrivateUser, Recommendations, SavedAlbum, SavedTrack, SearchResult, SearchType,
-    Show, ShowId, SimplifiedTrack, TrackId, UserId,
+    FullPlaylist, FullShow, FullTrack, ItemPositions, LibraryId, Market, Page, PlayableId,
+    PlaylistId, PlaylistResult, PrivateUser, Recommendations, SavedAlbum, SavedTrack, SearchResult,
+    SearchType, Show, ShowId, SimplifiedTrack, TrackId, UserId,
 };
 use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, prelude::*};
 use tokio::sync::mpsc;
@@ -253,8 +253,10 @@ impl WebApi {
 
     /// Delete the playlist with the given `id`.
     pub fn delete_playlist(&self, id: &str) -> Result<(), ()> {
-        self.api_with_retry(|api| api.playlist_unfollow(PlaylistId::from_id(id).unwrap()))
-            .ok_or(())
+        self.api_with_retry(|api| {
+            api.library_remove([LibraryId::Playlist(PlaylistId::from_id(id).unwrap())])
+        })
+        .ok_or(())
     }
 
     /// Create a playlist with the given `name`, `public` visibility and `description`. Returns the
@@ -416,7 +418,7 @@ impl WebApi {
                             .items
                             .iter()
                             .filter(|pt| {
-                                if let Some(t) = pt.track.as_ref()
+                                if let Some(t) = pt.item.as_ref()
                                     && !t.is_unknown()
                                 {
                                     true
@@ -427,7 +429,7 @@ impl WebApi {
                             })
                             .enumerate()
                             .flat_map(|(index, pt)| {
-                                pt.track.as_ref().map(|t| {
+                                pt.item.as_ref().map(|t| {
                                     let mut playable: Playable = t.into();
                                     // TODO: set these
                                     playable.set_added_at(pt.added_at);
@@ -538,10 +540,10 @@ impl WebApi {
     /// Add the shows with the given `ids` to the user's library.
     pub fn save_shows(&self, ids: &[&str]) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.save_shows(
+            api.library_add(
                 ids.iter()
-                    .map(|id| ShowId::from_id(*id).unwrap())
-                    .collect::<Vec<ShowId>>(),
+                    .map(|id| LibraryId::Show(ShowId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -550,11 +552,10 @@ impl WebApi {
     /// Remove the shows with `ids` from the user's library.
     pub fn unsave_shows(&self, ids: &[&str]) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.remove_users_saved_shows(
+            api.library_remove(
                 ids.iter()
-                    .map(|id| ShowId::from_id(*id).unwrap())
-                    .collect::<Vec<ShowId>>(),
-                Some(Market::FromToken),
+                    .map(|id| LibraryId::Show(ShowId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -573,10 +574,10 @@ impl WebApi {
     /// Add the logged in user to the followers of the artists with the given `ids`.
     pub fn user_follow_artists(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.user_follow_artists(
+            api.library_add(
                 ids.iter()
-                    .map(|id| ArtistId::from_id(*id).unwrap())
-                    .collect::<Vec<ArtistId>>(),
+                    .map(|id| LibraryId::Artist(ArtistId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -585,10 +586,10 @@ impl WebApi {
     /// Remove the logged in user to the followers of the artists with the given `ids`.
     pub fn user_unfollow_artists(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.user_unfollow_artists(
+            api.library_remove(
                 ids.iter()
-                    .map(|id| ArtistId::from_id(*id).unwrap())
-                    .collect::<Vec<ArtistId>>(),
+                    .map(|id| LibraryId::Artist(ArtistId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -605,10 +606,10 @@ impl WebApi {
     /// Add the albums with the given `ids` to the user's saved albums.
     pub fn current_user_saved_albums_add(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.current_user_saved_albums_add(
+            api.library_add(
                 ids.iter()
-                    .map(|id| AlbumId::from_id(*id).unwrap())
-                    .collect::<Vec<AlbumId>>(),
+                    .map(|id| LibraryId::Album(AlbumId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -617,10 +618,10 @@ impl WebApi {
     /// Remove the albums with the given `ids` from the user's saved albums.
     pub fn current_user_saved_albums_delete(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.current_user_saved_albums_delete(
+            api.library_remove(
                 ids.iter()
-                    .map(|id| AlbumId::from_id(*id).unwrap())
-                    .collect::<Vec<AlbumId>>(),
+                    .map(|id| LibraryId::Album(AlbumId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -637,10 +638,10 @@ impl WebApi {
     /// Add the tracks with the given `ids` to the user's saved tracks.
     pub fn current_user_saved_tracks_add(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.current_user_saved_tracks_add(
+            api.library_add(
                 ids.iter()
-                    .map(|id| TrackId::from_id(*id).unwrap())
-                    .collect::<Vec<TrackId>>(),
+                    .map(|id| LibraryId::Track(TrackId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -649,10 +650,10 @@ impl WebApi {
     /// Remove the tracks with the given `ids` from the user's saved tracks.
     pub fn current_user_saved_tracks_delete(&self, ids: Vec<&str>) -> Result<(), ()> {
         self.api_with_retry(|api| {
-            api.current_user_saved_tracks_delete(
+            api.library_remove(
                 ids.iter()
-                    .map(|id| TrackId::from_id(*id).unwrap())
-                    .collect::<Vec<TrackId>>(),
+                    .map(|id| LibraryId::Track(TrackId::from_id(*id).unwrap()))
+                    .collect::<Vec<LibraryId>>(),
             )
         })
         .ok_or(())
@@ -660,12 +661,15 @@ impl WebApi {
 
     /// Add the logged in user to the followers of the playlist with the given `id`.
     pub fn user_playlist_follow_playlist(&self, id: &str) -> Result<(), ()> {
-        self.api_with_retry(|api| api.playlist_follow(PlaylistId::from_id(id).unwrap(), None))
-            .ok_or(())
+        self.api_with_retry(|api| {
+            api.library_add([LibraryId::Playlist(PlaylistId::from_id(id).unwrap())])
+        })
+        .ok_or(())
     }
 
     /// Get the top tracks of the artist with the given `id`.
     pub fn artist_top_tracks(&self, id: &str) -> Result<Vec<Track>, ()> {
+        #[allow(deprecated)]
         self.api_with_retry(|api| {
             api.artist_top_tracks(ArtistId::from_id(id).unwrap(), Some(Market::FromToken))
         })
@@ -688,6 +692,7 @@ impl WebApi {
         let fetch_page = move |offset: u32| {
             debug!("fetching categories, offset: {offset}");
             spotify.api_with_retry(|api| {
+                #[allow(deprecated)]
                 match api.categories_manual(
                     None,
                     Some(Market::FromToken),
@@ -714,6 +719,7 @@ impl WebApi {
         let fetch_page = move |offset: u32| {
             debug!("fetching category playlists, offset: {offset}");
             spotify.api_with_retry(|api| {
+                #[allow(deprecated)]
                 match api.category_playlists_manual(
                     &category_id,
                     Some(Market::FromToken),

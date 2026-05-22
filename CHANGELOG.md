@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update `rspotify` to 0.16.1 and use Spotify's Library API for saving and following items
+- Display podcast shows by name only, as Spotify removed publisher information from the Web API
+
 ### Fixed
 
 - Fix crashing when attempting to add a song to a playlist

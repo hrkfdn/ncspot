@@ -157,7 +157,7 @@ impl From<&SimplifiedPlaylist> for Playlist {
             owner_id: list.owner.id.id().to_string(),
             owner_name: list.owner.display_name.clone(),
             snapshot_id: list.snapshot_id.clone(),
-            num_tracks: list.tracks.total as usize,
+            num_tracks: list.items.total as usize,
             tracks: None,
             collaborative: list.collaborative,
         }
@@ -172,7 +172,7 @@ impl From<&FullPlaylist> for Playlist {
             owner_id: list.owner.id.id().to_string(),
             owner_name: list.owner.display_name.clone(),
             snapshot_id: list.snapshot_id.clone(),
-            num_tracks: list.tracks.total as usize,
+            num_tracks: list.items.total as usize,
             tracks: None,
             collaborative: list.collaborative,
         }
