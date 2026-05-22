@@ -401,7 +401,7 @@ impl MprisPlayer {
                     let index = self.queue.append_next(
                         &t.iter()
                             .map(|track| Playable::Track(track.clone()))
-                            .collect(),
+                            .collect::<Vec<_>>(),
                     );
                     self.queue.play(index, should_shuffle, should_shuffle)
                 }
@@ -438,7 +438,7 @@ impl MprisPlayer {
                         let index = self.queue.append_next(
                             &ep.iter()
                                 .map(|episode| Playable::Episode(episode.clone()))
-                                .collect(),
+                                .collect::<Vec<_>>(),
                         );
                         self.queue.play(index, should_shuffle, should_shuffle)
                     }
@@ -458,7 +458,7 @@ impl MprisPlayer {
                     let index = self.queue.append_next(
                         &a.iter()
                             .map(|track| Playable::Track(track.clone()))
-                            .collect(),
+                            .collect::<Vec<_>>(),
                     );
                     self.queue.play(index, should_shuffle, should_shuffle)
                 }

@@ -235,7 +235,7 @@ impl ListItem for Track {
     }
 
     fn play(&mut self, queue: &Queue) {
-        let index = queue.append_next(&vec![Playable::Track(self.clone())]);
+        let index = queue.append_next(&[Playable::Track(self.clone())]);
         queue.play(index, true, false);
     }
 

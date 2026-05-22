@@ -159,7 +159,7 @@ impl Queue {
 
     /// Append `tracks` after the currently playing item, taking into account
     /// shuffle status. Returns the first index(in `self.queue`) of added items.
-    pub fn append_next(&self, tracks: &Vec<Playable>) -> usize {
+    pub fn append_next(&self, tracks: &[Playable]) -> usize {
         let mut q = self.queue.write().unwrap();
 
         {
@@ -508,6 +508,8 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
             // only available for XDG
             #[cfg(all(unix, not(target_os = "macos")))]
             info!("Created notification: {}", handle.id());
+            #[cfg(not(all(unix, not(target_os = "macos"))))]
+            drop(handle);
         }
         Err(e) => log::error!("Failed to send notification cover: {e}"),
     }
@@ -687,7 +689,7 @@ mod tests {
     fn test_append_next_inserts_after_current() {
         // [0, 1, 2], current=1 → append_next([3, 4]) → [0, 1, 3, 4, 2]
         let q = make_queue(vec![make_track(0), make_track(1), make_track(2)], Some(1));
-        let first = q.append_next(&vec![make_track(3), make_track(4)]);
+        let first = q.append_next(&[make_track(3), make_track(4)]);
         assert_eq!(first, 2);
         let queue = q.queue.read().unwrap();
         let ids: Vec<&str> = queue.iter().map(track_id).collect();
@@ -697,7 +699,7 @@ mod tests {
     #[test]
     fn test_append_next_no_current_appends_at_end() {
         let q = make_queue(vec![make_track(0), make_track(1)], None);
-        let first = q.append_next(&vec![make_track(2)]);
+        let first = q.append_next(&[make_track(2)]);
         assert_eq!(first, 2);
         assert_eq!(q.len(), 3);
     }
