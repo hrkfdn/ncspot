@@ -47,6 +47,7 @@ pub enum PlayerStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum PlayerEvent {
     StatusChanged(PlayerStatus),
+    TrackChanged(String),
     FinishedTrack,
     VolumeChanged(u16),
 }
@@ -390,6 +391,11 @@ impl Spotify {
             PlayerEvent::StatusChanged(PlayerStatus::Stopped) | PlayerEvent::FinishedTrack => {
                 self.set_elapsed(None);
                 self.set_since(None);
+            }
+            PlayerEvent::TrackChanged(_) => {
+                self.update_track();
+                #[cfg(feature = "mpris")]
+                self.send_mpris(MprisCommand::EmitMetadataStatus);
             }
             PlayerEvent::VolumeChanged(volume) => {
                 self.update_volume(volume);

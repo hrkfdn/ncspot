@@ -219,9 +219,7 @@ impl Worker {
                         self.events.send(Event::Player(PlayerEvent::StatusChanged(PlayerStatus::Stopped)));
                         self.player_status = LibrespotPlayerStatus::Stopped;
                     }
-                    Some(LibrespotPlayerEvent::EndOfTrack { .. }) => {
-                        self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                    }
+                    Some(LibrespotPlayerEvent::EndOfTrack { .. }) => {}
                     Some(LibrespotPlayerEvent::TimeToPreloadNextTrack { .. }) => {
                         self.events
                             .send(Event::Queue(QueueEvent::PreloadTrackRequest));
@@ -241,6 +239,12 @@ impl Worker {
                     Some(LibrespotPlayerEvent::VolumeChanged { volume }) => {
                         let event = PlayerEvent::VolumeChanged(volume);
                         self.events.send(Event::Player(event));
+                    }
+                    Some(LibrespotPlayerEvent::TrackChanged { audio_item }) => {
+                        match audio_item.track_id.to_uri() {
+                            Ok(uri) => self.events.send(Event::Player(PlayerEvent::TrackChanged(uri))),
+                            Err(e) => error!("error formatting changed track uri: {e:?}"),
+                        }
                     }
                     Some(event) => {
                         debug!("Unhandled player event: {event:?}");

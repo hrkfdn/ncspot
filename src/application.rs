@@ -258,6 +258,10 @@ impl Application {
                         trace!("player event received: {event:?}");
                         self.spotify.handle_player_event(event.clone());
 
+                        if let PlayerEvent::TrackChanged(ref uri) = event {
+                            self.queue.sync_current_track(uri);
+                        }
+
                         #[cfg(unix)]
                         if let Some(ref ipc) = self.ipc
                             && let PlayerEvent::StatusChanged(ref status) = event

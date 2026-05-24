@@ -150,6 +150,69 @@ impl Queue {
         }
     }
 
+    #[cfg(feature = "notify")]
+    fn notify_track(&self, track: Playable) {
+        if !self.cfg.values().notify.unwrap_or(false) {
+            return;
+        }
+
+        std::thread::spawn({
+            // use same parser as track_format, Playable::format
+            let format = self
+                .cfg
+                .values()
+                .notification_format
+                .clone()
+                .unwrap_or_default();
+            let default_title = crate::config::NotificationFormat::default().title.unwrap();
+            let title = format.title.unwrap_or_else(|| default_title.clone());
+
+            let default_body = crate::config::NotificationFormat::default().body.unwrap();
+            let body = format.body.unwrap_or_else(|| default_body.clone());
+
+            let summary_txt = Playable::format(&track, &title, &self.library);
+            let body_txt = Playable::format(&track, &body, &self.library);
+            let cover_url = track.cover_url();
+            move || send_notification(&summary_txt, &body_txt, cover_url)
+        });
+    }
+
+    /// Move the local queue cursor to the track Spirc reports as current.
+    pub fn sync_current_track(&self, uri: &str) {
+        let next = {
+            let q = self.queue.read().unwrap();
+            q.iter()
+                .enumerate()
+                .find(|(_, track)| track.uri() == uri)
+                .map(|(index, track)| (index, track.clone()))
+        };
+
+        let Some((index, track)) = next else {
+            debug!("Spirc changed to {uri}, which is not in the local queue");
+            return;
+        };
+
+        let changed = {
+            let mut current = self.current_track.write().unwrap();
+            if *current == Some(index) {
+                false
+            } else {
+                current.replace(index);
+                true
+            }
+        };
+
+        if changed {
+            self.spotify.update_track();
+
+            #[cfg(feature = "notify")]
+            self.notify_track(track);
+
+            #[cfg(feature = "mpris")]
+            self.spotify.notify_seeked(0);
+        }
+    }
+
     /// Insert `track` as the item that should logically follow the currently
     /// playing item, taking into account shuffle status.
     pub fn insert_after_current(&self, track: Playable) {
@@ -318,27 +381,7 @@ impl Queue {
             self.spotify.update_track();
 
             #[cfg(feature = "notify")]
-            if self.cfg.values().notify.unwrap_or(false) {
-                std::thread::spawn({
-                    // use same parser as track_format, Playable::format
-                    let format = self
-                        .cfg
-                        .values()
-                        .notification_format
-                        .clone()
-                        .unwrap_or_default();
-                    let default_title = crate::config::NotificationFormat::default().title.unwrap();
-                    let title = format.title.unwrap_or_else(|| default_title.clone());
-
-                    let default_body = crate::config::NotificationFormat::default().body.unwrap();
-                    let body = format.body.unwrap_or_else(|| default_body.clone());
-
-                    let summary_txt = Playable::format(&track, &title, &self.library);
-                    let body_txt = Playable::format(&track, &body, &self.library);
-                    let cover_url = track.cover_url();
-                    move || send_notification(&summary_txt, &body_txt, cover_url)
-                });
-            }
+            self.notify_track(track);
 
             // Send a Seeked signal at start of new track
             #[cfg(feature = "mpris")]
