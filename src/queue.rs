@@ -26,6 +26,26 @@ pub enum RepeatSetting {
     RepeatTrack,
 }
 
+impl RepeatSetting {
+    fn spirc_flags(self) -> (bool, bool) {
+        match self {
+            Self::None => (false, false),
+            Self::RepeatPlaylist => (true, false),
+            Self::RepeatTrack => (true, true),
+        }
+    }
+
+    fn from_spirc(context: bool, track: bool) -> Self {
+        if track {
+            Self::RepeatTrack
+        } else if context {
+            Self::RepeatPlaylist
+        } else {
+            Self::None
+        }
+    }
+}
+
 /// Events that are specific to the [Queue].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueueEvent {
@@ -211,6 +231,27 @@ impl Queue {
             #[cfg(feature = "mpris")]
             self.spotify.notify_seeked(0);
         }
+    }
+
+    /// Mirror Spirc's shuffle state locally.
+    pub fn sync_shuffle(&self, new: bool) {
+        let was = self.cfg.state().shuffle;
+        self.cfg.with_state_mut(|s| s.shuffle = new);
+        if new {
+            let needs_order = !was || self.random_order.read().unwrap().is_none();
+            if needs_order {
+                self.generate_random_order();
+            }
+        } else {
+            let mut random_order = self.random_order.write().unwrap();
+            *random_order = None;
+        }
+    }
+
+    /// Mirror Spirc's repeat flags locally.
+    pub fn sync_repeat(&self, context: bool, track: bool) {
+        self.cfg
+            .with_state_mut(|s| s.repeat = RepeatSetting::from_spirc(context, track));
     }
 
     /// Insert `track` as the item that should logically follow the currently
@@ -421,11 +462,20 @@ impl Queue {
     /// used, and the next track will actually be played. This should be used
     /// when going to the next entry in the queue is the wanted behavior.
     pub fn next(&self, manual: bool) {
+        if manual {
+            let repeat = self.cfg.state().repeat;
+            self.spotify.next();
+            if repeat == RepeatSetting::RepeatTrack {
+                self.set_repeat(RepeatSetting::RepeatPlaylist);
+            }
+            return;
+        }
+
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
         let repeat = self.cfg.state().repeat;
 
-        if repeat == RepeatSetting::RepeatTrack && !manual {
+        if repeat == RepeatSetting::RepeatTrack {
             if let Some(index) = current
                 && q[index].is_playable()
             {
@@ -433,9 +483,6 @@ impl Queue {
             }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
-            if repeat == RepeatSetting::RepeatTrack && manual {
-                self.set_repeat(RepeatSetting::RepeatPlaylist);
-            }
         } else if repeat == RepeatSetting::RepeatPlaylist
             && !q.is_empty()
             && q.iter().any(|track| track.is_playable())
@@ -453,26 +500,7 @@ impl Queue {
 
     /// Play the previous item in the queue.
     pub fn previous(&self) {
-        let q = self.queue.read().unwrap();
-        let current = *self.current_track.read().unwrap();
-        let repeat = self.cfg.state().repeat;
-
-        if let Some(index) = self.previous_index() {
-            self.play(index, false, false);
-        } else if repeat == RepeatSetting::RepeatPlaylist && !q.is_empty() {
-            if self.get_shuffle() {
-                let random_order = self.random_order.read().unwrap();
-                self.play(
-                    random_order.as_ref().map(|o| o[q.len() - 1]).unwrap_or(0),
-                    false,
-                    false,
-                );
-            } else {
-                self.play(q.len() - 1, false, false);
-            }
-        } else if let Some(index) = current {
-            self.play(index, false, false);
-        }
+        self.spotify.previous();
     }
 
     /// Get the current repeat behavior.
@@ -483,6 +511,8 @@ impl Queue {
     /// Set the current repeat behavior and save it to the configuration.
     pub fn set_repeat(&self, new: RepeatSetting) {
         self.cfg.with_state_mut(|s| s.repeat = new);
+        let (context, track) = new.spirc_flags();
+        self.spotify.set_repeat(context, track);
     }
 
     /// Get the current shuffle behavior.
@@ -516,13 +546,8 @@ impl Queue {
 
     /// Set the current shuffle behavior.
     pub fn set_shuffle(&self, new: bool) {
-        self.cfg.with_state_mut(|s| s.shuffle = new);
-        if new {
-            self.generate_random_order();
-        } else {
-            let mut random_order = self.random_order.write().unwrap();
-            *random_order = None;
-        }
+        self.sync_shuffle(new);
+        self.spotify.set_shuffle(new);
     }
 
     /// Handle events that are specific to the queue.

@@ -50,6 +50,8 @@ pub enum PlayerEvent {
     TrackChanged(String),
     FinishedTrack,
     VolumeChanged(u16),
+    ShuffleChanged(bool),
+    RepeatChanged { context: bool, track: bool },
 }
 
 /// Wrapper around a worker thread that exposes methods to safely control it.
@@ -400,6 +402,7 @@ impl Spotify {
             PlayerEvent::VolumeChanged(volume) => {
                 self.update_volume(volume);
             }
+            PlayerEvent::ShuffleChanged(_) | PlayerEvent::RepeatChanged { .. } => {}
         }
 
         if let PlayerEvent::StatusChanged(new_status) = event {
@@ -467,6 +470,18 @@ impl Spotify {
         self.send_worker(WorkerCommand::Pause);
     }
 
+    /// Skip to the next item in Spirc's playback context.
+    pub fn next(&self) {
+        info!("next()");
+        self.send_worker(WorkerCommand::Next);
+    }
+
+    /// Skip to the previous item in Spirc's playback context.
+    pub fn previous(&self) {
+        info!("previous()");
+        self.send_worker(WorkerCommand::Previous);
+    }
+
     /// Stop playback of the [Player].
     pub fn stop(&self) {
         info!("stop()");
@@ -517,6 +532,16 @@ impl Spotify {
     /// the update.
     pub fn set_volume(&self, volume: u16) {
         self.send_worker(WorkerCommand::SetVolume(volume));
+    }
+
+    /// Set Spirc's shuffle mode.
+    pub fn set_shuffle(&self, shuffle: bool) {
+        self.send_worker(WorkerCommand::SetShuffle(shuffle));
+    }
+
+    /// Set Spirc's repeat flags.
+    pub fn set_repeat(&self, context: bool, track: bool) {
+        self.send_worker(WorkerCommand::SetRepeat { context, track });
     }
 
     /// Preload the given [Playable] in the [Player]. This makes sure it can be played immediately

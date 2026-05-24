@@ -23,9 +23,13 @@ pub(crate) enum WorkerCommand {
     Load(Vec<Playable>, usize, bool, u32),
     Play,
     Pause,
+    Next,
+    Previous,
     Stop,
     Seek(u32),
     SetVolume(u16),
+    SetShuffle(bool),
+    SetRepeat { context: bool, track: bool },
     Preload(Playable),
     Shutdown,
 }
@@ -168,6 +172,16 @@ impl Worker {
                             error!("error pausing spirc: {e:?}");
                         }
                     }
+                    Some(WorkerCommand::Next) => {
+                        if let Err(e) = self.spirc.next() {
+                            error!("error skipping spirc to next track: {e:?}");
+                        }
+                    }
+                    Some(WorkerCommand::Previous) => {
+                        if let Err(e) = self.spirc.prev() {
+                            error!("error skipping spirc to previous track: {e:?}");
+                        }
+                    }
                     Some(WorkerCommand::Stop) => {
                         //todo!("stop spirc");
                     }
@@ -179,6 +193,19 @@ impl Worker {
                     Some(WorkerCommand::SetVolume(volume)) => {
                         if let Err(e) = self.spirc.set_volume(volume) {
                             error!("error setting spirc volume: {e:?}");
+                        }
+                    }
+                    Some(WorkerCommand::SetShuffle(shuffle)) => {
+                        if let Err(e) = self.spirc.shuffle(shuffle) {
+                            error!("error setting spirc shuffle: {e:?}");
+                        }
+                    }
+                    Some(WorkerCommand::SetRepeat { context, track }) => {
+                        if let Err(e) = self.spirc.repeat(context) {
+                            error!("error setting spirc repeat context: {e:?}");
+                        }
+                        if let Err(e) = self.spirc.repeat_track(track) {
+                            error!("error setting spirc repeat track: {e:?}");
                         }
                     }
                     Some(WorkerCommand::Preload(playable)) => {
@@ -238,6 +265,14 @@ impl Worker {
                     }
                     Some(LibrespotPlayerEvent::VolumeChanged { volume }) => {
                         let event = PlayerEvent::VolumeChanged(volume);
+                        self.events.send(Event::Player(event));
+                    }
+                    Some(LibrespotPlayerEvent::ShuffleChanged { shuffle }) => {
+                        let event = PlayerEvent::ShuffleChanged(shuffle);
+                        self.events.send(Event::Player(event));
+                    }
+                    Some(LibrespotPlayerEvent::RepeatChanged { context, track }) => {
+                        let event = PlayerEvent::RepeatChanged { context, track };
                         self.events.send(Event::Player(event));
                     }
                     Some(LibrespotPlayerEvent::TrackChanged { audio_item }) => {

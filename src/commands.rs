@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::application::UserData;
 use crate::command::{
@@ -136,11 +135,7 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Previous => {
-                if self.spotify.get_current_progress() < Duration::from_secs(5) {
-                    self.queue.previous();
-                } else {
-                    self.spotify.seek(0);
-                }
+                self.queue.previous();
                 Ok(None)
             }
             Command::Next => {

@@ -4,7 +4,6 @@ use log::info;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -325,11 +324,7 @@ impl MprisPlayer {
     }
 
     fn previous(&self) {
-        if self.spotify.get_current_progress() < Duration::from_secs(5) {
-            self.queue.previous();
-        } else {
-            self.spotify.seek(0);
-        }
+        self.queue.previous();
     }
 
     fn pause(&self) {

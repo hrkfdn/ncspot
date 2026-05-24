@@ -258,8 +258,17 @@ impl Application {
                         trace!("player event received: {event:?}");
                         self.spotify.handle_player_event(event.clone());
 
-                        if let PlayerEvent::TrackChanged(ref uri) = event {
-                            self.queue.sync_current_track(uri);
+                        match event {
+                            PlayerEvent::TrackChanged(ref uri) => {
+                                self.queue.sync_current_track(uri);
+                            }
+                            PlayerEvent::ShuffleChanged(shuffle) => {
+                                self.queue.sync_shuffle(shuffle);
+                            }
+                            PlayerEvent::RepeatChanged { context, track } => {
+                                self.queue.sync_repeat(context, track);
+                            }
+                            _ => {}
                         }
 
                         #[cfg(unix)]
