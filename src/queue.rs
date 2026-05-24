@@ -123,6 +123,33 @@ impl Queue {
         *self.current_track.read().unwrap()
     }
 
+    fn playback_context_for(&self, index: usize) -> (Vec<Playable>, usize) {
+        let q = self.queue.read().unwrap();
+        let order = self
+            .random_order
+            .read()
+            .unwrap()
+            .clone()
+            .unwrap_or_else(|| (0..q.len()).collect());
+        let context_index = order.iter().position(|&i| i == index).unwrap_or(index);
+        let tracks = order
+            .iter()
+            .filter_map(|&i| q.get(i).cloned())
+            .collect::<Vec<_>>();
+
+        (tracks, context_index)
+    }
+
+    /// Load the currently selected queue item and its surrounding context into the player.
+    pub fn load_current(&self, start_playing: bool, position_ms: u32) {
+        if let Some(index) = self.get_current_index() {
+            let (tracks, context_index) = self.playback_context_for(index);
+            self.spotify
+                .load_context(&tracks, context_index, start_playing, position_ms);
+            self.spotify.update_track();
+        }
+    }
+
     /// Insert `track` as the item that should logically follow the currently
     /// playing item, taking into account shuffle status.
     pub fn insert_after_current(&self, track: Playable) {
@@ -283,8 +310,9 @@ impl Queue {
             index = rng.random_range(0..queue_length);
         }
 
-        if let Some(track) = &self.queue.read().unwrap().get(index) {
-            self.spotify.load(track, true, 0);
+        if let Some(track) = self.queue.read().unwrap().get(index).cloned() {
+            let (tracks, context_index) = self.playback_context_for(index);
+            self.spotify.load_context(&tracks, context_index, true, 0);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
@@ -305,8 +333,8 @@ impl Queue {
                     let default_body = crate::config::NotificationFormat::default().body.unwrap();
                     let body = format.body.unwrap_or_else(|| default_body.clone());
 
-                    let summary_txt = Playable::format(track, &title, &self.library);
-                    let body_txt = Playable::format(track, &body, &self.library);
+                    let summary_txt = Playable::format(&track, &title, &self.library);
+                    let body_txt = Playable::format(&track, &body, &self.library);
                     let cover_url = track.cover_url();
                     move || send_notification(&summary_txt, &body_txt, cover_url)
                 });

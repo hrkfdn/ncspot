@@ -145,13 +145,11 @@ impl Application {
         let playback_state = configuration.state().playback_state.clone();
         let queue_state = configuration.state().queuestate.clone();
 
-        if let Some(playable) = queue.get_current() {
-            spotify.load(
-                &playable,
+        if queue.get_current().is_some() {
+            queue.load_current(
                 playback_state == PlaybackState::Playing,
                 queue_state.track_progress.as_millis() as u32,
             );
-            spotify.update_track();
             match playback_state {
                 PlaybackState::Stopped => {
                     spotify.stop();

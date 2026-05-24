@@ -2,7 +2,7 @@ use crate::events::{Event, EventManager};
 use crate::model::playable::Playable;
 use crate::queue::QueueEvent;
 use crate::spotify::{PlayerEvent, PlayerStatus};
-use librespot_connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
+use librespot_connect::{ConnectConfig, LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
 use librespot_core::SpotifyUri;
 use librespot_core::session::Session;
 use librespot_playback::mixer::Mixer;
@@ -20,7 +20,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 #[derive(Debug)]
 pub(crate) enum WorkerCommand {
-    Load(Playable, bool, u32),
+    Load(Vec<Playable>, usize, bool, u32),
     Play,
     Pause,
     Stop,
@@ -74,6 +74,61 @@ impl Worker {
         }
     }
 
+    fn load_request(
+        tracks: &[Playable],
+        index: usize,
+        start_playing: bool,
+        position_ms: u32,
+    ) -> Result<LoadRequest, PlayerEvent> {
+        let mut uris = Vec::new();
+        let mut playing_track = None;
+
+        for (track_index, playable) in tracks.iter().enumerate() {
+            match SpotifyUri::from_uri(&playable.uri()) {
+                Ok(uri) if uri.is_playable() => {
+                    if track_index == index {
+                        playing_track = Some(uris.len());
+                    }
+                    match uri.to_uri() {
+                        Ok(uri) => uris.push(uri),
+                        Err(e) => {
+                            error!("error formatting uri: {e:?}");
+                            if track_index == index {
+                                return Err(PlayerEvent::FinishedTrack);
+                            }
+                        }
+                    }
+                }
+                Ok(uri) => {
+                    warn!("track is not playable: {uri:?}");
+                    if track_index == index {
+                        return Err(PlayerEvent::FinishedTrack);
+                    }
+                }
+                Err(e) => {
+                    error!("error parsing uri: {e:?}");
+                    if track_index == index {
+                        return Err(PlayerEvent::FinishedTrack);
+                    }
+                }
+            }
+        }
+
+        let Some(playing_track) = playing_track else {
+            warn!("selected queue item is not part of the playable Spirc context");
+            return Err(PlayerEvent::FinishedTrack);
+        };
+
+        let options = LoadRequestOptions {
+            start_playing,
+            seek_to: position_ms,
+            context_options: None,
+            playing_track: Some(PlayingTrack::Index(playing_track as u32)),
+        };
+
+        Ok(LoadRequest::from_tracks(uris, options))
+    }
+
     pub async fn run_loop(&mut self) {
         let mut ui_refresh = time::interval(Duration::from_millis(400));
 
@@ -88,35 +143,19 @@ impl Worker {
 
             tokio::select! {
                 cmd = self.commands.next() => match cmd {
-                    Some(WorkerCommand::Load(playable, start_playing, position_ms)) => {
+                    Some(WorkerCommand::Load(tracks, index, start_playing, position_ms)) => {
                         if let Err(e) = self.spirc.activate() {
                             warn!("error activating spirc: {e:?}");
                         }
-                        match SpotifyUri::from_uri(&playable.uri()) {
-                            Ok(uri) => {
-                                info!("player loading track: {uri:?}");
-                                if !uri.is_playable() {
-                                    warn!("track is not playable");
+                        match Self::load_request(&tracks, index, start_playing, position_ms) {
+                            Ok(req) => {
+                                info!("player loading queue context at index {index}");
+                                if let Err(e) = self.spirc.load(req) {
+                                    error!("error loading track into spirc: {e:?}");
                                     self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                                } else {
-                                    let options = LoadRequestOptions {
-                                        start_playing,
-                                        seek_to: position_ms,
-                                        context_options: None,
-                                        playing_track: None,
-                                    };
-                                    let req =
-                                        LoadRequest::from_tracks(vec![uri.to_uri().expect("uri")], options);
-                                    if let Err(e) = self.spirc.load(req) {
-                                        error!("error loading track into spirc: {e:?}");
-                                        self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                                    }
                                 }
                             }
-                            Err(e) => {
-                                error!("error parsing uri: {e:?}");
-                                self.events.send(Event::Player(PlayerEvent::FinishedTrack));
-                            }
+                            Err(event) => self.events.send(Event::Player(event)),
                         }
                     }
                     Some(WorkerCommand::Play) => {

@@ -117,7 +117,7 @@ impl Spotify {
             mpris: Default::default(),
             credentials: Credentials::with_password("test_user", "test_pass"),
             cfg,
-            status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
+            status: Arc::new(RwLock::new(PlayerStatus::Stopped)),
             api: WebApi::new(),
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
@@ -338,6 +338,23 @@ impl Spotify {
     /// Load `track` into the [Player]. Start playing immediately if
     /// `start_playing` is true. Start playing from `position_ms` in the song.
     pub fn load(&self, track: &Playable, start_playing: bool, position_ms: u32) {
+        self.load_context(&[track.clone()], 0, start_playing, position_ms);
+    }
+
+    /// Load a queue context into the player, starting at `index`.
+    pub fn load_context(
+        &self,
+        tracks: &[Playable],
+        index: usize,
+        start_playing: bool,
+        position_ms: u32,
+    ) {
+        let Some(track) = tracks.get(index) else {
+            error!("can't load queue context at missing index {index}");
+            self.events.send(Event::Player(PlayerEvent::FinishedTrack));
+            return;
+        };
+
         info!("loading track: {track:?}");
 
         if !track.is_playable() {
@@ -347,7 +364,8 @@ impl Spotify {
         }
 
         self.send_worker(WorkerCommand::Load(
-            track.clone(),
+            tracks.to_vec(),
+            index,
             start_playing,
             position_ms,
         ));
