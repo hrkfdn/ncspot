@@ -245,6 +245,11 @@ impl Application {
         // cursive event loop
         while self.cursive.is_running() {
             self.cursive.step();
+            #[cfg(feature = "cover")]
+            self.cursive
+                .call_on_name("cover", |view: &mut ui::cover::CoverView| {
+                    view.render_to_terminal();
+                });
             #[cfg(unix)]
             for signal in signals.pending() {
                 if signal == SIGTERM || signal == SIGHUP {

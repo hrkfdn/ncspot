@@ -40,7 +40,6 @@ here are the runtime dependencies:
 - `dbus`, `libncurses`, `libssl`
 - `libpulse` (or `portaudio`, if built using the PortAudio backend)
 - `libxcb` (if built with the `clipboard` feature)
-- `ueberzug` or a compatible implementation (e.g. `ueberzugpp`) (if built with the `cover` feature)
 
 ### On BSD's
 Your distribution may have packaged `ncspot` in its package repository.
@@ -262,7 +261,7 @@ Possible configuration values are:
 | `repeat`                        | Set default repeat mode                                        | `"off"`, `"track"`, `"playlist"`                                                      | `"off"`             |
 | `playback_state`                | Set default playback state                                     | `"Stopped"`, `"Paused"`, `"Playing"`, `"Default"`                                     | `"Paused"`          |
 | `library_tabs`                  | Tabs to show in library screen                                 | Array of `"tracks"`, `"albums"`, `"artists"`, `"playlists"`, `"podcasts"`, `"browse"` | All tabs            |
-| `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                                | `1.0`               |
+| `cover_max_scale`<sup>[1]</sup> | Set maximum scaling ratio for cover art                        | Number                                                                                | No limit            |
 | `hide_display_names`            | Hides spotify usernames in the library header and on playlists | `true`, `false`                                                                       | `false`             |
 | `statusbar_format`              | Formatting for tracks in the statusbar                         | See [track_formatting](#track-formatting)                                             | `%artists - %track` |
 | `[track_format]`                | Set active fields shown in Library/Queue views                 | See [track formatting](#track-formatting)                                             |                     |
@@ -440,14 +439,13 @@ body = "%artists"
 ### Cover Drawing
 When compiled with the `cover` feature, `ncspot` can draw the album art of the
 current track in a dedicated view (`:focus cover` or <kbd>F8</kbd> by default)
-using Überzug. The original project has been abandoned, therefore using a
-compatible implementation such as [Überzug++](https://github.com/jstkdng/ueberzugpp)
-is recommended. For more information on installation and terminal
-compatibility, consult that repository.
+using terminal image protocols supported by your terminal, such as Kitty,
+iTerm2, or Sixel. If no supported graphics protocol is detected, `ncspot`
+falls back to colored terminal blocks.
 
-To allow scaling up the album art beyond its native resolution (640x640 for
-Spotify covers), use the config key `cover_max_scale`. This is especially useful
-for HiDPI displays:
+By default, cover art scales to fit the available terminal view. To limit
+scaling beyond the image's native resolution, use the config key
+`cover_max_scale`:
 
 ```toml
 cover_max_scale = 2

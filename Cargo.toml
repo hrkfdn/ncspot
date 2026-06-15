@@ -50,6 +50,7 @@ crossbeam-channel = "0.5"
 zbus = {version = "5.16.0", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
+image = {version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true}
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.186"
 librespot-core = "0.8.0"
@@ -74,6 +75,7 @@ tokio-stream = {version = "0.1.18", features = ["sync"]}
 toml = "1.1"
 unicode-width = "0.2.2"
 url = "2.5"
+viuer = {version = "0.11", default-features = false, features = ["icy_sixel"], optional = true}
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.4.4"
@@ -96,7 +98,7 @@ optional = true
 
 [features]
 alsa_backend = ["librespot-playback/alsa-backend"]
-cover = ["ioctl-rs"] # Support displaying the album cover
+cover = ["image", "ioctl-rs", "viuer"] # Support displaying the album cover
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "crossterm_backend"]
 mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
 ncurses_backend = ["cursive/ncurses-backend"]

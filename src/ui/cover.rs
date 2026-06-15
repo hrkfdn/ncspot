@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Stdio};
 
 use std::sync::{Arc, RwLock};
 
@@ -23,16 +22,24 @@ pub struct CoverView {
     queue: Arc<Queue>,
     library: Arc<Library>,
     loading: Arc<RwLock<HashSet<String>>>,
-    last_size: RwLock<Vec2>,
-    drawn_url: RwLock<Option<String>>,
-    ueberzug: RwLock<Option<Child>>,
+    desired_cover: RwLock<Option<CoverRequest>>,
+    rendered_cover: RwLock<Option<CoverRequest>>,
+    cover_max_scale: Option<f32>,
     font_size: Vec2,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct CoverRequest {
+    url: String,
+    path: PathBuf,
+    offset: Vec2,
+    size: Vec2,
 }
 
 impl CoverView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, config: &Config) -> Self {
         // Determine size of window both in pixels and chars
-        let (rows, cols, mut xpixels, mut ypixels) = unsafe {
+        let (rows, cols, xpixels, ypixels) = unsafe {
             let mut query: (u16, u16, u16, u16) = (0, 0, 0, 0);
             ioctl(1, TIOCGWINSZ, &mut query);
             query
@@ -40,22 +47,26 @@ impl CoverView {
 
         debug!("Determined window dimensions: {xpixels}x{ypixels}, {cols}x{rows}");
 
-        // Determine font size, considering max scale to prevent tiny covers on HiDPI screens
-        let scale = config.values().cover_max_scale.unwrap_or(1.0);
-        xpixels = ((xpixels as f32) / scale) as u16;
-        ypixels = ((ypixels as f32) / scale) as u16;
-
-        let font_size = Vec2::new((xpixels / cols) as usize, (ypixels / rows) as usize);
+        // Determine font size. Some terminals report physical pixels here, but
+        // the aspect ratio is still useful when mapping images to terminal cells.
+        let font_size = if cols == 0 || rows == 0 || xpixels == 0 || ypixels == 0 {
+            Vec2::new(8, 16)
+        } else {
+            Vec2::new(
+                std::cmp::max(1, xpixels / cols) as usize,
+                std::cmp::max(1, ypixels / rows) as usize,
+            )
+        };
 
         debug!("Determined font size: {}x{}", font_size.x, font_size.y);
 
         Self {
             queue,
             library,
-            ueberzug: RwLock::new(None),
             loading: Arc::new(RwLock::new(HashSet::new())),
-            last_size: RwLock::new(Vec2::new(0, 0)),
-            drawn_url: RwLock::new(None),
+            desired_cover: RwLock::new(None),
+            rendered_cover: RwLock::new(None),
+            cover_max_scale: config.values().cover_max_scale,
             font_size,
         }
     }
@@ -65,44 +76,16 @@ impl CoverView {
             return;
         }
 
-        let needs_redraw = {
-            let last_size = self.last_size.read().unwrap();
-            let drawn_url = self.drawn_url.read().unwrap();
-            *last_size != draw_size || drawn_url.as_ref() != Some(&url)
-        };
-
-        if !needs_redraw {
-            return;
-        }
-
         let path = match self.cache_path(url.clone()) {
             Some(p) => p,
             None => return,
         };
 
-        let mut img_size = Vec2::new(640, 640);
-
-        let draw_size_pxls = draw_size * self.font_size;
-        let ratio = f32::min(
-            f32::min(
-                draw_size_pxls.x as f32 / img_size.x as f32,
-                draw_size_pxls.y as f32 / img_size.y as f32,
-            ),
-            1.0,
-        );
-
-        img_size = Vec2::new(
-            (ratio * img_size.x as f32) as usize,
-            (ratio * img_size.y as f32) as usize,
-        );
-
-        // Ueberzug takes an area given in chars and fits the image to
-        // that area (from the top left). Since we want to center the
-        // image at least horizontally, we need to fiddle around a bit.
-        let mut size = img_size / self.font_size;
+        let image_size = image::image_dimensions(&path).unwrap_or((640, 640));
+        let mut size = self.cover_size(draw_size, image_size);
 
         // Make sure there is equal space in chars on either side
-        if size.x % 2 != draw_size.x % 2 {
+        if size.x > 1 && size.x % 2 != draw_size.x % 2 {
             size.x -= 1;
         }
 
@@ -114,54 +97,37 @@ impl CoverView {
         draw_offset.x += (draw_size.x - size.x) / 2;
         draw_offset.y += (draw_size.y - size.y) - (draw_size.y - size.y) / 2;
 
-        let cmd = format!(
-            "{{\"action\":\"add\",\"scaler\":\"fit_contain\",\"identifier\":\"cover\",\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"path\":\"{}\"}}\n",
-            draw_offset.x,
-            draw_offset.y,
-            size.x,
-            size.y,
-            path.to_str().unwrap()
-        );
-
-        if let Err(e) = self.run_ueberzug_cmd(&cmd) {
-            error!("Failed to run Ueberzug: {e}");
-            return;
-        }
-
-        let mut last_size = self.last_size.write().unwrap();
-        *last_size = draw_size;
-
-        let mut drawn_url = self.drawn_url.write().unwrap();
-        *drawn_url = Some(url);
+        let mut desired_cover = self.desired_cover.write().unwrap();
+        *desired_cover = Some(CoverRequest {
+            url,
+            path,
+            offset: draw_offset,
+            size,
+        });
     }
 
     fn clear_cover(&self) {
-        let mut drawn_url = self.drawn_url.write().unwrap();
-        *drawn_url = None;
-
-        let cmd = "{\"action\": \"remove\", \"identifier\": \"cover\"}\n";
-        if let Err(e) = self.run_ueberzug_cmd(cmd) {
-            error!("Failed to run Ueberzug: {e}");
-        }
+        let mut desired_cover = self.desired_cover.write().unwrap();
+        *desired_cover = None;
     }
 
-    fn run_ueberzug_cmd(&self, cmd: &str) -> Result<(), std::io::Error> {
-        let mut ueberzug = self.ueberzug.write().unwrap();
-
-        if ueberzug.is_none() {
-            *ueberzug = Some(
-                std::process::Command::new("ueberzug")
-                    .args(["layer", "--silent"])
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .spawn()?,
-            );
+    fn cover_size(&self, draw_size: Vec2, image_size: (u32, u32)) -> Vec2 {
+        let (image_width, image_height) = image_size;
+        if image_width == 0 || image_height == 0 {
+            return draw_size;
         }
 
-        let stdin = (*ueberzug).as_mut().unwrap().stdin.as_mut().unwrap();
-        stdin.write_all(cmd.as_bytes())?;
+        let mut available_size = draw_size;
+        if let Some(scale) = self.cover_max_scale {
+            let max_size = Vec2::new(
+                ((image_width as f32 * scale) / self.font_size.x as f32) as usize,
+                ((image_height as f32 * scale) / self.font_size.y as f32) as usize,
+            );
+            available_size.x = std::cmp::min(available_size.x, std::cmp::max(1, max_size.x));
+            available_size.y = std::cmp::min(available_size.y, std::cmp::max(1, max_size.y));
+        }
 
-        Ok(())
+        fit_image_to_cells(available_size, self.font_size, image_width, image_height)
     }
 
     fn cache_path(&self, url: String) -> Option<PathBuf> {
@@ -189,6 +155,117 @@ impl CoverView {
 
         None
     }
+
+    pub fn render_to_terminal(&self) {
+        let desired_cover = self.desired_cover.read().unwrap().clone();
+        let mut rendered_cover = self.rendered_cover.write().unwrap();
+
+        if *rendered_cover == desired_cover {
+            return;
+        }
+
+        if let Some(rendered) = rendered_cover.as_ref() {
+            clear_terminal_area(rendered.offset, rendered.size);
+        }
+
+        if let Some(cover) = desired_cover.as_ref()
+            && let Err(e) = render_cover_to_terminal(cover)
+        {
+            error!("Failed to draw cover: {e}");
+            return;
+        }
+
+        *rendered_cover = desired_cover;
+    }
+}
+
+fn render_cover_to_terminal(cover: &CoverRequest) -> Result<(), viuer::ViuError> {
+    let config = viuer::Config {
+        x: to_u16(cover.offset.x)?,
+        y: to_i16(cover.offset.y)?,
+        width: Some(cover.size.x as u32),
+        height: Some(cover.size.y as u32),
+        absolute_offset: true,
+        restore_cursor: true,
+        use_kitty: can_use_kitty_graphics(),
+        use_sixel: !is_iterm_terminal(),
+        ..Default::default()
+    };
+
+    let image = image::ImageReader::open(&cover.path)?
+        .with_guessed_format()?
+        .decode()?;
+
+    viuer::print(&image, &config).map(|_| ())
+}
+
+fn is_iterm_terminal() -> bool {
+    std::env::var("TERM_PROGRAM").is_ok_and(|term| term.contains("iTerm"))
+        || std::env::var("LC_TERMINAL").is_ok_and(|term| term.contains("iTerm"))
+}
+
+fn is_apple_terminal() -> bool {
+    std::env::var("TERM_PROGRAM").is_ok_and(|term| term == "Apple_Terminal")
+}
+
+fn can_use_kitty_graphics() -> bool {
+    !is_apple_terminal()
+}
+
+fn fit_image_to_cells(
+    available_size: Vec2,
+    font_size: Vec2,
+    image_width: u32,
+    image_height: u32,
+) -> Vec2 {
+    if available_size.x == 0 || available_size.y == 0 || font_size.x == 0 || font_size.y == 0 {
+        return Vec2::new(0, 0);
+    }
+
+    let image_aspect = image_width as f32 / image_height as f32;
+    let cell_aspect = font_size.x as f32 / font_size.y as f32;
+    let width_for_full_height =
+        (available_size.y as f32 * image_aspect / cell_aspect).floor() as usize;
+
+    if width_for_full_height <= available_size.x {
+        Vec2::new(std::cmp::max(1, width_for_full_height), available_size.y)
+    } else {
+        let height_for_full_width =
+            (available_size.x as f32 * cell_aspect / image_aspect).floor() as usize;
+        Vec2::new(available_size.x, std::cmp::max(1, height_for_full_width))
+    }
+}
+
+fn clear_terminal_area(offset: Vec2, size: Vec2) {
+    let mut stdout = std::io::stdout();
+
+    // Remove stateful Kitty graphics where that protocol is available, then
+    // overwrite the cells used by other protocols/fallbacks.
+    if can_use_kitty_graphics() {
+        let _ = stdout.write_all(b"\x1b_Ga=d,d=A\x1b\\");
+    }
+    for y in offset.y..offset.y + size.y {
+        let _ = write!(
+            stdout,
+            "\x1b[{};{}H{}",
+            y + 1,
+            offset.x + 1,
+            " ".repeat(size.x)
+        );
+    }
+    let _ = stdout.flush();
+}
+
+fn to_u16(value: usize) -> Result<u16, viuer::ViuError> {
+    u16::try_from(value).map_err(|_| {
+        viuer::ViuError::InvalidConfiguration("cover coordinate is too large".to_string())
+    })
+}
+
+fn to_i16(value: usize) -> Result<i16, viuer::ViuError> {
+    i16::try_from(value).map_err(|_| {
+        viuer::ViuError::InvalidConfiguration("cover coordinate is too large".to_string())
+    })
 }
 
 impl View for CoverView {
@@ -225,6 +302,7 @@ impl ViewExt for CoverView {
 
     fn on_leave(&self) {
         self.clear_cover();
+        self.render_to_terminal();
     }
 
     fn on_command(&mut self, _s: &mut Cursive, cmd: &Command) -> Result<CommandResult, String> {

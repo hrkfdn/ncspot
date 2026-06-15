@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Draw cover art directly in supported terminals using terminal image
+  protocols, falling back to block rendering when unsupported
+
 ## [1.3.4]
 
 ### Changed
