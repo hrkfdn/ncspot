@@ -26,6 +26,7 @@ pub struct Layout {
     stack: HashMap<String, Vec<Box<dyn ViewExt>>>,
     statusbar: Box<dyn View>,
     focus: Option<String>,
+    previous_focus: Option<String>,
     cmdline: EditView,
     cmdline_focus: bool,
     result: Result<Option<String>, String>,
@@ -94,6 +95,7 @@ impl Layout {
             stack: HashMap::new(),
             statusbar: status.into_boxed_view(),
             focus: None,
+            previous_focus: None,
             cmdline: command_line_input,
             cmdline_focus: false,
             result: Ok(None),
@@ -145,6 +147,11 @@ impl Layout {
         }
 
         let s = id.into();
+        if let Some(current_focus) = &self.focus
+            && current_focus != &s
+        {
+            self.previous_focus = Some(current_focus.clone());
+        }
         self.focus = Some(s);
         self.cmdline_focus = false;
 
@@ -189,6 +196,20 @@ impl Layout {
         }
 
         self.get_focussed_stack_mut().map(|stack| stack.pop());
+    }
+
+    fn back(&mut self) {
+        if !self.is_current_stack_empty() {
+            self.pop_view();
+            return;
+        }
+
+        if self.focus.as_deref() == Some("search")
+            && let Some(previous_focus) = self.previous_focus.clone()
+            && self.screens.contains_key(&previous_focus)
+        {
+            self.set_screen(previous_focus);
+        }
     }
 
     #[allow(clippy::borrowed_box)]
@@ -484,7 +505,7 @@ impl ViewExt for Layout {
                 Ok(CommandResult::Consumed(None))
             }
             Command::Back => {
-                self.pop_view();
+                self.back();
                 Ok(CommandResult::Consumed(None))
             }
             _ => {
