@@ -253,7 +253,7 @@ Possible configuration values are:
 | `audio_cache_size`              | Maximum size of audio cache in MiB                             | Number                                                                                |                     |
 | `volnorm`                       | Enable volume normalization                                    | `true`, `false`                                                                       | `false`             |
 | `volnorm_pregain`               | Normalization pregain to apply in dB (if enabled)              | Number                                                                                | `0.0`               |
-| `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                                       | `false`             |
+| `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                                       | `true`              |
 | `notify`<sup>[4]</sup>          | Enable desktop notifications                                   | `true`, `false`                                                                       | `false`             |
 | `bitrate`                       | Audio bitrate to use for streaming                             | `96`, `160`, `320`                                                                    | `320`               |
 | `gapless`                       | Enable gapless playback                                        | `true`, `false`                                                                       | `true`              |

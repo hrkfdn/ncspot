@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Draw cover art directly in supported terminals using terminal image
   protocols, falling back to block rendering when unsupported
 
+### Fixed
+
+- Correct the documented default value for `default_keybindings`
+
 ## [1.3.4]
 
 ### Changed
