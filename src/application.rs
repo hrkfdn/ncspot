@@ -145,13 +145,11 @@ impl Application {
         let playback_state = configuration.state().playback_state.clone();
         let queue_state = configuration.state().queuestate.clone();
 
-        if let Some(playable) = queue.get_current() {
-            spotify.load(
-                &playable,
+        if queue.get_current().is_some() {
+            queue.load_current(
                 playback_state == PlaybackState::Playing,
                 queue_state.track_progress.as_millis() as u32,
             );
-            spotify.update_track();
             match playback_state {
                 PlaybackState::Stopped => {
                     spotify.stop();
@@ -261,16 +259,31 @@ impl Application {
             }
             for event in self.event_manager.msg_iter() {
                 match event {
-                    Event::Player(state) => {
-                        trace!("event received: {state:?}");
-                        self.spotify.update_status(state.clone());
+                    Event::Player(event) => {
+                        trace!("player event received: {event:?}");
+                        self.spotify.handle_player_event(event.clone());
 
-                        #[cfg(unix)]
-                        if let Some(ref ipc) = self.ipc {
-                            ipc.publish(&state, self.queue.get_current());
+                        match event {
+                            PlayerEvent::TrackChanged(ref uri) => {
+                                self.queue.sync_current_track(uri);
+                            }
+                            PlayerEvent::ShuffleChanged(shuffle) => {
+                                self.queue.sync_shuffle(shuffle);
+                            }
+                            PlayerEvent::RepeatChanged { context, track } => {
+                                self.queue.sync_repeat(context, track);
+                            }
+                            _ => {}
                         }
 
-                        if state == PlayerEvent::FinishedTrack {
+                        #[cfg(unix)]
+                        if let Some(ref ipc) = self.ipc
+                            && let PlayerEvent::StatusChanged(ref status) = event
+                        {
+                            ipc.publish(status, self.queue.get_current());
+                        }
+
+                        if event == PlayerEvent::FinishedTrack {
                             self.queue.next(false);
                         }
                     }

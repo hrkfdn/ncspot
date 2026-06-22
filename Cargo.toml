@@ -53,6 +53,7 @@ futures = "0.3"
 image = {version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true}
 ioctl-rs = {version = "0.2", optional = true}
 libc = "0.2.186"
+librespot-connect = "0.8.0"
 librespot-core = "0.8.0"
 librespot-oauth = "0.8.0"
 librespot-playback = {version = "0.8.0", default-features = false, features = ["native-tls"]}

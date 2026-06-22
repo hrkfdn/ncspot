@@ -4,7 +4,6 @@ use log::info;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -21,13 +20,13 @@ use crate::model::playlist::Playlist;
 use crate::model::show::Show;
 use crate::model::track::Track;
 use crate::queue::RepeatSetting;
-use crate::spotify::UriType;
+use crate::spotify::{PlayerStatus, UriType};
 use crate::spotify_url::SpotifyUrl;
 use crate::traits::ListItem;
 use crate::{
     events::EventManager,
     queue::Queue,
-    spotify::{PlayerEvent, Spotify, VOLUME_PERCENT},
+    spotify::{Spotify, VOLUME_PERCENT},
 };
 
 struct MprisRoot {}
@@ -81,8 +80,8 @@ impl MprisPlayer {
     #[zbus(property)]
     fn playback_status(&self) -> &str {
         match self.spotify.get_current_status() {
-            PlayerEvent::Playing(_) | PlayerEvent::FinishedTrack => "Playing",
-            PlayerEvent::Paused(_) => "Paused",
+            PlayerStatus::Playing(_) => "Playing",
+            PlayerStatus::Paused(_) => "Paused",
             _ => "Stopped",
         }
     }
@@ -278,7 +277,7 @@ impl MprisPlayer {
         log::info!("set volume: {volume}");
         let clamped = volume.clamp(0.0, 1.0);
         let vol = (VOLUME_PERCENT as f64) * clamped * 100.0;
-        self.spotify.set_volume(vol as u16, false);
+        self.spotify.set_volume(vol as u16);
         self.event.trigger();
     }
 
@@ -325,11 +324,7 @@ impl MprisPlayer {
     }
 
     fn previous(&self) {
-        if self.spotify.get_current_progress() < Duration::from_secs(5) {
-            self.queue.previous();
-        } else {
-            self.spotify.seek(0);
-        }
+        self.queue.previous();
     }
 
     fn pause(&self) {

@@ -11,7 +11,7 @@ use strum_macros::Display;
 use crate::config::Config;
 use crate::library::Library;
 use crate::model::playable::Playable;
-use crate::spotify::PlayerEvent;
+use crate::spotify::PlayerStatus;
 use crate::spotify::Spotify;
 use crate::traits::ListItem;
 
@@ -24,6 +24,26 @@ pub enum RepeatSetting {
     RepeatPlaylist,
     #[serde(rename = "track")]
     RepeatTrack,
+}
+
+impl RepeatSetting {
+    fn spirc_flags(self) -> (bool, bool) {
+        match self {
+            Self::None => (false, false),
+            Self::RepeatPlaylist => (true, false),
+            Self::RepeatTrack => (true, true),
+        }
+    }
+
+    fn from_spirc(context: bool, track: bool) -> Self {
+        if track {
+            Self::RepeatTrack
+        } else if context {
+            Self::RepeatPlaylist
+        } else {
+            Self::None
+        }
+    }
 }
 
 /// Events that are specific to the [Queue].
@@ -121,6 +141,117 @@ impl Queue {
     /// The index of the currently playing item from `self.queue`.
     pub fn get_current_index(&self) -> Option<usize> {
         *self.current_track.read().unwrap()
+    }
+
+    fn playback_context_for(&self, index: usize) -> (Vec<Playable>, usize) {
+        let q = self.queue.read().unwrap();
+        let order = self
+            .random_order
+            .read()
+            .unwrap()
+            .clone()
+            .unwrap_or_else(|| (0..q.len()).collect());
+        let context_index = order.iter().position(|&i| i == index).unwrap_or(index);
+        let tracks = order
+            .iter()
+            .filter_map(|&i| q.get(i).cloned())
+            .collect::<Vec<_>>();
+
+        (tracks, context_index)
+    }
+
+    /// Load the currently selected queue item and its surrounding context into the player.
+    pub fn load_current(&self, start_playing: bool, position_ms: u32) {
+        if let Some(index) = self.get_current_index() {
+            let (tracks, context_index) = self.playback_context_for(index);
+            self.spotify
+                .load_context(&tracks, context_index, start_playing, position_ms);
+            self.spotify.update_track();
+        }
+    }
+
+    #[cfg(feature = "notify")]
+    fn notify_track(&self, track: Playable) {
+        if !self.cfg.values().notify.unwrap_or(false) {
+            return;
+        }
+
+        std::thread::spawn({
+            // use same parser as track_format, Playable::format
+            let format = self
+                .cfg
+                .values()
+                .notification_format
+                .clone()
+                .unwrap_or_default();
+            let default_title = crate::config::NotificationFormat::default().title.unwrap();
+            let title = format.title.unwrap_or_else(|| default_title.clone());
+
+            let default_body = crate::config::NotificationFormat::default().body.unwrap();
+            let body = format.body.unwrap_or_else(|| default_body.clone());
+
+            let summary_txt = Playable::format(&track, &title, &self.library);
+            let body_txt = Playable::format(&track, &body, &self.library);
+            let cover_url = track.cover_url();
+            move || send_notification(&summary_txt, &body_txt, cover_url)
+        });
+    }
+
+    /// Move the local queue cursor to the track Spirc reports as current.
+    pub fn sync_current_track(&self, uri: &str) {
+        let next = {
+            let q = self.queue.read().unwrap();
+            q.iter()
+                .enumerate()
+                .find(|(_, track)| track.uri() == uri)
+                .map(|(index, track)| (index, track.clone()))
+        };
+
+        let Some((index, track)) = next else {
+            debug!("Spirc changed to {uri}, which is not in the local queue");
+            return;
+        };
+
+        let changed = {
+            let mut current = self.current_track.write().unwrap();
+            if *current == Some(index) {
+                false
+            } else {
+                current.replace(index);
+                true
+            }
+        };
+
+        if changed {
+            self.spotify.update_track();
+
+            #[cfg(feature = "notify")]
+            self.notify_track(track);
+
+            #[cfg(feature = "mpris")]
+            self.spotify.notify_seeked(0);
+        }
+    }
+
+    /// Mirror Spirc's shuffle state locally.
+    pub fn sync_shuffle(&self, new: bool) {
+        let was = self.cfg.state().shuffle;
+        self.cfg.with_state_mut(|s| s.shuffle = new);
+        if new {
+            let needs_order = !was || self.random_order.read().unwrap().is_none();
+            if needs_order {
+                self.generate_random_order();
+            }
+        } else {
+            let mut random_order = self.random_order.write().unwrap();
+            *random_order = None;
+        }
+    }
+
+    /// Mirror Spirc's repeat flags locally.
+    pub fn sync_repeat(&self, context: bool, track: bool) {
+        self.cfg
+            .with_state_mut(|s| s.repeat = RepeatSetting::from_spirc(context, track));
     }
 
     /// Insert `track` as the item that should logically follow the currently
@@ -283,34 +414,15 @@ impl Queue {
             index = rng.random_range(0..queue_length);
         }
 
-        if let Some(track) = &self.queue.read().unwrap().get(index) {
-            self.spotify.load(track, true, 0);
+        if let Some(track) = self.queue.read().unwrap().get(index).cloned() {
+            let (tracks, context_index) = self.playback_context_for(index);
+            self.spotify.load_context(&tracks, context_index, true, 0);
             let mut current = self.current_track.write().unwrap();
             current.replace(index);
             self.spotify.update_track();
 
             #[cfg(feature = "notify")]
-            if self.cfg.values().notify.unwrap_or(false) {
-                std::thread::spawn({
-                    // use same parser as track_format, Playable::format
-                    let format = self
-                        .cfg
-                        .values()
-                        .notification_format
-                        .clone()
-                        .unwrap_or_default();
-                    let default_title = crate::config::NotificationFormat::default().title.unwrap();
-                    let title = format.title.unwrap_or_else(|| default_title.clone());
-
-                    let default_body = crate::config::NotificationFormat::default().body.unwrap();
-                    let body = format.body.unwrap_or_else(|| default_body.clone());
-
-                    let summary_txt = Playable::format(track, &title, &self.library);
-                    let body_txt = Playable::format(track, &body, &self.library);
-                    let cover_url = track.cover_url();
-                    move || send_notification(&summary_txt, &body_txt, cover_url)
-                });
-            }
+            self.notify_track(track);
 
             // Send a Seeked signal at start of new track
             #[cfg(feature = "mpris")]
@@ -326,14 +438,13 @@ impl Queue {
     /// play the next song if one is available, or restart from the start.
     pub fn toggleplayback(&self) {
         match self.spotify.get_current_status() {
-            PlayerEvent::Playing(_) | PlayerEvent::Paused(_) => {
+            PlayerStatus::Playing(_) | PlayerStatus::Paused(_) => {
                 self.spotify.toggleplayback();
             }
-            PlayerEvent::Stopped => match self.next_index() {
+            PlayerStatus::Stopped => match self.next_index() {
                 Some(_) => self.next(false),
                 None => self.play(0, false, false),
             },
-            _ => (),
         }
     }
 
@@ -351,11 +462,20 @@ impl Queue {
     /// used, and the next track will actually be played. This should be used
     /// when going to the next entry in the queue is the wanted behavior.
     pub fn next(&self, manual: bool) {
+        if manual {
+            let repeat = self.cfg.state().repeat;
+            self.spotify.next();
+            if repeat == RepeatSetting::RepeatTrack {
+                self.set_repeat(RepeatSetting::RepeatPlaylist);
+            }
+            return;
+        }
+
         let q = self.queue.read().unwrap();
         let current = *self.current_track.read().unwrap();
         let repeat = self.cfg.state().repeat;
 
-        if repeat == RepeatSetting::RepeatTrack && !manual {
+        if repeat == RepeatSetting::RepeatTrack {
             if let Some(index) = current
                 && q[index].is_playable()
             {
@@ -363,9 +483,6 @@ impl Queue {
             }
         } else if let Some(index) = self.next_index() {
             self.play(index, false, false);
-            if repeat == RepeatSetting::RepeatTrack && manual {
-                self.set_repeat(RepeatSetting::RepeatPlaylist);
-            }
         } else if repeat == RepeatSetting::RepeatPlaylist
             && !q.is_empty()
             && q.iter().any(|track| track.is_playable())
@@ -383,26 +500,7 @@ impl Queue {
 
     /// Play the previous item in the queue.
     pub fn previous(&self) {
-        let q = self.queue.read().unwrap();
-        let current = *self.current_track.read().unwrap();
-        let repeat = self.cfg.state().repeat;
-
-        if let Some(index) = self.previous_index() {
-            self.play(index, false, false);
-        } else if repeat == RepeatSetting::RepeatPlaylist && !q.is_empty() {
-            if self.get_shuffle() {
-                let random_order = self.random_order.read().unwrap();
-                self.play(
-                    random_order.as_ref().map(|o| o[q.len() - 1]).unwrap_or(0),
-                    false,
-                    false,
-                );
-            } else {
-                self.play(q.len() - 1, false, false);
-            }
-        } else if let Some(index) = current {
-            self.play(index, false, false);
-        }
+        self.spotify.previous();
     }
 
     /// Get the current repeat behavior.
@@ -413,6 +511,8 @@ impl Queue {
     /// Set the current repeat behavior and save it to the configuration.
     pub fn set_repeat(&self, new: RepeatSetting) {
         self.cfg.with_state_mut(|s| s.repeat = new);
+        let (context, track) = new.spirc_flags();
+        self.spotify.set_repeat(context, track);
     }
 
     /// Get the current shuffle behavior.
@@ -446,13 +546,8 @@ impl Queue {
 
     /// Set the current shuffle behavior.
     pub fn set_shuffle(&self, new: bool) {
-        self.cfg.with_state_mut(|s| s.shuffle = new);
-        if new {
-            self.generate_random_order();
-        } else {
-            let mut random_order = self.random_order.write().unwrap();
-            *random_order = None;
-        }
+        self.sync_shuffle(new);
+        self.spotify.set_shuffle(new);
     }
 
     /// Handle events that are specific to the queue.
