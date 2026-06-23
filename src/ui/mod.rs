@@ -23,6 +23,9 @@ pub mod tabbedview;
 #[cfg(feature = "cover")]
 pub mod cover;
 
+#[cfg(feature = "lyrics")]
+pub mod lyrics;
+
 /// Create a CursiveRunner which implements the drawing logic and event loop.
 pub fn create_cursive() -> Result<CursiveRunner<Cursive>, Box<dyn std::error::Error>> {
     let backend = cursive::backends::try_default()?;

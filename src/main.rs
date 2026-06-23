@@ -10,6 +10,9 @@ use config::set_configuration_base_path;
 use log::error;
 use ncspot::program_arguments;
 
+#[cfg(feature = "lyrics")]
+mod lyrics;
+
 mod application;
 mod authentication;
 mod cli;

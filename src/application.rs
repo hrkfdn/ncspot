@@ -24,6 +24,9 @@ use crate::{command, queue, spotify};
 #[cfg(feature = "mpris")]
 use crate::mpris::MprisManager;
 
+#[cfg(feature = "lyrics")]
+use crate::lyrics::LyricsManager;
+
 #[cfg(unix)]
 use crate::ipc::{self, IpcSocket};
 
@@ -200,6 +203,15 @@ impl Application {
         #[cfg(feature = "cover")]
         let coverview = ui::cover::CoverView::new(queue.clone(), library.clone(), &configuration);
 
+        #[cfg(feature = "lyrics")]
+        let lyrics_manager = Arc::new(LyricsManager::new(
+            spotify.clone(),
+            event_manager.clone(),
+        ));
+        #[cfg(feature = "lyrics")]
+        let lyricsview =
+            ui::lyrics::LyricsView::new(queue.clone(), spotify.clone(), lyrics_manager);
+
         let status = ui::statusbar::StatusBar::new(queue.clone(), Arc::clone(&library));
 
         let mut layout =
@@ -210,6 +222,9 @@ impl Application {
 
         #[cfg(feature = "cover")]
         layout.add_screen("cover", coverview.with_name("cover"));
+
+        #[cfg(feature = "lyrics")]
+        layout.add_screen("lyrics", lyricsview.with_name("lyrics"));
 
         // initial screen is library
         let initial_screen = configuration

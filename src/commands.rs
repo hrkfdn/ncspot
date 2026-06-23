@@ -472,6 +472,8 @@ impl CommandManager {
         kb.insert("F3".into(), vec![Command::Focus("library".into())]);
         #[cfg(feature = "cover")]
         kb.insert("F8".into(), vec![Command::Focus("cover".into())]);
+        #[cfg(feature = "lyrics")]
+        kb.insert("F9".into(), vec![Command::Focus("lyrics".into())]);
         kb.insert("?".into(), vec![Command::Help]);
         kb.insert("Esc".into(), vec![Command::Back]);
         kb.insert("Backspace".into(), vec![Command::Back]);

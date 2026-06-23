@@ -20,6 +20,7 @@ use crate::config::{self, Config};
 use crate::events;
 use crate::ext_traits::CursiveExt;
 use crate::traits::{IntoBoxedViewExt, ViewExt};
+use crate::ui::statusbar;
 
 pub struct Layout {
     screens: HashMap<String, Box<dyn ViewExt>>,
@@ -321,13 +322,13 @@ impl View for Layout {
             // screen content
             let printer = &printer
                 .offset((0, 1))
-                .cropped((printer.size.x, printer.size.y - 3 - cmdline_height))
+                .cropped((printer.size.x, printer.size.y - 1 - statusbar::HEIGHT - cmdline_height))
                 .focused(true);
             view.draw(printer);
         }
 
         self.statusbar
-            .draw(&printer.offset((0, printer.size.y - 2 - cmdline_height)));
+            .draw(&printer.offset((0, printer.size.y - statusbar::HEIGHT - cmdline_height)));
 
         if let Ok(Some(r)) = result {
             printer.print_hline((0, printer.size.y - cmdline_height), printer.size.x, " ");
@@ -353,12 +354,12 @@ impl View for Layout {
     fn layout(&mut self, size: Vec2) {
         self.last_size = size;
 
-        self.statusbar.layout(Vec2::new(size.x, 2));
+        self.statusbar.layout(Vec2::new(size.x, statusbar::HEIGHT));
 
         self.cmdline.layout(Vec2::new(size.x, 1));
 
         if let Some(view) = self.get_current_view_mut() {
-            view.layout(Vec2::new(size.x, size.y - 3));
+            view.layout(Vec2::new(size.x, size.y - 1 - statusbar::HEIGHT));
         }
     }
 
@@ -438,11 +439,11 @@ impl View for Layout {
                     cmdline_height += 1;
                 }
 
-                if position.y >= self.last_size.y.saturating_sub(2 + cmdline_height)
+                if position.y >= self.last_size.y.saturating_sub(statusbar::HEIGHT + cmdline_height)
                     && position.y < self.last_size.y - cmdline_height
                 {
                     self.statusbar.on_event(
-                        event.relativized(Vec2::new(0, self.last_size.y - 2 - cmdline_height)),
+                        event.relativized(Vec2::new(0, self.last_size.y - statusbar::HEIGHT - cmdline_height)),
                     );
                     return EventResult::consumed();
                 }

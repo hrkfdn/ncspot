@@ -8,6 +8,9 @@ use log::warn;
 
 use crate::config::ConfigTheme;
 
+pub const DEFAULT_LYRICS_HIGHLIGHT: &str = "#eeeeee";
+pub const DEFAULT_LYRICS_BACKGROUND: &str = "#3d0804";
+
 /// Get the given color from the given [ConfigTheme]. The first argument is the [ConfigTheme] to get
 /// the color out of. The second argument is the name of the color to get and is an identifier. The
 /// third argument is a [Color] that is used as the default when no color can be parsed from the
@@ -81,10 +84,26 @@ pub fn load(theme_cfg: &Option<ConfigTheme>) -> Theme {
         "search_match",
         load_color!(theme_cfg, search_match, Light(Red)),
     );
+    palette.set_color(
+        "lyrics_highlight",
+        load_color!(theme_cfg, lyrics_highlight, default_lyrics_highlight()),
+    );
+    palette.set_color(
+        "lyrics_background",
+        load_color!(theme_cfg, lyrics_background, default_lyrics_background()),
+    );
 
     Theme {
         shadow: false,
         palette,
         borders,
     }
+}
+
+fn default_lyrics_highlight() -> Color {
+    Color::parse(DEFAULT_LYRICS_HIGHLIGHT).expect("valid default lyrics highlight color")
+}
+
+fn default_lyrics_background() -> Color {
+    Color::parse(DEFAULT_LYRICS_BACKGROUND).expect("valid default lyrics background color")
 }

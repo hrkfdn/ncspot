@@ -14,6 +14,8 @@ use crate::queue::{Queue, RepeatSetting};
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::utils::ms_to_hms;
 
+pub const HEIGHT: usize = 3;
+
 pub struct StatusBar {
     queue: Arc<Queue>,
     spotify: Spotify,
@@ -81,6 +83,17 @@ impl StatusBar {
             .unwrap_or_else(|| "%artists - %title".to_string());
         Playable::format(t, &format, &self.library)
     }
+
+    fn keyboard_hint(&self) -> &'static str {
+        #[cfg(feature = "lyrics")]
+        {
+            "F1 Queue  F2 Search  F3 Library  F9 Lyrics"
+        }
+        #[cfg(not(feature = "lyrics"))]
+        {
+            "F1 Queue  F2 Search  F3 Library"
+        }
+    }
 }
 
 impl View for StatusBar {
@@ -109,18 +122,22 @@ impl View for StatusBar {
         );
 
         printer.print(
-            (0, 0),
+            (0, 1),
             &vec![' '; printer.size.x].into_iter().collect::<String>(),
         );
         printer.with_color(style, |printer| {
             printer.print(
-                (0, 1),
+                (0, 2),
                 &vec![' '; printer.size.x].into_iter().collect::<String>(),
             );
         });
 
+        printer.with_color(ColorStyle::secondary(), |printer| {
+            printer.print((1, 0), self.keyboard_hint());
+        });
+
         printer.with_color(style, |printer| {
-            printer.print((1, 1), self.playback_indicator());
+            printer.print((1, 2), self.playback_indicator());
         });
 
         let updating = if !*self.library.is_done.read().unwrap() {
@@ -160,7 +177,7 @@ impl View for StatusBar {
         let volume = self.volume_display();
 
         printer.with_color(style_bar_bg, |printer| {
-            printer.print((0, 0), &"┉".repeat(printer.size.x));
+            printer.print((0, 1), &"┉".repeat(printer.size.x));
         });
 
         let elapsed = self.spotify.get_current_progress();
@@ -183,9 +200,9 @@ impl View for StatusBar {
 
         printer.with_color(style, |printer| {
             if let Some(ref t) = self.queue.get_current() {
-                printer.print((4, 1), &self.format_track(t));
+                printer.print((4, 2), &self.format_track(t));
             }
-            printer.print((offset, 1), &right);
+            printer.print((offset, 2), &right);
         });
 
         if let Some(t) = self.queue.get_current() {
@@ -194,7 +211,7 @@ impl View for StatusBar {
                     .checked_mul(printer.size.x as u32)
                     .and_then(|v| v.checked_div(t.duration()))
                     .unwrap_or(0) as usize;
-                printer.print((0, 0), &"━".repeat(duration_width + 1));
+                printer.print((0, 1), &"━".repeat(duration_width + 1));
             });
         }
     }
@@ -204,7 +221,7 @@ impl View for StatusBar {
     }
 
     fn required_size(&mut self, constraint: Vec2) -> Vec2 {
-        Vec2::new(constraint.x, 2)
+        Vec2::new(constraint.x, HEIGHT)
     }
 
     fn on_event(&mut self, event: Event) -> EventResult {
@@ -217,7 +234,7 @@ impl View for StatusBar {
             let position = position - offset;
             let volume_len = self.volume_display().len();
 
-            if position.y == 0 {
+            if position.y == 1 {
                 if event == MouseEvent::WheelUp {
                     self.spotify.seek_relative(-500);
                 }

@@ -62,6 +62,8 @@ pub struct Spotify {
     since: Arc<RwLock<Option<SystemTime>>>,
     /// Channel to send commands to the worker thread.
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+    #[cfg(feature = "lyrics")]
+    session: Arc<RwLock<Option<Session>>>,
 }
 
 impl Spotify {
@@ -81,6 +83,8 @@ impl Spotify {
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "lyrics")]
+            session: Arc::new(RwLock::new(None)),
         };
 
         let (user_tx, user_rx) = oneshot::channel();
@@ -115,6 +119,8 @@ impl Spotify {
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "lyrics")]
+            session: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -133,6 +139,8 @@ impl Spotify {
         let credentials = self.credentials.clone();
         let backend_name = cfg.values().backend.clone();
         let backend = Self::init_backend(backend_name)?;
+        #[cfg(feature = "lyrics")]
+        let session_slot = self.session.clone();
         ASYNC_RUNTIME.get().unwrap().spawn(Self::worker(
             worker_channel,
             events,
@@ -142,6 +150,8 @@ impl Spotify {
             user_tx,
             volume,
             backend,
+            #[cfg(feature = "lyrics")]
+            session_slot,
         ));
         Ok(())
     }
@@ -246,6 +256,7 @@ impl Spotify {
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
         backend: SinkBuilder,
+        #[cfg(feature = "lyrics")] session_slot: Arc<RwLock<Option<Session>>>,
     ) {
         let bitrate_str = cfg.values().bitrate.unwrap_or(320).to_string();
         let bitrate = Bitrate::from_str(&bitrate_str);
@@ -264,6 +275,10 @@ impl Spotify {
         let session = Self::create_session(&cfg, credentials)
             .await
             .expect("Could not create session");
+        #[cfg(feature = "lyrics")]
+        {
+            *session_slot.write().unwrap() = Some(session.clone());
+        }
         user_tx.map(|tx| tx.send(session.username()));
 
         let mixer_factory_opt = librespot_playback::mixer::find(Some(SoftMixer::NAME));
@@ -291,6 +306,11 @@ impl Spotify {
         );
         debug!("worker thread ready.");
         worker.run_loop().await;
+
+        #[cfg(feature = "lyrics")]
+        {
+            *session_slot.write().unwrap() = None;
+        }
 
         error!("worker thread died, requesting restart");
         *worker_channel.write().unwrap() = None;
@@ -491,6 +511,11 @@ impl Spotify {
     /// after the current [Playable] is finished.
     pub fn preload(&self, track: &Playable) {
         self.send_worker(WorkerCommand::Preload(track.clone()));
+    }
+
+    #[cfg(feature = "lyrics")]
+    pub fn get_session(&self) -> Option<Session> {
+        self.session.read().unwrap().clone()
     }
 
     /// Shut down the worker thread.

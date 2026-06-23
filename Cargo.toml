@@ -56,6 +56,7 @@ libc = "0.2.186"
 librespot-core = "0.8.0"
 librespot-oauth = "0.8.0"
 librespot-playback = {version = "0.8.0", default-features = false, features = ["native-tls"]}
+librespot-metadata = "0.8.0"
 librespot-protocol = "0.8.0"
 log = "0.4.32"
 pancurses = {version = "0.17.0", optional = true}
@@ -99,6 +100,7 @@ optional = true
 [features]
 alsa_backend = ["librespot-playback/alsa-backend"]
 cover = ["image", "ioctl-rs", "viuer"] # Support displaying the album cover
+lyrics = [] # Support displaying synced lyrics via librespot-metadata
 default = ["share_clipboard", "pulseaudio_backend", "mpris", "notify", "crossterm_backend"]
 mpris = ["zbus"] # Allow ncspot to be controlled via MPRIS API
 ncurses_backend = ["cursive/ncurses-backend"]
