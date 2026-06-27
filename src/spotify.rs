@@ -87,7 +87,7 @@ impl Spotify {
         spotify.start_worker(Some(user_tx))?;
         let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
         let volume = cfg.state().volume;
-        spotify.set_volume(volume, true);
+        spotify.set_volume(volume, false);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
         spotify
