@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 10-band software equalizer with config, runtime commands, and `:eqview` screen
 - Draw cover art directly in supported terminals using terminal image
   protocols, falling back to block rendering when unsupported
 
