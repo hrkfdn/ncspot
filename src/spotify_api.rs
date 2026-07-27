@@ -510,7 +510,7 @@ impl WebApi {
         let spotify = self.clone();
         let show_id = show_id.to_string();
         let fetch_page = move |offset: u32| {
-            debug!("fetching show {} episodes, offset: {}", &show_id, offset);
+            debug!("fetching show {} episodes, offset: {}", show_id, offset);
             spotify.api_with_retry(|api| {
                 match api.get_shows_episodes_manual(
                     ShowId::from_id(&show_id).unwrap(),
