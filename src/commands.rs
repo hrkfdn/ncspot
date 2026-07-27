@@ -387,7 +387,7 @@ impl CommandManager {
     pub fn unregister_keybindings(&self, cursive: &mut Cursive) {
         let kb = self.bindings.borrow();
 
-        for (k, _v) in kb.iter() {
+        for k in kb.keys() {
             if let Some(binding) = Self::parse_keybinding(k) {
                 cursive.clear_global_callbacks(binding);
             }
