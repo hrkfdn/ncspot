@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>com.github.hrkfdn.ncspot</id>
+  
+  <name>ncspot</name>
+  <summary>Play Spotify music from the terminal</summary>
+  
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  
+  <description>
+    <p>
+      ncspot is an ncurses Spotify client written in Rust using librespot. It is heavily inspired by ncurses MPD clients, such as ncmpc.
+    </p>
+  </description>
+  
+  <icon type="stock">ncspot</icon>
+  
+  <categories>
+    <category>AudioVideo</category>
+    <category>Music</category>
+  </categories>
+  
+  <provides>
+    <binary>ncspot</binary>
+  </provides>
+</component>
