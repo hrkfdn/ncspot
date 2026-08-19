@@ -1,10 +1,11 @@
 use std::fs;
 use std::net::TcpListener;
+use std::path::Path;
 
 use librespot_core::authentication::Credentials as RespotCredentials;
 use librespot_core::cache::Cache;
 use librespot_oauth::OAuthClientBuilder;
-use log::{error, info};
+use log::{error, info, warn};
 
 use crate::config::{self, Config};
 use crate::spotify::Spotify;
@@ -133,8 +134,11 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
             return Ok(t);
         }
 
-        // Token is expired, try to refresh if we have a refresh token
-        if let Some(ref refresh_token) = t.refresh_token {
+        // Token is expired, try to refresh if we have a refresh token. Spotify's refresh
+        // responses may omit the refresh token, in which case it must be reused, so an
+        // empty/missing value here means we don't actually have a usable refresh token.
+        let refresh_token = t.refresh_token.as_deref().filter(|s| !s.is_empty());
+        if let Some(refresh_token) = refresh_token {
             info!("Access token expired, attempting to refresh..");
             let client_builder = OAuthClientBuilder::new(
                 NCSPOT_CLIENT_ID,
@@ -144,8 +148,8 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
             if let Ok(oauth_client) = client_builder.build() {
                 match oauth_client.refresh_token(refresh_token) {
                     Ok(new_token) => {
-                        let mapped = map_token(new_token);
-                        let _ = fs::write(path, serde_json::to_string_pretty(&mapped).unwrap());
+                        let mapped = map_token(new_token, Some(refresh_token));
+                        write_token(&path, &mapped);
                         return Ok(mapped);
                     }
                     Err(e) => {
@@ -157,7 +161,7 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
     }
 
     let t = create_rspotify_token()?;
-    let _ = fs::write(path, serde_json::to_string_pretty(&t).unwrap());
+    write_token(&path, &t);
     Ok(t)
 }
 
@@ -175,11 +179,47 @@ pub fn create_rspotify_token() -> Result<rspotify::Token, String> {
 
     oauth_client
         .get_access_token()
-        .map(map_token)
+        .map(|token| map_token(token, None))
         .map_err(|e| e.to_string())
 }
 
-fn map_token(token: librespot_oauth::OAuthToken) -> rspotify::Token {
+/// Write `token` to `path`, logging (rather than silently discarding) any failure, and
+/// restricting file permissions since the file holds a long-lived credential.
+fn write_token(path: &Path, token: &rspotify::Token) {
+    let json = match serde_json::to_string_pretty(token) {
+        Ok(json) => json,
+        Err(e) => {
+            error!("Failed to serialize rspotify token: {e}");
+            return;
+        }
+    };
+
+    if let Err(e) = fs::write(path, json) {
+        error!("Failed to write rspotify token cache: {e}");
+        return;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(e) = fs::set_permissions(path, fs::Permissions::from_mode(0o600)) {
+            warn!("Failed to restrict permissions on rspotify token cache: {e}");
+        }
+    }
+}
+
+/// Map an OAuth token obtained from librespot into the `rspotify::Token` type used for Web
+/// API calls.
+///
+/// Spotify's refresh-token responses may omit `refresh_token` entirely, in which case the
+/// previously issued refresh token must be reused (it has not been rotated or invalidated).
+/// `librespot_oauth` maps that omission to an empty string, so `fallback_refresh_token` is
+/// substituted whenever the token returned by librespot is empty, to avoid ever persisting an
+/// unusable refresh token.
+fn map_token(
+    token: librespot_oauth::OAuthToken,
+    fallback_refresh_token: Option<&str>,
+) -> rspotify::Token {
     let duration = if token.expires_at > std::time::Instant::now() {
         token.expires_at.duration_since(std::time::Instant::now())
     } else {
@@ -187,11 +227,50 @@ fn map_token(token: librespot_oauth::OAuthToken) -> rspotify::Token {
     };
     let expires_in = chrono::Duration::from_std(duration).unwrap_or(chrono::Duration::seconds(0));
 
+    let refresh_token = if token.refresh_token.is_empty() {
+        fallback_refresh_token.map(str::to_string)
+    } else {
+        Some(token.refresh_token)
+    };
+
     rspotify::Token {
         access_token: token.access_token,
         expires_in,
         scopes: std::collections::HashSet::new(),
         expires_at: Some(chrono::Utc::now() + expires_in),
-        refresh_token: Some(token.refresh_token),
+        refresh_token,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn oauth_token(refresh_token: &str) -> librespot_oauth::OAuthToken {
+        librespot_oauth::OAuthToken {
+            access_token: "access".to_string(),
+            refresh_token: refresh_token.to_string(),
+            expires_at: std::time::Instant::now() + std::time::Duration::from_secs(3600),
+            token_type: "Bearer".to_string(),
+            scopes: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn map_token_keeps_new_refresh_token_when_present() {
+        let mapped = map_token(oauth_token("new-refresh-token"), Some("old-refresh-token"));
+        assert_eq!(mapped.refresh_token, Some("new-refresh-token".to_string()));
+    }
+
+    #[test]
+    fn map_token_falls_back_to_previous_refresh_token_when_omitted() {
+        let mapped = map_token(oauth_token(""), Some("old-refresh-token"));
+        assert_eq!(mapped.refresh_token, Some("old-refresh-token".to_string()));
+    }
+
+    #[test]
+    fn map_token_yields_no_refresh_token_when_omitted_without_fallback() {
+        let mapped = map_token(oauth_token(""), None);
+        assert_eq!(mapped.refresh_token, None);
     }
 }
