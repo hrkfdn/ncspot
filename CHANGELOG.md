@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Close the Search screen with the Escape key
+- Stop discarding the Web API refresh token on every refresh, which caused
+  a new OAuth2 login to be required daily
 
 ## [1.3.4]
 
