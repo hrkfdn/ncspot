@@ -15,6 +15,7 @@ use crate::commands::CommandManager;
 use crate::config::{Config, PlaybackState};
 use crate::events::{Event, EventManager};
 use crate::library::Library;
+use crate::model::playlist::Playlist;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::create_cursive;
@@ -80,7 +81,10 @@ impl Application {
     /// # Arguments
     ///
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
-    pub fn new(configuration_file_path: Option<String>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        configuration_file_path: Option<String>,
+        startup_playlist_id: Option<String>,
+    ) -> Result<Self, Box<dyn Error>> {
         // Things here may cause the process to abort; we must do them before creating curses
         // windows otherwise the error message will not be seen by a user
 
@@ -141,23 +145,27 @@ impl Application {
         #[cfg(feature = "mpris")]
         spotify.set_mpris(mpris_manager.clone());
 
-        // Load the last played track into the player
-        let playback_state = configuration.state().playback_state.clone();
-        let queue_state = configuration.state().queuestate.clone();
+        if let Some(playlist_id) = startup_playlist_id.as_deref() {
+            Self::play_startup_playlist(playlist_id, &spotify, &queue)?;
+        } else {
+            // Load the last played track into the player
+            let playback_state = configuration.state().playback_state.clone();
+            let queue_state = configuration.state().queuestate.clone();
 
-        if let Some(playable) = queue.get_current() {
-            spotify.load(
-                &playable,
-                playback_state == PlaybackState::Playing,
-                queue_state.track_progress.as_millis() as u32,
-            );
-            spotify.update_track();
-            match playback_state {
-                PlaybackState::Stopped => {
-                    spotify.stop();
-                }
-                PlaybackState::Paused | PlaybackState::Playing | PlaybackState::Default => {
-                    spotify.pause();
+            if let Some(playable) = queue.get_current() {
+                spotify.load(
+                    &playable,
+                    playback_state == PlaybackState::Playing,
+                    queue_state.track_progress.as_millis() as u32,
+                );
+                spotify.update_track();
+                match playback_state {
+                    PlaybackState::Stopped => {
+                        spotify.stop();
+                    }
+                    PlaybackState::Paused | PlaybackState::Playing | PlaybackState::Default => {
+                        spotify.pause();
+                    }
                 }
             }
         }
@@ -234,6 +242,35 @@ impl Application {
             ipc,
             cursive,
         })
+    }
+
+    fn play_startup_playlist(
+        playlist_id: &str,
+        spotify: &Spotify,
+        queue: &Queue,
+    ) -> Result<(), Box<dyn Error>> {
+        let full_playlist = spotify
+            .api
+            .playlist(playlist_id)
+            .map_err(|()| format!("could not fetch playlist \"{playlist_id}\""))?;
+        let mut playlist = Playlist::from(&full_playlist);
+        playlist.load_tracks(spotify);
+        let tracks = playlist
+            .tracks
+            .as_ref()
+            .ok_or_else(|| format!("could not load tracks from playlist \"{}\"", playlist.name))?;
+
+        if tracks.is_empty() {
+            return Err(format!("playlist \"{}\" has no tracks", playlist.name).into());
+        }
+
+        queue.clear();
+        for track in tracks {
+            queue.append(track.clone());
+        }
+        queue.play(0, true, true);
+
+        Ok(())
     }
 
     /// Start the application and run the event loop.

@@ -60,16 +60,31 @@ fn main() -> Result<(), String> {
         Some(("info", _subcommand_matches)) => cli::info(),
         Some((_, _)) => unreachable!(),
         None => {
-            // Create the application.
-            let mut application =
-                match Application::new(matches.get_one::<String>("config").cloned()) {
-                    Ok(application) => application,
-                    Err(error) => {
+            let startup_playlist_id = match matches.get_one::<String>("playlist") {
+                Some(input) => match spotify_url::SpotifyUrl::playlist_id_from_input(input) {
+                    Some(id) => Some(id),
+                    None => {
+                        let error = format!("invalid Spotify playlist URL or ID: {input}");
                         eprintln!("{error}");
                         error!("{error}");
                         exit(-1);
                     }
-                };
+                },
+                None => None,
+            };
+
+            // Create the application.
+            let mut application = match Application::new(
+                matches.get_one::<String>("config").cloned(),
+                startup_playlist_id,
+            ) {
+                Ok(application) => application,
+                Err(error) => {
+                    eprintln!("{error}");
+                    error!("{error}");
+                    exit(-1);
+                }
+            };
 
             // Start the application event loop.
             application.run()

@@ -59,6 +59,29 @@ recent version is available for your OS, you can use the following command to in
 cargo install --locked ncspot
 ```
 
+## Command Line Options
+`ncspot` starts the TUI by default. The following top-level options are available:
+
+| Option | Description |
+|--------|-------------|
+| `-d`, `--debug` \<FILE\> | Enable debug logging to the specified file. |
+| `-b`, `--basepath` \<PATH\> | Use a custom base path for configuration and cache files. |
+| `-c`, `--config` \<FILE\> | Use a config file name relative to the base path. Defaults to `config.toml`. |
+| `--playlist` \<URL_OR_ID\> | Start the TUI and automatically play the specified Spotify playlist. Accepts a Spotify playlist URL or playlist ID. |
+
+Examples:
+
+```zsh
+ncspot --playlist 'https://open.spotify.com/playlist/6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660'
+ncspot --playlist '6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660'
+```
+
+The `info` subcommand prints the platform-specific configuration, cache, and runtime directories:
+
+```zsh
+ncspot info
+```
+
 ## Key Bindings
 The keybindings listed below are configured by default. Additionally, if you
 built `ncspot` with MPRIS support, you may be able to use media keys to control
