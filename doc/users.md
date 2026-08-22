@@ -154,8 +154,9 @@ When pressing <kbd>O</kbd>:
 | <kbd>N</kbd> | Next search occurrence.     |
 
 ### Vim-Like Commands
-You can open a Vim-style command prompt using <kbd>:</kbd>, and close it at any
-time with <kbd>Escape</kbd>.
+You can open a Vim-style command prompt using <kbd>:</kbd>,
+trigger command completion by pressing <kbd>Tab</kbd>
+and close it at any time with <kbd>Escape</kbd>.
 
 The following is an abridged list of the more useful commands. For the full list, see [source code](/src/command.rs).
 

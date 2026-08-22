@@ -14,7 +14,7 @@ use cursive::{Cursive, Printer};
 use unicode_width::UnicodeWidthStr;
 
 use crate::application::UserData;
-use crate::command::{self, Command, JumpMode};
+use crate::command::{self, ALL_COMMANDS, Command, JumpMode};
 use crate::commands::CommandResult;
 use crate::config::{self, Config};
 use crate::events;
@@ -270,7 +270,11 @@ impl Layout {
     /// Propagate the given event to the command line.
     fn command_line_handle_event(&mut self, event: Event) -> EventResult {
         let is_left_right_event = matches!(event, Event::Key(Key::Left) | Event::Key(Key::Right));
-        let result = self.cmdline.on_event(event);
+        let result = match event {
+            // [Key::Tab] isn't actually handled by EditView internally.
+            Event::Key(Key::Tab) => self.command_completion(),
+            _ => self.cmdline.on_event(event),
+        };
 
         if self.cmdline.get_content().is_empty() {
             self.clear_cmdline();
@@ -280,6 +284,39 @@ impl Layout {
             EventResult::consumed()
         } else {
             result
+        }
+    }
+
+    /// Completes the command line when the `cmdline` input uniquely matches a command.
+    ///
+    /// TODO: Add support for aliases.
+    ///
+    /// # Returns
+    ///
+    /// [EventResult::Consumed] when the command match was found, [EventResult::Ignored] otherwise.
+    fn command_completion(&mut self) -> EventResult {
+        let content = self.cmdline.get_content();
+
+        // Strip the prefix from the content and store it for further processing.
+        let mut content_chars = content.chars();
+        let prefix = content_chars.next();
+        let command_without_prefix = content_chars.as_str();
+
+        // Collect all commands that start with provided content.
+        let mut matching_commands = ALL_COMMANDS
+            .iter()
+            .filter(|cmd| cmd.starts_with(command_without_prefix));
+
+        // If there are at least 2 matching commands don't trigger the completion.
+        match (matching_commands.next(), matching_commands.next()) {
+            (Some(command), None) => {
+                let _ = match prefix {
+                    Some(prefix) => self.cmdline.set_content(format!("{prefix}{command}")),
+                    None => self.cmdline.set_content(command.to_string()),
+                };
+                EventResult::consumed()
+            }
+            (_, Some(_)) | (None, None) => EventResult::Ignored,
         }
     }
 }
