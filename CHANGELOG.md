@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Draw cover art directly in supported terminals using terminal image
   protocols, falling back to block rendering when unsupported
+- Add `--playlist` to start the TUI and automatically play a Spotify playlist
+  from a playlist URL or ID
 
 ### Fixed
 

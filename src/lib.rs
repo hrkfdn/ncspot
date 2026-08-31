@@ -44,5 +44,32 @@ pub fn program_arguments() -> clap::Command {
                 .help("Filename of config file in basepath")
                 .default_value(CONFIGURATION_FILE_NAME),
         )
+        .arg(
+            clap::Arg::new("playlist")
+                .long("playlist")
+                .value_name("URL_OR_ID")
+                .help("Start playback from the Spotify playlist URL or ID"),
+        )
         .subcommands([clap::Command::new("info").about("Print platform information like paths")])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::program_arguments;
+
+    #[test]
+    fn test_program_arguments_accepts_playlist() {
+        let matches = program_arguments()
+            .try_get_matches_from([
+                "ncspot",
+                "--playlist",
+                "https://open.spotify.com/playlist/6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660",
+            ])
+            .unwrap();
+
+        assert_eq!(
+            matches.get_one::<String>("playlist").map(String::as_str),
+            Some("https://open.spotify.com/playlist/6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660")
+        );
+    }
 }

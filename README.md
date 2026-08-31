@@ -34,7 +34,8 @@ Snapcraft) and the BSD's. Detailed installation instructions for each platform c
 
 ## Configuration
 A configuration file can be provided. The default location is `~/.config/ncspot`. Detailed
-configuration information can be found [here](/doc/users.md#configuration).
+configuration information can be found [here](/doc/users.md#configuration). Command line options
+are documented [here](/doc/users.md#command-line-options).
 
 ## Building
 Building ncspot requires a working [Rust installation](https://www.rust-lang.org/tools/install) and

@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::spotify::UriType;
 
+use rspotify::model::PlaylistId;
 use url::{Host, Url};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -76,6 +77,39 @@ impl SpotifyUrl {
 
         Some(Self::new(id, uri_type))
     }
+
+    /// Extract a playlist id from a Spotify playlist URL or a raw playlist id.
+    pub fn playlist_id_from_input<S: AsRef<str>>(s: S) -> Option<String> {
+        let input = s.as_ref().trim();
+        if input.is_empty() {
+            return None;
+        }
+
+        if let Some(url) = Self::from_url(input) {
+            if url.uri_type != UriType::Playlist {
+                return None;
+            }
+
+            return Self::validated_playlist_id(&url.id);
+        }
+
+        let id = input
+            .split(['?', '#'])
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches('/');
+
+        Self::validated_playlist_id(id)
+    }
+
+    fn validated_playlist_id(id: &str) -> Option<String> {
+        if id.is_empty() {
+            return None;
+        }
+
+        PlaylistId::from_id(id).ok()?;
+        Some(id.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -122,5 +156,85 @@ mod tests {
             assert_eq!(result.id, case.1.id);
             assert_eq!(result.uri_type, case.1.uri_type);
         }
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_accepts_playlist_url() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input(
+                "https://open.spotify.com/playlist/6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660"
+            ),
+            Some("6UUCMxk575eDTwSWa0qQhB".to_string())
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_accepts_raw_id() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input("6UUCMxk575eDTwSWa0qQhB"),
+            Some("6UUCMxk575eDTwSWa0qQhB".to_string())
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_accepts_raw_id_with_query() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input("6UUCMxk575eDTwSWa0qQhB?si=fa799fec9a404660"),
+            Some("6UUCMxk575eDTwSWa0qQhB".to_string())
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_accepts_international_playlist_url() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input(
+                "https://open.spotify.com/intl-pt/playlist/6UUCMxk575eDTwSWa0qQhB"
+            ),
+            Some("6UUCMxk575eDTwSWa0qQhB".to_string())
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_accepts_legacy_user_playlist_url() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input(
+                "https://open.spotify.com/user/example/playlist/6UUCMxk575eDTwSWa0qQhB"
+            ),
+            Some("6UUCMxk575eDTwSWa0qQhB".to_string())
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_rejects_non_playlist_url() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input(
+                "https://open.spotify.com/track/6fRJg3R90w0juYoCJXxj2d"
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_rejects_invalid_playlist_url_id() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input("https://open.spotify.com/playlist/invalid_id"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_rejects_invalid_raw_id() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input("not a playlist id"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_playlist_id_from_input_rejects_empty_normalized_id() {
+        assert_eq!(
+            SpotifyUrl::playlist_id_from_input("?si=fa799fec9a404660"),
+            None
+        );
     }
 }
