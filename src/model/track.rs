@@ -185,9 +185,11 @@ impl ListItem for Track {
             .clone()
             .unwrap_or_default();
         let default = config::TrackFormat::default().left.unwrap();
+        let default_tno_fmt = config::TrackFormat::default().number_format.unwrap();
         let left = formatting.left.unwrap_or_else(|| default.clone());
+        let tno_fmt = formatting.number_format.unwrap_or_else(|| default_tno_fmt.clone());
         if left != default {
-            Playable::format(&Playable::Track(self.clone()), &left, library)
+            Playable::format(&Playable::Track(self.clone()), &left, &tno_fmt, library)
         } else {
             format!("{self}")
         }
@@ -201,9 +203,11 @@ impl ListItem for Track {
             .clone()
             .unwrap_or_default();
         let default = config::TrackFormat::default().center.unwrap();
+        let default_tno_fmt = config::TrackFormat::default().number_format.unwrap();
         let center = formatting.center.unwrap_or_else(|| default.clone());
+        let tno_fmt = formatting.number_format.unwrap_or_else(|| default_tno_fmt.clone());
         if center != default {
-            Playable::format(&Playable::Track(self.clone()), &center, library)
+            Playable::format(&Playable::Track(self.clone()), &center, &tno_fmt, library)
         } else {
             self.album.clone().unwrap_or_default()
         }
@@ -217,9 +221,11 @@ impl ListItem for Track {
             .clone()
             .unwrap_or_default();
         let default = config::TrackFormat::default().right.unwrap();
+        let default_tno_fmt = config::TrackFormat::default().number_format.unwrap();
         let right = formatting.right.unwrap_or_else(|| default.clone());
+        let tno_fmt = formatting.number_format.unwrap_or_else(|| default_tno_fmt.clone());
         if right != default {
-            Playable::format(&Playable::Track(self.clone()), &right, library)
+            Playable::format(&Playable::Track(self.clone()), &right, &tno_fmt, library)
         } else {
             let saved = if library.is_saved_track(&Playable::Track(self.clone())) {
                 if library.cfg.values().use_nerdfont.unwrap_or(false) {
