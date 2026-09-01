@@ -31,6 +31,7 @@ use crate::ui::album::AlbumView;
 use crate::ui::artist::ArtistView;
 use crate::ui::contextmenu::ContextMenu;
 use crate::ui::pagination::Pagination;
+use crate::utils::{normalize_search_text, normalized_match_ranges};
 
 pub enum MouseHandleResult {
     Handled(EventResult),
@@ -141,14 +142,11 @@ impl<I: ListItem + Clone> ListView<I> {
 
     pub fn get_indexes_of(&self, query: &str) -> Vec<usize> {
         let content = self.content.read().unwrap();
+        let query = normalize_search_text(query);
         content
             .iter()
             .enumerate()
-            .filter(|(_, i)| {
-                i.display_left(&self.library)
-                    .to_lowercase()
-                    .contains(&query[..].to_lowercase())
-            })
+            .filter(|(_, i)| normalize_search_text(&i.display_left(&self.library)).contains(&query))
             .map(|(i, _)| i)
             .collect()
     }
@@ -397,11 +395,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
                     let fg = *printer.theme.palette.custom("search_match").unwrap();
                     let matched_style = ColorStyle::new(fg, style.back);
 
-                    let matches: Vec<(usize, usize)> = left
-                        .to_lowercase()
-                        .match_indices(&self.search_query)
-                        .map(|i| (i.0, i.0 + i.1.len()))
-                        .collect();
+                    let matches = normalized_match_ranges(&left, &self.search_query);
 
                     for m in matches {
                         printer.with_color(matched_style, |printer| {
@@ -588,7 +582,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Jump(mode) => match mode {
                 JumpMode::Query(query) => {
-                    self.search_query = query.to_lowercase();
+                    self.search_query = normalize_search_text(query);
                     self.search_indexes = self.get_indexes_of(query);
                     self.search_selected_index = 0;
                     match self.search_indexes.first() {
