@@ -474,13 +474,17 @@ impl Queue {
     }
 }
 
+/// Id of the last notification shown by ncspot
+#[cfg(all(unix, not(target_os = "macos")))]
+static LAST_NOTIFICATION_ID: std::sync::Mutex<Option<u32>> = std::sync::Mutex::new(None);
+
 /// Send a notification using the desktops default notification method.
 ///
 /// `summary_txt`: A short title for the notification.
 /// `body_txt`: The actual content of the notification.
 /// `cover_url`: A URL to an image to show in the notification.
-/// `notification_id`: Unique id for a notification, that can be used to operate
-/// on a previous notification (for example to close it).
+///
+/// reuses the id of the last notification shown if possible
 #[cfg(feature = "notify")]
 pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<String>) {
     let mut n = Notification::new();
@@ -503,11 +507,21 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
         .hint(notify_rust::Hint::Transient(true))
         .hint(notify_rust::Hint::DesktopEntry("ncspot".into()));
 
+    // reuse the id of the previous notification
+    // so we replace it and not create a new one
+    #[cfg(all(unix, not(target_os = "macos")))]
+    if let Some(notification_id) = *LAST_NOTIFICATION_ID.lock().unwrap() {
+        n.id(notification_id);
+    }
+
     match n.show() {
         Ok(handle) => {
             // only available for XDG
             #[cfg(all(unix, not(target_os = "macos")))]
-            info!("Created notification: {}", handle.id());
+            {
+                info!("Created notification: {}", handle.id());
+                *LAST_NOTIFICATION_ID.lock().unwrap() = Some(handle.id());
+            }
             #[cfg(not(all(unix, not(target_os = "macos"))))]
             drop(handle);
         }
