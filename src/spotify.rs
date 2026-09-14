@@ -21,6 +21,7 @@ use tokio::sync::mpsc;
 use url::Url;
 
 use crate::application::ASYNC_RUNTIME;
+use crate::audio::{EqSink, EqState, SharedEqState, shared_eq_state};
 use crate::authentication::SPOTIFY_CLIENT_ID;
 use crate::config;
 use crate::events::{Event, EventManager};
@@ -62,6 +63,7 @@ pub struct Spotify {
     since: Arc<RwLock<Option<SystemTime>>>,
     /// Channel to send commands to the worker thread.
     channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+    eq_state: SharedEqState,
 }
 
 impl Spotify {
@@ -70,6 +72,7 @@ impl Spotify {
         credentials: Credentials,
         cfg: Arc<config::Config>,
     ) -> Result<Self, Box<dyn Error>> {
+        let eq_state = shared_eq_state(cfg.initial_eq_state());
         let mut spotify = Self {
             events,
             #[cfg(feature = "mpris")]
@@ -81,6 +84,7 @@ impl Spotify {
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
+            eq_state,
         };
 
         let (user_tx, user_rx) = oneshot::channel();
@@ -115,6 +119,7 @@ impl Spotify {
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
+            eq_state: shared_eq_state(EqState::default()),
         }
     }
 
@@ -133,6 +138,7 @@ impl Spotify {
         let credentials = self.credentials.clone();
         let backend_name = cfg.values().backend.clone();
         let backend = Self::init_backend(backend_name)?;
+        let eq_state = self.eq_state.clone();
         ASYNC_RUNTIME.get().unwrap().spawn(Self::worker(
             worker_channel,
             events,
@@ -142,6 +148,7 @@ impl Spotify {
             user_tx,
             volume,
             backend,
+            eq_state,
         ));
         Ok(())
     }
@@ -246,6 +253,7 @@ impl Spotify {
         user_tx: Option<oneshot::Sender<String>>,
         volume: u16,
         backend: SinkBuilder,
+        eq_state: SharedEqState,
     ) {
         let bitrate_str = cfg.values().bitrate.unwrap_or(320).to_string();
         let bitrate = Bitrate::from_str(&bitrate_str);
@@ -277,7 +285,11 @@ impl Spotify {
             player_config,
             session.clone(),
             mixer.get_soft_volume(),
-            move || (backend)(cfg.values().backend_device.clone(), audio_format),
+            move || {
+                let inner = (backend)(cfg.values().backend_device.clone(), audio_format);
+                Box::new(EqSink::new(inner, eq_state.clone()))
+                    as Box<dyn librespot_playback::audio_backend::Sink>
+            },
         );
         let player_events = player.get_player_event_channel();
 
@@ -484,6 +496,59 @@ impl Spotify {
         if notify {
             #[cfg(feature = "mpris")]
             self.send_mpris(MprisCommand::EmitVolumeStatus)
+        }
+    }
+
+    pub fn eq_state(&self) -> EqState {
+        self.eq_state.read().unwrap().clone()
+    }
+
+    pub fn eq_state_ref(&self) -> &SharedEqState {
+        &self.eq_state
+    }
+
+    pub fn set_eq_enabled(&self, enabled: bool) {
+        {
+            let mut state = self.eq_state.write().unwrap();
+            state.enabled = enabled;
+        }
+        self.cfg.save_equalizer(&self.eq_state.read().unwrap());
+    }
+
+    pub fn set_eq_band(&self, index: usize, gain_db: f32) {
+        {
+            let mut state = self.eq_state.write().unwrap();
+            state.set_band(index, gain_db);
+        }
+        self.cfg.save_equalizer(&self.eq_state.read().unwrap());
+    }
+
+    pub fn adjust_eq_band(&self, index: usize, delta_db: f32) {
+        {
+            let mut state = self.eq_state.write().unwrap();
+            state.adjust_band(index, delta_db);
+        }
+        self.cfg.save_equalizer(&self.eq_state.read().unwrap());
+    }
+
+    pub fn reset_eq(&self) {
+        {
+            let mut state = self.eq_state.write().unwrap();
+            state.reset();
+        }
+        self.cfg.save_equalizer(&self.eq_state.read().unwrap());
+    }
+
+    pub fn apply_eq_preset(&self, name: &str) -> Result<(), String> {
+        let ok = {
+            let mut state = self.eq_state.write().unwrap();
+            state.apply_preset(name)
+        };
+        if ok {
+            self.cfg.save_equalizer(&self.eq_state.read().unwrap());
+            Ok(())
+        } else {
+            Err(format!("unknown equalizer preset: {name}"))
         }
     }
 

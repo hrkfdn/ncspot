@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use crate::application::UserData;
 use crate::command::{
-    Command, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode, TargetMode, parse,
+    Command, EqSubcommand, GotoMode, JumpMode, MoveAmount, MoveMode, SeekDirection, ShiftMode,
+    TargetMode, parse,
 };
 use crate::config::{Config, user_configuration_directory};
 use crate::events::EventManager;
@@ -16,6 +17,7 @@ use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
 use crate::ui::contextmenu::{
     AddToPlaylistMenu, ContextMenu, SelectArtistActionMenu, SelectArtistMenu,
 };
+use crate::ui::equalizer::EqualizerView;
 use crate::ui::help::HelpView;
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
@@ -205,6 +207,54 @@ impl CommandManager {
                 self.spotify.set_volume(volume, true);
                 Ok(None)
             }
+            Command::Equalizer(sub) => match sub {
+                EqSubcommand::On => {
+                    self.spotify.set_eq_enabled(true);
+                    Ok(None)
+                }
+                EqSubcommand::Off => {
+                    self.spotify.set_eq_enabled(false);
+                    Ok(None)
+                }
+                EqSubcommand::Toggle => {
+                    let enabled = !self.spotify.eq_state().enabled;
+                    self.spotify.set_eq_enabled(enabled);
+                    Ok(None)
+                }
+                EqSubcommand::Reset => {
+                    self.spotify.reset_eq();
+                    Ok(None)
+                }
+                EqSubcommand::Preset(name) => self.spotify.apply_eq_preset(name).map(|_| None),
+                EqSubcommand::Set { band, gain_db } => {
+                    self.spotify.set_eq_band(*band, *gain_db);
+                    Ok(None)
+                }
+                EqSubcommand::Adjust { band, delta } => {
+                    self.spotify.adjust_eq_band(*band, *delta);
+                    Ok(None)
+                }
+                EqSubcommand::Show => {
+                    let state = self.spotify.eq_state();
+                    let bands: Vec<String> = state
+                        .bands
+                        .iter()
+                        .enumerate()
+                        .map(|(i, g)| format!("{}:{g:.1}", crate::audio::EQ_BAND_NAMES[i]))
+                        .collect();
+                    let msg = format!(
+                        "eq {} [{}]",
+                        if state.enabled { "on" } else { "off" },
+                        bands.join(" ")
+                    );
+                    Ok(Some(msg))
+                }
+            },
+            Command::EqualizerView => {
+                let view = Box::new(EqualizerView::new(&self.spotify));
+                s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
+                Ok(None)
+            }
             Command::Help => {
                 let view = Box::new(HelpView::new(self.bindings.borrow().clone()));
                 s.call_on_name("main", move |v: &mut Layout| v.push_view(view));
@@ -231,6 +281,10 @@ impl CommandManager {
                 self.unregister_keybindings(s);
                 self.bindings.replace(Self::get_bindings(&self.config));
                 self.register_keybindings(s);
+
+                let fresh = self.config.initial_eq_state();
+                *self.spotify.eq_state_ref().write().unwrap() = fresh;
+
                 Ok(None)
             }
             Command::NewPlaylist(name) => {

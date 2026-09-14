@@ -5,6 +5,7 @@ pub mod album;
 pub mod artist;
 pub mod browse;
 pub mod contextmenu;
+pub mod equalizer;
 pub mod help;
 pub mod layout;
 pub mod library;

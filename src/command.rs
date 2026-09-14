@@ -1,3 +1,4 @@
+use crate::audio::EqState;
 use crate::queue::RepeatSetting;
 use crate::spotify_url::SpotifyUrl;
 use std::collections::HashMap;
@@ -113,6 +114,33 @@ impl fmt::Display for InsertSource {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum EqSubcommand {
+    On,
+    Off,
+    Toggle,
+    Reset,
+    Preset(String),
+    Set { band: usize, gain_db: f32 },
+    Adjust { band: usize, delta: f32 },
+    Show,
+}
+
+impl fmt::Display for EqSubcommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::On => write!(f, "on"),
+            Self::Off => write!(f, "off"),
+            Self::Toggle => write!(f, "toggle"),
+            Self::Reset => write!(f, "reset"),
+            Self::Show => write!(f, "show"),
+            Self::Preset(name) => write!(f, "preset {name}"),
+            Self::Set { band, gain_db } => write!(f, "band {band} {gain_db}"),
+            Self::Adjust { band, delta } => write!(f, "band {band} {delta:+}"),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Command {
     Quit,
@@ -157,6 +185,8 @@ pub enum Command {
     Redraw,
     Execute(String),
     Reconnect,
+    Equalizer(EqSubcommand),
+    EqualizerView,
 }
 
 impl fmt::Display for Command {
@@ -199,6 +229,7 @@ impl fmt::Display for Command {
             Self::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
             Self::ShowRecommendations(mode) => vec![mode.to_string()],
             Self::Execute(cmd) => vec![cmd.to_owned()],
+            Self::Equalizer(sub) => vec![sub.to_string()],
             Self::Quit
             | Self::TogglePlay
             | Self::Stop
@@ -221,6 +252,7 @@ impl fmt::Display for Command {
             | Self::Noop
             | Self::Logout
             | Self::Reconnect
+            | Self::EqualizerView
             | Self::Redraw => vec![],
         };
         repr_tokens.append(&mut extras_args);
@@ -275,6 +307,8 @@ impl Command {
             Self::Redraw => "redraw",
             Self::Execute(_) => "exec",
             Self::Reconnect => "reconnect",
+            Self::Equalizer(_) => "eq",
+            Self::EqualizerView => "eqview",
         }
     }
 }
@@ -780,6 +814,87 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                 "redraw" => Command::Redraw,
                 "exec" => Command::Execute(args.join(" ")),
                 "reconnect" => Command::Reconnect,
+                "eqview" => Command::EqualizerView,
+                "eq" => {
+                    let sub = args.first().copied().unwrap_or("show");
+                    match sub {
+                        "on" => Command::Equalizer(EqSubcommand::On),
+                        "off" => Command::Equalizer(EqSubcommand::Off),
+                        "toggle" => Command::Equalizer(EqSubcommand::Toggle),
+                        "reset" => Command::Equalizer(EqSubcommand::Reset),
+                        "show" => Command::Equalizer(EqSubcommand::Show),
+                        "preset" => {
+                            let name = args.get(1).ok_or(E::InsufficientArgs {
+                                cmd: "eq preset".into(),
+                                hint: Some("a preset name".into()),
+                            })?;
+                            Command::Equalizer(EqSubcommand::Preset((*name).into()))
+                        }
+                        "band" => {
+                            let band_raw = args.get(1).ok_or(E::InsufficientArgs {
+                                cmd: "eq band".into(),
+                                hint: Some("band name or index".into()),
+                            })?;
+                            let band = EqState::resolve_band(band_raw).ok_or(E::ArgParseError {
+                                arg: (*band_raw).into(),
+                                err: "unknown EQ band".into(),
+                            })?;
+                            let value_raw = args.get(2).ok_or(E::InsufficientArgs {
+                                cmd: "eq band".into(),
+                                hint: Some("gain in dB".into()),
+                            })?;
+                            if let Some(stripped) = value_raw.strip_prefix('+') {
+                                let delta =
+                                    stripped.parse::<f32>().map_err(|e| E::ArgParseError {
+                                        arg: (*value_raw).into(),
+                                        err: e.to_string(),
+                                    })?;
+                                Command::Equalizer(EqSubcommand::Adjust { band, delta })
+                            } else if let Some(stripped) = value_raw.strip_prefix('-') {
+                                if stripped.is_empty() {
+                                    let gain_db =
+                                        value_raw.parse::<f32>().map_err(|e| E::ArgParseError {
+                                            arg: (*value_raw).into(),
+                                            err: e.to_string(),
+                                        })?;
+                                    Command::Equalizer(EqSubcommand::Set { band, gain_db })
+                                } else {
+                                    let delta =
+                                        stripped.parse::<f32>().map_err(|e| E::ArgParseError {
+                                            arg: (*value_raw).into(),
+                                            err: e.to_string(),
+                                        })?;
+                                    Command::Equalizer(EqSubcommand::Adjust {
+                                        band,
+                                        delta: -delta,
+                                    })
+                                }
+                            } else {
+                                let gain_db =
+                                    value_raw.parse::<f32>().map_err(|e| E::ArgParseError {
+                                        arg: (*value_raw).into(),
+                                        err: e.to_string(),
+                                    })?;
+                                Command::Equalizer(EqSubcommand::Set { band, gain_db })
+                            }
+                        }
+                        other => {
+                            return Err(E::BadEnumArg {
+                                arg: other.into(),
+                                accept: vec![
+                                    "on".into(),
+                                    "off".into(),
+                                    "toggle".into(),
+                                    "reset".into(),
+                                    "show".into(),
+                                    "preset".into(),
+                                    "band".into(),
+                                ],
+                                optional: false,
+                            });
+                        }
+                    }
+                }
                 _ => {
                     return Err(E::NoSuchCommand {
                         cmd: command.into(),
@@ -790,4 +905,42 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
         };
     }
     Ok(commands)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(cmd: &str) -> Command {
+        crate::command::parse(cmd).expect("parse failed")[0].clone()
+    }
+
+    #[test]
+    fn parse_eq_on_off() {
+        assert!(matches!(
+            parse("eq on"),
+            Command::Equalizer(EqSubcommand::On)
+        ));
+        assert!(matches!(
+            parse("eq off"),
+            Command::Equalizer(EqSubcommand::Off)
+        ));
+    }
+
+    #[test]
+    fn parse_eq_preset() {
+        assert!(matches!(
+            parse("eq preset bass_boost"),
+            Command::Equalizer(EqSubcommand::Preset(name)) if name == "bass_boost"
+        ));
+    }
+
+    #[test]
+    fn parse_eq_band_adjust() {
+        assert!(matches!(
+            parse("eq band bass +2"),
+            Command::Equalizer(EqSubcommand::Adjust { band, delta })
+            if band == 1 && (delta - 2.0).abs() < f32::EPSILON
+        ));
+    }
 }

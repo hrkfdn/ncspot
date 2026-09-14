@@ -9,6 +9,7 @@ use log::{debug, error};
 use ncspot::{CONFIGURATION_FILE_NAME, USER_STATE_FILE_NAME};
 use platform_dirs::AppDirs;
 
+use crate::audio::{EQ_NUM_BANDS, EqState};
 use crate::command::{SortDirection, SortKey};
 use crate::model::playable::Playable;
 use crate::queue;
@@ -101,6 +102,38 @@ pub struct ConfigValues {
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
     pub ap_port: Option<u16>,
+    pub equalizer: Option<EqualizerConfig>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default, PartialEq)]
+pub struct EqualizerState {
+    pub enabled: bool,
+    pub bands: [f32; EQ_NUM_BANDS],
+}
+
+impl From<EqState> for EqualizerState {
+    fn from(value: EqState) -> Self {
+        Self {
+            enabled: value.enabled,
+            bands: value.bands,
+        }
+    }
+}
+
+impl From<EqualizerState> for EqState {
+    fn from(value: EqualizerState) -> Self {
+        Self {
+            enabled: value.enabled,
+            bands: value.bands,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct EqualizerConfig {
+    pub enabled: Option<bool>,
+    pub bands: Option<Vec<f32>>,
+    pub preset: Option<String>,
 }
 
 /// The ncspot theme.
@@ -153,6 +186,7 @@ pub struct UserState {
     pub playlist_orders: HashMap<String, SortingOrder>,
     pub cache_version: u16,
     pub playback_state: PlaybackState,
+    pub equalizer: EqualizerState,
 }
 
 impl Default for UserState {
@@ -165,6 +199,7 @@ impl Default for UserState {
             playlist_orders: HashMap::new(),
             cache_version: 0,
             playback_state: PlaybackState::Default,
+            equalizer: EqualizerState::default(),
         }
     }
 }
@@ -285,6 +320,31 @@ impl Config {
         *self.values.write().unwrap() = cfg;
         Ok(())
     }
+
+    pub fn initial_eq_state(&self) -> EqState {
+        let mut state: EqState = self.state().equalizer.clone().into();
+        if let Some(cfg) = &self.values().equalizer {
+            if let Some(enabled) = cfg.enabled {
+                state.enabled = enabled;
+            }
+            if let Some(bands) = &cfg.bands {
+                for (i, gain) in bands.iter().take(EQ_NUM_BANDS).enumerate() {
+                    state.bands[i] = EqState::clamp_gain(*gain);
+                }
+            }
+            if let Some(preset) = &cfg.preset {
+                state.apply_preset(preset);
+            }
+        }
+        state
+    }
+
+    pub fn save_equalizer(&self, state: &EqState) {
+        self.with_state_mut(|s| {
+            s.equalizer = EqualizerState::from(state.clone());
+        });
+        self.save_state();
+    }
 }
 
 /// Parse the configuration file with name `filename` at the configuration base path.
@@ -364,5 +424,30 @@ pub fn set_configuration_base_path(base_path: Option<PathBuf>) {
             fs::create_dir_all(&basepath).expect("could not create basepath directory");
         }
         *BASE_PATH.write().unwrap() = Some(basepath);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equalizer_state_defaults_disabled() {
+        let state = UserState::default();
+        assert!(!state.equalizer.enabled);
+        assert_eq!(state.equalizer.bands, [0.0; EQ_NUM_BANDS]);
+    }
+
+    #[test]
+    fn equalizer_config_parses_from_toml() {
+        let raw = r#"
+            [equalizer]
+            enabled = true
+            bands = [1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        "#;
+        let cfg: ConfigValues = toml::from_str(raw).unwrap();
+        let eq = cfg.equalizer.unwrap();
+        assert_eq!(eq.enabled, Some(true));
+        assert_eq!(eq.bands.as_ref().unwrap().len(), 10);
     }
 }

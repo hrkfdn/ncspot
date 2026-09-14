@@ -253,6 +253,7 @@ Possible configuration values are:
 | `audio_cache_size`              | Maximum size of audio cache in MiB                             | Number                                                                                |                     |
 | `volnorm`                       | Enable volume normalization                                    | `true`, `false`                                                                       | `false`             |
 | `volnorm_pregain`               | Normalization pregain to apply in dB (if enabled)              | Number                                                                                | `0.0`               |
+| `[equalizer]`                   | Equalizer settings                                             | See [equalizer](#equalizer)                                                           | disabled            |
 | `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                                       | `false`             |
 | `notify`<sup>[4]</sup>          | Enable desktop notifications                                   | `true`, `false`                                                                       | `false`             |
 | `bitrate`                       | Audio bitrate to use for streaming                             | `96`, `160`, `320`                                                                    | `320`               |
@@ -276,6 +277,31 @@ Possible configuration values are:
    is reversed.
 3. Run `ncspot -h` for a list of devices.
 4. If built with the `notify` feature.
+
+### Equalizer
+
+10-band peaking EQ applied in software before audio output.
+
+```toml
+[equalizer]
+enabled = true
+preset = "bass_boost"
+# bands = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+```
+
+Presets: `flat`, `bass_boost`, `treble_boost`, `vocal`.
+
+Runtime commands (command mode `:`):
+
+| Command | Description |
+|---------|-------------|
+| `eq on` / `eq off` / `eq toggle` | Enable or disable EQ |
+| `eq show` | Print current bands |
+| `eq reset` | Reset all bands to 0 dB |
+| `eq preset <name>` | Apply a preset |
+| `eq band <name\|index> <dB>` | Set band gain (-12 .. 12) |
+| `eq band bass +2` | Adjust band by delta |
+| `eqview` | Open equalizer view |
 
 ### Custom Keybindings
 Keybindings can be configured in `[keybindings]` section in `config.toml`.
