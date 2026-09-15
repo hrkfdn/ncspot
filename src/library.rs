@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fs::File;
 use std::iter::Iterator;
@@ -465,12 +466,13 @@ impl Library {
                 .strip_prefix("The ")
                 .unwrap_or(&album.artists[0]);
             let album_title = album.title.strip_prefix("The ").unwrap_or(&album.title);
-            format!(
-                "{}{}{}",
+            Reverse(format!(
+                "{:?}{}{}{}",
+                album.added_at,
                 album_artist.to_lowercase(),
                 album.year,
                 album_title.to_lowercase()
-            )
+            ))
         });
 
         *self.albums.write().unwrap() = albums;
@@ -725,10 +727,8 @@ impl Library {
         {
             let mut store = self.albums.write().unwrap();
             if !store.iter().any(|a| a.id == album.id) {
+                // just insert at the beginning, since that's recency
                 store.insert(0, album.clone());
-
-                // resort list of albums
-                store.sort_unstable_by_key(|a| format!("{}{}{}", a.artists[0], a.year, a.title));
             }
         }
 
