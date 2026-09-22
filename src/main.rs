@@ -11,6 +11,7 @@ use log::error;
 use ncspot::program_arguments;
 
 mod application;
+mod audio;
 mod authentication;
 mod cli;
 mod command;
