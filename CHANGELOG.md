@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Add a `proxy` configuration option that routes all of ncspot's network
+  traffic (access point, Spotify APIs, OAuth and cover art downloads) through
+  a single proxy. Supports HTTP CONNECT proxies and SOCKS5 proxies with
+  remote DNS resolution (`socks5h://`), both with optional credentials.
+  Without this option, the `http_proxy` environment variable is still
+  honoured as before.
+
 ## [1.4.0]
 
 ### Added

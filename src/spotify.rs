@@ -152,12 +152,18 @@ impl Spotify {
             client_id: SPOTIFY_CLIENT_ID.to_string(),
             ..Default::default()
         };
-        match env::var("http_proxy") {
-            Ok(proxy) => {
-                info!("Setting HTTP proxy {proxy}");
+        match cfg
+            .values()
+            .proxy
+            .clone()
+            .map(|proxy| proxy.trim().to_owned())
+            .or_else(|| env::var("http_proxy").ok())
+        {
+            Some(proxy) if !proxy.is_empty() => {
+                info!("Setting proxy {proxy}");
                 session_config.proxy = Url::parse(&proxy).ok();
             }
-            Err(_) => debug!("No HTTP proxy set"),
+            _ => debug!("No proxy set"),
         }
         if let Some(ap_port) = cfg.values().ap_port {
             session_config.ap_port = Some(ap_port)

@@ -60,6 +60,11 @@ fn main() -> Result<(), String> {
         Some(("info", _subcommand_matches)) => cli::info(),
         Some((_, _)) => unreachable!(),
         None => {
+            // Export proxy environment variables from the configuration file
+            // before the tokio runtime and its worker threads are spawned in
+            // `Application::new` (set_var is not thread safe).
+            config::preload_proxy_environment(matches.get_one::<String>("config").cloned());
+
             // Create the application.
             let mut application =
                 match Application::new(matches.get_one::<String>("config").cloned()) {
