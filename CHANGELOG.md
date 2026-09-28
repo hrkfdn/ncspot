@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Without this option, the `http_proxy` environment variable is still
   honoured as before.
 
+### Changed
+
+- Replace already existing queue notifications instead of stacking new ones.
+
 ## [1.4.0]
 
 ### Added
