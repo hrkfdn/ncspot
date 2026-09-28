@@ -62,53 +62,63 @@ impl Queue {
         }
     }
 
+    /// Position of the current track within the play order (shuffle-aware).
+    /// None if nothing is playing.
+    fn current_order_pos(&self) -> Option<usize> {
+        let current = (*self.current_track.read().unwrap())?;
+        Some(match self.random_order.read().unwrap().as_ref() {
+            Some(order) => order.iter().position(|&i| i == current).unwrap(),
+            None => current,
+        })
+    }
+
+    /// The `self.queue` index at play-order position `pos` (shuffle-aware).
+    fn queue_index_at(&self, pos: usize) -> usize {
+        match self.random_order.read().unwrap().as_ref() {
+            Some(order) => order[pos],
+            None => pos,
+        }
+    }
+
     /// The index of the next item in `self.queue` that should be played. None
     /// if at the end of the queue.
     pub fn next_index(&self) -> Option<usize> {
-        match *self.current_track.read().unwrap() {
-            Some(mut index) => {
-                let random_order = self.random_order.read().unwrap();
-                if let Some(order) = random_order.as_ref() {
-                    index = order.iter().position(|&i| i == index).unwrap();
-                }
-
-                let mut next_index = index + 1;
-                if next_index < self.queue.read().unwrap().len() {
-                    if let Some(order) = random_order.as_ref() {
-                        next_index = order[next_index];
-                    }
-
-                    Some(next_index)
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+        let next = self.current_order_pos()? + 1;
+        (next < self.queue.read().unwrap().len()).then(|| self.queue_index_at(next))
     }
 
     /// The index of the previous item in `self.queue` that should be played.
     /// None if at the start of the queue.
     pub fn previous_index(&self) -> Option<usize> {
-        match *self.current_track.read().unwrap() {
-            Some(mut index) => {
-                let random_order = self.random_order.read().unwrap();
-                if let Some(order) = random_order.as_ref() {
-                    index = order.iter().position(|&i| i == index).unwrap();
-                }
+        let pos = self.current_order_pos()?;
+        (pos > 0).then(|| self.queue_index_at(pos - 1))
+    }
 
-                if index > 0 {
-                    let mut next_index = index - 1;
-                    if let Some(order) = random_order.as_ref() {
-                        next_index = order[next_index];
-                    }
+    /// The `self.queue` index `offset` items from the current one in play
+    /// order (negative = backward), clamped to the queue bounds. None if
+    /// nothing is playing or the queue is empty.
+    fn skip_index(&self, offset: isize) -> Option<usize> {
+        let pos = self.current_order_pos()?;
+        let len = self.queue.read().unwrap().len();
+        (len > 0).then(|| {
+            let target = (pos as isize + offset).clamp(0, len as isize - 1) as usize;
+            self.queue_index_at(target)
+        })
+    }
 
-                    Some(next_index)
-                } else {
-                    None
-                }
-            }
-            None => None,
+    /// Skip `offset` items forward (positive) or backward (negative) in play
+    /// order and play the destination. Lets a count-prefixed next/previous
+    /// load one track instead of stepping through (and loading) `offset`.
+    ///
+    /// Intentionally ignores repeat mode: it clamps to the queue ends rather
+    /// than wrapping like `next()` under `RepeatPlaylist`, and does not flip
+    /// `RepeatTrack` the way `next(true)` does. At an end it plays the last
+    /// (or first) track rather than stopping as stepping off the end would.
+    /// A bulk count-skip is a jump to a position, not a sequence of
+    /// end-of-queue transitions.
+    pub fn skip(&self, offset: isize) {
+        if let Some(index) = self.skip_index(offset) {
+            self.play(index, false, false);
         }
     }
 
@@ -645,6 +655,43 @@ mod tests {
         );
         *q.random_order.write().unwrap() = Some(vec![2, 0, 3, 1]);
         assert_eq!(q.next_index(), None);
+    }
+
+    // --- skip_index (count-prefixed next/previous) ---
+
+    #[test]
+    fn test_skip_index_forward_and_backward() {
+        let q = make_queue(
+            vec![make_track(0), make_track(1), make_track(2), make_track(3)],
+            Some(1),
+        );
+        assert_eq!(q.skip_index(2), Some(3));
+        assert_eq!(q.skip_index(-1), Some(0));
+    }
+
+    #[test]
+    fn test_skip_index_clamps_to_queue_bounds() {
+        let q = make_queue(vec![make_track(0), make_track(1), make_track(2)], Some(1));
+        assert_eq!(q.skip_index(100), Some(2));
+        assert_eq!(q.skip_index(-100), Some(0));
+    }
+
+    #[test]
+    fn test_skip_index_no_current_returns_none() {
+        let q = make_queue(vec![make_track(0), make_track(1)], None);
+        assert_eq!(q.skip_index(1), None);
+    }
+
+    #[test]
+    fn test_skip_index_respects_random_order() {
+        // Queue [0,1,2,3], current_track=2, random_order=[2,0,3,1]
+        // Position of 2 in order = 0, +2 = 2, order[2] = 3 → Some(3)
+        let q = make_queue(
+            vec![make_track(0), make_track(1), make_track(2), make_track(3)],
+            Some(2),
+        );
+        *q.random_order.write().unwrap() = Some(vec![2, 0, 3, 1]);
+        assert_eq!(q.skip_index(2), Some(3));
     }
 
     // --- len, get_current ---

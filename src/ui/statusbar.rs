@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use cursive::Printer;
 use cursive::align::HAlign;
@@ -19,10 +20,12 @@ pub struct StatusBar {
     spotify: Spotify,
     library: Arc<Library>,
     last_size: Vec2,
+    /// Read-only view of the pending count prefix (`0` means none).
+    pending_count: Arc<AtomicUsize>,
 }
 
 impl StatusBar {
-    pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
+    pub fn new(queue: Arc<Queue>, library: Arc<Library>, pending_count: Arc<AtomicUsize>) -> Self {
         let spotify = queue.get_spotify();
 
         Self {
@@ -30,6 +33,7 @@ impl StatusBar {
             spotify,
             library,
             last_size: Vec2::new(0, 0),
+            pending_count,
         }
     }
 
@@ -159,6 +163,13 @@ impl View for StatusBar {
 
         let volume = self.volume_display();
 
+        // Vim-style pending count, shown while digits are being typed, with a
+        // trailing space to set it off from the rest of the status and blank when none.
+        let count = match self.pending_count.load(Ordering::Relaxed) {
+            0 => String::new(),
+            n => format!("{n} "),
+        };
+
         printer.with_color(style_bar_bg, |printer| {
             printer.print((0, 0), &"┉".repeat(printer.size.x));
         });
@@ -173,7 +184,8 @@ impl View for StatusBar {
             None => "".to_string(),
         };
 
-        let right = updating.to_string()
+        let right = count
+            + updating
             + repeat
             + shuffle
             // + saved

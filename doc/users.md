@@ -65,6 +65,20 @@ built `ncspot` with MPRIS support, you may be able to use media keys to control
 playback depending on your desktop environment settings. Have a look at the
 [configuration section](#configuration) if you want to set custom bindings.
 
+### Count Prefixes
+Like Vim, many keys can be prefixed with a number to repeat them that many
+times. For example, <kbd>1</kbd><kbd>0</kbd><kbd>j</kbd> moves the selection
+down 10 rows and <kbd>3</kbd><kbd>Space</kbd> queues the next 3 items. The
+count being typed is shown in the status bar, and is cancelled by
+<kbd>Escape</kbd> or by opening the search/command prompt.
+
+Counts apply to the movement keys, <kbd>Space</kbd> and <kbd>.</kbd>, seeking
+(<kbd>F</kbd>/<kbd>B</kbd> and their <kbd>Shift</kbd> variants), volume
+(<kbd>+</kbd>/<kbd>-</kbd>/<kbd>[</kbd>/<kbd>]</kbd>), track skipping
+(<kbd><</kbd>/<kbd>></kbd>) and search occurrences (<kbd>n</kbd>/<kbd>N</kbd>).
+One-shot, toggle and menu commands (e.g. <kbd>O</kbd>, <kbd>A</kbd>,
+<kbd>M</kbd>, <kbd>Return</kbd>, <kbd>R</kbd>, <kbd>Z</kbd>) ignore the count.
+
 ### Navigation
 | Key               | Command                                                                       |
 |-------------------|-------------------------------------------------------------------------------|
