@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Vim-like command completion by pressing <kbd>Tab</kbd>
 - Support Vim-style numeric count prefixes for keybindings (e.g. `10j` moves
   down 10 rows); the pending count is shown in the status bar
 - Add a `proxy` configuration option that routes all of ncspot's network
