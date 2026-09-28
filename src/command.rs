@@ -277,6 +277,49 @@ impl Command {
             Self::Reconnect => "reconnect",
         }
     }
+
+    /// Whether a vim-style count prefix (e.g. `10j`) may repeat this command.
+    /// True for movement, seeking, volume, track skipping and search-jumps. A
+    /// binding accepts a count only if all of its commands do.
+    pub fn accepts_count(&self) -> bool {
+        matches!(
+            self,
+            Self::Move(_, _)
+                | Self::Queue
+                | Self::PlayNext
+                | Self::Next
+                | Self::Previous
+                | Self::Seek(_)
+                | Self::VolumeUp(_)
+                | Self::VolumeDown(_)
+                | Self::Jump(_)
+        )
+    }
+
+    /// Returns a single command equivalent to executing `self` `count` times.
+    ///
+    /// This optimization is used when repetition simply scales a single
+    /// parameter. It allows a count-prefixed binding to act once rather than
+    /// looping, which prevents redundant side effects (such as re-reading the
+    /// async player position on every seek, or sending an individual volume
+    /// update per step).
+    ///
+    /// Returns `None` if the command cannot be scaled and must be executed
+    /// sequentially (e.g., movement, jumps, queueing, or track skips). In these
+    /// cases, the caller is responsible for looping the execution.
+    ///
+    /// Expects `count` within `MAX_COUNT`; larger values truncate when cast to
+    /// the parameter's type. The sole caller passes a `MAX_COUNT`-clamped count.
+    pub fn scaled(&self, count: usize) -> Option<Self> {
+        match self {
+            Self::Seek(SeekDirection::Relative(delta)) => Some(Self::Seek(
+                SeekDirection::Relative(delta.saturating_mul(count as i32)),
+            )),
+            Self::VolumeUp(amount) => Some(Self::VolumeUp(amount.saturating_mul(count as u16))),
+            Self::VolumeDown(amount) => Some(Self::VolumeDown(amount.saturating_mul(count as u16))),
+            _ => None,
+        }
+    }
 }
 
 fn register_aliases(map: &mut HashMap<&str, &str>, cmd: &'static str, names: Vec<&'static str>) {
@@ -790,4 +833,115 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
         };
     }
     Ok(commands)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eligible_commands_accept_count() {
+        let eligible = [
+            Command::Move(MoveMode::Down, MoveAmount::default()),
+            Command::Move(MoveMode::Up, MoveAmount::Extreme),
+            Command::Queue,
+            Command::PlayNext,
+            Command::Next,
+            Command::Previous,
+            Command::Seek(SeekDirection::Relative(1000)),
+            Command::VolumeUp(1),
+            Command::VolumeDown(5),
+            Command::Jump(JumpMode::Next),
+            Command::Jump(JumpMode::Previous),
+        ];
+        for cmd in eligible {
+            assert!(cmd.accepts_count(), "{cmd:?} should accept a count");
+        }
+    }
+
+    #[test]
+    fn one_shot_and_menu_commands_ignore_count() {
+        let ineligible = [
+            Command::Open(TargetMode::Selected),
+            Command::Goto(GotoMode::Album),
+            Command::Play,
+            Command::TogglePlay,
+            Command::Stop,
+            Command::Repeat(None),
+            Command::Shuffle(None),
+            Command::Help,
+            Command::Back,
+            Command::Delete,
+            Command::Quit,
+            Command::Focus("queue".into()),
+            Command::Shift(ShiftMode::Up, None),
+        ];
+        for cmd in ineligible {
+            assert!(!cmd.accepts_count(), "{cmd:?} should ignore a count");
+        }
+    }
+
+    #[test]
+    fn binding_accepts_count_only_if_all_commands_do() {
+        let space = [
+            Command::Queue,
+            Command::Move(MoveMode::Down, MoveAmount::default()),
+        ];
+        let dot = [
+            Command::PlayNext,
+            Command::Move(MoveMode::Down, MoveAmount::default()),
+        ];
+        let open = [Command::Open(TargetMode::Selected)];
+        assert!(space.iter().all(Command::accepts_count));
+        assert!(dot.iter().all(Command::accepts_count));
+        assert!(!open.iter().all(Command::accepts_count));
+    }
+
+    #[test]
+    fn scaled_multiplies_seek_and_volume() {
+        // `Command` has no `PartialEq`, so match on the collapsed variants.
+        assert!(matches!(
+            Command::Seek(SeekDirection::Relative(-1000)).scaled(3),
+            Some(Command::Seek(SeekDirection::Relative(-3000)))
+        ));
+        assert!(matches!(
+            Command::VolumeUp(5).scaled(4),
+            Some(Command::VolumeUp(20))
+        ));
+        assert!(matches!(
+            Command::VolumeDown(2).scaled(3),
+            Some(Command::VolumeDown(6))
+        ));
+    }
+
+    #[test]
+    fn scaled_saturates_instead_of_overflowing() {
+        assert!(matches!(
+            Command::VolumeUp(u16::MAX).scaled(9999),
+            Some(Command::VolumeUp(u16::MAX))
+        ));
+        assert!(matches!(
+            Command::Seek(SeekDirection::Relative(i32::MIN)).scaled(9999),
+            Some(Command::Seek(SeekDirection::Relative(i32::MIN)))
+        ));
+    }
+
+    #[test]
+    fn scaled_is_none_for_repeat_by_execution_commands() {
+        // These skip/move commands are collapsed elsewhere or must genuinely
+        // repeat, so they have no scaled form.
+        assert!(Command::Next.scaled(3).is_none());
+        assert!(Command::Previous.scaled(3).is_none());
+        assert!(Command::Queue.scaled(3).is_none());
+        assert!(
+            Command::Move(MoveMode::Down, MoveAmount::default())
+                .scaled(3)
+                .is_none()
+        );
+        assert!(
+            Command::Seek(SeekDirection::Absolute(1000))
+                .scaled(3)
+                .is_none()
+        );
+    }
 }
