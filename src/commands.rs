@@ -27,6 +27,22 @@ use cursive::views::Dialog;
 use log::{debug, error, info};
 use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Upper bound for a count prefix, bounding the repeat loop.
+const MAX_COUNT: usize = 9999;
+
+/// Fold a digit into a count prefix, clamped to `max`. A leading `0` starts
+/// no count (vim rule).
+fn accumulate_count(current: usize, digit: u32, max: usize) -> usize {
+    if digit == 0 && current == 0 {
+        return 0;
+    }
+    current
+        .saturating_mul(10)
+        .saturating_add(digit as usize)
+        .min(max)
+}
 
 pub enum CommandResult {
     Consumed(Option<String>),
@@ -43,6 +59,9 @@ pub struct CommandManager {
     library: Arc<Library>,
     config: Arc<Config>,
     events: EventManager,
+    /// Pending vim-style repeat count (`0` means none), shared with the status
+    /// bar so it can be shown while being typed.
+    pending_count: Arc<AtomicUsize>,
 }
 
 impl CommandManager {
@@ -62,6 +81,29 @@ impl CommandManager {
             library,
             config,
             events,
+            pending_count: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// Shared read-only handle to the pending count, for the status bar.
+    pub fn pending_count(&self) -> Arc<AtomicUsize> {
+        self.pending_count.clone()
+    }
+
+    /// Append a digit to the pending count prefix.
+    fn push_count_digit(&self, digit: u32) {
+        let current = self.pending_count.load(Ordering::Relaxed);
+        self.pending_count.store(
+            accumulate_count(current, digit, MAX_COUNT),
+            Ordering::Relaxed,
+        );
+    }
+
+    /// Take and reset the pending count, defaulting to 1 when none was typed.
+    fn take_count(&self) -> usize {
+        match self.pending_count.swap(0, Ordering::Relaxed) {
+            0 => 1,
+            n => n,
         }
     }
 
@@ -192,7 +234,7 @@ impl CommandManager {
                 let volume = self
                     .spotify
                     .volume()
-                    .saturating_add(VOLUME_PERCENT * amount);
+                    .saturating_add(VOLUME_PERCENT.saturating_mul(*amount));
                 self.spotify.set_volume(volume, true);
                 Ok(None)
             }
@@ -200,7 +242,7 @@ impl CommandManager {
                 let volume = self
                     .spotify
                     .volume()
-                    .saturating_sub(VOLUME_PERCENT * amount);
+                    .saturating_sub(VOLUME_PERCENT.saturating_mul(*amount));
                 debug!("vol {volume}");
                 self.spotify.set_volume(volume, true);
                 Ok(None)
@@ -377,8 +419,40 @@ impl CommandManager {
     ) {
         cursive.add_global_callback(event, move |s| {
             if let Some(data) = s.user_data::<UserData>().cloned() {
-                for command in commands.clone().into_iter() {
-                    data.cmd.handle(s, command);
+                // Eligible bindings run `count` times; others run once and drop it.
+                let count = data.cmd.take_count();
+                let eligible = commands.iter().all(Command::accepts_count);
+
+                // Collapse a repeated single-command binding into one operation
+                // where looping would multiply a side effect: re-seeking the
+                // async player position, spamming volume updates, or loading a
+                // track per skip. Everything else just repeats the loop below.
+                if eligible
+                    && count > 1
+                    && let [command] = commands.as_slice()
+                {
+                    if let Some(scaled) = command.scaled(count) {
+                        data.cmd.handle(s, scaled);
+                        return;
+                    }
+                    match command {
+                        Command::Next => {
+                            data.cmd.queue.skip(count as isize);
+                            return;
+                        }
+                        Command::Previous => {
+                            data.cmd.queue.skip(-(count as isize));
+                            return;
+                        }
+                        _ => {}
+                    }
+                }
+
+                let repeats = if eligible { count } else { 1 };
+                for _ in 0..repeats {
+                    for command in commands.iter().cloned() {
+                        data.cmd.handle(s, command);
+                    }
                 }
             }
         });
@@ -403,6 +477,24 @@ impl CommandManager {
             } else {
                 error!("Could not parse keybinding: \"{k}\"");
             }
+        }
+
+        // Register a vim-style count accumulator for each digit the user
+        // hasn't bound to something else.
+        for digit in 0..=9u32 {
+            if kb.contains_key(&digit.to_string()) {
+                continue;
+            }
+            let key = char::from_digit(digit, 10).expect("0..=9 is a valid digit");
+            // Clear first so `:reload` can't stack duplicate accumulators.
+            cursive.clear_global_callbacks(Event::Char(key));
+            cursive.add_global_callback(Event::Char(key), move |s| {
+                if let Some(data) = s.user_data::<UserData>().cloned() {
+                    data.cmd.push_count_digit(digit);
+                    // Repaint the count indicator.
+                    s.on_event(Event::Refresh);
+                }
+            });
         }
     }
 
@@ -646,5 +738,29 @@ impl CommandManager {
         } else {
             Some(Self::parse_key(kb))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MAX_COUNT, accumulate_count};
+
+    #[test]
+    fn accumulates_digits() {
+        assert_eq!(accumulate_count(0, 1, MAX_COUNT), 1);
+        assert_eq!(accumulate_count(1, 0, MAX_COUNT), 10);
+        assert_eq!(accumulate_count(10, 5, MAX_COUNT), 105);
+    }
+
+    #[test]
+    fn leading_zero_is_ignored_but_trailing_zero_is_kept() {
+        assert_eq!(accumulate_count(0, 0, MAX_COUNT), 0);
+        assert_eq!(accumulate_count(2, 0, MAX_COUNT), 20);
+    }
+
+    #[test]
+    fn clamps_to_max() {
+        assert_eq!(accumulate_count(MAX_COUNT, 9, MAX_COUNT), MAX_COUNT);
+        assert_eq!(accumulate_count(usize::MAX, 9, MAX_COUNT), MAX_COUNT);
     }
 }

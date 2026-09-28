@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Vim-like command completion by pressing <kbd>Tab</kbd>
+- Support Vim-style numeric count prefixes for keybindings (e.g. `10j` moves
+  down 10 rows); the pending count is shown in the status bar
+- Add a `proxy` configuration option that routes all of ncspot's network
+  traffic (access point, Spotify APIs, OAuth and cover art downloads) through
+  a single proxy. Supports HTTP CONNECT proxies and SOCKS5 proxies with
+  remote DNS resolution (`socks5h://`), both with optional credentials.
+  Without this option, the `http_proxy` environment variable is still
+  honoured as before.
+
+### Changed
+
+- Replace already existing queue notifications instead of stacking new ones.
 
 ## [1.4.0]
 
@@ -302,6 +314,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Albums with more than 50 songs not showing all the songs when viewed in the library
 - Bug that could cause items to not load until the screen is filled on bigger screens
 
+[Unreleased]: https://github.com/hrkfdn/ncspot/compare/v1.4.0...HEAD
 [1.4.0]: https://github.com/hrkfdn/ncspot/compare/v1.3.4...v1.4.0
 [1.3.4]: https://github.com/hrkfdn/ncspot/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/hrkfdn/ncspot/compare/v1.3.2...v1.3.3

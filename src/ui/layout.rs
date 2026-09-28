@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use cursive::align::HAlign;
@@ -35,6 +36,9 @@ pub struct Layout {
     ev: events::EventManager,
     theme: Theme,
     configuration: Arc<Config>,
+    /// Pending count prefix, cleared when a prompt opens so it can't leak onto
+    /// the next keypress.
+    pending_count: Arc<AtomicUsize>,
 }
 
 impl Layout {
@@ -43,6 +47,7 @@ impl Layout {
         ev: &events::EventManager,
         theme: Theme,
         configuration: Arc<Config>,
+        pending_count: Arc<AtomicUsize>,
     ) -> Self {
         let style = ColorStyle::new(
             ColorType::Color(*theme.palette.custom("cmdline").unwrap()),
@@ -104,11 +109,13 @@ impl Layout {
             ev: ev.clone(),
             theme,
             configuration,
+            pending_count,
         }
     }
 
     pub fn enable_cmdline(&mut self, prefix: char) {
         if !self.cmdline_focus {
+            self.pending_count.store(0, Ordering::Relaxed);
             self.cmdline.set_content(prefix);
             self.cmdline_focus = true;
         }
@@ -116,6 +123,7 @@ impl Layout {
 
     pub fn enable_jump(&mut self) {
         if !self.cmdline_focus {
+            self.pending_count.store(0, Ordering::Relaxed);
             self.cmdline.set_content("/");
             self.cmdline_focus = true;
         }
