@@ -333,8 +333,27 @@ To disable a default keybinding, set its command to `noop`:
 </details>
 
 ### Proxy
-`ncspot` will respect system proxy settings defined via the `http_proxy`
-environment variable.
+
+All of ncspot's network traffic (the Spotify access point, the Spotify APIs,
+the OAuth login flow and cover art downloads) can be routed through a proxy
+configured in the configuration file:
+
+```toml
+# HTTP CONNECT proxy (optionally with credentials)
+proxy = "http://user:password@foo.bar:4444"
+
+# SOCKS5 proxy with remote DNS resolution (the proxy resolves hostnames)
+proxy = "socks5h://foo.bar:1080"
+proxy = "socks5h://user:password@foo.bar:1080"
+```
+
+`socks5://` is accepted as an alias for `socks5h://`; in both cases the
+hostname is resolved by the proxy, which is usually what you want when local
+DNS is unusable.
+
+Alternatively, the legacy behavior is still supported: without a `proxy`
+setting, ncspot honours the `http_proxy` environment variable (HTTP CONNECT
+proxies only).
 
 ```sh
 # In sh-like shells

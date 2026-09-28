@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support Vim-style numeric count prefixes for keybindings (e.g. `10j` moves
   down 10 rows); the pending count is shown in the status bar
+- Add a `proxy` configuration option that routes all of ncspot's network
+  traffic (access point, Spotify APIs, OAuth and cover art downloads) through
+  a single proxy. Supports HTTP CONNECT proxies and SOCKS5 proxies with
+  remote DNS resolution (`socks5h://`), both with optional credentials.
+  Without this option, the `http_proxy` environment variable is still
+  honoured as before.
 
 ## [1.4.0]
 
