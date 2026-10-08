@@ -25,6 +25,7 @@ mod lyrics;
 mod model;
 mod panic;
 mod queue;
+mod rate_limit;
 mod serialization;
 mod sharing;
 mod spotify;
