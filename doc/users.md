@@ -433,7 +433,7 @@ browser authorization runs again before the interface opens. If your
 Spotify account is not the app owner, add it under User Management in the
 app's dashboard, otherwise ncspot falls back to the shared client ID.
 
-ncspot never asks for a login while the interface is running. If the
+ncspot never asks for a login for your personal client ID while the interface is running. If the
 personal token stops working mid-session, ncspot switches to the shared
 client ID, shows `Personal client ID needs a new login` and, with the
 `notify` feature, a desktop notification. Restart ncspot to log in again.
