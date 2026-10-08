@@ -334,6 +334,13 @@ impl Library {
     /// if the remote listing was complete; on false the cache must not be saved as authoritative.
     fn fetch_playlists(&self) -> bool {
         debug!("loading playlists");
+        let known_at_start: Vec<String> = self
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .map(|p| p.id.clone())
+            .collect();
         let mut list_order = Vec::new();
 
         let lists_page = self.spotify.api.current_user_playlist();
@@ -375,7 +382,12 @@ impl Library {
 
         let listing_complete = !lists_page.failed();
         if listing_complete {
-            reconcile_playlists(&mut self.playlists.write().unwrap(), &list_order, true);
+            reconcile_playlists(
+                &mut self.playlists.write().unwrap(),
+                &known_at_start,
+                &list_order,
+                true,
+            );
         } else {
             warn!("playlist list incomplete, keeping cached playlists");
         }
@@ -954,13 +966,20 @@ impl Library {
     }
 }
 
-/// Remove local playlists missing from `remote_ids` and sort the rest in remote order, but only
-/// when the remote listing was complete; a partial listing must never delete cached playlists.
-fn reconcile_playlists(local: &mut Vec<Playlist>, remote_ids: &[String], listing_complete: bool) {
+/// Remove local playlists that existed when the sync started (`known_at_start`) but are missing
+/// from `remote_ids`, and sort the rest in remote order. Only done when the remote listing was
+/// complete; a partial listing must never delete cached playlists, and a playlist created while
+/// the sync was running must survive.
+fn reconcile_playlists(
+    local: &mut Vec<Playlist>,
+    known_at_start: &[String],
+    remote_ids: &[String],
+    listing_complete: bool,
+) {
     if !listing_complete {
         return;
     }
-    local.retain(|p| remote_ids.contains(&p.id));
+    local.retain(|p| !known_at_start.contains(&p.id) || remote_ids.contains(&p.id));
     local.sort_by_key(|p| remote_ids.iter().position(|x| x == &p.id));
 }
 
@@ -986,17 +1005,36 @@ mod test {
         list.iter().map(|p| p.id.as_str()).collect()
     }
 
+    fn ids_owned(list: &[Playlist]) -> Vec<String> {
+        list.iter().map(|p| p.id.clone()).collect()
+    }
+
     #[test]
     fn incomplete_listing_keeps_all_cached_playlists() {
         let mut local = vec![playlist("a"), playlist("b"), playlist("c")];
-        reconcile_playlists(&mut local, &["a".to_string()], false);
+        let known = ids_owned(&local);
+        reconcile_playlists(&mut local, &known, &["a".to_string()], false);
         assert_eq!(ids(&local), ["a", "b", "c"]);
     }
 
     #[test]
     fn complete_listing_prunes_and_sorts() {
         let mut local = vec![playlist("a"), playlist("b"), playlist("c")];
-        reconcile_playlists(&mut local, &["c".to_string(), "a".to_string()], true);
+        let known = ids_owned(&local);
+        reconcile_playlists(
+            &mut local,
+            &known,
+            &["c".to_string(), "a".to_string()],
+            true,
+        );
         assert_eq!(ids(&local), ["c", "a"]);
+    }
+
+    #[test]
+    fn playlist_created_during_sync_is_not_pruned() {
+        let mut local = vec![playlist("a"), playlist("b"), playlist("new")];
+        let known = vec!["a".to_string(), "b".to_string()];
+        reconcile_playlists(&mut local, &known, &["a".to_string()], true);
+        assert_eq!(ids(&local), ["new", "a"]);
     }
 }
