@@ -7,6 +7,9 @@ use std::time::{Duration, Instant};
 /// is still visible to the user.
 pub const DEFAULT_RETRY_AFTER: Duration = Duration::from_secs(5);
 
+/// Longest rate-limit window ever recorded, so an absurd `Retry-After` cannot overflow `Instant`.
+pub const MAX_RETRY_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
+
 /// Which Web API client a rate limit applies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientLabel {
@@ -43,7 +46,10 @@ impl ThrottleState {
     /// true if this starts a new throttle episode, that is the client was not throttled before.
     pub fn record_429(&mut self, now: Instant, retry_after: Option<Duration>) -> bool {
         let new_episode = !self.is_active(now);
-        let deadline = now + retry_after.unwrap_or(DEFAULT_RETRY_AFTER);
+        let window = retry_after
+            .unwrap_or(DEFAULT_RETRY_AFTER)
+            .min(MAX_RETRY_AFTER);
+        let deadline = now.checked_add(window).unwrap_or(now + MAX_RETRY_AFTER);
         self.until = Some(match self.until {
             Some(until) if until > deadline => until,
             _ => deadline,
@@ -149,6 +155,14 @@ mod test {
     use super::*;
 
     const SECS: fn(u64) -> Duration = Duration::from_secs;
+
+    #[test]
+    fn a_huge_retry_after_is_capped_and_does_not_panic() {
+        let now = Instant::now();
+        let mut state = ThrottleState::default();
+        state.record_429(now, Some(Duration::from_secs(u64::MAX)));
+        assert_eq!(state.remaining(now), Some(MAX_RETRY_AFTER));
+    }
 
     #[test]
     fn parse_retry_after_reads_whole_seconds() {
