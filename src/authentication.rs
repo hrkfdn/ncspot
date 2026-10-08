@@ -297,8 +297,20 @@ fn check_rspotify_token(token: &rspotify::Token) -> TokenCheck {
 /// Returns a reason if the personal client ID can't be used; the caller then falls back to the
 /// shared client ID.
 pub fn ensure_personal_token(client_id: &str) -> Result<(), String> {
-    let mut token = get_rspotify_token(client_id)?;
-    let mut after_new_login = false;
+    let (mut token, mut after_new_login) = match refresh_rspotify_token(client_id, false) {
+        Ok(token) => (token, false),
+        Err(e) => {
+            info!(
+                "No usable Web API token for the personal client ID ({e}), starting the OAuth2 login"
+            );
+            let token = create_rspotify_token(client_id)?;
+            write_token(
+                &config::cache_path(&token_cache_file_name(client_id)),
+                &token,
+            );
+            (token, true)
+        }
+    };
     loop {
         match next_personal_token_step(check_rspotify_token(&token), after_new_login) {
             PersonalTokenStep::Accept => return Ok(()),
@@ -483,6 +495,13 @@ mod test {
             next_personal_token_step(TokenCheck::Unauthorized, true),
             PersonalTokenStep::Reject(_)
         ));
+    }
+
+    #[test]
+    fn a_401_right_after_a_fresh_login_rejects_without_another_login() {
+        let step = next_personal_token_step(TokenCheck::Unauthorized, true);
+        assert!(matches!(step, PersonalTokenStep::Reject(_)));
+        assert_ne!(step, PersonalTokenStep::LoginAgain);
     }
 
     #[test]
