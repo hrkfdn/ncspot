@@ -12,6 +12,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
+use crate::rate_limit::format_status_segment;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::utils::ms_to_hms;
 
@@ -111,6 +112,10 @@ impl View for StatusBar {
             ColorType::Color(*printer.theme.palette.custom("statusbar").unwrap()),
             ColorType::Color(*printer.theme.palette.custom("statusbar_bg").unwrap()),
         );
+        let style_warning = ColorStyle::new(
+            ColorType::Color(*printer.theme.palette.custom("statusbar_warning").unwrap()),
+            ColorType::Color(*printer.theme.palette.custom("statusbar_bg").unwrap()),
+        );
 
         printer.print(
             (0, 0),
@@ -192,6 +197,8 @@ impl View for StatusBar {
             + &playback_duration_status
             + &volume;
         let offset = HAlign::Right.get_offset(right.width(), printer.size.x);
+        let rate_limit = format_status_segment(&self.spotify.api.rate_limit_status());
+        let rate_limit_offset = offset.saturating_sub(rate_limit.width());
 
         printer.with_color(style, |printer| {
             if let Some(ref t) = self.queue.get_current() {
@@ -199,6 +206,12 @@ impl View for StatusBar {
             }
             printer.print((offset, 1), &right);
         });
+
+        if !rate_limit.is_empty() {
+            printer.with_color(style_warning, |printer| {
+                printer.print((rate_limit_offset, 1), &rate_limit);
+            });
+        }
 
         if let Some(t) = self.queue.get_current() {
             printer.with_color(style_bar, |printer| {

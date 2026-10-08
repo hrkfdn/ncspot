@@ -5,7 +5,7 @@ use std::sync::{Arc, OnceLock};
 
 use cursive::traits::Nameable;
 use cursive::{Cursive, CursiveRunner};
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 
 #[cfg(unix)]
 use signal_hook::{consts::SIGHUP, consts::SIGTERM, iterator::Signals};
@@ -14,6 +14,7 @@ use crate::command::Command;
 use crate::commands::CommandManager;
 use crate::config::{Config, PlaybackState};
 use crate::events::{Event, EventManager};
+use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
@@ -67,6 +68,9 @@ pub struct Application {
     spotify: Spotify,
     /// Internally shared
     event_manager: EventManager,
+    /// The ncspot configuration.
+    #[cfg_attr(not(feature = "notify"), allow(dead_code))]
+    configuration: Arc<Config>,
     /// An IPC implementation using the D-Bus MPRIS protocol, used to control and inspect ncspot.
     #[cfg(unix)]
     ipc: Option<IpcSocket>,
@@ -327,6 +331,7 @@ impl Application {
             queue,
             spotify,
             event_manager,
+            configuration,
             #[cfg(unix)]
             ipc,
             cursive,
@@ -400,6 +405,43 @@ impl Application {
                         }
                         Err(e) => error!("Parsing error: {e}"),
                     },
+                    Event::RateLimited {
+                        client,
+                        retry_after,
+                    } => {
+                        info!(
+                            "{client} client ID is rate limited for {}s",
+                            retry_after.as_secs()
+                        );
+                        #[cfg(feature = "notify")]
+                        if self
+                            .configuration
+                            .values()
+                            .notify_rate_limit
+                            .unwrap_or(true)
+                        {
+                            std::thread::spawn(move || {
+                                crate::rate_limit::send_rate_limit_notification(client, retry_after)
+                            });
+                        }
+                    }
+                    Event::PersonalClientDisabled { reason } => {
+                        let message = format!(
+                            "Personal client ID needs a new login, using the shared one until \
+                             restart: {reason}"
+                        );
+                        warn!("{message}");
+                        self.cursive
+                            .on_layout(|_, mut layout| layout.set_result(Err(message)));
+                        // Not gated by notify_rate_limit: this is rare and needs action.
+                        #[cfg(feature = "notify")]
+                        std::thread::spawn(|| {
+                            crate::rate_limit::send_warning_notification(
+                                "ncspot: personal client ID needs a new login",
+                                "Using the shared client ID until ncspot restarts",
+                            )
+                        });
+                    }
                 }
             }
         }

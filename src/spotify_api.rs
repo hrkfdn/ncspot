@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::authentication::DEFAULT_WEB_API_CLIENT_ID;
+use crate::events::{Event, EventManager};
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::category::Category;
@@ -25,7 +26,7 @@ use crate::model::episode::Episode;
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::track::Track;
-use crate::rate_limit::{ClientLabel, ThrottleState, parse_retry_after};
+use crate::rate_limit::{ClientLabel, DEFAULT_RETRY_AFTER, ThrottleState, parse_retry_after};
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
 
@@ -104,6 +105,8 @@ pub struct WebApi {
     user: Option<String>,
     /// Sender of the mpsc channel to the [Spotify](crate::spotify::Spotify) worker thread.
     worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+    /// Event manager used to report rate limits to the UI. Unset in tests.
+    events: Option<EventManager>,
 }
 
 impl WebApi {
@@ -118,6 +121,7 @@ impl WebApi {
             personal,
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
+            events: None,
         }
     }
 
@@ -133,6 +137,11 @@ impl WebApi {
         channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     ) {
         self.worker_channel = channel;
+    }
+
+    /// Set the event manager used to report rate limits to the UI.
+    pub(crate) fn set_events(&mut self, events: EventManager) {
+        self.events = Some(events);
     }
 
     /// The personal client, if configured and not disabled.
@@ -185,6 +194,7 @@ impl WebApi {
         let label = client.label;
         let disabled = client.disabled.clone();
         let refreshing = client.refreshing.clone();
+        let events = self.events.clone();
         Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
             let result = match label {
                 ClientLabel::Shared => crate::authentication::get_rspotify_token(&client_id),
@@ -206,6 +216,9 @@ impl WebApi {
                          client ID until restart: {e}"
                     );
                     disabled.store(true, Ordering::Relaxed);
+                    if let Some(events) = &events {
+                        events.try_send(Event::PersonalClientDisabled { reason: e });
+                    }
                 }
                 Err(e) => {
                     error!("Failed to update token: {e}");
@@ -249,13 +262,37 @@ impl WebApi {
             .collect()
     }
 
-    /// Record a 429 on `client`.
+    /// Record a 429 on `client`. At the start of a throttle episode, tell the UI (which shows a
+    /// notification) and keep the status bar countdown redrawing until the window has passed.
     fn on_rate_limited(&self, client: &ApiClient, retry_after: Option<Duration>) {
-        let _new_episode = client
+        let new_episode = client
             .throttle
             .write()
             .unwrap()
             .record_429(Instant::now(), retry_after);
+        if !new_episode {
+            return;
+        }
+        let Some(events) = self.events.clone() else {
+            return;
+        };
+        events.try_send(Event::RateLimited {
+            client: client.label,
+            retry_after: retry_after.unwrap_or(DEFAULT_RETRY_AFTER),
+        });
+
+        // The UI refresh tick doesn't run while playback is stopped, so redraw the countdown
+        // from here until the window has passed, then once more to clear it.
+        let throttle = client.throttle.clone();
+        thread::spawn(move || {
+            while throttle.read().unwrap().is_active(Instant::now()) {
+                if !events.try_trigger() {
+                    return;
+                }
+                thread::sleep(Duration::from_secs(1));
+            }
+            events.try_trigger();
+        });
     }
 
     /// Execute `api_call` on `client`, retrying once after a rate limit (429). A 401 on the

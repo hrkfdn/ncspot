@@ -72,6 +72,10 @@ pub fn load(theme_cfg: &Option<ConfigTheme>) -> Theme {
         "statusbar_bg",
         load_color!(theme_cfg, statusbar_bg, TerminalDefault),
     );
+    palette.set_color(
+        "statusbar_warning",
+        load_color!(theme_cfg, statusbar_warning, Dark(Red)),
+    );
     palette.set_color("cmdline", load_color!(theme_cfg, cmdline, TerminalDefault));
     palette.set_color(
         "cmdline_bg",

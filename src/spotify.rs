@@ -99,6 +99,7 @@ impl Spotify {
         spotify.set_volume(volume, false);
 
         spotify.api.set_worker_channel(spotify.channel.clone());
+        spotify.api.set_events(spotify.events.clone());
         spotify
             .api
             .update_token()

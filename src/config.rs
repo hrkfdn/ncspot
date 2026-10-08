@@ -90,6 +90,8 @@ pub struct ConfigValues {
     pub volnorm: Option<bool>,
     pub volnorm_pregain: Option<f64>,
     pub notify: Option<bool>,
+    /// Show a desktop notification when Spotify rate limits ncspot (HTTP 429). Defaults to true.
+    pub notify_rate_limit: Option<bool>,
     pub bitrate: Option<u32>,
     pub gapless: Option<bool>,
     pub shuffle: Option<bool>,
@@ -213,6 +215,7 @@ pub struct ConfigTheme {
     pub statusbar_progress_bg: Option<String>,
     pub statusbar: Option<String>,
     pub statusbar_bg: Option<String>,
+    pub statusbar_warning: Option<String>,
     pub cmdline: Option<String>,
     pub cmdline_bg: Option<String>,
     pub search_match: Option<String>,
@@ -716,5 +719,23 @@ mod test {
             Some(PERSONAL_ID),
             Some(ClientIdSource::Env)
         ));
+    }
+
+    #[test]
+    fn notify_rate_limit_parses_and_defaults_to_unset() {
+        let values: ConfigValues = toml::from_str("notify_rate_limit = false").expect("valid toml");
+        assert_eq!(values.notify_rate_limit, Some(false));
+        let values: ConfigValues = toml::from_str("").expect("valid toml");
+        assert_eq!(values.notify_rate_limit, None);
+    }
+
+    #[test]
+    fn statusbar_warning_theme_color_parses() {
+        let values: ConfigValues =
+            toml::from_str("[theme]\nstatusbar_warning = \"light red\"").expect("valid toml");
+        assert_eq!(
+            values.theme.and_then(|t| t.statusbar_warning).as_deref(),
+            Some("light red")
+        );
     }
 }

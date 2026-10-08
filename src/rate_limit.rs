@@ -91,11 +91,57 @@ pub fn format_status_segment(status: &[(ClientLabel, Duration)]) -> String {
 }
 
 /// Body text of the rate-limit desktop notification.
+#[cfg_attr(not(feature = "notify"), allow(dead_code))]
 pub fn notification_body(client: ClientLabel, retry_after: Duration) -> String {
     format!(
         "{client} client ID, retrying in {}s",
         ceil_secs(retry_after)
     )
+}
+
+/// ID of the last warning notification (rate limit, personal client disabled), so a new one
+/// replaces it instead of stacking. Separate from the now-playing notification so neither
+/// overwrites the other.
+#[cfg(feature = "notify")]
+static WARNING_NOTIFICATION_ID: std::sync::Mutex<Option<u32>> = std::sync::Mutex::new(None);
+
+/// Show a warning desktop notification. Blocks on the notification service, so call it from a
+/// separate thread.
+#[cfg(feature = "notify")]
+pub fn send_warning_notification(summary: &str, body: &str) {
+    let mut n = notify_rust::Notification::new();
+    n.appname("ncspot").summary(summary).body(body);
+
+    // Normal urgency and not transient, so the notification doesn't vanish unseen.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        n.urgency(notify_rust::Urgency::Normal)
+            .hint(notify_rust::Hint::DesktopEntry("ncspot".into()));
+        if let Some(id) = *WARNING_NOTIFICATION_ID.lock().unwrap() {
+            n.id(id);
+        }
+    }
+
+    match n.show() {
+        Ok(handle) => {
+            #[cfg(all(unix, not(target_os = "macos")))]
+            {
+                *WARNING_NOTIFICATION_ID.lock().unwrap() = Some(handle.id());
+            }
+            #[cfg(not(all(unix, not(target_os = "macos"))))]
+            drop(handle);
+        }
+        Err(e) => log::error!("Failed to send warning notification: {e}"),
+    }
+}
+
+/// Show a desktop notification that `client` is rate limited for `retry_after`.
+#[cfg(feature = "notify")]
+pub fn send_rate_limit_notification(client: ClientLabel, retry_after: Duration) {
+    send_warning_notification(
+        "ncspot: rate limited by Spotify",
+        &notification_body(client, retry_after),
+    );
 }
 
 #[cfg(test)]
