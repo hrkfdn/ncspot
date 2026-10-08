@@ -69,15 +69,17 @@ fn main() -> Result<(), String> {
             config::preload_proxy_environment(matches.get_one::<String>("config").cloned());
 
             // Create the application.
-            let mut application =
-                match Application::new(matches.get_one::<String>("config").cloned()) {
-                    Ok(application) => application,
-                    Err(error) => {
-                        eprintln!("{error}");
-                        error!("{error}");
-                        exit(-1);
-                    }
-                };
+            let mut application = match Application::new(
+                matches.get_one::<String>("config").cloned(),
+                matches.get_one::<String>("client-id").cloned(),
+            ) {
+                Ok(application) => application,
+                Err(error) => {
+                    eprintln!("{error}");
+                    error!("{error}");
+                    exit(-1);
+                }
+            };
 
             // Start the application event loop.
             application.run()

@@ -5,10 +5,11 @@ use std::sync::{RwLock, RwLockReadGuard};
 use std::{fs, process};
 
 use cursive::theme::Theme;
-use log::{debug, error};
+use log::{debug, error, warn};
 use ncspot::{CONFIGURATION_FILE_NAME, USER_STATE_FILE_NAME};
 use platform_dirs::AppDirs;
 
+use crate::client_id::{self, ClientIdSource, PersonalClientId};
 use crate::command::{SortDirection, SortKey};
 use crate::model::playable::Playable;
 use crate::queue;
@@ -101,6 +102,9 @@ pub struct ConfigValues {
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
     pub ap_port: Option<u16>,
+    /// Personal Spotify Web API client ID. Overridden by the `NCSPOT_CLIENT_ID` environment
+    /// variable and the `--client-id` flag.
+    pub client_id: Option<String>,
     /// Proxy used for all of ncspot's network traffic: the Spotify access
     /// point, the Spotify APIs, OAuth and cover art downloads. Supported
     /// schemes: `http://` (CONNECT proxy) and `socks5h://` (SOCKS5 proxy with
@@ -285,6 +289,9 @@ pub struct Config {
     values: RwLock<ConfigValues>,
     /// Runtime state which can't be edited by the user, read/write.
     state: RwLock<UserState>,
+    /// Personal Web API client ID resolved at startup from the flag, the environment and the
+    /// configuration file. [Config::reload] does not change it.
+    personal_client_id: RwLock<Option<PersonalClientId>>,
 }
 
 impl Config {
@@ -295,12 +302,25 @@ impl Config {
             filename: String::new(),
             values: RwLock::new(ConfigValues::default()),
             state: RwLock::new(UserState::default()),
+            personal_client_id: RwLock::new(None),
         })
+    }
+
+    /// Like [Config::new_for_test], with `id` as the personal Web API client ID.
+    #[cfg(test)]
+    pub fn new_for_test_with_client_id(id: &str) -> std::sync::Arc<Self> {
+        let cfg = Self::new_for_test();
+        *cfg.personal_client_id.write().unwrap() = Some(PersonalClientId {
+            id: id.to_string(),
+            source: ClientIdSource::Config,
+        });
+        cfg
     }
 
     /// Generate the configuration from the user configuration file and the runtime state file.
     /// `filename` can be used to look for a differently named configuration file.
-    pub fn new(filename: Option<String>) -> Self {
+    /// `client_id_flag` is the value of the `--client-id` command line flag, if given.
+    pub fn new(filename: Option<String>, client_id_flag: Option<String>) -> Self {
         let filename = filename.unwrap_or(CONFIGURATION_FILE_NAME.to_owned());
         let values = load(&filename).unwrap_or_else(|e| {
             eprint!(
@@ -312,6 +332,17 @@ impl Config {
                     })
                     .expect("configuration directory expected but not found")
             );
+            process::exit(1);
+        });
+
+        let env_client_id = std::env::var(client_id::CLIENT_ID_ENV_VAR).ok();
+        let personal_client_id = client_id::resolve_personal_client_id(
+            client_id_flag.as_deref(),
+            env_client_id.as_deref(),
+            values.client_id.as_deref(),
+        )
+        .unwrap_or_else(|e| {
+            eprintln!("{e}");
             process::exit(1);
         });
 
@@ -341,6 +372,7 @@ impl Config {
             filename,
             values: RwLock::new(values),
             state: RwLock::new(userstate),
+            personal_client_id: RwLock::new(personal_client_id),
         }
     }
 
@@ -352,6 +384,17 @@ impl Config {
     /// Get the runtime user state values.
     pub fn state(&self) -> RwLockReadGuard<'_, UserState> {
         self.state.read().unwrap()
+    }
+
+    /// The personal Web API client ID, if one is configured and still in use.
+    pub fn personal_client_id(&self) -> Option<PersonalClientId> {
+        self.personal_client_id.read().unwrap().clone()
+    }
+
+    /// Stop using the personal Web API client ID, for example after its authorization failed.
+    /// All Web API traffic then uses the shared client ID.
+    pub fn disable_personal_client_id(&self) {
+        *self.personal_client_id.write().unwrap() = None;
     }
 
     /// Modify the internal user state through a shared reference using a closure.
@@ -388,12 +431,40 @@ impl Config {
     /// Attempt to reload the configuration from the configuration file.
     ///
     /// This only updates the values stored in memory but doesn't perform any additional actions
-    /// like updating active keybindings.
+    /// like updating active keybindings. The personal Web API client ID is not re-resolved; a
+    /// warning is logged if its configuration value changed.
     pub fn reload(&self) -> Result<(), Box<dyn Error>> {
         let cfg = load(&self.filename)?;
+        let old_client_id = self.values().client_id.clone();
+        let active_source = self.personal_client_id().map(|p| p.source);
+        if client_id_change_needs_restart(
+            old_client_id.as_deref(),
+            cfg.client_id.as_deref(),
+            active_source,
+        ) {
+            warn!("client_id changed in the configuration file; restart ncspot to apply it");
+        }
         *self.values.write().unwrap() = cfg;
         Ok(())
     }
+}
+
+/// Whether changing `client_id` in the configuration file from `old` to `new` needs a restart to
+/// take effect: the value changed, and neither the flag nor the environment variable overrides
+/// the configuration file.
+fn client_id_change_needs_restart(
+    old: Option<&str>,
+    new: Option<&str>,
+    active_source: Option<ClientIdSource>,
+) -> bool {
+    fn normalize(v: Option<&str>) -> Option<&str> {
+        v.map(str::trim).filter(|v| !v.is_empty())
+    }
+    let overridden = matches!(
+        active_source,
+        Some(ClientIdSource::Flag | ClientIdSource::Env)
+    );
+    normalize(old) != normalize(new) && !overridden
 }
 
 /// Parse the configuration file with name `filename` at the configuration base path.
@@ -575,5 +646,75 @@ mod lyrics_cfg_tests {
         let restored: super::UserState = serde_json::from_value(v).unwrap();
         assert!(restored.jukebox_overrides.is_empty());
         assert!(!restored.jukebox_override_per_song);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    const PERSONAL_ID: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn client_id_parses_from_toml() {
+        let values: ConfigValues =
+            toml::from_str(&format!("client_id = \"{PERSONAL_ID}\"")).expect("valid toml");
+        assert_eq!(values.client_id.as_deref(), Some(PERSONAL_ID));
+    }
+
+    #[test]
+    fn missing_client_id_is_none() {
+        let values: ConfigValues = toml::from_str("shuffle = true").expect("valid toml");
+        assert_eq!(values.client_id, None);
+    }
+
+    #[test]
+    fn test_config_has_no_personal_client_id() {
+        assert_eq!(Config::new_for_test().personal_client_id(), None);
+    }
+
+    #[test]
+    fn disable_personal_client_id_clears_it() {
+        let cfg = Config::new_for_test_with_client_id(PERSONAL_ID);
+        assert_eq!(
+            cfg.personal_client_id().map(|p| p.id),
+            Some(PERSONAL_ID.to_string())
+        );
+        cfg.disable_personal_client_id();
+        assert_eq!(cfg.personal_client_id(), None);
+    }
+
+    #[test]
+    fn reload_needs_restart_when_config_client_id_changes() {
+        assert!(client_id_change_needs_restart(
+            None,
+            Some(PERSONAL_ID),
+            None
+        ));
+        assert!(client_id_change_needs_restart(
+            Some(PERSONAL_ID),
+            None,
+            Some(ClientIdSource::Config)
+        ));
+    }
+
+    #[test]
+    fn reload_needs_no_restart_when_unchanged_or_overridden() {
+        assert!(!client_id_change_needs_restart(
+            Some(PERSONAL_ID),
+            Some(PERSONAL_ID),
+            Some(ClientIdSource::Config)
+        ));
+        assert!(!client_id_change_needs_restart(None, Some("  "), None));
+        assert!(!client_id_change_needs_restart(
+            None,
+            Some(PERSONAL_ID),
+            Some(ClientIdSource::Flag)
+        ));
+        assert!(!client_id_change_needs_restart(
+            None,
+            Some(PERSONAL_ID),
+            Some(ClientIdSource::Env)
+        ));
     }
 }

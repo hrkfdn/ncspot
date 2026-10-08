@@ -80,7 +80,11 @@ impl Application {
     /// # Arguments
     ///
     /// * `configuration_file_path` - Relative path to the configuration file inside the base path
-    pub fn new(configuration_file_path: Option<String>) -> Result<Self, Box<dyn Error>> {
+    /// * `client_id_flag` - Value of the `--client-id` command line flag, if given
+    pub fn new(
+        configuration_file_path: Option<String>,
+        client_id_flag: Option<String>,
+    ) -> Result<Self, Box<dyn Error>> {
         // Things here may cause the process to abort; we must do them before creating curses
         // windows otherwise the error message will not be seen by a user
 
@@ -93,7 +97,7 @@ impl Application {
             )
             .unwrap();
 
-        let configuration = Arc::new(Config::new(configuration_file_path));
+        let configuration = Arc::new(Config::new(configuration_file_path, client_id_flag));
         let credentials = authentication::get_credentials(&configuration)?;
         let theme = configuration.build_theme();
 

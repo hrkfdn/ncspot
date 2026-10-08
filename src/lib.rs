@@ -44,5 +44,14 @@ pub fn program_arguments() -> clap::Command {
                 .help("Filename of config file in basepath")
                 .default_value(CONFIGURATION_FILE_NAME),
         )
+        .arg(
+            clap::Arg::new("client-id")
+                .long("client-id")
+                .value_name("ID")
+                .help(
+                    "Personal Spotify Web API client ID (overrides the NCSPOT_CLIENT_ID \
+                     environment variable and client_id in the config file)",
+                ),
+        )
         .subcommands([clap::Command::new("info").about("Print platform information like paths")])
 }
