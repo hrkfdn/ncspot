@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remote DNS resolution (`socks5h://`), both with optional credentials.
   Without this option, the `http_proxy` environment variable is still
   honoured as before.
+- Use a personal Spotify Web API client ID, set with `--client-id`, the
+  `NCSPOT_CLIENT_ID` environment variable or `client_id` in the
+  configuration file. Bulk requests use it to avoid rate limits on the shared
+  client ID; endpoints restricted for new apps keep using the shared one
+- Show Spotify rate limiting (HTTP 429) in the status bar and as a desktop
+  notification (`notify_rate_limit`), with a new `statusbar_warning` theme
+  color
 
 ### Changed
 

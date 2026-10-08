@@ -329,6 +329,7 @@ Possible configuration values are:
 | `volnorm_pregain`               | Normalization pregain to apply in dB (if enabled)              | Number                                                                                | `0.0`               |
 | `default_keybindings`           | Enable default keybindings                                     | `true`, `false`                                                                       | `false`             |
 | `notify`<sup>[4]</sup>          | Enable desktop notifications                                   | `true`, `false`                                                                       | `false`             |
+| `notify_rate_limit`<sup>[4]</sup> | Notify when Spotify rate limits ncspot (HTTP 429)            | `true`, `false`                                                                       | `true`              |
 | `bitrate`                       | Audio bitrate to use for streaming                             | `96`, `160`, `320`                                                                    | `320`               |
 | `gapless`                       | Enable gapless playback                                        | `true`, `false`                                                                       | `true`              |
 | `shuffle`                       | Set default shuffle state                                      | `true`, `false`                                                                       | `false`             |
@@ -345,6 +346,7 @@ Possible configuration values are:
 | `[lyrics]`                      | Lyrics feature settings                                        | See [lyrics settings](#lyrics-settings)                                               |                     |
 | `[jukebox]`                     | Eternal Jukebox settings                                       | See [jukebox settings](#jukebox-settings)                                             |                     |
 | `ap_port`                       | Set ap-port for librespot (for restrictive firewalls)          | `80`, `443`, `4070`                                                                   |                     |
+| `client_id`                     | Personal Spotify Web API client ID                             | 32 hex characters, see [personal client ID](#personal-web-api-client-id)              |                     |
 
 1. If built with the `cover` feature.
 2. By default the statusbar will show a play icon when a track is playing and
@@ -393,6 +395,59 @@ To disable a default keybinding, set its command to `noop`:
 ```
 
 </details>
+
+### Personal Web API client ID
+
+By default, ncspot's Web API requests (search, playlists, library, metadata)
+use a client ID shared by every ncspot user. Spotify limits requests per
+client ID, so heavy use by everyone together can get ncspot rate limited
+(HTTP 429): playlists load slowly or not at all. While that happens, the
+status bar shows `[rate limited: shared 42s]` and, if built with the `notify`
+feature, a desktop notification appears (disable it with
+`notify_rate_limit = false`).
+
+You can register your own Spotify app and give ncspot its client ID. Bulk
+traffic (playlist sync, library, track and album metadata) then uses your
+own quota.
+
+1. Go to <https://developer.spotify.com/dashboard> and create an app. Your
+   account needs Spotify Premium.
+2. Add the redirect URI `http://127.0.0.1/ncspot_login`, with no port.
+   Spotify allows any port on loopback addresses when the registered URI
+   has none, and ncspot picks a free port at runtime.
+3. Select "Web API" as the API used, save, and copy the client ID.
+4. Give ncspot the client ID in one of these ways (highest precedence first):
+   - command line: `ncspot --client-id <ID>`
+   - environment variable: `NCSPOT_CLIENT_ID=<ID>`
+   - configuration file: `client_id = "<ID>"`
+
+   An empty value is skipped. An invalid value (not 32 hex characters) stops
+   ncspot with an error naming where it came from. The client ID is read at
+   startup; restart ncspot after changing it.
+
+On the next start, ncspot asks for one more browser authorization for the
+new app. Its token is cached in `rspotify_token-<ID>.json` in the cache
+directory (see `ncspot info`). At every start ncspot checks that token; if
+Spotify rejects it (for example after you removed the app's access), the
+browser authorization runs again before the interface opens. If your
+Spotify account is not the app owner, add it under User Management in the
+app's dashboard, otherwise ncspot falls back to the shared client ID.
+
+ncspot never asks for a login while the interface is running. If the
+personal token stops working mid-session, ncspot switches to the shared
+client ID, shows `Personal client ID needs a new login` and, with the
+`notify` feature, a desktop notification. Restart ncspot to log in again.
+
+Only the client ID is needed: ncspot authorizes as a public PKCE client with
+a loopback redirect, so no client secret is ever asked for or stored. Do not
+put your app's client secret in the configuration.
+
+New apps run in Spotify's Development Mode, which can't use some endpoints.
+ncspot keeps using the shared client ID for those, so these features keep
+working: search, recommendations, an artist's top tracks and related
+artists, browse categories, and Spotify-owned playlists such as Discover
+Weekly. Development Mode apps are also limited to 5 users, and the app owner
+needs Premium.
 
 ### Proxy
 
@@ -445,6 +500,7 @@ error_bg = "red"
 statusbar = "black"
 statusbar_progress = "green"
 statusbar_bg = "green"
+statusbar_warning = "light red"
 cmdline = "light white"
 cmdline_bg = "black"
 search_match = "light red"
