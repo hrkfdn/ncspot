@@ -79,7 +79,7 @@ pub fn resolve_personal_client_id(
             return Ok(None);
         }
         return Ok(Some(PersonalClientId {
-            id: value.to_string(),
+            id: value.to_ascii_lowercase(),
             source,
         }));
     }
@@ -93,6 +93,13 @@ mod test {
     const ID_A: &str = "0123456789abcdef0123456789abcdef";
     const ID_B: &str = "fedcba9876543210fedcba9876543210";
     const ID_C: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[test]
+    fn uppercase_ids_are_lowercased() {
+        let resolved =
+            resolve_personal_client_id(Some("0123456789ABCDEF0123456789ABCDEF"), None, None);
+        assert_eq!(resolved, personal(ID_A, ClientIdSource::Flag));
+    }
 
     fn personal(id: &str, source: ClientIdSource) -> Result<Option<PersonalClientId>, String> {
         Ok(Some(PersonalClientId {
@@ -149,8 +156,8 @@ mod test {
 
     #[test]
     fn invalid_higher_source_errors_even_if_lower_source_is_valid() {
-        let err = resolve_personal_client_id(None, Some("not-a-client-id"), Some(ID_C))
-            .unwrap_err();
+        let err =
+            resolve_personal_client_id(None, Some("not-a-client-id"), Some(ID_C)).unwrap_err();
         assert!(err.contains("NCSPOT_CLIENT_ID"), "{err}");
         assert!(err.contains("expected 32 hex characters"), "{err}");
     }
