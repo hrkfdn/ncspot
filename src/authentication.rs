@@ -171,9 +171,10 @@ pub fn refresh_rspotify_token(client_id: &str, force: bool) -> Result<rspotify::
     )
     .build()
     .map_err(|e| e.to_string())?;
-    let new_token = oauth_client
-        .refresh_token(refresh_token)
-        .map_err(|e| format!("Failed to refresh token: {e}"))?;
+    let new_token = oauth_client.refresh_token(refresh_token).map_err(|e| {
+        error!("Failed to refresh token: {e}");
+        format!("Failed to refresh token: {e}")
+    })?;
     let mapped = map_token(new_token, Some(refresh_token));
     write_token(&path, &mapped);
     Ok(mapped)
