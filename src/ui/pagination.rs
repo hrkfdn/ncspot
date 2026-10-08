@@ -1,6 +1,7 @@
 use crate::library::Library;
 use crate::traits::ListItem;
 use log::debug;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 pub struct ApiPage<I> {
@@ -15,6 +16,8 @@ pub struct ApiResult<I> {
     pub total: u32,
     pub items: Arc<RwLock<Vec<I>>>,
     fetch_page: Arc<FetchPageFn<I>>,
+    /// Set when any page request returned `None`, so callers can tell a failure from the end.
+    failed: Arc<AtomicBool>,
 }
 
 impl<I: ListItem + Clone> ApiResult<I> {
@@ -33,6 +36,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 total: first_page.total,
                 items,
                 fetch_page: fetch_page.clone(),
+                failed: Arc::new(AtomicBool::new(false)),
             }
         } else {
             Self {
@@ -41,8 +45,14 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 total: 0,
                 items,
                 fetch_page: fetch_page.clone(),
+                failed: Arc::new(AtomicBool::new(true)),
             }
         }
+    }
+
+    /// Whether any page request has failed.
+    pub fn failed(&self) -> bool {
+        self.failed.load(Ordering::SeqCst)
     }
 
     fn offset(&self) -> u32 {
@@ -74,6 +84,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 self.items.write().unwrap().extend(next_page.items.clone());
                 Some(next_page.items)
             } else {
+                self.failed.store(true, Ordering::SeqCst);
                 None
             }
         } else {
@@ -150,5 +161,99 @@ impl<I: ListItem + Clone> Pagination<I> {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::model::playlist::Playlist;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn item(id: &str) -> Playlist {
+        Playlist {
+            id: id.to_string(),
+            name: id.to_string(),
+            owner_id: String::new(),
+            owner_name: None,
+            snapshot_id: String::new(),
+            num_tracks: 0,
+            tracks: None,
+            collaborative: false,
+            cover_url: None,
+        }
+    }
+
+    fn always_failing(calls: Arc<AtomicUsize>) -> Arc<FetchPageFn<Playlist>> {
+        Arc::new(move |_| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            None
+        })
+    }
+
+    /// Three pages of one item each; page 1 fails when `fail_second` is set.
+    fn three_pages(fail_second: bool) -> Arc<FetchPageFn<Playlist>> {
+        Arc::new(move |offset| {
+            if fail_second && offset == 1 {
+                return None;
+            }
+            Some(ApiPage {
+                offset,
+                total: 3,
+                items: vec![item(&offset.to_string())],
+            })
+        })
+    }
+
+    #[test]
+    fn failed_first_page_marks_the_result_failed() {
+        let result = ApiResult::new(1, always_failing(Arc::new(AtomicUsize::new(0))));
+        assert!(result.failed());
+        assert!(result.items.read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_next_page_marks_the_result_failed() {
+        let result = ApiResult::new(1, three_pages(true));
+        assert!(!result.failed());
+        assert!(result.next().is_none());
+        assert!(result.failed());
+        assert!(!result.at_end());
+    }
+
+    #[test]
+    fn complete_fetch_is_not_failed() {
+        let result = ApiResult::new(1, three_pages(false));
+        while !result.at_end() {
+            assert!(result.next().is_some());
+        }
+        assert!(!result.failed());
+        assert_eq!(result.items.read().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn draining_loop_stops_on_failure() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counter = calls.clone();
+        let fetch: Arc<FetchPageFn<Playlist>> = Arc::new(move |offset| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            if offset == 0 {
+                Some(ApiPage {
+                    offset,
+                    total: 3,
+                    items: vec![item("0")],
+                })
+            } else {
+                None
+            }
+        });
+        let r = ApiResult::new(1, fetch);
+        while !r.at_end() {
+            if r.next().is_none() {
+                break;
+            }
+        }
+        assert!(r.failed());
+        assert!(calls.load(Ordering::SeqCst) <= 2);
     }
 }

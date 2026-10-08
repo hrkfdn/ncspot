@@ -32,22 +32,30 @@ pub struct Playlist {
 }
 
 impl Playlist {
-    pub fn load_tracks(&mut self, spotify: &Spotify) {
+    /// Load the tracks if they are not loaded yet. Returns true if the tracks are loaded; on a
+    /// failed request `tracks` is left untouched.
+    pub fn load_tracks(&mut self, spotify: &Spotify) -> bool {
         if self.tracks.is_some() {
-            return;
+            return true;
         }
 
-        self.tracks = Some(self.get_all_tracks(spotify));
+        self.tracks = self.get_all_tracks(spotify);
+        self.tracks.is_some()
     }
 
-    fn get_all_tracks(&self, spotify: &Spotify) -> Vec<Playable> {
+    fn get_all_tracks(&self, spotify: &Spotify) -> Option<Vec<Playable>> {
         let tracks_result = spotify.api.user_playlist_tracks(&self.id);
         while !tracks_result.at_end() {
-            tracks_result.next();
+            if tracks_result.next().is_none() {
+                break;
+            }
         }
 
+        if tracks_result.failed() {
+            return None;
+        }
         let tracks = tracks_result.items.read().unwrap();
-        tracks.clone()
+        Some(tracks.clone())
     }
 
     pub fn has_track(&self, track_id: &str) -> bool {

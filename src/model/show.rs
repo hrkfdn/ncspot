@@ -28,9 +28,14 @@ impl Show {
 
         let episodes_result = spotify.api.show_episodes(&self.id);
         while !episodes_result.at_end() {
-            episodes_result.next();
+            if episodes_result.next().is_none() {
+                break;
+            }
         }
 
+        if episodes_result.failed() {
+            return;
+        }
         let episodes = episodes_result.items.read().unwrap().clone();
         self.episodes = Some(episodes);
     }

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rspotify::model::Id;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -196,11 +196,12 @@ impl Library {
         debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.api.overwrite_playlist(id, tracks);
 
-        self.fetch_playlists();
-        self.save_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            &self.playlists.read().unwrap(),
-        );
+        if self.fetch_playlists() {
+            self.save_cache(
+                &config::cache_path(CACHE_PLAYLISTS),
+                &self.playlists.read().unwrap(),
+            );
+        }
     }
 
     /// Create a playlist with the given `name` and add `tracks` to it.
@@ -266,11 +267,12 @@ impl Library {
                         &config::cache_path(CACHE_PLAYLISTS),
                         library.playlists.write().unwrap().as_mut(),
                     );
-                    library.fetch_playlists();
-                    library.save_cache(
-                        &config::cache_path(CACHE_PLAYLISTS),
-                        &library.playlists.read().unwrap(),
-                    );
+                    if library.fetch_playlists() {
+                        library.save_cache(
+                            &config::cache_path(CACHE_PLAYLISTS),
+                            &library.playlists.read().unwrap(),
+                        );
+                    }
                 })
             };
 
@@ -328,10 +330,10 @@ impl Library {
     }
 
     /// Fetch the playlists from the web API and save them to the local library. This synchronizes
-    /// the local version with the remote, pruning removed playlists in the process.
-    fn fetch_playlists(&self) {
+    /// the local version with the remote, pruning removed playlists in the process. Returns true
+    /// if the remote listing was complete; on false the cache must not be saved as authoritative.
+    fn fetch_playlists(&self) -> bool {
         debug!("loading playlists");
-        let mut stale_lists = self.playlists.read().unwrap().clone();
         let mut list_order = Vec::new();
 
         let lists_page = self.spotify.api.current_user_playlist();
@@ -340,19 +342,20 @@ impl Library {
             for (index, remote) in lists.iter().enumerate() {
                 list_order.push(remote.id.clone());
 
-                // remove from stale playlists so we won't prune it later on
-                if let Some(index) = stale_lists.iter().position(|x| x.id == remote.id) {
-                    stale_lists.remove(index);
-                }
-
                 if self.needs_download(remote) {
                     info!("updating playlist {} (index: {})", remote.name, index);
                     let mut playlist: Playlist = remote.clone();
                     playlist.tracks = None;
-                    playlist.load_tracks(&self.spotify);
-                    self.append_or_update(playlist);
-                    // trigger redraw
-                    self.trigger_redraw();
+                    if playlist.load_tracks(&self.spotify) {
+                        self.append_or_update(playlist);
+                        // trigger redraw
+                        self.trigger_redraw();
+                    } else {
+                        warn!(
+                            "failed to load tracks for playlist {}, keeping cached copy",
+                            remote.name
+                        );
+                    }
                 } else {
                     // Snapshot unchanged, so the cached tracks are current and we
                     // skip the costly reload. But a cache written before the
@@ -370,26 +373,12 @@ impl Library {
             lists_batch = lists_page.next();
         }
 
-        // remove stale playlists
-        for stale in stale_lists {
-            let index = self
-                .playlists
-                .read()
-                .unwrap()
-                .iter()
-                .position(|x| x.id == stale.id);
-            if let Some(index) = index {
-                debug!("removing stale list: {:?}", stale.name);
-                self.playlists.write().unwrap().remove(index);
-            }
+        let listing_complete = !lists_page.failed();
+        if listing_complete {
+            reconcile_playlists(&mut self.playlists.write().unwrap(), &list_order, true);
+        } else {
+            warn!("playlist list incomplete, keeping cached playlists");
         }
-
-        // sort by remote order
-        self.playlists.write().unwrap().sort_by(|a, b| {
-            let a_index = list_order.iter().position(|x| x == &a.id);
-            let b_index = list_order.iter().position(|x| x == &b.id);
-            a_index.cmp(&b_index)
-        });
 
         // trigger redraw
         self.trigger_redraw();
@@ -398,6 +387,8 @@ impl Library {
         #[cfg(feature = "mpris")]
         self.spotify
             .send_mpris(crate::mpris::MprisCommand::EmitPlaylistChanged(None));
+
+        listing_complete
     }
 
     /// Fetch the artists from the web API and save them to the local library.
@@ -960,5 +951,52 @@ impl Library {
     /// Force redraw the user interface.
     pub fn trigger_redraw(&self) {
         self.ev.trigger();
+    }
+}
+
+/// Remove local playlists missing from `remote_ids` and sort the rest in remote order, but only
+/// when the remote listing was complete; a partial listing must never delete cached playlists.
+fn reconcile_playlists(local: &mut Vec<Playlist>, remote_ids: &[String], listing_complete: bool) {
+    if !listing_complete {
+        return;
+    }
+    local.retain(|p| remote_ids.contains(&p.id));
+    local.sort_by_key(|p| remote_ids.iter().position(|x| x == &p.id));
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn playlist(id: &str) -> Playlist {
+        Playlist {
+            id: id.to_string(),
+            name: id.to_string(),
+            owner_id: String::new(),
+            owner_name: None,
+            snapshot_id: String::new(),
+            num_tracks: 0,
+            tracks: None,
+            collaborative: false,
+            cover_url: None,
+        }
+    }
+
+    fn ids(list: &[Playlist]) -> Vec<&str> {
+        list.iter().map(|p| p.id.as_str()).collect()
+    }
+
+    #[test]
+    fn incomplete_listing_keeps_all_cached_playlists() {
+        let mut local = vec![playlist("a"), playlist("b"), playlist("c")];
+        reconcile_playlists(&mut local, &["a".to_string()], false);
+        assert_eq!(ids(&local), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn complete_listing_prunes_and_sorts() {
+        let mut local = vec![playlist("a"), playlist("b"), playlist("c")];
+        reconcile_playlists(&mut local, &["c".to_string(), "a".to_string()], true);
+        assert_eq!(ids(&local), ["c", "a"]);
     }
 }
