@@ -166,6 +166,9 @@ impl WebApi {
     /// client never does: if its token can't be refreshed, it is disabled for the rest of the
     /// session and its traffic goes to the shared client.
     fn refresh_client(&self, client: &ApiClient, force: bool) -> Option<JoinHandle<()>> {
+        if client.is_disabled() {
+            return None;
+        }
         if !force {
             let token_expiration = client.token_expiration.read().unwrap();
             let now = Utc::now();
@@ -1010,6 +1013,14 @@ mod test {
     use crate::config::Config;
 
     const PERSONAL_ID: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn refresh_client_does_nothing_for_a_disabled_client() {
+        let api = WebApi::new(&Config::new_for_test_with_client_id(PERSONAL_ID));
+        let personal = api.personal.as_ref().unwrap();
+        personal.disabled.store(true, Ordering::SeqCst);
+        assert!(api.refresh_client(personal, true).is_none());
+    }
 
     #[test]
     fn without_personal_id_both_routes_use_the_shared_client() {
