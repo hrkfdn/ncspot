@@ -13,6 +13,7 @@ use ncspot::program_arguments;
 mod application;
 mod authentication;
 mod cli;
+mod client_id;
 mod command;
 mod commands;
 mod config;

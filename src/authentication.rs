@@ -11,7 +11,9 @@ use crate::config::{self, Config};
 use crate::spotify::Spotify;
 
 pub const SPOTIFY_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
-pub const NCSPOT_CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
+/// Client ID of the shared ncspot app, used for Web API calls when no personal client ID is
+/// configured, and always for endpoints that are restricted for newer apps.
+pub const DEFAULT_WEB_API_CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
 
 static OAUTH_SCOPES: &[&str] = &[
     "playlist-modify",
@@ -148,7 +150,7 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
         if let Some(refresh_token) = refresh_token {
             info!("Access token expired, attempting to refresh..");
             let client_builder = OAuthClientBuilder::new(
-                NCSPOT_CLIENT_ID,
+                DEFAULT_WEB_API_CLIENT_ID,
                 &get_client_redirect_uri(ClientUriSuffix::Ncspot),
                 NCSPOT_OAUTH_SCOPES.to_vec(),
             );
@@ -178,7 +180,7 @@ pub fn create_rspotify_token() -> Result<rspotify::Token, String> {
     );
 
     let client_builder = OAuthClientBuilder::new(
-        NCSPOT_CLIENT_ID,
+        DEFAULT_WEB_API_CLIENT_ID,
         &get_client_redirect_uri(ClientUriSuffix::Ncspot),
         NCSPOT_OAUTH_SCOPES.to_vec(),
     );
@@ -279,5 +281,14 @@ mod test {
     fn map_token_yields_no_refresh_token_when_omitted_without_fallback() {
         let mapped = map_token(oauth_token(""), None);
         assert_eq!(mapped.refresh_token, None);
+    }
+
+    #[test]
+    fn client_ids_keep_expected_values() {
+        assert_eq!(SPOTIFY_CLIENT_ID, "65b708073fc0480ea92a077233ca87bd");
+        assert_eq!(
+            DEFAULT_WEB_API_CLIENT_ID,
+            "d420a117a32841c2b3474932e49fb54b"
+        );
     }
 }
