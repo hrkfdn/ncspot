@@ -27,11 +27,7 @@ impl Show {
         }
 
         let episodes_result = spotify.api.show_episodes(&self.id);
-        while !episodes_result.at_end() {
-            if episodes_result.next().is_none() {
-                break;
-            }
-        }
+        episodes_result.fetch_all();
 
         if episodes_result.failed() {
             return;

@@ -45,11 +45,7 @@ impl Playlist {
 
     fn get_all_tracks(&self, spotify: &Spotify) -> Option<Vec<Playable>> {
         let tracks_result = spotify.api.user_playlist_tracks(&self.id);
-        while !tracks_result.at_end() {
-            if tracks_result.next().is_none() {
-                break;
-            }
-        }
+        tracks_result.fetch_all();
 
         if tracks_result.failed() {
             return None;

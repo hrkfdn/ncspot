@@ -75,6 +75,15 @@ impl<I: ListItem + Clone> ApiResult<I> {
         )
     }
 
+    /// Fetch pages until the end is reached or a page fails to load. Check `failed()` afterwards.
+    pub fn fetch_all(&self) {
+        while !self.at_end() {
+            if self.next().is_none() {
+                break;
+            }
+        }
+    }
+
     pub fn next(&self) -> Option<Vec<I>> {
         let offset = self.offset() + self.limit;
         debug!("fetching next page at offset {offset}");
@@ -248,11 +257,7 @@ mod test {
             }
         });
         let r = ApiResult::new(1, fetch);
-        while !r.at_end() {
-            if r.next().is_none() {
-                break;
-            }
-        }
+        r.fetch_all();
         assert!(r.failed());
         assert!(calls.load(Ordering::SeqCst) <= 2);
     }
