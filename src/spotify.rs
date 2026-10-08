@@ -85,7 +85,7 @@ impl Spotify {
             credentials,
             cfg: cfg.clone(),
             status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
-            api: WebApi::new(),
+            api: WebApi::new(&cfg),
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
@@ -113,6 +113,7 @@ impl Spotify {
     /// no network connections are made.
     #[cfg(test)]
     pub fn new_for_test(cfg: Arc<config::Config>, events: EventManager) -> Self {
+        let api = WebApi::new(&cfg);
         Self {
             events,
             #[cfg(feature = "mpris")]
@@ -120,7 +121,7 @@ impl Spotify {
             credentials: Credentials::with_password("test_user", "test_pass"),
             cfg,
             status: Arc::new(RwLock::new(PlayerEvent::Stopped)),
-            api: WebApi::new(),
+            api,
             elapsed: Arc::new(RwLock::new(None)),
             since: Arc::new(RwLock::new(None)),
             channel: Arc::new(RwLock::new(None)),
