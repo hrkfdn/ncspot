@@ -169,8 +169,10 @@ impl WebApi {
     /// the token is valid for more than 5 minutes.
     ///
     /// The shared client may fall back to the browser login, as it always has. The personal
-    /// client never does: if its token can't be refreshed, it is disabled for the rest of the
-    /// session and its traffic goes to the shared client.
+    /// client never does. A permanent failure (see
+    /// `crate::authentication::is_permanent_refresh_failure`) disables it for the rest of the
+    /// session. A transient failure backs it off for `TRANSIENT_REFRESH_BACKOFF` and retries
+    /// afterwards, and the failed call is retried on the shared client in the meantime.
     fn refresh_client(&self, client: &ApiClient, force: bool) -> Option<JoinHandle<()>> {
         if client.is_disabled() {
             return None;
