@@ -389,9 +389,44 @@ fn map_token(
     }
 }
 
+/// Whether a personal token refresh failure (`message` from [refresh_rspotify_token]) is
+/// permanent, so only a new browser login can fix it. Spotify's OAuth error codes appear in the
+/// message because librespot-oauth passes the oauth2 error text through.
+pub fn is_permanent_refresh_failure(message: &str) -> bool {
+    const PERMANENT: &[&str] = &[
+        "invalid_grant",
+        "invalid_client",
+        "unauthorized_client",
+        "no cached Web API token",
+        "has no refresh token",
+    ];
+    PERMANENT.iter().any(|marker| message.contains(marker))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn permanent_refresh_failures_are_detected() {
+        assert!(is_permanent_refresh_failure(
+            "Failed to refresh token: Server returned error response: invalid_grant: Refresh token revoked"
+        ));
+        assert!(is_permanent_refresh_failure(
+            "Failed to refresh token: Server returned error response: invalid_client: bad"
+        ));
+        assert!(is_permanent_refresh_failure("no cached Web API token"));
+        assert!(is_permanent_refresh_failure(
+            "the cached Web API token has no refresh token"
+        ));
+        assert!(!is_permanent_refresh_failure(
+            "Failed to refresh token: Request failed"
+        ));
+        assert!(!is_permanent_refresh_failure(
+            "Failed to refresh token: Failed to parse server response"
+        ));
+        assert!(!is_permanent_refresh_failure(""));
+    }
 
     fn oauth_token(refresh_token: &str) -> librespot_oauth::OAuthToken {
         librespot_oauth::OAuthToken {

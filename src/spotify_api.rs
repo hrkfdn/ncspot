@@ -50,6 +50,9 @@ fn should_retry_on_shared(status: u16, playlist_read: bool) -> bool {
     status == 401 || (playlist_read && matches!(status, 403 | 404))
 }
 
+/// How long the personal client skips refreshing after a transient failure.
+const TRANSIENT_REFRESH_BACKOFF: Duration = Duration::from_secs(30);
+
 /// One rspotify client: a client ID with its own token and rate-limit state.
 #[derive(Clone)]
 struct ApiClient {
@@ -65,6 +68,8 @@ struct ApiClient {
     disabled: Arc<AtomicBool>,
     /// Set while a personal token refresh is running, so a burst of 401s starts only one.
     refreshing: Arc<AtomicBool>,
+    /// Set after a transient personal refresh failure: no new refresh starts before this instant.
+    refresh_backoff_until: Arc<RwLock<Option<Instant>>>,
 }
 
 impl ApiClient {
@@ -86,6 +91,7 @@ impl ApiClient {
             throttle: Arc::new(RwLock::new(ThrottleState::default())),
             disabled: Arc::new(AtomicBool::new(false)),
             refreshing: Arc::new(AtomicBool::new(false)),
+            refresh_backoff_until: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -169,6 +175,15 @@ impl WebApi {
         if client.is_disabled() {
             return None;
         }
+        if client.label == ClientLabel::Personal
+            && client
+                .refresh_backoff_until
+                .read()
+                .unwrap()
+                .is_some_and(|until| until > Instant::now())
+        {
+            return None;
+        }
         if !force {
             let token_expiration = client.token_expiration.read().unwrap();
             let now = Utc::now();
@@ -197,6 +212,7 @@ impl WebApi {
         let label = client.label;
         let disabled = client.disabled.clone();
         let refreshing = client.refreshing.clone();
+        let refresh_backoff_until = client.refresh_backoff_until.clone();
         let events = self.events.clone();
         Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
             let result = match label {
@@ -212,6 +228,18 @@ impl WebApi {
                         .unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
                     *api_token.lock().unwrap() = Some(token);
                     *api_token_expiration.write().unwrap() = expires_at;
+                    *refresh_backoff_until.write().unwrap() = None;
+                }
+                Err(e)
+                    if label == ClientLabel::Personal
+                        && !crate::authentication::is_permanent_refresh_failure(&e) =>
+                {
+                    warn!(
+                        "Temporary failure refreshing the personal client ID's token, retrying \
+                         later: {e}"
+                    );
+                    *refresh_backoff_until.write().unwrap() =
+                        Some(Instant::now() + TRANSIENT_REFRESH_BACKOFF);
                 }
                 Err(e) if label == ClientLabel::Personal => {
                     error!(
@@ -1013,6 +1041,15 @@ mod test {
     use crate::config::Config;
 
     const PERSONAL_ID: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn refresh_client_waits_out_the_backoff() {
+        let api = WebApi::new(&Config::new_for_test_with_client_id(PERSONAL_ID));
+        let personal = api.personal.as_ref().unwrap();
+        *personal.refresh_backoff_until.write().unwrap() =
+            Some(Instant::now() + Duration::from_secs(60));
+        assert!(api.refresh_client(personal, true).is_none());
+    }
 
     #[test]
     fn refresh_client_does_nothing_for_a_disabled_client() {
