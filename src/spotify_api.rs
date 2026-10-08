@@ -96,7 +96,9 @@ impl WebApi {
         let api_token = self.api.token.clone();
         let api_token_expiration = self.token_expiration.clone();
         Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-            match crate::authentication::get_rspotify_token() {
+            match crate::authentication::get_rspotify_token(
+                crate::authentication::DEFAULT_WEB_API_CLIENT_ID,
+            ) {
                 Ok(token) => {
                     let expires_at = token
                         .expires_at

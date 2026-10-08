@@ -101,8 +101,31 @@ impl Application {
         let credentials = authentication::get_credentials(&configuration)?;
         let theme = configuration.build_theme();
 
-        if let Err(e) = authentication::get_rspotify_token() {
+        if let Err(e) =
+            authentication::get_rspotify_token(authentication::DEFAULT_WEB_API_CLIENT_ID)
+        {
             error!("Failed to get rspotify token: {e}");
+        }
+
+        match configuration.personal_client_id() {
+            Some(personal) => {
+                info!(
+                    "Using personal Web API client ID {} from {}",
+                    personal.redacted(),
+                    personal.source
+                );
+                if let Err(e) = authentication::ensure_personal_token(&personal.id) {
+                    error!(
+                        "Can't use the personal Web API client ID, \
+                         falling back to the shared one: {e}"
+                    );
+                    eprintln!(
+                        "Can't use the personal Web API client ID ({e}), using the shared one"
+                    );
+                    configuration.disable_personal_client_id();
+                }
+            }
+            None => info!("Using the default shared Web API client ID"),
         }
 
         println!("Connecting to Spotify..");
