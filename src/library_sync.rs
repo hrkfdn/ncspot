@@ -118,14 +118,15 @@ fn values<T>(items: Vec<SavedItem<T>>) -> Vec<T> {
 }
 
 /// Fetch the next page at `fetched.len()` and append it. Returns `(total, has_next)`, or
-/// `None` if the request failed or returned an empty page while claiming more follow (which
-/// would otherwise loop forever).
+/// `None` if the request failed or returned an empty page while items are still missing, that
+/// is more pages are claimed (which would otherwise loop forever) or fewer than `total` items
+/// were fetched (which would otherwise accept a truncated list, possibly empty).
 fn fetch_into<T>(
     fetched: &mut Vec<SavedItem<T>>,
     fetch_page: &mut impl FnMut(usize) -> Option<SavedPage<T>>,
 ) -> Option<(usize, bool)> {
     let page = fetch_page(fetched.len())?;
-    if page.items.is_empty() && page.has_next {
+    if page.items.is_empty() && (page.has_next || fetched.len() < page.total) {
         return None;
     }
     fetched.extend(page.items);
@@ -572,5 +573,59 @@ mod test {
     fn saved_failed_page_keeps_the_store() {
         let stored = some(&["a"]);
         assert_eq!(sync_saved::<String>(&stored, |_| None), Synced::Failed);
+    }
+
+    // empty and failing pages
+
+    fn empty_page(total: usize) -> Option<SavedPage<String>> {
+        Some(SavedPage {
+            items: Vec::new(),
+            total,
+            has_next: false,
+        })
+    }
+
+    #[test]
+    fn liked_empty_final_page_with_a_positive_total_fails() {
+        let synced = sync_liked(
+            &names("t", 3),
+            |t: &String| Some(t.clone()),
+            |_| empty_page(5),
+        );
+        assert_eq!(synced, Synced::Failed);
+    }
+
+    #[test]
+    fn liked_empty_list_is_a_full_empty_sync() {
+        let synced = sync_liked(
+            &names("t", 3),
+            |t: &String| Some(t.clone()),
+            |_| empty_page(0),
+        );
+        assert_eq!(synced, Synced::Full(Vec::new()));
+    }
+
+    #[test]
+    fn saved_empty_final_page_with_a_mismatched_total_fails() {
+        let stored = some(&["a", "b"]);
+        let synced = sync_saved(&stored, |_| empty_page(5));
+        assert_eq!(synced, Synced::Failed);
+    }
+
+    #[test]
+    fn saved_failing_second_page_fails() {
+        let list = remote(&names("a", 120));
+        let stored = some(&["old"]);
+        let synced = sync_saved(&stored, |offset| {
+            if offset > 0 {
+                return None;
+            }
+            Some(SavedPage {
+                items: list[..PAGE].to_vec(),
+                total: list.len(),
+                has_next: true,
+            })
+        });
+        assert_eq!(synced, Synced::Failed);
     }
 }
