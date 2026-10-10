@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::iter::Iterator;
 use std::path::Path;
@@ -135,30 +135,31 @@ impl Library {
         }
     }
 
-    /// Check whether the `remote` [Playlist] is newer than its locally saved version. Returns
-    /// `true` if it is or if a local version isn't found.
+    /// Whether `remote` is missing locally or the local copy [is_stale].
     fn needs_download(&self, remote: &Playlist) -> bool {
         self.playlists
             .read()
             .unwrap()
             .iter()
             .find(|local| local.id == remote.id)
-            .map(|local| local.snapshot_id != remote.snapshot_id)
-            .unwrap_or(true)
+            .is_none_or(|local| is_stale(local, remote))
     }
 
-    /// Append `updated` to the local playlists or update the local version if it exists. Return the
-    /// index of the appended/updated playlist.
-    fn append_or_update(&self, updated: Playlist) -> usize {
+    /// Update `updated`, or add it at the end, or at the front if `first`. If its tracks failed
+    /// to load, keep the cached tracks and snapshot, so it reloads next time.
+    fn append_or_update(&self, mut updated: Playlist, first: bool) {
         let mut store = self.playlists.write().unwrap();
-        for (index, local) in store.iter_mut().enumerate() {
-            if local.id == updated.id {
+        match store.iter_mut().find(|local| local.id == updated.id) {
+            Some(local) => {
+                if updated.tracks.is_none() && local.tracks.is_some() {
+                    updated.tracks = local.tracks.take();
+                    updated.snapshot_id = std::mem::take(&mut local.snapshot_id);
+                }
                 *local = updated;
-                return index;
             }
+            None if first => store.insert(0, updated),
+            None => store.push(updated),
         }
-        store.push(updated);
-        store.len() - 1
     }
 
     /// Delete the playlist with the given `id` if it exists.
@@ -191,7 +192,14 @@ impl Library {
         debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.api.overwrite_playlist(id, tracks);
 
-        self.fetch_playlists();
+        // only reload this playlist, as a full sync runs on the UI thread here
+        if let Ok(remote) = self.spotify.api.playlist(id) {
+            let mut playlist = Playlist::from(&remote);
+            playlist.load_tracks(&self.spotify);
+            // a new playlist goes first, as on Spotify
+            self.append_or_update(playlist, true);
+            self.trigger_redraw();
+        }
         self.save_cache(
             &config::cache_path(CACHE_PLAYLISTS),
             &self.playlists.read().unwrap(),
@@ -301,22 +309,26 @@ impl Library {
         debug!("loading shows");
 
         let mut saved_shows: Vec<Show> = Vec::new();
-        let mut shows_result = self.spotify.api.get_saved_shows(0).ok();
+        let mut offset = 0;
 
-        while let Some(shows) = shows_result {
+        loop {
+            let Ok(shows) = self.spotify.api.get_saved_shows(offset) else {
+                error!("Failed to load all saved shows");
+                // shows aren't cached on disk, so a partial list beats none at startup
+                let mut store = self.shows.write().unwrap();
+                if store.is_empty() {
+                    *store = saved_shows;
+                }
+                return;
+            };
             saved_shows.extend(shows.items.iter().map(|show| (&show.show).into()));
 
             // load next batch if necessary
-            shows_result = match shows.next {
-                Some(_) => {
-                    debug!("requesting shows again..");
-                    self.spotify
-                        .api
-                        .get_saved_shows(shows.offset + shows.items.len() as u32)
-                        .ok()
-                }
-                None => None,
+            if shows.next.is_none() {
+                break;
             }
+            debug!("requesting shows again..");
+            offset = shows.offset + shows.items.len() as u32;
         }
 
         *self.shows.write().unwrap() = saved_shows;
@@ -326,53 +338,62 @@ impl Library {
     /// the local version with the remote, pruning removed playlists in the process.
     fn fetch_playlists(&self) {
         debug!("loading playlists");
-        let mut stale_lists = self.playlists.read().unwrap().clone();
-        let mut list_order = Vec::new();
+        let cached: HashSet<String> = self
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .map(|p| p.id.clone())
+            .collect();
+        let mut list_order: HashMap<String, usize> = HashMap::new();
+        let rate_limit_failures = self.spotify.api.rate_limit_failures();
 
         let lists_page = self.spotify.api.current_user_playlist();
         let mut lists_batch = Some(lists_page.items.read().unwrap().clone());
         while let Some(lists) = lists_batch {
             for (index, remote) in lists.iter().enumerate() {
-                list_order.push(remote.id.clone());
-
-                // remove from stale playlists so we won't prune it later on
-                if let Some(index) = stale_lists.iter().position(|x| x.id == remote.id) {
-                    stale_lists.remove(index);
+                list_order.insert(remote.id.clone(), list_order.len());
+                if !self.needs_download(remote) {
+                    continue;
                 }
 
-                if self.needs_download(remote) {
-                    info!("updating playlist {} (index: {})", remote.name, index);
-                    let mut playlist: Playlist = remote.clone();
-                    playlist.tracks = None;
-                    playlist.load_tracks(&self.spotify);
-                    self.append_or_update(playlist);
-                    // trigger redraw
-                    self.trigger_redraw();
+                let mut playlist: Playlist = remote.clone();
+                playlist.tracks = None;
+                // once rate limited, load the rest on the next update
+                if self.spotify.api.rate_limit_failures() != rate_limit_failures {
+                    if !cached.contains(&playlist.id) {
+                        self.append_or_update(playlist, false);
+                    }
+                    continue;
                 }
+
+                info!("updating playlist {} (index: {})", remote.name, index);
+                playlist.load_tracks(&self.spotify);
+                self.append_or_update(playlist, false);
+                // trigger redraw
+                self.trigger_redraw();
             }
             lists_batch = lists_page.next();
         }
 
-        // remove stale playlists
-        for stale in stale_lists {
-            let index = self
-                .playlists
-                .read()
-                .unwrap()
-                .iter()
-                .position(|x| x.id == stale.id);
-            if let Some(index) = index {
-                debug!("removing stale list: {:?}", stale.name);
-                self.playlists.write().unwrap().remove(index);
-            }
+        // only a complete listing shows which playlists were removed
+        if lists_page.is_complete() {
+            self.playlists.write().unwrap().retain(|p| {
+                let removed = cached.contains(&p.id) && !list_order.contains_key(&p.id);
+                if removed {
+                    debug!("removing stale list: {:?}", p.name);
+                }
+                !removed
+            });
+        } else {
+            error!("Failed to load all playlists, keeping cached playlists");
         }
 
-        // sort by remote order
-        self.playlists.write().unwrap().sort_by(|a, b| {
-            let a_index = list_order.iter().position(|x| x == &a.id);
-            let b_index = list_order.iter().position(|x| x == &b.id);
-            a_index.cmp(&b_index)
-        });
+        // sort by remote order, unlisted ones last
+        self.playlists
+            .write()
+            .unwrap()
+            .sort_by_key(|p| list_order.get(&p.id).copied().unwrap_or(usize::MAX));
 
         // trigger redraw
         self.trigger_redraw();
@@ -927,5 +948,120 @@ impl Library {
     /// Force redraw the user interface.
     pub fn trigger_redraw(&self) {
         self.ev.trigger();
+    }
+}
+
+/// Whether `local` must be reloaded: the snapshot changed or the tracks failed to load. Empty
+/// tracks with a non-zero count are included, to repair caches from before this check.
+fn is_stale(local: &Playlist, remote: &Playlist) -> bool {
+    local.snapshot_id != remote.snapshot_id
+        || local
+            .tracks
+            .as_ref()
+            .is_none_or(|tracks| tracks.is_empty() && local.num_tracks > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn playlist(snapshot_id: &str, num_tracks: usize, tracks: Option<Vec<Playable>>) -> Playlist {
+        Playlist {
+            id: "id".to_string(),
+            name: "name".to_string(),
+            owner_id: "owner".to_string(),
+            owner_name: None,
+            snapshot_id: snapshot_id.to_string(),
+            num_tracks,
+            tracks,
+            collaborative: false,
+        }
+    }
+
+    #[test]
+    fn playlist_is_stale_when_snapshot_changed() {
+        assert!(is_stale(
+            &playlist("a", 0, Some(vec![])),
+            &playlist("b", 0, None)
+        ));
+    }
+
+    #[test]
+    fn playlist_is_stale_when_tracks_failed_to_load() {
+        let remote = playlist("a", 53, None);
+        assert!(is_stale(&playlist("a", 53, Some(vec![])), &remote));
+        assert!(is_stale(&playlist("a", 53, None), &remote));
+    }
+
+    #[test]
+    fn loaded_playlist_without_playable_tracks_is_not_stale() {
+        assert!(!is_stale(
+            &playlist("a", 0, Some(vec![])),
+            &playlist("a", 3, None)
+        ));
+    }
+
+    #[test]
+    fn empty_playlist_is_not_stale() {
+        assert!(!is_stale(
+            &playlist("a", 0, Some(vec![])),
+            &playlist("a", 0, None)
+        ));
+    }
+
+    #[test]
+    fn failed_reload_keeps_cached_tracks_and_snapshot() {
+        let cfg = Config::new_for_test();
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let library = Library::new_for_test(ev, spotify, cfg);
+
+        let tracks = vec![crate::queue::tests::make_track(1)];
+        library.append_or_update(playlist("old", 1, Some(tracks)), false);
+        let mut renamed = playlist("new", 2, None);
+        renamed.name = "renamed".to_string();
+        library.append_or_update(renamed, false);
+
+        let store = library.playlists.read().unwrap();
+        assert_eq!(store.len(), 1);
+        assert_eq!(store[0].name, "renamed");
+        assert_eq!(store[0].snapshot_id, "old");
+        assert_eq!(store[0].tracks.as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn failed_repair_stays_stale() {
+        let cfg = Config::new_for_test();
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let library = Library::new_for_test(ev, spotify, cfg);
+
+        library.append_or_update(playlist("a", 53, Some(vec![])), false);
+        library.append_or_update(playlist("a", 53, None), false);
+
+        let store = library.playlists.read().unwrap();
+        assert!(is_stale(&store[0], &playlist("a", 53, None)));
+    }
+
+    #[test]
+    fn new_playlist_can_be_added_first() {
+        let cfg = Config::new_for_test();
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let library = Library::new_for_test(ev, spotify, cfg);
+
+        library.append_or_update(playlist("a", 0, None), false);
+        let mut new = playlist("a", 0, None);
+        new.id = "new".to_string();
+        library.append_or_update(new, true);
+
+        let store = library.playlists.read().unwrap();
+        assert_eq!(store[0].id, "new");
+    }
+
+    #[test]
+    fn loaded_playlist_is_not_stale() {
+        let local = playlist("a", 1, Some(vec![crate::queue::tests::make_track(1)]));
+        assert!(!is_stale(&local, &playlist("a", 1, None)));
     }
 }

@@ -26,13 +26,7 @@ impl Show {
             return;
         }
 
-        let episodes_result = spotify.api.show_episodes(&self.id);
-        while !episodes_result.at_end() {
-            episodes_result.next();
-        }
-
-        let episodes = episodes_result.items.read().unwrap().clone();
-        self.episodes = Some(episodes);
+        self.episodes = spotify.api.show_episodes(&self.id).fetch_all();
     }
 }
 
@@ -100,9 +94,7 @@ impl ListItem for Show {
             .iter()
             .map(|ep| Playable::Episode(ep.clone()))
             .collect::<Vec<_>>();
-
-        let index = queue.append_next(&playables);
-        queue.play(index, true, true);
+        queue.play_all(&playables, true, true);
     }
 
     fn play_next(&mut self, queue: &Queue) {

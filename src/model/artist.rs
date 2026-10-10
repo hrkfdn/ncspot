@@ -126,8 +126,7 @@ impl ListItem for Artist {
                 .iter()
                 .map(|track| Playable::Track(track.clone()))
                 .collect();
-            let index = queue.append_next(&tracks);
-            queue.play(index, true, true);
+            queue.play_all(&tracks, true, true);
         }
     }
 

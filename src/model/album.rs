@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
-use log::debug;
+use log::{debug, warn};
 use rspotify::model::album::{FullAlbum, SavedAlbum, SimplifiedAlbum};
 
 use crate::library::Library;
@@ -51,18 +51,27 @@ impl Album {
                     tracks_result = match tracks.next {
                         Some(_) => {
                             debug!("requesting tracks again..");
-                            spotify
+                            let next = spotify
                                 .api
                                 .album_tracks(
                                     album_id,
                                     50,
                                     tracks.offset + tracks.items.len() as u32,
                                 )
-                                .ok()
+                                .ok();
+                            if next.is_none() {
+                                // leave unloaded rather than store a partial list
+                                warn!("Failed to load all tracks of album {album_id}");
+                                return;
+                            }
+                            next
                         }
                         None => None,
                     }
                 }
+            } else {
+                warn!("Failed to load album {album_id}");
+                return;
             }
 
             self.total_tracks = Some(collected_tracks.len());
@@ -197,8 +206,7 @@ impl ListItem for Album {
                 .iter()
                 .map(|track| Playable::Track(track.clone()))
                 .collect();
-            let index = queue.append_next(&tracks);
-            queue.play(index, true, true);
+            queue.play_all(&tracks, true, true);
         }
     }
 
