@@ -44,6 +44,7 @@ pub struct TrackFormat {
     pub left: Option<String>,
     pub center: Option<String>,
     pub right: Option<String>,
+    pub number_format: Option<String>,
 }
 
 impl TrackFormat {
@@ -52,6 +53,7 @@ impl TrackFormat {
             left: Some(String::from("%artists - %title")),
             center: Some(String::from("%album")),
             right: Some(String::from("%saved %duration")),
+            number_format: Some(String::from("{:>2}")),
         }
     }
 }
@@ -61,6 +63,7 @@ impl TrackFormat {
 pub struct NotificationFormat {
     pub title: Option<String>,
     pub body: Option<String>,
+    pub number_format: Option<String>,
 }
 
 impl NotificationFormat {
@@ -68,6 +71,7 @@ impl NotificationFormat {
         Self {
             title: Some(String::from("%title")),
             body: Some(String::from("%artists")),
+            number_format: Some(String::from("{0:2}")),
         }
     }
 }
@@ -98,6 +102,7 @@ pub struct ConfigValues {
     pub track_format: Option<TrackFormat>,
     pub notification_format: Option<NotificationFormat>,
     pub statusbar_format: Option<String>,
+    pub number_format: Option<String>,
     pub library_tabs: Option<Vec<LibraryTab>>,
     pub hide_display_names: Option<bool>,
     pub ap_port: Option<u16>,
