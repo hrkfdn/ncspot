@@ -15,6 +15,8 @@ pub struct ApiResult<I> {
     pub total: u32,
     pub items: Arc<RwLock<Vec<I>>>,
     fetch_page: Arc<FetchPageFn<I>>,
+    /// The first page failed, so `total` is 0 regardless of the remote collection.
+    first_page_failed: bool,
 }
 
 impl<I: ListItem + Clone> ApiResult<I> {
@@ -33,6 +35,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 total: first_page.total,
                 items,
                 fetch_page: fetch_page.clone(),
+                first_page_failed: false,
             }
         } else {
             Self {
@@ -41,6 +44,7 @@ impl<I: ListItem + Clone> ApiResult<I> {
                 total: 0,
                 items,
                 fetch_page: fetch_page.clone(),
+                first_page_failed: true,
             }
         }
     }
@@ -51,6 +55,20 @@ impl<I: ListItem + Clone> ApiResult<I> {
 
     pub fn at_end(&self) -> bool {
         (self.offset() + self.limit) >= self.total
+    }
+
+    /// Whether all pages were fetched. `at_end` alone is wrong after a failed page.
+    pub fn is_complete(&self) -> bool {
+        !self.first_page_failed && self.at_end()
+    }
+
+    /// Fetch the remaining pages and take all items, or `None` if a page failed.
+    pub fn fetch_all(&self) -> Option<Vec<I>> {
+        while !self.at_end() {
+            self.next()?;
+        }
+        self.is_complete()
+            .then(|| std::mem::take(&mut *self.items.write().unwrap()))
     }
 
     pub fn apply_pagination(self, pagination: &Pagination<I>) {
@@ -150,5 +168,47 @@ impl<I: ListItem + Clone> Pagination<I> {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::playable::Playable;
+    use crate::queue::tests::make_track;
+
+    /// Returns `total` tracks, where fetching the page at `failing_offset` fails.
+    fn api_result(total: u32, failing_offset: Option<u32>) -> ApiResult<Playable> {
+        ApiResult::new(
+            2,
+            Arc::new(move |offset| {
+                (Some(offset) != failing_offset).then(|| ApiPage {
+                    offset,
+                    total,
+                    items: (offset..total.min(offset + 2)).map(make_track).collect(),
+                })
+            }),
+        )
+    }
+
+    #[test]
+    fn fetch_all_returns_all_items() {
+        let result = api_result(5, None);
+        assert_eq!(result.fetch_all().map(|items| items.len()), Some(5));
+        assert!(result.is_complete());
+    }
+
+    #[test]
+    fn fetch_all_stops_at_failed_page() {
+        let result = api_result(5, Some(2));
+        assert!(result.fetch_all().is_none());
+        assert!(!result.is_complete());
+    }
+
+    #[test]
+    fn failed_first_page_is_incomplete() {
+        let result = api_result(5, Some(0));
+        assert!(result.fetch_all().is_none());
+        assert!(!result.is_complete());
     }
 }

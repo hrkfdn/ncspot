@@ -280,6 +280,16 @@ impl Queue {
         }
     }
 
+    /// Insert `tracks` after the current track and play them. Does nothing for an empty list,
+    /// which would otherwise play the track after the current one.
+    pub fn play_all(&self, tracks: &[Playable], reshuffle: bool, shuffle_index: bool) {
+        if tracks.is_empty() {
+            return;
+        }
+        let index = self.append_next(tracks);
+        self.play(index, reshuffle, shuffle_index);
+    }
+
     /// Play the item at `index` in `self.queue`.
     ///
     /// `reshuffle`: Reshuffle the current order of the queue.
@@ -540,7 +550,7 @@ pub fn send_notification(summary_txt: &str, body_txt: &str, cover_url: Option<St
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::{Arc, RwLock};
 
     use super::*;
@@ -550,7 +560,7 @@ mod tests {
     use crate::model::track::Track;
     use crate::spotify::Spotify;
 
-    fn make_track(id: u32) -> Playable {
+    pub(crate) fn make_track(id: u32) -> Playable {
         Playable::Track(Track {
             id: Some(format!("id_{id}")),
             uri: format!("spotify:track:id_{id}"),
@@ -755,6 +765,14 @@ mod tests {
         let queue = q.queue.read().unwrap();
         let ids: Vec<&str> = queue.iter().map(track_id).collect();
         assert_eq!(ids, ["id_0", "id_1", "id_3", "id_4", "id_2"]);
+    }
+
+    #[test]
+    fn test_play_all_empty_keeps_current() {
+        let q = make_queue(vec![make_track(0), make_track(1)], Some(0));
+        q.play_all(&[], true, true);
+        assert_eq!(q.get_current_index(), Some(0));
+        assert_eq!(q.len(), 2);
     }
 
     #[test]

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Playlists that failed to load, for example when rate limited, are reloaded
+  instead of staying empty
+- A failed playlist or podcast page is no longer retried forever
+- A failed load no longer removes cached playlists or saved podcasts, and
+  albums with missing tracks are loaded again when played
+- Playing an empty playlist, album or podcast no longer starts an unrelated
+  track
+
 ## [1.5.0]
 
 ### Added
@@ -314,6 +326,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Albums with more than 50 songs not showing all the songs when viewed in the library
 - Bug that could cause items to not load until the screen is filled on bigger screens
 
+[Unreleased]: https://github.com/hrkfdn/ncspot/compare/v1.5.0...HEAD
 [1.5.0]: https://github.com/hrkfdn/ncspot/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/hrkfdn/ncspot/compare/v1.3.4...v1.4.0
 [1.3.4]: https://github.com/hrkfdn/ncspot/compare/v1.3.3...v1.3.4
