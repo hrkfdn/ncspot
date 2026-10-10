@@ -26,7 +26,10 @@ use crate::model::episode::Episode;
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::track::Track;
-use crate::rate_limit::{ClientLabel, DEFAULT_RETRY_AFTER, ThrottleState, parse_retry_after};
+use crate::rate_limit::{
+    Attempt, ClientLabel, ThrottleState, is_ui_thread, parse_retry_after, random_jitter,
+    run_rate_limited,
+};
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
 
@@ -295,24 +298,29 @@ impl WebApi {
             .collect()
     }
 
-    /// Record a 429 on `client`. At the start of a throttle episode, tell the UI (which shows a
-    /// notification) and keep the status bar countdown redrawing until the window has passed.
-    fn on_rate_limited(&self, client: &ApiClient, retry_after: Option<Duration>) {
-        let new_episode = client
-            .throttle
-            .write()
-            .unwrap()
-            .record_429(Instant::now(), retry_after.unwrap_or(DEFAULT_RETRY_AFTER));
-        if !new_episode {
-            return;
-        }
+    /// Record a 429 on `client` with a window of `window`. At the start of a throttle episode,
+    /// keep the status bar countdown redrawing until the window has passed; tell the UI (log
+    /// line and notification) at most once per `NOTIFY_COOLDOWN`, so short backoff windows do
+    /// not repeat the notification.
+    fn on_rate_limited(&self, client: &ApiClient, window: Duration) {
+        let now = Instant::now();
+        let (new_episode, announce) = {
+            let mut throttle = client.throttle.write().unwrap();
+            let new_episode = throttle.record_429(now, window);
+            (new_episode, new_episode && throttle.should_announce(now))
+        };
         let Some(events) = self.events.clone() else {
             return;
         };
-        events.try_send(Event::RateLimited {
-            client: client.label,
-            retry_after: retry_after.unwrap_or(DEFAULT_RETRY_AFTER),
-        });
+        if announce {
+            events.try_send(Event::RateLimited {
+                client: client.label,
+                retry_after: window,
+            });
+        }
+        if !new_episode {
+            return;
+        }
 
         // The UI refresh tick doesn't run while playback is stopped, so redraw the countdown
         // from here until the window has passed, then once more to clear it.
@@ -328,58 +336,78 @@ impl WebApi {
         });
     }
 
-    /// Execute `api_call` on `client`, retrying once after a rate limit (429). A 401 on the
-    /// shared client refreshes and retries, as before; a 401 on the personal client starts a
-    /// forced background refresh and fails, so the caller can retry on the shared client. On
-    /// failure, returns the HTTP status if the server sent one.
-    fn call_on<F, R>(&self, client: &ApiClient, api_call: &F) -> Result<R, Option<u16>>
+    /// Whether any client got a 429 at or after `since`, even if its window has closed since.
+    pub fn rate_limited_since(&self, since: Instant) -> bool {
+        self.personal
+            .iter()
+            .chain(std::iter::once(&self.shared))
+            .any(|client| client.throttle.read().unwrap().rate_limited_since(since))
+    }
+
+    /// Send `api_call` once on `client` and classify the result for [run_rate_limited].
+    fn attempt<F, R>(client: &ApiClient, api_call: &F) -> Attempt<R>
     where
         F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
     {
         match api_call(&client.api) {
-            Ok(v) => {
-                client
-                    .throttle
-                    .write()
-                    .unwrap()
-                    .record_success(Instant::now());
-                Ok(v)
-            }
+            Ok(v) => Attempt::Done(v),
             Err(ClientError::Http(error)) => {
                 debug!("http error: {error:?}");
                 match error.as_ref() {
-                    HttpError::StatusCode(response) => match response.status() {
-                        429 => {
-                            let header = response.header("Retry-After");
-                            let retry_after = parse_retry_after(header);
-                            warn!(
-                                "rate limited on the {} client ID at {}, Retry-After: {header:?}",
-                                client.label,
-                                response.get_url()
-                            );
-                            self.on_rate_limited(client, retry_after);
-                            thread::sleep(retry_after.unwrap_or(Duration::ZERO));
-                            api_call(&client.api).map_err(|_| None)
-                        }
-                        401 if client.label == ClientLabel::Personal => {
-                            debug!("personal token unauthorized, refreshing in the background");
-                            self.refresh_client(client, true);
-                            Err(Some(401))
-                        }
-                        401 => {
-                            debug!("token unauthorized. trying refresh..");
-                            self.refresh_client(client, false)
-                                .ok_or(None)
-                                .and_then(|_| api_call(&client.api).map_err(|_| None))
-                        }
-                        status => Err(Some(status)),
-                    },
-                    _ => Err(None),
+                    HttpError::StatusCode(response) if response.status() == 429 => {
+                        let header = response.header("Retry-After");
+                        warn!(
+                            "rate limited on the {} client ID at {}, Retry-After: {header:?}",
+                            client.label,
+                            response.get_url()
+                        );
+                        Attempt::RateLimited(parse_retry_after(header))
+                    }
+                    HttpError::StatusCode(response) => Attempt::Failed(Some(response.status())),
+                    _ => Attempt::Failed(None),
                 }
             }
             Err(e) => {
                 error!("unhandled api error: {e}");
-                Err(None)
+                Attempt::Failed(None)
+            }
+        }
+    }
+
+    /// Execute `api_call` on `client` with bounded rate-limit handling (see [run_rate_limited]):
+    /// the UI thread never waits on a rate limit, background threads wait through short
+    /// windows. A 401 on the shared client refreshes and retries once, through the same rate
+    /// limit checks; a 401 on the personal client starts a forced background refresh and fails,
+    /// so the caller can retry on the shared client. On failure, returns the HTTP status if the
+    /// server sent one.
+    fn call_on<F, R>(&self, client: &ApiClient, api_call: &F) -> Result<R, Option<u16>>
+    where
+        F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
+    {
+        let mut refreshed = false;
+        loop {
+            let result = run_rate_limited(
+                client.label,
+                &client.throttle,
+                is_ui_thread(),
+                random_jitter,
+                || Self::attempt(client, api_call),
+                |window| self.on_rate_limited(client, window),
+            );
+            match result {
+                Err(Some(401)) if client.label == ClientLabel::Personal => {
+                    debug!("personal token unauthorized, refreshing in the background");
+                    self.refresh_client(client, true);
+                    return Err(Some(401));
+                }
+                Err(Some(401)) if !refreshed => {
+                    debug!("token unauthorized. trying refresh..");
+                    if self.refresh_client(client, false).is_none() {
+                        return Err(None);
+                    }
+                    refreshed = true;
+                }
+                other => return other,
             }
         }
     }
@@ -399,6 +427,10 @@ impl WebApi {
             {
                 debug!("personal client ID got HTTP {status}, retrying on the shared client ID");
                 self.call_with_fallback(Route::Restricted, false, api_call)
+            }
+            Err(Some(429)) => {
+                warn!("{} client ID is rate limited, call failed", client.label);
+                None
             }
             Err(Some(status)) => {
                 error!("unhandled api error: HTTP {status}");
@@ -1153,9 +1185,19 @@ mod test {
     #[test]
     fn on_rate_limited_opens_the_window_of_that_client_only() {
         let api = WebApi::new(&Config::new_for_test_with_client_id(PERSONAL_ID));
-        api.on_rate_limited(api.client(Route::Bulk), Some(Duration::from_secs(30)));
+        api.on_rate_limited(api.client(Route::Bulk), Duration::from_secs(30));
         let status = api.rate_limit_status();
         assert_eq!(status.len(), 1);
         assert_eq!(status[0].0, ClientLabel::Personal);
+    }
+
+    #[test]
+    fn rate_limited_since_sees_a_429_on_any_client() {
+        let api = WebApi::new(&Config::new_for_test_with_client_id(PERSONAL_ID));
+        let start = Instant::now();
+        assert!(!api.rate_limited_since(start));
+        api.on_rate_limited(&api.shared, Duration::from_millis(1));
+        assert!(api.rate_limited_since(start));
+        assert!(!api.rate_limited_since(Instant::now() + Duration::from_secs(1)));
     }
 }

@@ -82,6 +82,11 @@ fn main() -> Result<(), String> {
                 }
             };
 
+            // From here on this thread runs the UI: its Web API calls never wait out a rate
+            // limit. Startup work in Application::new above may still wait like a background
+            // thread.
+            rate_limit::set_ui_thread();
+
             // Start the application event loop.
             application.run()
         }
