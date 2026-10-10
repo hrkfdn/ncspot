@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::iter::Iterator;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
 use rspotify::model::Id;
@@ -19,6 +21,7 @@ use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::show::Show;
 use crate::model::track::Track;
+use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, random_jitter};
 use crate::spotify::Spotify;
 
 /// Cached tracks database filename.
@@ -43,6 +46,13 @@ pub struct Library {
     pub playlists: Arc<RwLock<Vec<Playlist>>>,
     pub shows: Arc<RwLock<Vec<Show>>>,
     pub is_done: Arc<RwLock<bool>>,
+    /// Set while a library sync runs, so a second one (Shift+U twice, or during the startup
+    /// sync) is skipped instead of doubling the API traffic.
+    syncing: Arc<AtomicBool>,
+    /// Set while an automatic resume of an incomplete sync is scheduled.
+    resume_pending: Arc<AtomicBool>,
+    /// Automatic resumes since the last complete sync.
+    resume_count: Arc<AtomicU32>,
     pub user_id: Option<String>,
     pub display_name: Option<String>,
     ev: EventManager,
@@ -61,6 +71,9 @@ impl Library {
             playlists: Arc::new(RwLock::new(Vec::new())),
             shows: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
+            syncing: Arc::new(AtomicBool::new(false)),
+            resume_pending: Arc::new(AtomicBool::new(false)),
+            resume_count: Arc::new(AtomicU32::new(0)),
             user_id: None,
             display_name: None,
             ev,
@@ -81,6 +94,9 @@ impl Library {
             playlists: Arc::new(RwLock::new(Vec::new())),
             shows: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
+            syncing: Arc::new(AtomicBool::new(false)),
+            resume_pending: Arc::new(AtomicBool::new(false)),
+            resume_count: Arc::new(AtomicU32::new(0)),
             user_id,
             display_name,
             ev,
@@ -213,12 +229,25 @@ impl Library {
         }
     }
 
-    /// Update the local library and its cache on disk.
+    /// Update the local library and its cache on disk. Does nothing if a sync is already
+    /// running. If the sync is left incomplete by a rate limit, a resume is scheduled for when
+    /// the limit has passed.
     pub fn update_library(&self) {
+        if self
+            .syncing
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            info!("library sync already running, skipped");
+            return;
+        }
         *self.is_done.write().unwrap() = false;
 
         let library = self.clone();
         thread::spawn(move || {
+            let _guard = SyncGuard(library.syncing.clone());
+            let sync_start = Instant::now();
+
             let t_tracks = {
                 let library = library.clone();
                 thread::spawn(move || {
@@ -226,11 +255,12 @@ impl Library {
                         &config::cache_path(CACHE_TRACKS),
                         library.tracks.write().unwrap().as_mut(),
                     );
-                    library.fetch_tracks();
+                    let complete = library.fetch_tracks();
                     library.save_cache(
                         &config::cache_path(CACHE_TRACKS),
                         &library.tracks.read().unwrap(),
                     );
+                    complete
                 })
             };
 
@@ -241,11 +271,12 @@ impl Library {
                         &config::cache_path(CACHE_ALBUMS),
                         library.albums.write().unwrap().as_mut(),
                     );
-                    library.fetch_albums();
+                    let complete = library.fetch_albums();
                     library.save_cache(
                         &config::cache_path(CACHE_ALBUMS),
                         &library.albums.read().unwrap(),
                     );
+                    complete
                 })
             };
 
@@ -256,7 +287,7 @@ impl Library {
                         &config::cache_path(CACHE_ARTISTS),
                         library.artists.write().unwrap().as_mut(),
                     );
-                    library.fetch_artists();
+                    library.fetch_artists()
                 })
             };
 
@@ -267,24 +298,24 @@ impl Library {
                         &config::cache_path(CACHE_PLAYLISTS),
                         library.playlists.write().unwrap().as_mut(),
                     );
-                    if library.fetch_playlists() {
+                    let complete = library.fetch_playlists();
+                    if complete {
                         library.save_cache(
                             &config::cache_path(CACHE_PLAYLISTS),
                             &library.playlists.read().unwrap(),
                         );
                     }
+                    complete
                 })
             };
 
             let t_shows = {
                 let library = library.clone();
-                thread::spawn(move || {
-                    library.fetch_shows();
-                })
+                thread::spawn(move || library.fetch_shows())
             };
 
-            t_tracks.join().unwrap();
-            t_artists.join().unwrap();
+            let tracks_complete = t_tracks.join().unwrap();
+            let artists_complete = t_artists.join().unwrap();
 
             library.populate_artists();
             library.save_cache(
@@ -292,41 +323,100 @@ impl Library {
                 &library.artists.read().unwrap(),
             );
 
-            t_albums.join().unwrap();
-            t_playlists.join().unwrap();
-            t_shows.join().unwrap();
+            let albums_complete = t_albums.join().unwrap();
+            let playlists_complete = t_playlists.join().unwrap();
+            let shows_complete = t_shows.join().unwrap();
 
-            let mut is_done = library.is_done.write().unwrap();
-            *is_done = true;
-
+            *library.is_done.write().unwrap() = true;
             library.ev.trigger();
+
+            let complete = tracks_complete
+                && artists_complete
+                && albums_complete
+                && playlists_complete
+                && shows_complete;
+            library.schedule_resume(complete, sync_start);
         });
     }
 
-    /// Fetch the shows from the web API and save them to the local library.
-    fn fetch_shows(&self) {
+    /// After a sync that started at `sync_start`: reset the resume count if it was complete,
+    /// or schedule one resume if it was left incomplete by a rate limit.
+    fn schedule_resume(&self, complete: bool, sync_start: Instant) {
+        if complete {
+            self.resume_count.store(0, Ordering::SeqCst);
+            return;
+        }
+        let rate_limited = self.spotify.api.rate_limited_since(sync_start);
+        let count = self.resume_count.load(Ordering::SeqCst);
+        let pending = self.resume_pending.load(Ordering::SeqCst);
+        if !should_schedule_resume(complete, rate_limited, count, pending) {
+            if !rate_limited {
+                info!("library sync incomplete, not rate limited: no automatic resume");
+            } else if count >= MAX_SYNC_RESUMES {
+                warn!(
+                    "library sync still incomplete after {MAX_SYNC_RESUMES} automatic resumes, \
+                     waiting for a manual update"
+                );
+            } else {
+                info!("library sync resume already pending");
+            }
+            return;
+        }
+        if self
+            .resume_pending
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            info!("library sync resume already pending");
+            return;
+        }
+
+        let longest = self
+            .spotify
+            .api
+            .rate_limit_status()
+            .into_iter()
+            .map(|(_, remaining)| remaining)
+            .max()
+            .unwrap_or_default();
+        let delay = resume_delay(longest, random_jitter());
+        info!(
+            "library sync incomplete after a rate limit, resuming in {}s (attempt {}/{MAX_SYNC_RESUMES})",
+            delay.as_secs(),
+            count + 1
+        );
+
+        let library = self.clone();
+        thread::spawn(move || {
+            thread::sleep(delay);
+            library.resume_pending.store(false, Ordering::SeqCst);
+            library.resume_count.fetch_add(1, Ordering::SeqCst);
+            library.update_library();
+        });
+    }
+
+    /// Fetch the shows from the web API and save them to the local library. Returns false,
+    /// leaving the stored shows unchanged, if a page failed.
+    fn fetch_shows(&self) -> bool {
         debug!("loading shows");
 
         let mut saved_shows: Vec<Show> = Vec::new();
-        let mut shows_result = self.spotify.api.get_saved_shows(0).ok();
-
-        while let Some(shows) = shows_result {
-            saved_shows.extend(shows.items.iter().map(|show| (&show.show).into()));
-
-            // load next batch if necessary
-            shows_result = match shows.next {
-                Some(_) => {
-                    debug!("requesting shows again..");
-                    self.spotify
-                        .api
-                        .get_saved_shows(shows.offset + shows.items.len() as u32)
-                        .ok()
-                }
-                None => None,
+        let mut offset = 0;
+        loop {
+            let Ok(page) = self.spotify.api.get_saved_shows(offset) else {
+                error!("Failed to fetch shows.");
+                return false;
+            };
+            saved_shows.extend(page.items.iter().map(|show| (&show.show).into()));
+            if page.next.is_none() {
+                break;
             }
+            debug!("requesting shows again..");
+            offset = page.offset + page.items.len() as u32;
         }
 
         *self.shows.write().unwrap() = saved_shows;
+        true
     }
 
     /// Fetch the playlists from the web API and save them to the local library. This synchronizes
@@ -403,8 +493,8 @@ impl Library {
         listing_complete
     }
 
-    /// Fetch the artists from the web API and save them to the local library.
-    fn fetch_artists(&self) {
+    /// Fetch the artists from the web API and save them to the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    fn fetch_artists(&self) -> bool {
         let mut artists: Vec<Artist> = Vec::new();
         let mut last: Option<&str> = None;
         let mut i = 0u32;
@@ -415,7 +505,7 @@ impl Library {
             i += 1;
             if page.is_err() {
                 error!("Failed to fetch artists.");
-                return;
+                return false;
             }
             let page = page.unwrap();
 
@@ -441,6 +531,7 @@ impl Library {
 
             store.push(artist);
         }
+        true
     }
 
     /// Add the artist with `id` and `name` to the user library, but don't sync with the API.
@@ -458,8 +549,8 @@ impl Library {
         }
     }
 
-    /// Fetch the albums from the web API and store them in the local library.
-    fn fetch_albums(&self) {
+    /// Fetch the albums from the web API and store them in the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    fn fetch_albums(&self) -> bool {
         let mut albums: Vec<Album> = Vec::new();
         let mut i = 0u32;
 
@@ -474,7 +565,7 @@ impl Library {
 
             if page.is_err() {
                 error!("Failed to fetch albums.");
-                return;
+                return false;
             }
 
             let page = page.unwrap();
@@ -499,10 +590,11 @@ impl Library {
         });
 
         *self.albums.write().unwrap() = albums;
+        true
     }
 
-    /// Fetch the tracks from the web API and save them in the local library.
-    fn fetch_tracks(&self) {
+    /// Fetch the tracks from the web API and save them in the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    fn fetch_tracks(&self) -> bool {
         let mut tracks = Vec::new();
         let mut i = 0u32;
 
@@ -517,7 +609,7 @@ impl Library {
 
             if page.is_err() {
                 error!("Failed to fetch tracks.");
-                return;
+                return false;
             }
             let page = page.unwrap();
 
@@ -534,7 +626,7 @@ impl Library {
                         .enumerate()
                         .any(|(i, t)| t.track.id.as_ref().map(|id| id.to_string()) != store[i].id)
                 {
-                    return;
+                    return true;
                 }
             }
 
@@ -546,6 +638,7 @@ impl Library {
         }
 
         *self.tracks.write().unwrap() = tracks;
+        true
     }
 
     fn populate_artists(&self) {
@@ -983,6 +1076,28 @@ fn reconcile_playlists(
     local.sort_by_key(|p| remote_ids.iter().position(|x| x == &p.id));
 }
 
+/// Clears a library's `syncing` flag when dropped, so the flag is released even if the sync
+/// thread panics.
+struct SyncGuard(Arc<AtomicBool>);
+
+impl Drop for SyncGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+/// Whether to schedule an automatic resume after a sync: only if it was incomplete because of
+/// a rate limit, the resume cap is not reached, and no resume is already pending.
+fn should_schedule_resume(complete: bool, rate_limited: bool, count: u32, pending: bool) -> bool {
+    !complete && rate_limited && count < MAX_SYNC_RESUMES && !pending
+}
+
+/// Delay before a resumed sync: the longest open rate-limit window, but at least
+/// [RESUME_MIN_DELAY], plus `jitter`.
+fn resume_delay(longest_remaining: Duration, jitter: Duration) -> Duration {
+    longest_remaining.max(RESUME_MIN_DELAY) + jitter
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1036,5 +1151,86 @@ mod test {
         let known = vec!["a".to_string(), "b".to_string()];
         reconcile_playlists(&mut local, &known, &["a".to_string()], true);
         assert_eq!(ids(&local), ["new", "a"]);
+    }
+
+    use std::sync::atomic::Ordering;
+    use std::time::Duration;
+
+    use crate::config::Config;
+    use crate::events::EventManager;
+    use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY};
+    use crate::spotify::Spotify;
+
+    #[test]
+    fn resume_only_for_an_incomplete_rate_limited_sync() {
+        assert!(should_schedule_resume(false, true, 0, false));
+        assert!(!should_schedule_resume(true, true, 0, false));
+        assert!(!should_schedule_resume(false, false, 0, false));
+    }
+
+    #[test]
+    fn resume_only_one_pending_at_a_time() {
+        assert!(!should_schedule_resume(false, true, 0, true));
+    }
+
+    #[test]
+    fn resume_stops_at_the_cap() {
+        assert!(should_schedule_resume(
+            false,
+            true,
+            MAX_SYNC_RESUMES - 1,
+            false
+        ));
+        assert!(!should_schedule_resume(
+            false,
+            true,
+            MAX_SYNC_RESUMES,
+            false
+        ));
+    }
+
+    #[test]
+    fn resume_delay_never_below_the_minimum() {
+        let jitter = Duration::from_millis(250);
+        assert_eq!(
+            resume_delay(Duration::ZERO, jitter),
+            RESUME_MIN_DELAY + jitter
+        );
+        assert_eq!(
+            resume_delay(Duration::from_secs(5), jitter),
+            RESUME_MIN_DELAY + jitter
+        );
+        assert_eq!(
+            resume_delay(Duration::from_secs(90), jitter),
+            Duration::from_secs(90) + jitter
+        );
+    }
+
+    #[test]
+    fn sync_guard_releases_the_flag_on_panic() {
+        let flag = Arc::new(AtomicBool::new(true));
+        let in_thread = flag.clone();
+        let result = std::thread::spawn(move || {
+            let _guard = SyncGuard(in_thread);
+            panic!("fetch thread failed");
+        })
+        .join();
+        assert!(result.is_err());
+        assert!(!flag.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_second_sync_is_skipped_while_one_runs() {
+        let cfg = Config::new_for_test();
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let library = Library::new_for_test(ev, spotify, cfg);
+        library.syncing.store(true, Ordering::SeqCst);
+        *library.is_done.write().unwrap() = true;
+
+        library.update_library();
+
+        assert!(*library.is_done.read().unwrap());
+        assert!(library.syncing.load(Ordering::SeqCst));
     }
 }

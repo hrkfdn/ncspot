@@ -406,6 +406,9 @@ status bar shows `[rate limited: shared 42s]` and, if built with the `notify`
 feature, a desktop notification appears (disable it with
 `notify_rate_limit = false`).
 
+If a rate limit interrupts a library update, ncspot resumes it on its own
+once the limit has passed.
+
 You can register your own Spotify app and give ncspot its client ID. Bulk
 traffic (playlist sync, library, track and album metadata) then uses your
 own quota.

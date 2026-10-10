@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Replace already existing queue notifications instead of stacking new ones.
 
+### Fixed
+
+- Rate-limited Web API calls no longer block the user interface: background
+  calls wait through short limits and fail fast on long ones, and a library
+  update left incomplete by a rate limit resumes on its own after the limit
+  ends. A library update requested while one is running is skipped
+
 ## [1.4.0]
 
 ### Added
