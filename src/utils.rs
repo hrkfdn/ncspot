@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::{fmt::Write, path::PathBuf};
+use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
 
 /// Returns a human readable String of a Duration
 ///
@@ -59,6 +60,65 @@ pub fn download(url: String, path: std::path::PathBuf) -> Result<(), std::io::Er
     Ok(())
 }
 
+pub fn normalize_search_text(text: &str) -> String {
+    text.chars()
+        .flat_map(char::to_lowercase)
+        .nfd()
+        .filter(|c| !is_combining_mark(*c))
+        .collect()
+}
+
+fn normalize_search_text_with_ranges(text: &str) -> (String, Vec<(usize, usize, usize, usize)>) {
+    let mut normalized = String::new();
+    let mut ranges = Vec::new();
+
+    for (original_start, character) in text.char_indices() {
+        let original_end = original_start + character.len_utf8();
+
+        for normalized_character in character
+            .to_lowercase()
+            .nfd()
+            .filter(|c| !is_combining_mark(*c))
+        {
+            let normalized_start = normalized.len();
+            normalized.push(normalized_character);
+            ranges.push((
+                normalized_start,
+                normalized.len(),
+                original_start,
+                original_end,
+            ));
+        }
+    }
+
+    (normalized, ranges)
+}
+
+pub fn normalized_match_ranges(text: &str, query: &str) -> Vec<(usize, usize)> {
+    let query = normalize_search_text(query);
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let (normalized_text, ranges) = normalize_search_text_with_ranges(text);
+    normalized_text
+        .match_indices(&query)
+        .filter_map(|(match_start, matched)| {
+            let match_end = match_start + matched.len();
+            let mut matching_ranges = ranges
+                .iter()
+                .filter(|(start, end, _, _)| *start >= match_start && *end <= match_end);
+
+            let (_, _, original_start, mut original_end) = *matching_ranges.next()?;
+            for (_, _, _, range_end) in matching_ranges {
+                original_end = *range_end;
+            }
+
+            Some((original_start, original_end))
+        })
+        .collect()
+}
+
 /// Create the application specific runtime directory and return the path to it.
 ///
 /// If the directory already exists and has the correct permissions, this function just returns the
@@ -114,4 +174,30 @@ pub fn user_runtime_directory() -> Option<PathBuf> {
 #[cfg(unix)]
 fn xdg_runtime_directory() -> Option<PathBuf> {
     std::env::var("XDG_RUNTIME_DIR").ok().map(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search_normalization_ignores_accents_and_case() {
+        assert_eq!(
+            normalize_search_text("Tití Me Preguntó"),
+            "titi me pregunto"
+        );
+        assert_eq!(normalize_search_text("CAFÉ"), "cafe");
+    }
+
+    #[test]
+    fn normalized_match_ranges_map_back_to_original_text() {
+        let text = "Tití Me Preguntó";
+        let ranges = normalized_match_ranges(text, "pregunto");
+        let matches: Vec<&str> = ranges
+            .iter()
+            .map(|(start, end)| &text[*start..*end])
+            .collect();
+
+        assert_eq!(matches, vec!["Preguntó"]);
+    }
 }
