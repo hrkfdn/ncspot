@@ -158,6 +158,8 @@ pub struct UserState {
     pub playlist_orders: HashMap<String, SortingOrder>,
     pub cache_version: u16,
     pub playback_state: PlaybackState,
+    /// Display name of the logged in user as (user ID, name), shown until `/me` answers.
+    pub display_name: Option<(String, String)>,
 }
 
 impl Default for UserState {
@@ -170,6 +172,7 @@ impl Default for UserState {
             playlist_orders: HashMap::new(),
             cache_version: 0,
             playback_state: PlaybackState::Default,
+            display_name: None,
         }
     }
 }
@@ -413,5 +416,25 @@ pub fn set_configuration_base_path(base_path: Option<PathBuf>) {
             fs::create_dir_all(&basepath).expect("could not create basepath directory");
         }
         *BASE_PATH.write().unwrap() = Some(basepath);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UserState;
+
+    #[test]
+    fn user_state_without_display_name_still_loads() {
+        let mut value = serde_cbor::value::to_value(UserState::default()).unwrap();
+        let serde_cbor::Value::Map(map) = &mut value else {
+            panic!("user state is not a map");
+        };
+        assert!(
+            map.remove(&serde_cbor::Value::Text("display_name".into()))
+                .is_some()
+        );
+        let bytes = serde_cbor::to_vec(&value).unwrap();
+        let state: UserState = serde_cbor::from_slice(&bytes).unwrap();
+        assert!(state.display_name.is_none());
     }
 }

@@ -118,8 +118,9 @@ impl<I: ListItem + Clone> Pagination<I> {
     }
     pub fn set(&self, loaded_content: usize, max_content: usize, callback: Paginator<I>) {
         *self.loaded_content.write().unwrap() = loaded_content;
-        *self.max_content.write().unwrap() = Some(max_content);
+        // callback first, so it's there once pagination is possible
         *self.callback.write().unwrap() = Some(callback);
+        *self.max_content.write().unwrap() = Some(max_content);
     }
 
     pub fn loaded_content(&self) -> usize {
@@ -147,6 +148,9 @@ impl<I: ListItem + Clone> Pagination<I> {
                     *pagination.loaded_content.write().unwrap() = content.read().unwrap().len();
                     *pagination.busy.write().unwrap() = false;
                     library.trigger_redraw();
+                } else {
+                    // or pagination would stop for good
+                    *pagination.busy.write().unwrap() = false;
                 }
             });
         }

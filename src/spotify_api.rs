@@ -64,6 +64,11 @@ impl WebApi {
         Self::default()
     }
 
+    /// The username of the logged in user.
+    pub fn user(&self) -> Option<String> {
+        self.user.clone()
+    }
+
     /// Set the username for use with the API.
     pub fn set_user(&mut self, user: Option<String>) {
         self.user = user;
