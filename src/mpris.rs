@@ -398,12 +398,13 @@ impl MprisPlayer {
                 {
                     let should_shuffle = self.queue.get_shuffle();
                     self.queue.clear();
-                    let index = self.queue.append_next(
+                    self.queue.play_all(
                         &t.iter()
                             .map(|track| Playable::Track(track.clone()))
                             .collect::<Vec<_>>(),
-                    );
-                    self.queue.play(index, should_shuffle, should_shuffle)
+                        should_shuffle,
+                        should_shuffle,
+                    )
                 }
             }
             Some(UriType::Track) => {
@@ -420,8 +421,7 @@ impl MprisPlayer {
                     if let Some(tracks) = &playlist.tracks {
                         let should_shuffle = self.queue.get_shuffle();
                         self.queue.clear();
-                        let index = self.queue.append_next(tracks);
-                        self.queue.play(index, should_shuffle, should_shuffle)
+                        self.queue.play_all(tracks, should_shuffle, should_shuffle)
                     }
                 }
             }
@@ -435,12 +435,13 @@ impl MprisPlayer {
                         self.queue.clear();
                         let mut ep = e.clone();
                         ep.reverse();
-                        let index = self.queue.append_next(
+                        self.queue.play_all(
                             &ep.iter()
                                 .map(|episode| Playable::Episode(episode.clone()))
                                 .collect::<Vec<_>>(),
-                        );
-                        self.queue.play(index, should_shuffle, should_shuffle)
+                            should_shuffle,
+                            should_shuffle,
+                        )
                     }
                 }
             }
@@ -455,12 +456,13 @@ impl MprisPlayer {
                 if let Ok(a) = self.spotify.api.artist_top_tracks(&id) {
                     let should_shuffle = self.queue.get_shuffle();
                     self.queue.clear();
-                    let index = self.queue.append_next(
+                    self.queue.play_all(
                         &a.iter()
                             .map(|track| Playable::Track(track.clone()))
                             .collect::<Vec<_>>(),
-                    );
-                    self.queue.play(index, should_shuffle, should_shuffle)
+                        should_shuffle,
+                        should_shuffle,
+                    )
                 }
             }
             None => {}

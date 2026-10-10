@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -37,6 +38,8 @@ pub struct WebApi {
     worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     /// Time at which the token expires.
     token_expiration: Arc<RwLock<DateTime<Utc>>>,
+    /// Calls that were still rate limited after waiting.
+    rate_limit_failures: Arc<AtomicUsize>,
 }
 
 impl Default for WebApi {
@@ -55,6 +58,7 @@ impl Default for WebApi {
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
             token_expiration: Arc::new(RwLock::new(Utc::now())),
+            rate_limit_failures: Arc::new(AtomicUsize::new(0)),
         }
     }
 }
@@ -111,6 +115,11 @@ impl WebApi {
         }))
     }
 
+    /// Number of calls so far that were still rate limited after waiting.
+    pub fn rate_limit_failures(&self) -> usize {
+        self.rate_limit_failures.load(Ordering::Relaxed)
+    }
+
     /// Execute `api_call` and retry once if a rate limit occurs.
     fn api_with_retry<F, R>(&self, api_call: F) -> Option<R>
     where
@@ -129,7 +138,11 @@ impl WebApi {
                                 .and_then(|v| v.parse::<u64>().ok());
                             debug!("rate limit hit. waiting {waiting_duration:?} seconds");
                             thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
-                            api_call(&self.api).ok()
+                            let result = api_call(&self.api).ok();
+                            if result.is_none() {
+                                self.rate_limit_failures.fetch_add(1, Ordering::Relaxed);
+                            }
+                            result
                         }
                         401 => {
                             debug!("token unauthorized. trying refresh..");
