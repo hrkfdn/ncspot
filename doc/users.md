@@ -284,6 +284,7 @@ Possible configuration values are:
 | `[theme]`                       | Custom theme                                                   | See [custom theme](#theming)                                                          |                     |
 | `[keybindings]`                 | Custom keybindings                                             | See [custom keybindings](#custom-keybindings)                                         |                     |
 | `ap_port`                       | Set ap-port for librespot (for restrictive firewalls)          | `80`, `443`, `4070`                                                                   |                     |
+| `client_id`                     | Own Spotify app for Web API calls                              | String, see [Using your own client ID](#using-your-own-client-id)                     |                     |
 
 1. If built with the `cover` feature.
 2. By default the statusbar will show a play icon when a track is playing and
@@ -494,5 +495,23 @@ removed by Spotify.
 The credentials are stored in `librespot/credentials.json` in the user's cache directory. Run
 `ncspot info` to show the location of this directory.
 
-The `logout` command can be used to remove cached credentials. See
+The `logout` command can be used to remove cached credentials and tokens. See
 [Vim-Like Commands](#vim-like-commands).
+
+### Using your own client ID
+All users share one rate-limited client ID. If loading is slow and the debug log shows `429`,
+register your own Spotify app:
+
+1. Create an app at <https://developer.spotify.com/dashboard/create>.
+2. Set the redirect URI to `http://127.0.0.1:8989/login` and select the Web API and Web
+   Playback SDK.
+3. Add its client ID to the configuration and restart:
+
+```toml
+client_id = "0123456789abcdef0123456789abcdef"
+```
+
+A browser login follows on the next start. Use the same account as ncspot. Calls your app can't
+make, like tracks of playlists you don't own, or that are rate limited, use the shared client ID.
+So does everything while your app's token is missing or belongs to another account. To log in
+again, remove `rspotify_token_<client_id>.json` from the cache directory.

@@ -1,11 +1,12 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use std::thread;
 use std::time::Duration;
 
 use crate::application::ASYNC_RUNTIME;
+use crate::authentication::WebApiClient;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rspotify::http::HttpError;
 use rspotify::model::{
     AlbumId, AlbumType, ArtistId, CursorBasedPage, EpisodeId, FullAlbum, FullArtist, FullEpisode,
@@ -27,45 +28,135 @@ use crate::model::track::Track;
 use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
 
-/// Convenient wrapper around the rspotify web API functionality.
+/// HTTP status of `error`, 401 for a missing token, or 0 if it has none.
+fn status_of(error: &ClientError) -> u16 {
+    match error {
+        ClientError::Http(e) => match e.as_ref() {
+            HttpError::StatusCode(response) => response.status(),
+            _ => 0,
+        },
+        ClientError::InvalidToken => 401,
+        _ => 0,
+    }
+}
+
+/// A Web API client for one client ID.
 #[derive(Clone)]
-pub struct WebApi {
+struct ApiClient {
     /// Rspotify web API.
     api: AuthCodeSpotify,
-    /// The username of the logged in user.
-    user: Option<String>,
-    /// Sender of the mpsc channel to the [Spotify](crate::spotify::Spotify) worker thread.
-    worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+    kind: WebApiClient,
     /// Time at which the token expires.
     token_expiration: Arc<RwLock<DateTime<Utc>>>,
-    /// Calls that were still rate limited after waiting.
+    /// Held while refreshing, so refreshes don't overlap.
+    refresh_lock: Arc<Mutex<()>>,
+    /// Calls that ended rate limited.
     rate_limit_failures: Arc<AtomicUsize>,
 }
 
-impl Default for WebApi {
-    fn default() -> Self {
+impl ApiClient {
+    fn new(kind: WebApiClient) -> Self {
         let config = Config {
             token_refreshing: false,
             ..Default::default()
         };
         let api = AuthCodeSpotify::with_config(
-            rspotify::Credentials::new(crate::authentication::NCSPOT_CLIENT_ID, ""),
+            rspotify::Credentials::new(kind.client_id(), ""),
             rspotify::OAuth::default(),
             config,
         );
         Self {
             api,
-            user: None,
-            worker_channel: Arc::new(RwLock::new(None)),
+            kind,
             token_expiration: Arc::new(RwLock::new(Utc::now())),
+            refresh_lock: Arc::new(Mutex::new(())),
             rate_limit_failures: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// Whether the token expires within 5 minutes.
+    fn needs_token_update(&self) -> bool {
+        let delta = *self.token_expiration.read().unwrap() - Utc::now();
+        delta.num_seconds() <= 60 * 5
+    }
+
+    fn update_token_blocking(&self) {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        // another refresh may have finished meanwhile
+        if !self.needs_token_update() {
+            return;
+        }
+        info!("Token for {:?} is about to expire, renewing", self.kind);
+
+        // logins only happen at startup, while stdout is usable. The blocking refresh would panic
+        // in async callers like MPRIS without block_in_place.
+        let token = tokio::task::block_in_place(|| {
+            crate::authentication::get_rspotify_token(&self.kind, false)
+        });
+        match token {
+            Ok(token) => {
+                let expires_at = token
+                    .expires_at
+                    .unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
+                *self.api.token.lock().unwrap() = Some(token);
+                *self.token_expiration.write().unwrap() = expires_at;
+            }
+            Err(e) => {
+                error!("Failed to update token: {e}");
+                if self.kind != WebApiClient::Shared {
+                    // due again in 10 minutes, once inside the renewal window
+                    *self.token_expiration.write().unwrap() =
+                        Utc::now() + ChronoDuration::minutes(15);
+                }
+            }
         }
     }
 }
 
+/// Whether the own token is for the logged in account.
+enum OwnAccount {
+    /// Time of the next check.
+    Unchecked(DateTime<Utc>),
+    Verified,
+    Mismatch,
+}
+
+/// Rate limit failures per client.
+#[derive(Clone, Copy)]
+pub struct RateLimits {
+    shared: usize,
+    own: usize,
+}
+
+/// Convenient wrapper around the rspotify web API functionality.
+#[derive(Clone)]
+pub struct WebApi {
+    shared: ApiClient,
+    /// Tried first once its account is verified.
+    own: Option<ApiClient>,
+    own_account: Arc<Mutex<OwnAccount>>,
+    /// Held during an account check, so only one runs.
+    own_check: Arc<Mutex<()>>,
+    /// The username of the logged in user.
+    user: Option<String>,
+    /// Sender of the mpsc channel to the [Spotify](crate::spotify::Spotify) worker thread.
+    worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
+}
+
 impl WebApi {
-    pub fn new() -> Self {
-        Self::default()
+    /// Calls try `client_id` first.
+    pub fn new(client_id: Option<String>) -> Self {
+        Self {
+            shared: ApiClient::new(WebApiClient::Shared),
+            own: client_id.map(|id| ApiClient::new(WebApiClient::Own(id))),
+            own_account: Arc::new(Mutex::new(OwnAccount::Unchecked(Utc::now()))),
+            own_check: Arc::new(Mutex::new(())),
+            user: None,
+            worker_channel: Arc::new(RwLock::new(None)),
+        }
     }
 
     /// Set the username for use with the API.
@@ -82,86 +173,168 @@ impl WebApi {
         self.worker_channel = channel;
     }
 
-    /// Update the authentication token when it expires.
+    /// Update the authentication tokens when they expire.
     pub fn update_token(&self) -> Option<JoinHandle<()>> {
-        {
-            let token_expiration = self.token_expiration.read().unwrap();
-            let now = Utc::now();
-            let delta = *token_expiration - now;
-
-            // token is valid for 5 more minutes, renewal is not necessary yet
-            if delta.num_seconds() > 60 * 5 {
-                return None;
-            }
-
-            info!("Token will expire in {delta}, renewing");
+        let expiring: Vec<ApiClient> = std::iter::once(&self.shared)
+            .chain(self.own.as_ref())
+            .filter(|c| c.needs_token_update())
+            .cloned()
+            .collect();
+        if expiring.is_empty() {
+            return None;
         }
 
-        let api_token = self.api.token.clone();
-        let api_token_expiration = self.token_expiration.clone();
         Some(ASYNC_RUNTIME.get().unwrap().spawn_blocking(move || {
-            match crate::authentication::get_rspotify_token() {
-                Ok(token) => {
-                    let expires_at = token
-                        .expires_at
-                        .unwrap_or_else(|| Utc::now() + ChronoDuration::hours(1));
-                    *api_token.lock().unwrap() = Some(token);
-                    *api_token_expiration.write().unwrap() = expires_at;
-                }
-                Err(e) => {
-                    error!("Failed to update token: {e}");
-                }
+            for client in expiring {
+                client.update_token_blocking();
             }
         }))
     }
 
-    /// Number of calls so far that were still rate limited after waiting.
-    pub fn rate_limit_failures(&self) -> usize {
-        self.rate_limit_failures.load(Ordering::Relaxed)
+    /// Calls so far that ended rate limited.
+    pub fn rate_limits(&self) -> RateLimits {
+        let failures = |c: &ApiClient| c.rate_limit_failures.load(Ordering::Relaxed);
+        RateLimits {
+            shared: failures(&self.shared),
+            own: self.own.as_ref().map_or(0, failures),
+        }
     }
 
-    /// Execute `api_call` and retry once if a rate limit occurs.
+    /// Whether a call would end on a client rate limited since `since`. Only `user_owned` data
+    /// can use the own client ID, which falls back to the shared one.
+    pub fn rate_limited_since(&self, since: RateLimits, user_owned: bool) -> bool {
+        let now = self.rate_limits();
+        let shared_limited = now.shared != since.shared;
+        if user_owned && self.own_verified() == Some(true) {
+            shared_limited && now.own != since.own
+        } else {
+            shared_limited
+        }
+    }
+
+    /// Whether the own account is verified, or `None` if a check is due.
+    fn own_verified(&self) -> Option<bool> {
+        match *self
+            .own_account
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+        {
+            OwnAccount::Verified => Some(true),
+            OwnAccount::Mismatch => Some(false),
+            OwnAccount::Unchecked(next) => (Utc::now() < next).then_some(false),
+        }
+    }
+
+    /// The own client once its account is verified. Rechecks 10 minutes after a failed check.
+    fn own_client(&self) -> Option<&ApiClient> {
+        let own = self.own.as_ref()?;
+        let user = self.user.as_ref()?;
+        if let Some(verified) = self.own_verified() {
+            return verified.then_some(own);
+        }
+        let _guard = self
+            .own_check
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        // another check may have finished meanwhile
+        if let Some(verified) = self.own_verified() {
+            return verified.then_some(own);
+        }
+
+        own.update_token_blocking();
+        // no retry, as a Retry-After wait would block all calls
+        let account = match own.api.current_user() {
+            Ok(me) if me.id.id() == user => OwnAccount::Verified,
+            Ok(me) => {
+                error!(
+                    "Own client ID is logged in as {}, not {user}. Remove {:?} to log in again.",
+                    me.id.id(),
+                    own.kind.token_path()
+                );
+                OwnAccount::Mismatch
+            }
+            Err(e) => {
+                warn!("Own client ID account check failed, retrying in 10 minutes: {e}");
+                OwnAccount::Unchecked(Utc::now() + ChronoDuration::minutes(10))
+            }
+        };
+        let verified = matches!(account, OwnAccount::Verified);
+        *self
+            .own_account
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = account;
+        verified.then_some(own)
+    }
+
+    /// Execute `api_call`, own client ID first. Refusals and rate limits (401/403/404/429) are
+    /// repeated with the shared one, other errors aren't, as a write may have gone through.
     fn api_with_retry<F, R>(&self, api_call: F) -> Option<R>
     where
         F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
     {
-        let result = { api_call(&self.api) };
-        match result {
-            Ok(v) => Some(v),
-            Err(ClientError::Http(error)) => {
-                debug!("http error: {error:?}");
-                match error.as_ref() {
-                    HttpError::StatusCode(response) => match response.status() {
-                        429 => {
-                            let waiting_duration = response
-                                .header("Retry-After")
-                                .and_then(|v| v.parse::<u64>().ok());
-                            debug!("rate limit hit. waiting {waiting_duration:?} seconds");
-                            thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
-                            let result = api_call(&self.api).ok();
-                            if result.is_none() {
-                                self.rate_limit_failures.fetch_add(1, Ordering::Relaxed);
-                            }
-                            result
-                        }
-                        401 => {
-                            debug!("token unauthorized. trying refresh..");
-                            self.update_token()
-                                .and_then(move |_| api_call(&self.api).ok())
-                        }
-                        _ => {
-                            error!("unhandled api error: {response:?}");
-                            None
-                        }
-                    },
-                    _ => None,
+        if let Some(own) = self.own_client() {
+            match self.call_with(own, &api_call) {
+                Ok(v) => return Some(v),
+                Err(status @ (401 | 403 | 404 | 429)) => {
+                    debug!("falling back to shared client id after {status}");
+                    if status == 401 {
+                        warn!("Own client ID unauthorized, retrying in 10 minutes");
+                        *self
+                            .own_account
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner) =
+                            OwnAccount::Unchecked(Utc::now() + ChronoDuration::minutes(10));
+                    }
                 }
-            }
-            Err(e) => {
-                error!("unhandled api error: {e}");
-                None
+                Err(_) => return None,
             }
         }
+        self.call_with(&self.shared, &api_call).ok()
+    }
+
+    /// Execute `api_call` with `client`. On a rate limit, the shared client ID waits and retries
+    /// once, the own one fails right away for the fallback. Errors are the HTTP status, or 0.
+    fn call_with<F, R>(&self, client: &ApiClient, api_call: &F) -> Result<R, u16>
+    where
+        F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
+    {
+        let error = match api_call(&client.api) {
+            Ok(v) => return Ok(v),
+            Err(e) => e,
+        };
+        debug!("api error: {error:?}");
+        let own = client.kind != WebApiClient::Shared;
+        let result = match status_of(&error) {
+            status @ (403 | 404 | 429) if own => Err(status),
+            429 => {
+                let waiting_duration = if let ClientError::Http(e) = &error
+                    && let HttpError::StatusCode(response) = e.as_ref()
+                {
+                    response
+                        .header("Retry-After")
+                        .and_then(|v| v.parse::<u64>().ok())
+                } else {
+                    None
+                };
+                debug!("rate limit hit. waiting {waiting_duration:?} seconds");
+                thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
+                api_call(&client.api).map_err(|e| status_of(&e))
+            }
+            401 => {
+                debug!("token unauthorized. trying refresh..");
+                // refresh if due and wait for it, keeping a failed refresh's backoff
+                client.update_token_blocking();
+                api_call(&client.api).map_err(|e| status_of(&e))
+            }
+            status => {
+                error!("unhandled api error: {error:?}");
+                Err(status)
+            }
+        };
+        if matches!(result, Err(429)) {
+            client.rate_limit_failures.fetch_add(1, Ordering::Relaxed);
+        }
+        result
     }
 
     /// Append `tracks` at `position` in the playlist with `playlist_id`.
@@ -754,5 +927,45 @@ impl WebApi {
     /// Get details about the logged in user.
     pub fn current_user(&self) -> Result<PrivateUser, ()> {
         self.api_with_retry(|api| api.current_user()).ok_or(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bump(client: &ApiClient) {
+        client.rate_limit_failures.fetch_add(1, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn rate_limited_since_uses_the_client_that_would_be_called() {
+        let api = WebApi::new(Some("id".to_string()));
+        *api.own_account.lock().unwrap() = OwnAccount::Verified;
+        let own = api.own.as_ref().unwrap();
+
+        let start = api.rate_limits();
+        bump(&api.shared);
+        assert!(!api.rate_limited_since(start, true));
+        assert!(api.rate_limited_since(start, false));
+
+        // own falls back to shared
+        let start = api.rate_limits();
+        bump(own);
+        assert!(!api.rate_limited_since(start, true));
+        assert!(!api.rate_limited_since(start, false));
+        bump(&api.shared);
+        assert!(api.rate_limited_since(start, true));
+
+        // unverified, own data uses the shared client ID too
+        *api.own_account.lock().unwrap() = OwnAccount::Mismatch;
+        let start = api.rate_limits();
+        bump(&api.shared);
+        assert!(api.rate_limited_since(start, true));
+
+        let api = WebApi::new(None);
+        let start = api.rate_limits();
+        bump(&api.shared);
+        assert!(api.rate_limited_since(start, true));
     }
 }

@@ -346,7 +346,7 @@ impl Library {
             .map(|p| p.id.clone())
             .collect();
         let mut list_order: HashMap<String, usize> = HashMap::new();
-        let rate_limit_failures = self.spotify.api.rate_limit_failures();
+        let rate_limits = self.spotify.api.rate_limits();
 
         let lists_page = self.spotify.api.current_user_playlist();
         let mut lists_batch = Some(lists_page.items.read().unwrap().clone());
@@ -360,7 +360,8 @@ impl Library {
                 let mut playlist: Playlist = remote.clone();
                 playlist.tracks = None;
                 // once rate limited, load the rest on the next update
-                if self.spotify.api.rate_limit_failures() != rate_limit_failures {
+                let user_owned = self.user_id.as_deref() == Some(remote.owner_id.as_str());
+                if self.spotify.api.rate_limited_since(rate_limits, user_owned) {
                     if !cached.contains(&playlist.id) {
                         self.append_or_update(playlist, false);
                     }

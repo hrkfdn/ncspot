@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `client_id` option to use your own Spotify app, avoiding the shared rate
+  limit
+
 ### Fixed
 
 - Playlists that failed to load, for example when rate limited, are reloaded
@@ -16,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   albums with missing tracks are loaded again when played
 - Playing an empty playlist, album or podcast no longer starts an unrelated
   track
+- `logout` also removes the Web API tokens
 
 ## [1.5.0]
 
