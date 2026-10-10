@@ -21,6 +21,7 @@ mod events;
 mod ext_traits;
 mod jukebox;
 mod library;
+mod library_sync;
 mod lyrics;
 mod model;
 mod panic;
