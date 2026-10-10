@@ -88,7 +88,7 @@ impl Library {
             cfg,
         };
 
-        library.update_library();
+        library.update_library(false);
         library
     }
 
@@ -207,8 +207,8 @@ impl Library {
         }
     }
 
-    /// Update the local library and its cache on disk.
-    pub fn update_library(&self) {
+    /// Update the local library and its cache on disk. `force` refetches unchanged lists too.
+    pub fn update_library(&self, force: bool) {
         *self.is_done.write().unwrap() = false;
 
         let library = self.clone();
@@ -220,11 +220,12 @@ impl Library {
                         &config::cache_path(CACHE_TRACKS),
                         library.tracks.write().unwrap().as_mut(),
                     );
-                    library.fetch_tracks();
-                    library.save_cache(
-                        &config::cache_path(CACHE_TRACKS),
-                        &library.tracks.read().unwrap(),
-                    );
+                    if library.fetch_tracks(force) {
+                        library.save_cache(
+                            &config::cache_path(CACHE_TRACKS),
+                            &library.tracks.read().unwrap(),
+                        );
+                    }
                 })
             };
 
@@ -235,11 +236,12 @@ impl Library {
                         &config::cache_path(CACHE_ALBUMS),
                         library.albums.write().unwrap().as_mut(),
                     );
-                    library.fetch_albums();
-                    library.save_cache(
-                        &config::cache_path(CACHE_ALBUMS),
-                        &library.albums.read().unwrap(),
-                    );
+                    if library.fetch_albums(force) {
+                        library.save_cache(
+                            &config::cache_path(CACHE_ALBUMS),
+                            &library.albums.read().unwrap(),
+                        );
+                    }
                 })
             };
 
@@ -433,8 +435,9 @@ impl Library {
         }
     }
 
-    /// Fetch the albums from the web API and store them in the local library.
-    fn fetch_albums(&self) {
+    /// Fetch the albums from the web API and store them in the local library. Returns `false` if
+    /// the cache doesn't need saving.
+    fn fetch_albums(&self, force: bool) -> bool {
         let mut albums: Vec<Album> = Vec::new();
         let mut i = 0u32;
 
@@ -449,35 +452,35 @@ impl Library {
 
             if page.is_err() {
                 error!("Failed to fetch albums.");
-                return;
+                return true;
             }
 
             let page = page.unwrap();
-            albums.extend(page.items.iter().map(|a| a.into()));
+            let items: Vec<Album> = page.items.iter().map(|a| a.into()).collect();
+
+            if !force
+                && page.offset == 0
+                && albums_unchanged(page.total, &items, &self.albums.read().unwrap())
+            {
+                return sort_albums(&mut self.albums.write().unwrap());
+            }
+
+            albums.extend(items);
 
             if page.next.is_none() {
                 break;
             }
         }
 
-        albums.sort_unstable_by_key(|album| {
-            let album_artist = album.artists[0]
-                .strip_prefix("The ")
-                .unwrap_or(&album.artists[0]);
-            let album_title = album.title.strip_prefix("The ").unwrap_or(&album.title);
-            format!(
-                "{}{}{}",
-                album_artist.to_lowercase(),
-                album.year,
-                album_title.to_lowercase()
-            )
-        });
+        sort_albums(&mut albums);
 
         *self.albums.write().unwrap() = albums;
+        true
     }
 
-    /// Fetch the tracks from the web API and save them in the local library.
-    fn fetch_tracks(&self) {
+    /// Fetch the tracks from the web API and save them in the local library. Returns `false` if
+    /// the cache doesn't need saving.
+    fn fetch_tracks(&self, force: bool) -> bool {
         let mut tracks = Vec::new();
         let mut i = 0u32;
 
@@ -492,28 +495,19 @@ impl Library {
 
             if page.is_err() {
                 error!("Failed to fetch tracks.");
-                return;
+                return true;
             }
             let page = page.unwrap();
+            let items: Vec<Track> = page.items.iter().map(|t| t.into()).collect();
 
-            if page.offset == 0 {
-                // If first page matches the first items in store and total is
-                // identical, assume list is unchanged.
-
-                let store = self.tracks.read().unwrap();
-
-                if page.total as usize == store.len()
-                    && !page
-                        .items
-                        .iter()
-                        .enumerate()
-                        .any(|(i, t)| t.track.id.as_ref().map(|id| id.to_string()) != store[i].id)
-                {
-                    return;
-                }
+            if !force
+                && page.offset == 0
+                && tracks_unchanged(page.total, &items, &self.tracks.read().unwrap())
+            {
+                return false;
             }
 
-            tracks.extend(page.items.iter().map(|t| t.into()));
+            tracks.extend(items);
 
             if page.next.is_none() {
                 break;
@@ -521,6 +515,7 @@ impl Library {
         }
 
         *self.tracks.write().unwrap() = tracks;
+        true
     }
 
     fn populate_artists(&self) {
@@ -726,9 +721,7 @@ impl Library {
             let mut store = self.albums.write().unwrap();
             if !store.iter().any(|a| a.id == album.id) {
                 store.insert(0, album.clone());
-
-                // resort list of albums
-                store.sort_unstable_by_key(|a| format!("{}{}{}", a.artists[0], a.year, a.title));
+                sort_albums(&mut store);
             }
         }
 
@@ -927,5 +920,177 @@ impl Library {
     /// Force redraw the user interface.
     pub fn trigger_redraw(&self) {
         self.ev.trigger();
+    }
+}
+
+/// New saves are listed first, so any change shows in the first page or the total.
+fn tracks_unchanged(total: u32, first_page: &[Track], cached: &[Track]) -> bool {
+    total as usize == cached.len()
+        && first_page
+            .iter()
+            .zip(cached)
+            .all(|(new, old)| new.id == old.id)
+}
+
+/// Albums saved in ncspot have no `added_at`, so they force a refetch.
+fn albums_unchanged(total: u32, first_page: &[Album], cached: &[Album]) -> bool {
+    total as usize == cached.len()
+        && cached.iter().all(|a| a.added_at.is_some())
+        && first_page
+            .iter()
+            .all(|new| cached.iter().any(|old| old.id == new.id))
+}
+
+/// Returns `true` if the order changed.
+fn sort_albums(albums: &mut [Album]) -> bool {
+    if albums.is_sorted_by_key(album_sort_key) {
+        return false;
+    }
+    albums.sort_unstable_by_key(album_sort_key);
+    true
+}
+
+fn album_sort_key(album: &Album) -> String {
+    let album_artist = album.artists[0]
+        .strip_prefix("The ")
+        .unwrap_or(&album.artists[0]);
+    let album_title = album.title.strip_prefix("The ").unwrap_or(&album.title);
+    format!(
+        "{}{}{}",
+        album_artist.to_lowercase(),
+        album.year,
+        album_title.to_lowercase()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{albums_unchanged, sort_albums, tracks_unchanged};
+    use crate::model::album::Album;
+    use crate::model::track::Track;
+
+    fn tracks(ids: &[&str]) -> Vec<Track> {
+        ids.iter()
+            .map(|id| Track {
+                id: Some(id.to_string()),
+                uri: String::new(),
+                title: String::new(),
+                track_number: 0,
+                disc_number: 0,
+                duration: 0,
+                artists: Vec::new(),
+                artist_ids: Vec::new(),
+                album: None,
+                album_id: None,
+                album_artists: Vec::new(),
+                cover_url: None,
+                url: String::new(),
+                added_at: None,
+                list_index: 0,
+                is_local: false,
+                is_playable: None,
+            })
+            .collect()
+    }
+
+    fn album(id: &str, artist: &str, title: &str, added_at: Option<&str>) -> Album {
+        serde_json::from_value(serde_json::json!({
+            "id": id,
+            "title": title,
+            "artists": [artist],
+            "artist_ids": [],
+            "year": "2000",
+            "added_at": added_at,
+        }))
+        .unwrap()
+    }
+
+    fn albums(ids: &[&str]) -> Vec<Album> {
+        ids.iter()
+            .map(|id| album(id, "artist", "title", Some("2026-01-01T00:00:00Z")))
+            .collect()
+    }
+
+    #[test]
+    fn tracks_with_same_total_and_first_page_are_unchanged() {
+        assert!(tracks_unchanged(
+            3,
+            &tracks(&["c", "b"]),
+            &tracks(&["c", "b", "a"])
+        ));
+    }
+
+    #[test]
+    fn track_removal_changes_the_total() {
+        assert!(!tracks_unchanged(
+            2,
+            &tracks(&["c", "b"]),
+            &tracks(&["c", "b", "a"])
+        ));
+    }
+
+    #[test]
+    fn track_addition_shows_in_the_first_page() {
+        assert!(!tracks_unchanged(
+            3,
+            &tracks(&["d", "c"]),
+            &tracks(&["c", "b", "a"])
+        ));
+    }
+
+    #[test]
+    fn track_saved_again_moves_to_the_top() {
+        assert!(!tracks_unchanged(
+            3,
+            &tracks(&["a", "c"]),
+            &tracks(&["c", "b", "a"])
+        ));
+    }
+
+    #[test]
+    fn albums_cached_in_another_order_are_unchanged() {
+        assert!(albums_unchanged(
+            3,
+            &albums(&["c", "b"]),
+            &albums(&["a", "b", "c"])
+        ));
+    }
+
+    #[test]
+    fn album_removal_changes_the_total() {
+        assert!(!albums_unchanged(
+            2,
+            &albums(&["c", "b"]),
+            &albums(&["a", "b", "c"])
+        ));
+    }
+
+    #[test]
+    fn album_addition_shows_in_the_first_page() {
+        assert!(!albums_unchanged(
+            3,
+            &albums(&["d", "c"]),
+            &albums(&["a", "b", "c"])
+        ));
+    }
+
+    #[test]
+    fn album_saved_in_ncspot_is_refreshed() {
+        let mut cached = albums(&["a", "b", "c"]);
+        cached[0].added_at = None;
+        assert!(!albums_unchanged(3, &albums(&["c", "b"]), &cached));
+    }
+
+    #[test]
+    fn albums_sort_ignores_case_and_leading_the() {
+        let mut list = vec![
+            album("1", "The Beatles", "Abbey Road", None),
+            album("2", "abba", "Arrival", None),
+            album("3", "Cream", "Disraeli Gears", None),
+        ];
+        assert!(sort_albums(&mut list));
+        let ids: Vec<_> = list.iter().map(|a| a.id.clone().unwrap()).collect();
+        assert_eq!(ids, ["2", "1", "3"]);
+        assert!(!sort_albums(&mut list));
     }
 }
