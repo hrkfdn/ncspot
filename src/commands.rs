@@ -304,9 +304,14 @@ impl CommandManager {
             Command::Logout => {
                 self.spotify.shutdown();
 
+                crate::authentication::remove_rspotify_tokens();
                 let mut credentials_path = crate::config::cache_path("librespot");
                 credentials_path.push("credentials.json");
-                std::fs::remove_file(credentials_path).unwrap();
+                if let Err(e) = std::fs::remove_file(credentials_path)
+                    && e.kind() != std::io::ErrorKind::NotFound
+                {
+                    log::error!("Failed to remove credentials: {e}");
+                }
 
                 s.quit();
                 Ok(None)

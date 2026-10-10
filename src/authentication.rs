@@ -81,6 +81,59 @@ fn get_client_redirect_uri(suffix: ClientUriSuffix) -> String {
     }
 }
 
+/// Fixed, as development mode apps need the exact registered URI.
+pub const OWN_CLIENT_REDIRECT_URI: &str = "http://127.0.0.1:8989/login";
+
+/// The client ID used for Web API calls.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WebApiClient {
+    /// The client ID shared by all ncspot users.
+    Shared,
+    /// The user's `client_id`.
+    Own(String),
+}
+
+impl WebApiClient {
+    pub fn client_id(&self) -> &str {
+        match self {
+            Self::Shared => NCSPOT_CLIENT_ID,
+            Self::Own(id) => id,
+        }
+    }
+
+    pub fn token_path(&self) -> std::path::PathBuf {
+        config::cache_path(&self.token_file())
+    }
+
+    /// Per client ID, so a new `client_id` logs in again.
+    fn token_file(&self) -> String {
+        match self {
+            Self::Shared => "rspotify_token.json".to_string(),
+            Self::Own(id) => {
+                let id: String = id.chars().filter(char::is_ascii_alphanumeric).collect();
+                format!("rspotify_token_{id}.json")
+            }
+        }
+    }
+
+    fn redirect_uri(&self) -> String {
+        match self {
+            Self::Shared => get_client_redirect_uri(ClientUriSuffix::Ncspot),
+            Self::Own(_) => OWN_CLIENT_REDIRECT_URI.to_string(),
+        }
+    }
+
+    fn oauth_client(&self) -> Result<librespot_oauth::OAuthClient, String> {
+        OAuthClientBuilder::new(
+            self.client_id(),
+            &self.redirect_uri(),
+            NCSPOT_OAUTH_SCOPES.to_vec(),
+        )
+        .build()
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// Get credentials for use with librespot. This first tries to get cached credentials. If no cached
 /// credentials are available it will initiate the OAuth2 login process.
 pub fn get_credentials(configuration: &Config) -> Result<RespotCredentials, String> {
@@ -131,8 +184,38 @@ pub fn create_credentials() -> Result<RespotCredentials, String> {
         .map_err(|e| e.to_string())
 }
 
-pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
-    let path = config::cache_path("rspotify_token.json");
+/// The configured `client_id`, unless empty.
+pub fn own_client_id(cfg: &Config) -> Option<String> {
+    cfg.values()
+        .client_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(String::from)
+}
+
+/// Remove all cached Web API tokens.
+pub fn remove_rspotify_tokens() {
+    let Ok(entries) = fs::read_dir(config::cache_path("")) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("rspotify_token")
+            && name.ends_with(".json")
+            && let Err(e) = fs::remove_file(entry.path())
+        {
+            error!("Failed to remove {name}: {e}");
+        }
+    }
+}
+
+/// Cached or refreshed token for `client`, else a login if `allow_login` (prints to stdout).
+pub fn get_rspotify_token(
+    client: &WebApiClient,
+    allow_login: bool,
+) -> Result<rspotify::Token, String> {
+    let path = client.token_path();
     let token = if let Ok(token_json) = fs::read_to_string(&path) {
         serde_json::from_str::<rspotify::Token>(&token_json).ok()
     } else {
@@ -150,12 +233,7 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
         let refresh_token = t.refresh_token.as_deref().filter(|s| !s.is_empty());
         if let Some(refresh_token) = refresh_token {
             info!("Access token expired, attempting to refresh..");
-            let client_builder = OAuthClientBuilder::new(
-                NCSPOT_CLIENT_ID,
-                &get_client_redirect_uri(ClientUriSuffix::Ncspot),
-                NCSPOT_OAUTH_SCOPES.to_vec(),
-            );
-            if let Ok(oauth_client) = client_builder.build() {
+            if let Ok(oauth_client) = client.oauth_client() {
                 match oauth_client.refresh_token(refresh_token) {
                     Ok(new_token) => {
                         let mapped = map_token(new_token, Some(refresh_token));
@@ -170,24 +248,31 @@ pub fn get_rspotify_token() -> Result<rspotify::Token, String> {
         }
     }
 
-    let t = create_rspotify_token()?;
+    if !allow_login {
+        return Err(format!(
+            "No valid token for {client:?}, restart ncspot to log in again"
+        ));
+    }
+
+    let t = create_rspotify_token(client)?;
     write_token(&path, &t);
     Ok(t)
 }
 
-pub fn create_rspotify_token() -> Result<rspotify::Token, String> {
-    println!(
-        "To fully enable Web API features, you need to perform a second OAuth2 authorization\n"
-    );
+pub fn create_rspotify_token(client: &WebApiClient) -> Result<rspotify::Token, String> {
+    match client {
+        WebApiClient::Shared => println!(
+            "To fully enable Web API features, you need to perform a second OAuth2 authorization\n"
+        ),
+        WebApiClient::Own(_) => {
+            println!(
+                "To use your own client ID, you need to perform another OAuth2 authorization\n"
+            )
+        }
+    }
 
-    let client_builder = OAuthClientBuilder::new(
-        NCSPOT_CLIENT_ID,
-        &get_client_redirect_uri(ClientUriSuffix::Ncspot),
-        NCSPOT_OAUTH_SCOPES.to_vec(),
-    );
-    let oauth_client = client_builder.build().map_err(|e| e.to_string())?;
-
-    oauth_client
+    client
+        .oauth_client()?
         .get_access_token()
         .map(|token| map_token(token, None))
         .map_err(|e| e.to_string())
@@ -282,5 +367,23 @@ mod test {
     fn map_token_yields_no_refresh_token_when_omitted_without_fallback() {
         let mapped = map_token(oauth_token(""), None);
         assert_eq!(mapped.refresh_token, None);
+    }
+
+    #[test]
+    fn web_api_clients_use_separate_ids_and_token_caches() {
+        let own = WebApiClient::Own("my-client-id".to_string());
+        assert_eq!(WebApiClient::Shared.client_id(), NCSPOT_CLIENT_ID);
+        assert_eq!(own.client_id(), "my-client-id");
+        assert_ne!(WebApiClient::Shared.token_file(), own.token_file());
+        assert_eq!(
+            WebApiClient::Own("../my-client-id".to_string()).token_file(),
+            "rspotify_token_myclientid.json"
+        );
+        assert!(
+            WebApiClient::Shared
+                .redirect_uri()
+                .ends_with("/ncspot_login")
+        );
+        assert_eq!(own.redirect_uri(), OWN_CLIENT_REDIRECT_URI);
     }
 }
