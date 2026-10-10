@@ -302,7 +302,7 @@ impl WebApi {
             .throttle
             .write()
             .unwrap()
-            .record_429(Instant::now(), retry_after);
+            .record_429(Instant::now(), retry_after.unwrap_or(DEFAULT_RETRY_AFTER));
         if !new_episode {
             return;
         }
@@ -1134,14 +1134,14 @@ mod test {
             .throttle
             .write()
             .unwrap()
-            .record_429(now, Some(Duration::from_secs(60)));
+            .record_429(now, Duration::from_secs(60));
         api.personal
             .as_ref()
             .unwrap()
             .throttle
             .write()
             .unwrap()
-            .record_429(now, Some(Duration::from_secs(30)));
+            .record_429(now, Duration::from_secs(30));
         let labels: Vec<ClientLabel> = api
             .rate_limit_status()
             .into_iter()
