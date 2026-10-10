@@ -38,7 +38,9 @@ impl Album {
 
         if let Some(ref album_id) = self.id {
             let mut collected_tracks = Vec::new();
+            let mut complete = false;
             if let Ok(full_album) = spotify.api.album(album_id) {
+                complete = true;
                 let mut tracks_result = Some(full_album.tracks.clone());
                 while let Some(ref tracks) = tracks_result {
                     for t in &tracks.items {
@@ -51,22 +53,28 @@ impl Album {
                     tracks_result = match tracks.next {
                         Some(_) => {
                             debug!("requesting tracks again..");
-                            spotify
+                            let next = spotify
                                 .api
                                 .album_tracks(
                                     album_id,
                                     50,
                                     tracks.offset + tracks.items.len() as u32,
                                 )
-                                .ok()
+                                .ok();
+                            complete = next.is_some();
+                            next
                         }
                         None => None,
                     }
                 }
             }
 
-            self.total_tracks = Some(collected_tracks.len());
-            self.tracks = Some(collected_tracks);
+            // Keep the previous state on failure, so a later call retries instead of
+            // taking a partial or empty track list for the whole album.
+            if complete {
+                self.total_tracks = Some(collected_tracks.len());
+                self.tracks = Some(collected_tracks);
+            }
         }
     }
 }
