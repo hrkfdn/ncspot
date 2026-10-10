@@ -292,7 +292,16 @@ pub fn run_rate_limited<R>(
                 return Ok(value);
             }
             Attempt::RateLimited(retry_after) => {
-                on_429(retry_after.unwrap_or_else(|| backoff(retries)));
+                // A zero Retry-After opens no window, so treat it as missing.
+                on_429(
+                    retry_after
+                        .filter(|d| !d.is_zero())
+                        .unwrap_or_else(|| backoff(retries)),
+                );
+                if on_ui_thread {
+                    debug!("rate limited on the {label} client ID, UI thread call not retried");
+                    return Err(Some(429));
+                }
                 if retries == MAX_RATE_LIMIT_RETRIES {
                     warn!(
                         "giving up on a call to the {label} client ID after \
@@ -709,6 +718,67 @@ mod test {
         );
         assert_eq!(result, Err(Some(429)));
         assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn run_on_the_ui_thread_does_not_retry_a_zero_retry_after() {
+        let throttle = RwLock::new(ThrottleState::default());
+        let calls = Cell::new(0);
+        let result: Result<(), _> = run_rate_limited(
+            ClientLabel::Shared,
+            &throttle,
+            true,
+            no_jitter,
+            || {
+                calls.set(calls.get() + 1);
+                Attempt::RateLimited(Some(Duration::ZERO))
+            },
+            |window| {
+                throttle.write().unwrap().record_429(Instant::now(), window);
+            },
+        );
+        assert_eq!(result, Err(Some(429)));
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn run_treats_a_zero_retry_after_as_missing() {
+        let throttle = RwLock::new(ThrottleState::default());
+        let windows = std::cell::RefCell::new(Vec::new());
+        let _: Result<(), _> = run_rate_limited(
+            ClientLabel::Shared,
+            &throttle,
+            false,
+            no_jitter,
+            || Attempt::RateLimited(Some(Duration::ZERO)),
+            |window| windows.borrow_mut().push(window),
+        );
+        assert_eq!(windows.borrow()[0], backoff(0));
+        assert_eq!(windows.borrow()[0], SECS(1));
+    }
+
+    #[test]
+    fn run_succeeds_after_a_429_and_clears_the_window() {
+        let throttle = RwLock::new(ThrottleState::default());
+        let calls = Cell::new(0);
+        let result = run_rate_limited(
+            ClientLabel::Shared,
+            &throttle,
+            false,
+            no_jitter,
+            || {
+                calls.set(calls.get() + 1);
+                if calls.get() == 1 {
+                    Attempt::RateLimited(None)
+                } else {
+                    Attempt::Done("ok")
+                }
+            },
+            |_| {},
+        );
+        assert_eq!(result, Ok("ok"));
+        assert_eq!(calls.get(), 2);
+        assert_eq!(throttle.read().unwrap().remaining(Instant::now()), None);
     }
 
     #[test]
