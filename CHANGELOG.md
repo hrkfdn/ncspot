@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Playback stopping when Spotify closes the connection
 - A rate limit no longer delays startup, as the current user and the Browse
   categories load in the background, and the display name is cached
+- Playlists that failed to load, for example when rate limited, are reloaded
+  instead of staying empty
+- A failed playlist or podcast page is no longer retried forever
+- A failed load no longer removes cached playlists or saved podcasts, and
+  albums with missing tracks are loaded again when played
+- Playing an empty playlist, album or podcast no longer starts an unrelated
+  track
 
 ## [1.5.0]
 

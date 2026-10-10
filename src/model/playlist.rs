@@ -29,22 +29,32 @@ pub struct Playlist {
 }
 
 impl Playlist {
+    /// Whether the tracks are loaded. Empty tracks with a non-zero count failed to load.
+    pub fn is_loaded(&self) -> bool {
+        self.tracks
+            .as_ref()
+            .is_some_and(|tracks| !tracks.is_empty() || self.num_tracks == 0)
+    }
+
     pub fn load_tracks(&mut self, spotify: &Spotify) {
-        if self.tracks.is_some() {
+        if self.is_loaded() {
             return;
         }
 
-        self.tracks = Some(self.get_all_tracks(spotify));
+        self.tracks = self.get_all_tracks(spotify);
+        if let Some(tracks) = &self.tracks {
+            // unavailable tracks are skipped, and is_loaded needs the loaded count
+            self.num_tracks = tracks.len();
+        }
     }
 
-    fn get_all_tracks(&self, spotify: &Spotify) -> Vec<Playable> {
-        let tracks_result = spotify.api.user_playlist_tracks(&self.id);
-        while !tracks_result.at_end() {
-            tracks_result.next();
+    /// All tracks, or `None` if a page failed, leaving them unloaded for a later retry.
+    fn get_all_tracks(&self, spotify: &Spotify) -> Option<Vec<Playable>> {
+        let tracks = spotify.api.user_playlist_tracks(&self.id).fetch_all();
+        if tracks.is_none() {
+            warn!("Failed to load the tracks of playlist {}", self.name);
         }
-
-        let tracks = tracks_result.items.read().unwrap();
-        tracks.clone()
+        tracks
     }
 
     pub fn has_track(&self, track_id: &str) -> bool {
@@ -56,7 +66,9 @@ impl Playlist {
     }
 
     pub fn delete_track(&mut self, index: usize, spotify: Spotify, library: &Library) -> bool {
-        let playable = self.tracks.as_ref().unwrap()[index].clone();
+        let Some(playable) = self.tracks.as_ref().and_then(|t| t.get(index)).cloned() else {
+            return false;
+        };
         debug!("deleting track: {index} {playable:?}");
 
         if playable.track().map(|t| t.is_local) == Some(true) {
@@ -228,8 +240,7 @@ impl ListItem for Playlist {
         self.load_tracks(&queue.get_spotify());
 
         if let Some(tracks) = &self.tracks {
-            let index = queue.append_next(tracks);
-            queue.play(index, true, true);
+            queue.play_all(tracks, true, true);
         }
     }
 
