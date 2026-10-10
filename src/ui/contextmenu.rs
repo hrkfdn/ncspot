@@ -59,10 +59,10 @@ impl ContextMenu {
         track: Track,
     ) -> NamedView<AddToPlaylistMenu> {
         let mut list_select: SelectView<Playlist> = SelectView::new();
-        let current_user_id = library.user_id.as_ref().unwrap();
+        let current_user_id = library.user_id.as_ref();
 
         for list in library.playlists.read().unwrap().iter() {
-            if current_user_id == &list.owner_id || list.collaborative {
+            if current_user_id == Some(&list.owner_id) || list.collaborative {
                 list_select.add_item(list.name.clone(), list.clone());
             }
         }

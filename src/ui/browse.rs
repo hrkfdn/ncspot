@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use std::thread;
 
 use cursive::Cursive;
 use cursive::view::ViewWrapper;
@@ -18,9 +19,22 @@ pub struct BrowseView {
 
 impl BrowseView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>) -> Self {
-        let categories = queue.get_spotify().api.categories();
-        let list = ListView::new(categories.items.clone(), queue, library);
-        categories.apply_pagination(list.get_pagination());
+        let items = Arc::new(RwLock::new(Vec::new()));
+        let list = ListView::new(items.clone(), queue.clone(), library.clone());
+        let pagination = list.get_pagination().clone();
+
+        // load in the background, a rate limit would otherwise block startup
+        thread::spawn(move || {
+            let mut categories = queue.get_spotify().api.categories();
+            // fill the list before arming pagination, so pages stay in order
+            items
+                .write()
+                .unwrap()
+                .append(&mut categories.items.write().unwrap());
+            categories.items = items;
+            categories.apply_pagination(&pagination);
+            library.trigger_redraw();
+        });
 
         Self { list }
     }
