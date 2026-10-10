@@ -62,6 +62,14 @@ pub struct Library {
     pub cfg: Arc<Config>,
 }
 
+/// Outcome of [Library::fetch_playlists].
+struct PlaylistSync {
+    /// The remote playlist listing was read to the end.
+    listing_complete: bool,
+    /// Every playlist that needed a track download got it.
+    items_complete: bool,
+}
+
 impl Library {
     /// Create an empty library for use in tests. No cache is loaded and no API calls are made.
     #[cfg(test)]
@@ -214,7 +222,7 @@ impl Library {
         debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.api.overwrite_playlist(id, tracks);
 
-        if self.fetch_playlists() {
+        if self.fetch_playlists().listing_complete {
             self.save_cache(
                 &config::cache_path(CACHE_PLAYLISTS),
                 &self.playlists.read().unwrap(),
@@ -300,14 +308,14 @@ impl Library {
                         &config::cache_path(CACHE_PLAYLISTS),
                         library.playlists.write().unwrap().as_mut(),
                     );
-                    let complete = library.fetch_playlists();
-                    if complete {
+                    let sync = library.fetch_playlists();
+                    if sync.listing_complete {
                         library.save_cache(
                             &config::cache_path(CACHE_PLAYLISTS),
                             &library.playlists.read().unwrap(),
                         );
                     }
-                    complete
+                    sync.listing_complete && sync.items_complete
                 })
             };
 
@@ -445,9 +453,11 @@ impl Library {
     }
 
     /// Fetch the playlists from the web API and save them to the local library. This synchronizes
-    /// the local version with the remote, pruning removed playlists in the process. Returns true
-    /// if the remote listing was complete; on false the cache must not be saved as authoritative.
-    fn fetch_playlists(&self) -> bool {
+    /// the local version with the remote, pruning removed playlists in the process. Reports
+    /// whether the remote listing was complete (if not, the cache must not be saved as
+    /// authoritative) and whether every playlist that needed it had its tracks loaded (if not,
+    /// the cached copies were kept and the sync is incomplete).
+    fn fetch_playlists(&self) -> PlaylistSync {
         debug!("loading playlists");
         let known_at_start: Vec<String> = self
             .playlists
@@ -457,6 +467,7 @@ impl Library {
             .map(|p| p.id.clone())
             .collect();
         let mut list_order = Vec::new();
+        let mut items_complete = true;
 
         let lists_page = self.spotify.api.current_user_playlist();
         let mut lists_batch = Some(lists_page.items.read().unwrap().clone());
@@ -473,6 +484,7 @@ impl Library {
                         // trigger redraw
                         self.trigger_redraw();
                     } else {
+                        items_complete = false;
                         warn!(
                             "failed to load tracks for playlist {}, keeping cached copy",
                             remote.name
@@ -515,10 +527,14 @@ impl Library {
         self.spotify
             .send_mpris(crate::mpris::MprisCommand::EmitPlaylistChanged(None));
 
-        listing_complete
+        PlaylistSync {
+            listing_complete,
+            items_complete,
+        }
     }
 
-    /// Fetch the artists from the web API and save them to the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    /// Fetch the artists from the web API and save them to the local library. Returns false,
+    /// leaving the stored items unchanged, if a page failed.
     fn fetch_artists(&self) -> bool {
         let mut artists: Vec<Artist> = Vec::new();
         let mut last: Option<&str> = None;
