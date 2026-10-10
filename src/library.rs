@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use chrono::{DateTime, Utc};
 use log::{debug, error, info, warn};
 use rspotify::model::Id;
 use serde::Serialize;
@@ -15,6 +16,7 @@ use serde::de::DeserializeOwned;
 use crate::config::Config;
 use crate::config::{self, CACHE_VERSION};
 use crate::events::EventManager;
+use crate::library_sync::{SavedItem, SavedPage, Synced, sync_liked, sync_saved};
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::playable::Playable;
@@ -395,28 +397,51 @@ impl Library {
         });
     }
 
-    /// Fetch the shows from the web API and save them to the local library. Returns false,
-    /// leaving the stored shows unchanged, if a page failed.
+    /// Fetch the saved shows from the web API and save them to the local library, unless they
+    /// are unchanged. Returns false, leaving the stored shows unchanged, if a page failed.
     fn fetch_shows(&self) -> bool {
         debug!("loading shows");
-
-        let mut saved_shows: Vec<Show> = Vec::new();
-        let mut offset = 0;
-        loop {
-            let Ok(page) = self.spotify.api.get_saved_shows(offset) else {
-                error!("Failed to fetch shows.");
-                return false;
-            };
-            saved_shows.extend(page.items.iter().map(|show| (&show.show).into()));
-            if page.next.is_none() {
-                break;
+        let stored_ids: Vec<Option<String>> = self
+            .shows
+            .read()
+            .unwrap()
+            .iter()
+            .map(|show| Some(show.id.clone()))
+            .collect();
+        let synced = sync_saved(&stored_ids, |offset| {
+            debug!("shows page at offset {offset}");
+            let page = self.spotify.api.get_saved_shows(offset as u32).ok()?;
+            Some(SavedPage {
+                total: page.total as usize,
+                has_next: page.next.is_some(),
+                items: page
+                    .items
+                    .iter()
+                    .map(|saved| SavedItem {
+                        id: Some(saved.show.id.id().to_string()),
+                        added_at: DateTime::parse_from_rfc3339(&saved.added_at)
+                            .ok()
+                            .map(|date| date.with_timezone(&Utc)),
+                        value: Show::from(&saved.show),
+                    })
+                    .collect(),
+            })
+        });
+        match synced {
+            Synced::Full(shows) => {
+                *self.shows.write().unwrap() = shows;
+                true
             }
-            debug!("requesting shows again..");
-            offset = page.offset + page.items.len() as u32;
+            Synced::Unchanged => {
+                debug!("shows unchanged");
+                true
+            }
+            Synced::Prepended { .. } => unreachable!("sync_saved never prepends"),
+            Synced::Failed => {
+                error!("Failed to fetch shows.");
+                false
+            }
         }
-
-        *self.shows.write().unwrap() = saved_shows;
-        true
     }
 
     /// Fetch the playlists from the web API and save them to the local library. This synchronizes
@@ -549,32 +574,49 @@ impl Library {
         }
     }
 
-    /// Fetch the albums from the web API and store them in the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    /// Fetch the saved albums from the web API and store them in the local library, unless they
+    /// are unchanged. Returns false, leaving the stored albums unchanged, if a page failed.
     fn fetch_albums(&self) -> bool {
-        let mut albums: Vec<Album> = Vec::new();
-        let mut i = 0u32;
-
-        loop {
+        let stored_ids: Vec<Option<String>> = self
+            .albums
+            .read()
+            .unwrap()
+            .iter()
+            .map(|album| album.id.clone())
+            .collect();
+        let synced = sync_saved(&stored_ids, |offset| {
+            debug!("albums page at offset {offset}");
             let page = self
                 .spotify
                 .api
-                .current_user_saved_albums(albums.len() as u32);
-            debug!("albums page: {i}");
-
-            i += 1;
-
-            if page.is_err() {
+                .current_user_saved_albums(offset as u32)
+                .ok()?;
+            Some(SavedPage {
+                total: page.total as usize,
+                has_next: page.next.is_some(),
+                items: page
+                    .items
+                    .iter()
+                    .map(|saved| SavedItem {
+                        id: Some(saved.album.id.id().to_string()),
+                        added_at: Some(saved.added_at),
+                        value: Album::from(saved),
+                    })
+                    .collect(),
+            })
+        });
+        let mut albums = match synced {
+            Synced::Full(albums) => albums,
+            Synced::Unchanged => {
+                debug!("albums unchanged");
+                return true;
+            }
+            Synced::Prepended { .. } => unreachable!("sync_saved never prepends"),
+            Synced::Failed => {
                 error!("Failed to fetch albums.");
                 return false;
             }
-
-            let page = page.unwrap();
-            albums.extend(page.items.iter().map(|a| a.into()));
-
-            if page.next.is_none() {
-                break;
-            }
-        }
+        };
 
         albums.sort_unstable_by_key(|album| {
             let album_artist = album.artists[0]
@@ -593,52 +635,52 @@ impl Library {
         true
     }
 
-    /// Fetch the tracks from the web API and save them in the local library. Returns false, leaving the stored items unchanged, if a page failed.
+    /// Fetch the liked songs from the web API and save them in the local library. Only new
+    /// likes are downloaded when nothing else changed. Returns false, leaving the stored songs
+    /// unchanged, if a page failed.
     fn fetch_tracks(&self) -> bool {
-        let mut tracks = Vec::new();
-        let mut i = 0u32;
-
-        loop {
-            let page = self
-                .spotify
-                .api
-                .current_user_saved_tracks(tracks.len() as u32);
-
-            debug!("tracks page: {i}");
-            i += 1;
-
-            if page.is_err() {
-                error!("Failed to fetch tracks.");
-                return false;
-            }
-            let page = page.unwrap();
-
-            if page.offset == 0 {
-                // If first page matches the first items in store and total is
-                // identical, assume list is unchanged.
-
-                let store = self.tracks.read().unwrap();
-
-                if page.total as usize == store.len()
-                    && !page
+        let cached: Vec<Track> = self.tracks.read().unwrap().clone();
+        let synced = sync_liked(
+            &cached,
+            |track: &Track| track.id.clone(),
+            |offset| {
+                debug!("tracks page at offset {offset}");
+                let page = self
+                    .spotify
+                    .api
+                    .current_user_saved_tracks(offset as u32)
+                    .ok()?;
+                Some(SavedPage {
+                    total: page.total as usize,
+                    has_next: page.next.is_some(),
+                    items: page
                         .items
                         .iter()
-                        .enumerate()
-                        .any(|(i, t)| t.track.id.as_ref().map(|id| id.to_string()) != store[i].id)
-                {
-                    return true;
-                }
+                        .map(|saved| SavedItem {
+                            id: saved.track.id.as_ref().map(|id| id.id().to_string()),
+                            added_at: Some(saved.added_at),
+                            value: Track::from(saved),
+                        })
+                        .collect(),
+                })
+            },
+        );
+        match synced {
+            Synced::Prepended { items, new_count } => {
+                debug!("liked songs: {new_count} new");
+                *self.tracks.write().unwrap() = items;
+                true
             }
-
-            tracks.extend(page.items.iter().map(|t| t.into()));
-
-            if page.next.is_none() {
-                break;
+            Synced::Full(items) => {
+                *self.tracks.write().unwrap() = items;
+                true
+            }
+            Synced::Unchanged => true,
+            Synced::Failed => {
+                error!("Failed to fetch tracks.");
+                false
             }
         }
-
-        *self.tracks.write().unwrap() = tracks;
-        true
     }
 
     fn populate_artists(&self) {
