@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Retry Web API calls that are rate limited (HTTP 429) several times, honouring
+  the `Retry-After` header or backing off exponentially, and pause all other
+  API calls meanwhile, instead of retrying once immediately and silently
+  dropping the result
+
 ## [1.5.0]
 
 ### Added

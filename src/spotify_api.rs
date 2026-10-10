@@ -1,6 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::application::ASYNC_RUNTIME;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -27,6 +27,25 @@ use crate::spotify_worker::WorkerCommand;
 use crate::ui::pagination::{ApiPage, ApiResult};
 
 /// Convenient wrapper around the rspotify web API functionality.
+/// Maximum number of times an API call is retried after being rate limited.
+const MAX_RATE_LIMIT_RETRIES: u32 = 5;
+/// Waiting time before the first retry when the API doesn't say how long to wait.
+const RATE_LIMIT_BASE_DELAY: Duration = Duration::from_secs(1);
+/// Upper bound for a single wait, so a huge `Retry-After` can't freeze the caller for hours.
+const RATE_LIMIT_MAX_DELAY: Duration = Duration::from_secs(60);
+
+/// Time to wait before retrying a rate limited call.
+///
+/// Uses the `Retry-After` value (in seconds) when present, otherwise an exponential backoff based
+/// on the number of `retries` already made. The result never exceeds [`RATE_LIMIT_MAX_DELAY`].
+fn rate_limit_delay(retry_after: Option<u64>, retries: u32) -> Duration {
+    let delay = match retry_after {
+        Some(seconds) => Duration::from_secs(seconds),
+        None => RATE_LIMIT_BASE_DELAY.saturating_mul(2u32.saturating_pow(retries)),
+    };
+    delay.min(RATE_LIMIT_MAX_DELAY)
+}
+
 #[derive(Clone)]
 pub struct WebApi {
     /// Rspotify web API.
@@ -37,6 +56,9 @@ pub struct WebApi {
     worker_channel: Arc<RwLock<Option<mpsc::UnboundedSender<WorkerCommand>>>>,
     /// Time at which the token expires.
     token_expiration: Arc<RwLock<DateTime<Utc>>>,
+    /// Instant before which no request should be sent, because the API rate limited us. Shared
+    /// by all clones so concurrent calls don't keep hitting the limit while it is in effect.
+    rate_limited_until: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Default for WebApi {
@@ -55,6 +77,7 @@ impl Default for WebApi {
             user: None,
             worker_channel: Arc::new(RwLock::new(None)),
             token_expiration: Arc::new(RwLock::new(Utc::now())),
+            rate_limited_until: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -111,65 +134,85 @@ impl WebApi {
         }))
     }
 
-    /// Execute `api_call` and retry once if a rate limit occurs.
-    fn api_with_retry<F, R>(&self, api_call: F) -> Option<R>
-    where
-        F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
-    {
-        let result = { api_call(&self.api) };
-        match result {
-            Ok(v) => Some(v),
-            Err(ClientError::Http(error)) => {
-                debug!("http error: {error:?}");
-                match error.as_ref() {
-                    HttpError::StatusCode(response) => match response.status() {
-                        429 => {
-                            let waiting_duration = response
-                                .header("Retry-After")
-                                .and_then(|v| v.parse::<u64>().ok());
-                            debug!("rate limit hit. waiting {waiting_duration:?} seconds");
-                            thread::sleep(Duration::from_secs(waiting_duration.unwrap_or(0)));
-                            api_call(&self.api).ok()
-                        }
-                        401 => {
-                            debug!("token unauthorized. trying refresh..");
-                            self.update_token()
-                                .and_then(move |_| api_call(&self.api).ok())
-                        }
-                        _ => {
-                            error!("unhandled api error: {response:?}");
-                            None
-                        }
-                    },
-                    _ => None,
-                }
-            }
-            Err(e) => {
-                error!("unhandled api error: {e}");
-                None
+    /// Block until any rate limit cooldown shared between all API calls has elapsed.
+    fn wait_for_rate_limit(&self) {
+        loop {
+            let deadline = *self.rate_limited_until.lock().unwrap();
+            match deadline.and_then(|d| d.checked_duration_since(Instant::now())) {
+                Some(remaining) if !remaining.is_zero() => thread::sleep(remaining),
+                _ => return,
             }
         }
     }
 
-    /// Append `tracks` at `position` in the playlist with `playlist_id`.
-    pub fn append_tracks(
-        &self,
-        playlist_id: &str,
-        tracks: &[Playable],
-        position: Option<u32>,
-    ) -> Result<PlaylistResult, ()> {
-        self.api_with_retry(|api| {
-            let trackids: Vec<PlayableId> = tracks
-                .iter()
-                .filter_map(|playable| playable.into())
-                .collect();
-            api.playlist_add_items(
-                PlaylistId::from_id(playlist_id).unwrap(),
-                trackids.iter().map(|id| id.as_ref()),
-                position,
-            )
-        })
-        .ok_or(())
+    /// Make every API call wait at least `delay` before being sent.
+    fn start_rate_limit_cooldown(&self, delay: Duration) {
+        let mut until = self.rate_limited_until.lock().unwrap();
+        let deadline = Instant::now() + delay;
+        if until.is_none_or(|current| deadline > current) {
+            *until = Some(deadline);
+        }
+    }
+
+    /// Execute `api_call`, retrying when a rate limit is hit or the token has expired.
+    ///
+    /// Rate limited calls (HTTP 429) are retried up to [`MAX_RATE_LIMIT_RETRIES`] times, waiting
+    /// for the duration requested by the `Retry-After` header, or with an exponential backoff if
+    /// the header is missing. The wait applies to all concurrent API calls, not only the one that
+    /// was rate limited. A call that hits an expired token (HTTP 401) is retried once after
+    /// refreshing the token.
+    fn api_with_retry<F, R>(&self, api_call: F) -> Option<R>
+    where
+        F: Fn(&AuthCodeSpotify) -> ClientResult<R>,
+    {
+        let mut rate_limit_retries = 0;
+        let mut token_refreshed = false;
+        loop {
+            self.wait_for_rate_limit();
+            match api_call(&self.api) {
+                Ok(v) => return Some(v),
+                Err(ClientError::Http(error)) => {
+                    debug!("http error: {error:?}");
+                    let HttpError::StatusCode(response) = error.as_ref() else {
+                        return None;
+                    };
+                    match response.status() {
+                        429 if rate_limit_retries < MAX_RATE_LIMIT_RETRIES => {
+                            let retry_after = response
+                                .header("Retry-After")
+                                .and_then(|v| v.parse::<u64>().ok());
+                            let waiting_duration =
+                                rate_limit_delay(retry_after, rate_limit_retries);
+                            debug!(
+                                "rate limit hit. waiting {waiting_duration:?} (retry {}/{MAX_RATE_LIMIT_RETRIES})",
+                                rate_limit_retries + 1
+                            );
+                            self.start_rate_limit_cooldown(waiting_duration);
+                            rate_limit_retries += 1;
+                        }
+                        429 => {
+                            error!(
+                                "giving up after {MAX_RATE_LIMIT_RETRIES} retries: Spotify API rate limit exceeded"
+                            );
+                            return None;
+                        }
+                        401 if !token_refreshed => {
+                            debug!("token unauthorized. trying refresh..");
+                            self.update_token()?;
+                            token_refreshed = true;
+                        }
+                        _ => {
+                            error!("unhandled api error: {response:?}");
+                            return None;
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("unhandled api error: {e}");
+                    return None;
+                }
+            }
+        }
     }
 
     pub fn delete_tracks(
@@ -199,6 +242,27 @@ impl WebApi {
                 PlaylistId::from_id(playlist_id).unwrap(),
                 item_pos,
                 Some(snapshot_id),
+            )
+        })
+        .ok_or(())
+    }
+
+    /// Append `tracks` at `position` in the playlist with `playlist_id`.
+    pub fn append_tracks(
+        &self,
+        playlist_id: &str,
+        tracks: &[Playable],
+        position: Option<u32>,
+    ) -> Result<PlaylistResult, ()> {
+        self.api_with_retry(|api| {
+            let trackids: Vec<PlayableId> = tracks
+                .iter()
+                .filter_map(|playable| playable.into())
+                .collect();
+            api.playlist_add_items(
+                PlaylistId::from_id(playlist_id).unwrap(),
+                trackids.iter().map(|id| id.as_ref()),
+                position,
             )
         })
         .ok_or(())
@@ -741,5 +805,30 @@ impl WebApi {
     /// Get details about the logged in user.
     pub fn current_user(&self) -> Result<PrivateUser, ()> {
         self.api_with_retry(|api| api.current_user()).ok_or(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rate_limit_delay_honours_retry_after() {
+        assert_eq!(rate_limit_delay(Some(6), 0), Duration::from_secs(6));
+        assert_eq!(rate_limit_delay(Some(6), 4), Duration::from_secs(6));
+    }
+
+    #[test]
+    fn rate_limit_delay_backs_off_exponentially_without_retry_after() {
+        let delays: Vec<_> = (0..5)
+            .map(|n| rate_limit_delay(None, n).as_secs())
+            .collect();
+        assert_eq!(delays, [1, 2, 4, 8, 16]);
+    }
+
+    #[test]
+    fn rate_limit_delay_is_capped() {
+        assert_eq!(rate_limit_delay(Some(86_400), 0), RATE_LIMIT_MAX_DELAY);
+        assert_eq!(rate_limit_delay(None, 100), RATE_LIMIT_MAX_DELAY);
     }
 }
