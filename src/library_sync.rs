@@ -1,10 +1,26 @@
 //! Pure logic for cheap library syncs: detect when a newest-first saved list (liked songs,
 //! saved albums, saved shows) is unchanged or only has new items at the top, so a sync can
 //! skip downloading the rest. Every shortcut is guarded by an exact check and falls back to a
-//! full fetch.
+//! full fetch. Shortcuts keep cached item details, so a list is also downloaded in full once
+//! its last full fetch is [FULL_REFRESH_MAX_AGE] old (see [full_fetch_due]).
+
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use log::debug;
+
+/// Longest time a list's cached item details are kept without a full fetch.
+pub(crate) const FULL_REFRESH_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Whether a list whose last full fetch was at `last` (Unix seconds) needs a full fetch at
+/// `now`: when it never had one, when it is at least [FULL_REFRESH_MAX_AGE] old, or when
+/// `last` is in the future (the clock went backwards).
+pub(crate) fn full_fetch_due(last: Option<i64>, now: i64) -> bool {
+    match last {
+        None => true,
+        Some(last) => last > now || now - last >= FULL_REFRESH_MAX_AGE.as_secs() as i64,
+    }
+}
 
 /// One item of a saved-list page, reduced to what the sync shortcuts need.
 #[derive(Clone, Debug)]
@@ -136,15 +152,17 @@ fn fetch_into<T>(
 /// Sync liked songs. Fetches pages from the top until the cached songs line up behind the new
 /// likes, then returns the new likes followed by the cache. Falls back to downloading the
 /// whole list (keeping the pages already fetched) when the dates are not newest first or
-/// [merge_liked] reports a mismatch.
+/// [merge_liked] reports a mismatch. With `force_full` it takes no shortcut and downloads the
+/// whole list.
 pub(crate) fn sync_liked<T: Clone>(
     cached: &[T],
+    force_full: bool,
     id_of: impl Fn(&T) -> Option<String>,
     mut fetch_page: impl FnMut(usize) -> Option<SavedPage<T>>,
 ) -> Synced<T> {
     let cached_ids: Vec<Option<String>> = cached.iter().map(&id_of).collect();
     let mut fetched: Vec<SavedItem<T>> = Vec::new();
-    let mut shortcut = true;
+    let mut shortcut = !force_full;
     loop {
         let Some((total, has_next)) = fetch_into(&mut fetched, &mut fetch_page) else {
             return Synced::Failed;
@@ -177,16 +195,18 @@ pub(crate) fn sync_liked<T: Clone>(
 
 /// Sync a saved list whose store is not in remote order (albums, shows). Returns
 /// [Synced::Unchanged] after one request when [first_page_unchanged] holds for a newest-first
-/// first page; otherwise downloads the whole list, reusing the first page.
+/// first page; otherwise downloads the whole list, reusing the first page. With `force_full`
+/// the first page is never taken as unchanged.
 pub(crate) fn sync_saved<T>(
     stored_ids: &[Option<String>],
+    force_full: bool,
     mut fetch_page: impl FnMut(usize) -> Option<SavedPage<T>>,
 ) -> Synced<T> {
     let mut fetched: Vec<SavedItem<T>> = Vec::new();
     let Some((total, mut has_next)) = fetch_into(&mut fetched, &mut fetch_page) else {
         return Synced::Failed;
     };
-    if ordered(&fetched) && first_page_unchanged(stored_ids, &ids(&fetched), total) {
+    if !force_full && ordered(&fetched) && first_page_unchanged(stored_ids, &ids(&fetched), total) {
         return Synced::Unchanged;
     }
     while has_next {
@@ -376,6 +396,71 @@ mod test {
         assert!(added_at_descending(&[at(5)]));
     }
 
+    // full_fetch_due
+
+    #[test]
+    fn full_fetch_due_when_never_fetched() {
+        assert!(full_fetch_due(None, 1_000));
+    }
+
+    #[test]
+    fn full_fetch_not_due_just_under_a_day() {
+        let now = 1_000_000;
+        assert!(!full_fetch_due(Some(now - (24 * 60 * 60 - 60)), now));
+    }
+
+    #[test]
+    fn full_fetch_due_at_exactly_a_day() {
+        let now = 1_000_000;
+        assert!(full_fetch_due(Some(now - 24 * 60 * 60), now));
+    }
+
+    #[test]
+    fn full_fetch_due_when_the_clock_went_backwards() {
+        let now = 1_000_000;
+        assert!(full_fetch_due(Some(now + 3600), now));
+    }
+
+    // force_full
+
+    #[test]
+    fn liked_force_full_downloads_an_unchanged_list() {
+        let cached = names("c", 120);
+        let list = remote(&cached);
+        let calls = Cell::new(0);
+        assert_eq!(
+            sync_liked(&cached, true, |v| Some(v.clone()), source(&list, &calls)),
+            Synced::Full(cached)
+        );
+        assert_eq!(calls.get(), 3);
+    }
+
+    #[test]
+    fn liked_force_full_with_a_failing_second_page_fails() {
+        let cached = names("c", 120);
+        let list = remote(&cached);
+        let calls = Cell::new(0);
+        let mut inner = source(&list, &calls);
+        let failing = |offset: usize| if offset == 0 { inner(offset) } else { None };
+        assert_eq!(
+            sync_liked(&cached, true, |v| Some(v.clone()), failing),
+            Synced::Failed
+        );
+    }
+
+    #[test]
+    fn saved_force_full_downloads_an_unchanged_list() {
+        let ids = names("a", 120);
+        let list = remote(&ids);
+        let stored: Vec<Option<String>> = ids.iter().cloned().map(Some).collect();
+        let calls = Cell::new(0);
+        assert_eq!(
+            sync_saved(&stored, true, source(&list, &calls)),
+            Synced::Full(ids)
+        );
+        assert_eq!(calls.get(), 3);
+    }
+
     // sync_liked
 
     #[test]
@@ -383,7 +468,7 @@ mod test {
         let cached = names("c", 120);
         let list = remote(&cached);
         let calls = Cell::new(0);
-        let synced = sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls));
+        let synced = sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls));
         assert_eq!(
             synced,
             Synced::Prepended {
@@ -401,7 +486,7 @@ mod test {
         ids.extend(cached.iter().cloned());
         let list = remote(&ids);
         let calls = Cell::new(0);
-        let synced = sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls));
+        let synced = sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls));
         assert_eq!(
             synced,
             Synced::Prepended {
@@ -419,7 +504,7 @@ mod test {
         ids.extend(cached.iter().cloned());
         let list = remote(&ids);
         let calls = Cell::new(0);
-        let synced = sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls));
+        let synced = sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls));
         assert_eq!(
             synced,
             Synced::Prepended {
@@ -437,7 +522,7 @@ mod test {
         let list = remote(&ids);
         let calls = Cell::new(0);
         assert_eq!(
-            sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls)),
+            sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls)),
             Synced::Full(ids)
         );
         assert_eq!(calls.get(), 3);
@@ -451,7 +536,7 @@ mod test {
         let list = remote(&ids);
         let calls = Cell::new(0);
         assert_eq!(
-            sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls)),
+            sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls)),
             Synced::Full(ids)
         );
     }
@@ -462,7 +547,7 @@ mod test {
         let list = remote(&ids);
         let calls = Cell::new(0);
         assert_eq!(
-            sync_liked(&[], |v| Some(v.clone()), source(&list, &calls)),
+            sync_liked(&[], false, |v| Some(v.clone()), source(&list, &calls)),
             Synced::Full(ids)
         );
     }
@@ -474,7 +559,7 @@ mod test {
         list[1].added_at = Some(at(2_000_000));
         let calls = Cell::new(0);
         assert_eq!(
-            sync_liked(&cached, |v| Some(v.clone()), source(&list, &calls)),
+            sync_liked(&cached, false, |v| Some(v.clone()), source(&list, &calls)),
             Synced::Full(cached)
         );
         assert_eq!(calls.get(), 3);
@@ -490,7 +575,7 @@ mod test {
         let mut inner = source(&list, &calls);
         let failing = |offset: usize| if offset == 0 { inner(offset) } else { None };
         assert_eq!(
-            sync_liked(&cached, |v| Some(v.clone()), failing),
+            sync_liked(&cached, false, |v| Some(v.clone()), failing),
             Synced::Failed
         );
     }
@@ -506,7 +591,7 @@ mod test {
             })
         };
         assert_eq!(
-            sync_liked(&cached, |v| Some(v.clone()), empty),
+            sync_liked(&cached, false, |v| Some(v.clone()), empty),
             Synced::Failed
         );
     }
@@ -522,7 +607,7 @@ mod test {
         stored.reverse();
         let calls = Cell::new(0);
         assert_eq!(
-            sync_saved(&stored, source(&list, &calls)),
+            sync_saved(&stored, false, source(&list, &calls)),
             Synced::Unchanged
         );
         assert_eq!(calls.get(), 1);
@@ -537,7 +622,7 @@ mod test {
         let list = remote(&ids);
         let calls = Cell::new(0);
         assert_eq!(
-            sync_saved(&stored, source(&list, &calls)),
+            sync_saved(&stored, false, source(&list, &calls)),
             Synced::Full(ids)
         );
         assert_eq!(calls.get(), 3);
@@ -551,7 +636,7 @@ mod test {
         let list = remote(&ids);
         let calls = Cell::new(0);
         assert_eq!(
-            sync_saved(&stored, source(&list, &calls)),
+            sync_saved(&stored, false, source(&list, &calls)),
             Synced::Full(ids)
         );
     }
@@ -564,7 +649,7 @@ mod test {
         list[3].added_at = None;
         let calls = Cell::new(0);
         assert_eq!(
-            sync_saved(&stored, source(&list, &calls)),
+            sync_saved(&stored, false, source(&list, &calls)),
             Synced::Full(ids)
         );
     }
@@ -572,7 +657,10 @@ mod test {
     #[test]
     fn saved_failed_page_keeps_the_store() {
         let stored = some(&["a"]);
-        assert_eq!(sync_saved::<String>(&stored, |_| None), Synced::Failed);
+        assert_eq!(
+            sync_saved::<String>(&stored, false, |_| None),
+            Synced::Failed
+        );
     }
 
     // empty and failing pages
@@ -589,6 +677,7 @@ mod test {
     fn liked_empty_final_page_with_a_positive_total_fails() {
         let synced = sync_liked(
             &names("t", 3),
+            false,
             |t: &String| Some(t.clone()),
             |_| empty_page(5),
         );
@@ -599,6 +688,7 @@ mod test {
     fn liked_empty_list_is_a_full_empty_sync() {
         let synced = sync_liked(
             &names("t", 3),
+            false,
             |t: &String| Some(t.clone()),
             |_| empty_page(0),
         );
@@ -608,7 +698,7 @@ mod test {
     #[test]
     fn saved_empty_final_page_with_a_mismatched_total_fails() {
         let stored = some(&["a", "b"]);
-        let synced = sync_saved(&stored, |_| empty_page(5));
+        let synced = sync_saved(&stored, false, |_| empty_page(5));
         assert_eq!(synced, Synced::Failed);
     }
 
@@ -616,7 +706,7 @@ mod test {
     fn saved_failing_second_page_fails() {
         let list = remote(&names("a", 120));
         let stored = some(&["old"]);
-        let synced = sync_saved(&stored, |offset| {
+        let synced = sync_saved(&stored, false, |offset| {
             if offset > 0 {
                 return None;
             }

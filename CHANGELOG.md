@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace already existing queue notifications instead of stacking new ones.
 - Library updates only download new liked songs, and skip saved albums and
   shows when they are unchanged, instead of downloading them again on every
-  update
+  update. Each list is still downloaded in full once a day so cached details
+  stay current
 
 ### Fixed
 

@@ -262,6 +262,10 @@ pub struct UserState {
     /// When true, per-song overrides are ignored and the global settings drive every track.
     #[serde(default)]
     pub jukebox_override_per_song: bool,
+    /// Unix seconds of the last successful full fetch of each library list ("tracks",
+    /// "albums", "shows"), so a sync re-downloads a list once its cached details are a day old.
+    #[serde(default)]
+    pub library_full_fetch: HashMap<String, i64>,
 }
 
 impl Default for UserState {
@@ -277,6 +281,7 @@ impl Default for UserState {
             jukebox: None,
             jukebox_overrides: HashMap::new(),
             jukebox_override_per_song: false,
+            library_full_fetch: HashMap::new(),
         }
     }
 }

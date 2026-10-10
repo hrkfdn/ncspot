@@ -16,7 +16,7 @@ use serde::de::DeserializeOwned;
 use crate::config::Config;
 use crate::config::{self, CACHE_VERSION};
 use crate::events::EventManager;
-use crate::library_sync::{SavedItem, SavedPage, Synced, sync_liked, sync_saved};
+use crate::library_sync::{SavedItem, SavedPage, Synced, full_fetch_due, sync_liked, sync_saved};
 use crate::model::album::Album;
 use crate::model::artist::Artist;
 use crate::model::playable::Playable;
@@ -25,6 +25,11 @@ use crate::model::show::Show;
 use crate::model::track::Track;
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, random_jitter};
 use crate::spotify::Spotify;
+
+/// Keys of `UserState::library_full_fetch`.
+const FULL_FETCH_TRACKS: &str = "tracks";
+const FULL_FETCH_ALBUMS: &str = "albums";
+const FULL_FETCH_SHOWS: &str = "shows";
 
 /// Cached tracks database filename.
 const CACHE_TRACKS: &str = "tracks.db";
@@ -405,6 +410,26 @@ impl Library {
         });
     }
 
+    /// Returns the current Unix time and whether the list stored under `key` needs a full
+    /// fetch now, logging when it does. The state lock is released before returning.
+    fn full_fetch_check(&self, key: &str, what: &str) -> (i64, bool) {
+        let now = chrono::Utc::now().timestamp();
+        let last = self.cfg.state().library_full_fetch.get(key).copied();
+        let force_full = full_fetch_due(last, now);
+        if force_full {
+            debug!("{what}: full refresh (cache older than 24h)");
+        }
+        (now, force_full)
+    }
+
+    /// Record that the list stored under `key` was fully fetched at `now` (Unix seconds).
+    /// Persisted with the rest of the user state on quit.
+    fn record_full_fetch(&self, key: &str, now: i64) {
+        self.cfg.with_state_mut(|state| {
+            state.library_full_fetch.insert(key.to_string(), now);
+        });
+    }
+
     /// Fetch the saved shows from the web API and save them to the local library, unless they
     /// are unchanged. Returns false, leaving the stored shows unchanged, if a page failed.
     fn fetch_shows(&self) -> bool {
@@ -416,7 +441,8 @@ impl Library {
             .iter()
             .map(|show| Some(show.id.clone()))
             .collect();
-        let synced = sync_saved(&stored_ids, |offset| {
+        let (now, force_full) = self.full_fetch_check(FULL_FETCH_SHOWS, "shows");
+        let synced = sync_saved(&stored_ids, force_full, |offset| {
             debug!("shows page at offset {offset}");
             let page = self.spotify.api.get_saved_shows(offset as u32).ok()?;
             Some(SavedPage {
@@ -438,6 +464,7 @@ impl Library {
         match synced {
             Synced::Full(shows) => {
                 *self.shows.write().unwrap() = shows;
+                self.record_full_fetch(FULL_FETCH_SHOWS, now);
                 true
             }
             Synced::Unchanged => {
@@ -600,7 +627,8 @@ impl Library {
             .iter()
             .map(|album| album.id.clone())
             .collect();
-        let synced = sync_saved(&stored_ids, |offset| {
+        let (now, force_full) = self.full_fetch_check(FULL_FETCH_ALBUMS, "albums");
+        let synced = sync_saved(&stored_ids, force_full, |offset| {
             debug!("albums page at offset {offset}");
             let page = self
                 .spotify
@@ -648,6 +676,7 @@ impl Library {
         });
 
         *self.albums.write().unwrap() = albums;
+        self.record_full_fetch(FULL_FETCH_ALBUMS, now);
         true
     }
 
@@ -656,8 +685,10 @@ impl Library {
     /// unchanged, if a page failed.
     fn fetch_tracks(&self) -> bool {
         let cached: Vec<Track> = self.tracks.read().unwrap().clone();
+        let (now, force_full) = self.full_fetch_check(FULL_FETCH_TRACKS, "liked songs");
         let synced = sync_liked(
             &cached,
+            force_full,
             |track: &Track| track.id.clone(),
             |offset| {
                 debug!("tracks page at offset {offset}");
@@ -689,6 +720,7 @@ impl Library {
             }
             Synced::Full(items) => {
                 *self.tracks.write().unwrap() = items;
+                self.record_full_fetch(FULL_FETCH_TRACKS, now);
                 true
             }
             Synced::Unchanged => true,
