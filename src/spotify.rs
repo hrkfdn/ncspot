@@ -86,6 +86,14 @@ impl Spotify {
         let (user_tx, user_rx) = oneshot::channel();
         spotify.start_worker(Some(user_tx))?;
         let user = ASYNC_RUNTIME.get().unwrap().block_on(user_rx).ok();
+        // a login's access token expires, the stored credentials don't
+        if let Some(saved) = Cache::new(Some(config::cache_path("librespot")), None, None, None)
+            .ok()
+            .and_then(|cache| cache.credentials())
+            .filter(|saved| saved.username == user)
+        {
+            spotify.credentials = saved;
+        }
         let volume = cfg.state().volume;
         spotify.set_volume(volume, false);
 
