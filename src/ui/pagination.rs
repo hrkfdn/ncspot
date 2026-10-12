@@ -148,6 +148,11 @@ impl<I: ListItem + Clone> Pagination<I> {
         *self.max_content.read().unwrap()
     }
 
+    /// Lets the callback update the item count, for APIs that only know it page by page.
+    pub fn max_content_handle(&self) -> Arc<RwLock<Option<usize>>> {
+        self.max_content.clone()
+    }
+
     fn is_busy(&self) -> bool {
         *self.busy.read().unwrap()
     }

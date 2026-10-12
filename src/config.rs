@@ -106,6 +106,8 @@ pub struct ConfigValues {
     /// schemes: `http://` (CONNECT proxy) and `socks5h://` (SOCKS5 proxy with
     /// remote DNS resolution). Both accept `user:password@host:port`.
     pub proxy: Option<String>,
+    /// Own Spotify app, tried before the shared one.
+    pub client_id: Option<String>,
 }
 
 /// The ncspot theme.
