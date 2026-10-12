@@ -106,8 +106,8 @@ One-shot, toggle and menu commands (e.g. <kbd>O</kbd>, <kbd>A</kbd>,
 | <kbd>Shift</kbd>+<kbd>P</kbd> | Toggle playback (i.e. Play/Pause).                             |
 | <kbd>Shift</kbd>+<kbd>S</kbd> | Stop playback.                                                 |
 | <kbd>Shift</kbd>+<kbd>U</kbd> | Update the library cache (tracks, artists, albums, playlists). |
-| <kbd><</kbd>                  | Play the previous track.                                       |
-| <kbd>></kbd>                  | Play the next track.                                           |
+| <kbd>Shift</kbd>+<kbd><</kbd> | Play the previous track.                                       |
+| <kbd>Shift</kbd>+<kbd>></kbd> | Play the next track.                                           |
 | <kbd>F</kbd>                  | Seek forward by 1 second.                                      |
 | <kbd>Shift</kbd>+<kbd>F</kbd> | Seek forward by 10 seconds.                                    |
 | <kbd>B</kbd>                  | Seek backward by 1 second.                                     |
