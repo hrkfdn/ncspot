@@ -97,8 +97,13 @@ impl Application {
         let credentials = authentication::get_credentials(&configuration)?;
         let theme = configuration.build_theme();
 
-        if let Err(e) = authentication::get_rspotify_token() {
-            error!("Failed to get rspotify token: {e}");
+        // log in while stdout is still usable
+        let own_client =
+            authentication::own_client_id(&configuration).map(authentication::WebApiClient::Own);
+        for client in std::iter::once(authentication::WebApiClient::Shared).chain(own_client) {
+            if let Err(e) = authentication::get_rspotify_token(&client, true) {
+                error!("Failed to get rspotify token for {client:?}: {e}");
+            }
         }
 
         println!("Connecting to Spotify..");
