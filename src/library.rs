@@ -6,7 +6,6 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 
 use log::{debug, error, info};
-use rspotify::model::Id;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -44,7 +43,7 @@ pub struct Library {
     pub shows: Arc<RwLock<Vec<Show>>>,
     pub is_done: Arc<RwLock<bool>>,
     pub user_id: Option<String>,
-    pub display_name: Option<String>,
+    pub display_name: Arc<RwLock<Option<String>>>,
     ev: EventManager,
     spotify: Spotify,
     pub cfg: Arc<Config>,
@@ -62,7 +61,7 @@ impl Library {
             shows: Arc::new(RwLock::new(Vec::new())),
             is_done: Arc::new(RwLock::new(false)),
             user_id: None,
-            display_name: None,
+            display_name: Arc::new(RwLock::new(None)),
             ev,
             spotify,
             cfg,
@@ -70,9 +69,31 @@ impl Library {
     }
 
     pub fn new(ev: EventManager, spotify: Spotify, cfg: Arc<Config>) -> Self {
-        let current_user = spotify.api.current_user().ok();
-        let user_id = current_user.as_ref().map(|u| u.id.id().to_string());
-        let display_name = current_user.as_ref().and_then(|u| u.display_name.clone());
+        let user_id = spotify.api.user();
+        let display_name = Arc::new(RwLock::new(None));
+        // fetched in the background, a rate limit would otherwise block startup
+        if !cfg.values().hide_display_names.unwrap_or(false) {
+            if let Some((id, name)) = &cfg.state().display_name
+                && user_id.as_ref() == Some(id)
+            {
+                *display_name.write().unwrap() = Some(name.clone());
+            }
+            let display_name = display_name.clone();
+            let spotify = spotify.clone();
+            let cfg = cfg.clone();
+            let user_id = user_id.clone();
+            let ev = ev.clone();
+            thread::spawn(move || {
+                if let Ok(user) = spotify.api.current_user() {
+                    let cached = user_id.zip(user.display_name.clone());
+                    cfg.with_state_mut(|state| state.display_name = cached.clone());
+                    *display_name.write().unwrap() = user.display_name;
+                    ev.trigger();
+                }
+            });
+        } else {
+            cfg.with_state_mut(|state| state.display_name = None);
+        }
 
         let library = Self {
             tracks: Arc::new(RwLock::new(Vec::new())),

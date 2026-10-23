@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use cursive::Cursive;
 use cursive::view::ViewWrapper;
@@ -17,7 +17,7 @@ use crate::ui::tabbedview::TabbedView;
 
 pub struct LibraryView {
     tabs: TabbedView,
-    display_name: Option<String>,
+    display_name: Arc<RwLock<Option<String>>>,
 }
 
 impl LibraryView {
@@ -60,14 +60,7 @@ impl LibraryView {
 
         Self {
             tabs: tabview,
-            display_name: {
-                let hide_username = library.cfg.values().hide_display_names.unwrap_or(false);
-                if hide_username {
-                    None
-                } else {
-                    library.display_name.clone()
-                }
-            },
+            display_name: library.display_name.clone(),
         }
     }
 }
@@ -78,7 +71,7 @@ impl ViewWrapper for LibraryView {
 
 impl ViewExt for LibraryView {
     fn title(&self) -> String {
-        if let Some(name) = &self.display_name {
+        if let Some(name) = &*self.display_name.read().unwrap() {
             format!("Library of {name}")
         } else {
             "Library".to_string()

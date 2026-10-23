@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Playback stopping when Spotify closes the connection
+- A rate limit no longer delays startup, as the current user and the Browse
+  categories load in the background, and the display name is cached
 
 ## [1.5.0]
 
