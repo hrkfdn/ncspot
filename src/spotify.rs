@@ -267,7 +267,7 @@ impl Spotify {
             ..Default::default()
         };
 
-        let session = Self::create_session(&cfg, credentials)
+        let session = Self::create_session(&cfg, credentials.clone())
             .await
             .expect("Could not create session");
         user_tx.map(|tx| tx.send(session.username()));
@@ -279,11 +279,12 @@ impl Spotify {
         mixer.set_volume(volume);
 
         let audio_format: librespot_playback::config::AudioFormat = Default::default();
+        let backend_cfg = cfg.clone();
         let player = Player::new(
             player_config,
             session.clone(),
             mixer.get_soft_volume(),
-            move || (backend)(cfg.values().backend_device.clone(), audio_format),
+            move || (backend)(backend_cfg.values().backend_device.clone(), audio_format),
         );
         let player_events = player.get_player_event_channel();
 
@@ -294,6 +295,8 @@ impl Spotify {
             session,
             player,
             mixer,
+            cfg,
+            credentials,
         );
         debug!("worker thread ready.");
         worker.run_loop().await;
