@@ -47,7 +47,7 @@ chrono = "0.4"
 clap = "4.6.1"
 arboard = {version = "3.6", optional = true}
 crossbeam-channel = "0.5"
-zbus = {version = "5.16.0", default-features = false, features = ["tokio"], optional = true}
+zbus = {version = "6.0.0", default-features = false, features = ["tokio"], optional = true}
 fern = "0.7"
 futures = "0.3"
 image = {version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true}
