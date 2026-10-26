@@ -9,8 +9,7 @@ use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, Value};
-use zbus::{connection, interface};
+use zbus::{ObjectPath, Variant, connection, interface};
 
 use crate::application::ASYNC_RUNTIME;
 use crate::library::Library;
@@ -123,7 +122,7 @@ impl MprisPlayer {
     }
 
     #[zbus(property)]
-    fn metadata(&self) -> HashMap<String, Value<'_>> {
+    fn metadata(&self) -> HashMap<String, Variant<'_>> {
         let mut hm = HashMap::new();
 
         let playable = self.queue.get_current();
@@ -150,7 +149,7 @@ impl MprisPlayer {
 
         hm.insert(
             "mpris:trackid".to_string(),
-            Value::ObjectPath(ObjectPath::from_string_unchecked(format!(
+            Variant::ObjectPath(ObjectPath::from_string_unchecked(format!(
                 "/org/ncspot/{}",
                 playable
                     .filter(|t| t.id().is_some())
@@ -160,11 +159,11 @@ impl MprisPlayer {
         );
         hm.insert(
             "mpris:length".to_string(),
-            Value::I64(playable.map(|t| t.duration() as i64 * 1_000).unwrap_or(0)),
+            Variant::I64(playable.map(|t| t.duration() as i64 * 1_000).unwrap_or(0)),
         );
         hm.insert(
             "mpris:artUrl".to_string(),
-            Value::Str(
+            Variant::Str(
                 playable
                     .map(|t| t.cover_url().unwrap_or_default())
                     .unwrap_or_default()
@@ -174,7 +173,7 @@ impl MprisPlayer {
 
         hm.insert(
             "xesam:album".to_string(),
-            Value::Str(
+            Variant::Str(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| t.album.unwrap_or_default())
@@ -184,7 +183,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:albumArtist".to_string(),
-            Value::Array(
+            Variant::Array(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| t.album_artists)
@@ -194,7 +193,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:artist".to_string(),
-            Value::Array(
+            Variant::Array(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| t.artists)
@@ -204,7 +203,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:discNumber".to_string(),
-            Value::I32(
+            Variant::I32(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| t.disc_number)
@@ -213,7 +212,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:title".to_string(),
-            Value::Str(
+            Variant::Str(
                 playable
                     .map(|t| match t {
                         Playable::Track(t) => t.title.clone(),
@@ -225,7 +224,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:trackNumber".to_string(),
-            Value::I32(
+            Variant::I32(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| t.track_number)
@@ -234,7 +233,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:url".to_string(),
-            Value::Str(
+            Variant::Str(
                 playable
                     .map(|t| t.share_url().unwrap_or_default())
                     .unwrap_or_default()
@@ -243,7 +242,7 @@ impl MprisPlayer {
         );
         hm.insert(
             "xesam:userRating".to_string(),
-            Value::F64(
+            Variant::F64(
                 playable
                     .and_then(|p| p.track())
                     .map(|t| match self.library.is_saved_track(&Playable::Track(t)) {
@@ -521,10 +520,10 @@ impl MprisManager {
         root: MprisRoot,
         player: MprisPlayer,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let conn = connection::Builder::session()?
-            .name(instance_bus_name())?
-            .serve_at("/org/mpris/MediaPlayer2", root)?
-            .serve_at("/org/mpris/MediaPlayer2", player)?
+        let conn = connection::Builder::session()
+            .name(instance_bus_name())
+            .serve_at("/org/mpris/MediaPlayer2", root)
+            .serve_at("/org/mpris/MediaPlayer2", player)
             .build()
             .await?;
 
