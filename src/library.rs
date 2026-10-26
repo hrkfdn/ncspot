@@ -471,7 +471,8 @@ impl Library {
                 && page.offset == 0
                 && albums_unchanged(page.total, &items, &self.albums.read().unwrap())
             {
-                // A cache written by an older version may use the old sort.
+                // Keep the cache and skip the other pages. A cache written by an older version may
+                // use the old sort.
                 return sort_albums(&mut self.albums.write().unwrap());
             }
 
@@ -518,6 +519,7 @@ impl Library {
                 && page.offset == 0
                 && tracks_unchanged(page.total, &items, &self.tracks.read().unwrap())
             {
+                // Keep the cache and skip the other pages.
                 return false;
             }
 
@@ -936,20 +938,39 @@ impl Library {
     }
 }
 
-/// New saves are listed first, so any change shows in the first page or the total.
+/// Check whether the cached liked songs are still up to date, using only the first page.
+///
+/// Spotify lists liked songs newest first, so a new like shows up at the top of the first page,
+/// and an unlike lowers the `total`. If the first page and the total both match the cache, the
+/// cache is kept and the other pages aren't fetched.
+///
+/// A change made in another app is missed only if both still match afterwards. For example, one
+/// song is liked and another unliked, then the 50 newest songs are unliked and liked again in
+/// their old order. Comparing `added_at` would catch it, but songs liked in ncspot have none, so
+/// each of those likes would refetch every page, even though the cache is already up to date.
+/// Fixed by `:update` or any later like or unlike in another app, once the library next loads.
+///
+/// An empty cache never counts as up to date. It may be empty because an older version wrote the
+/// file, so it wasn't loaded, and the file still needs replacing.
 fn tracks_unchanged(total: u32, first_page: &[Track], cached: &[Track]) -> bool {
-    total as usize == cached.len()
+    !cached.is_empty()
+        && total as usize == cached.len()
         && first_page
             .iter()
             .zip(cached)
             .all(|(new, old)| new.id == old.id)
 }
 
-/// Saved albums are cached sorted by artist, so check that every album on the first page is
-/// cached. Albums saved in ncspot can lack data the API gives (such as their tracks) and have no
+/// Check whether the cached saved albums are still up to date, using only the first page.
+///
+/// This works like [tracks_unchanged], but saved albums are cached sorted by artist, so instead of
+/// comparing the order, check that every album on the first page is cached.
+///
+/// Albums saved in ncspot can lack data the API gives (such as their tracks) and have no
 /// `added_at`, so refetch once if any are cached.
 fn albums_unchanged(total: u32, first_page: &[Album], cached: &[Album]) -> bool {
-    total as usize == cached.len()
+    !cached.is_empty()
+        && total as usize == cached.len()
         && cached.iter().all(|a| a.added_at.is_some())
         && first_page
             .iter()
@@ -1094,6 +1115,12 @@ mod tests {
         let mut cached = albums(&["a", "b", "c"]);
         cached[0].added_at = None;
         assert!(!albums_unchanged(3, &albums(&["c", "b"]), &cached));
+    }
+
+    #[test]
+    fn empty_cache_is_never_unchanged() {
+        assert!(!tracks_unchanged(0, &[], &[]));
+        assert!(!albums_unchanged(0, &[], &[]));
     }
 
     #[test]
