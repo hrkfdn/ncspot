@@ -5,11 +5,14 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-/// `NCSPOT_TEST_PLAYLISTS_FILE`, else `test-playlists.txt` in the cache dir.
+/// `NCSPOT_TEST_PLAYLISTS_FILE`, else `test-playlists.txt` in the user's real cache dir
+/// (not the temporary one unit tests get), where the user's cleanup commands read it.
 pub fn file_path() -> PathBuf {
     match std::env::var_os("NCSPOT_TEST_PLAYLISTS_FILE") {
         Some(path) if !path.is_empty() => PathBuf::from(path),
-        _ => crate::config::cache_path("test-playlists.txt"),
+        _ => crate::config::user_cache_directory()
+            .expect("user cache folder")
+            .join("test-playlists.txt"),
     }
 }
 

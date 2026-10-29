@@ -13,18 +13,20 @@ const SHOW: &str = "4rOoJ6Egrf8K2IrywzwOMk";
 /// An episode Spotify pulled (status 451 on the batch path).
 const REMOVED_EPISODE: &str = "2rKMiQw2A58GL5ZHH8jfHo";
 
+/// `file` in the user's real cache folder: unit tests get a temporary cache folder
+/// (`config::cache_path`), but the live tests log in with the cached credentials.
+fn user_cache(file: &str) -> std::path::PathBuf {
+    crate::config::user_cache_directory()
+        .expect("user cache folder")
+        .join(file)
+}
+
 fn with_session<T>(f: impl FnOnce(&tokio::runtime::Runtime, Session) -> T) -> T {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap();
-    let cache = Cache::new(
-        Some(crate::config::cache_path("librespot")),
-        None,
-        None,
-        None,
-    )
-    .unwrap();
+    let cache = Cache::new(Some(user_cache("librespot")), None, None, None).unwrap();
     let credentials = cache.credentials().expect("cached librespot credentials");
     let session = rt.block_on(async {
         let session = Session::new(
