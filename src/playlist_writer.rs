@@ -3,8 +3,11 @@
 //! Spotify last confirmed, so the store always shows the confirmed copy plus the queued jobs.
 
 use std::collections::{HashMap, VecDeque};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
+
+use log::error;
 
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
@@ -286,7 +289,8 @@ impl PlaylistWriter {
     }
 
     /// Run the next job (folded with following held-key moves) through `run`, which gets the
-    /// confirmed copy for a job on a copy and returns whether the write landed. `None` when
+    /// confirmed copy for a job on a copy and returns whether the write landed. A panic in
+    /// `run` settles the job as failed and keeps the confirmed copy it had. `None` when
     /// nothing is queued or the writer is stopping.
     pub fn step(
         &self,
@@ -311,7 +315,15 @@ impl PlaylistWriter {
             state.in_flight = Some(job.playlist_id.clone());
             (job, copy)
         };
-        let ok = run(&job, copy.as_mut());
+        let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
+            Ok(ok) => ok,
+            Err(_) => {
+                error!("a playlist write panicked");
+                // Half a write: not a copy Spotify confirmed.
+                copy = None;
+                false
+            }
+        };
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock().unwrap();
         state.in_flight = None;
@@ -371,6 +383,11 @@ impl PlaylistWriter {
         self.shared.0.lock().unwrap().worker_running = true;
     }
 
+    /// A guard that marks the worker loop ended when dropped, also when its thread unwinds.
+    pub fn exit_guard(&self) -> ExitGuard {
+        ExitGuard(self.clone())
+    }
+
     /// The worker loop ended.
     pub fn mark_exited(&self) {
         let (lock, cvar) = &*self.shared;
@@ -407,6 +424,15 @@ impl PlaylistWriter {
             state = cvar.wait_timeout(state, left).unwrap().0;
         }
         true
+    }
+}
+
+/// Calls [PlaylistWriter::mark_exited] on drop (see [PlaylistWriter::exit_guard]).
+pub struct ExitGuard(PlaylistWriter);
+
+impl Drop for ExitGuard {
+    fn drop(&mut self) {
+        self.0.mark_exited();
     }
 }
 
@@ -777,6 +803,46 @@ mod tests {
         assert_eq!(s.dropped, 1);
         assert!(s.drained);
         assert_eq!(w.pending(), 1, "the other playlist's job stays");
+    }
+
+    #[test]
+    fn a_panicking_job_settles_as_failed() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.id = "p".into();
+        let w = PlaylistWriter::new();
+        queue_move(&w, &p, 0, "a");
+        w.queue(
+            Some("p"),
+            JobKind::Rename { name: "n".into() },
+            || unreachable!(),
+        );
+        let s = w
+            .step(|_, copy| {
+                copy.unwrap().snapshot_id = "half".into();
+                panic!("a write failed hard");
+            })
+            .unwrap();
+        assert!(!s.ok);
+        assert_eq!((s.dropped, s.drained), (1, true));
+        assert_eq!(w.pending(), 0);
+        assert_eq!(
+            s.confirmed.unwrap().snapshot_id,
+            "snap",
+            "the copy before the job"
+        );
+    }
+
+    #[test]
+    fn the_exit_guard_marks_the_worker_exited_on_a_panic() {
+        let w = PlaylistWriter::new();
+        w.mark_running();
+        let guarded = w.clone();
+        let worker = std::thread::spawn(move || {
+            let _exited = guarded.exit_guard();
+            panic!("the worker loop failed");
+        });
+        assert!(worker.join().is_err());
+        assert!(w.wait_exited(Duration::ZERO));
     }
 
     #[test]

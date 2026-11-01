@@ -2115,10 +2115,10 @@ impl Library {
         thread::Builder::new()
             .name("playlist-writer".into())
             .spawn(move || {
+                let _exited = library.writer.exit_guard();
                 while library.writer.wait_job() {
                     library.run_next_write();
                 }
-                library.writer.mark_exited();
             })
             .expect("spawn the playlist writer");
     }
