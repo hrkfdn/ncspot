@@ -304,6 +304,79 @@ fn collection_write_saves_and_removes() {
     });
 }
 
+/// Create `ncspot-test-<k>`, record it at once (a test never deletes it) and add it to the
+/// top of the rootlist, verified by the rootlist length; returns `k` and its id.
+fn create_recorded(
+    rt: &tokio::runtime::Runtime,
+    s: &Session,
+    spacing: std::time::Duration,
+) -> (usize, String) {
+    use super::playlist;
+    use super::playlist_write as write;
+    use std::thread::sleep;
+
+    // Create and record at once: the playlist is never deleted by a test.
+    let path = crate::test_playlists::file_path();
+    let k = crate::test_playlists::read(&path)
+        .expect("read the test-playlists file")
+        .len()
+        + 1;
+    sleep(spacing);
+    let created = rt
+        .block_on(write::create(s.clone(), format!("ncspot-test-{k}")))
+        .map_err(|e| e.class())
+        .expect("create");
+    crate::test_playlists::append(&path, &format!("spotify:playlist:{}", created.id))
+        .expect("record the test playlist");
+    println!("created ncspot-test-{k}, recorded");
+    let id = created.id.clone();
+
+    // Rootlist add, with the head read before and after.
+    let before = rt
+        .block_on(playlist::rootlist_head(s.clone()))
+        .map_err(|e| e.class())
+        .expect("rootlist head");
+    let has_revision = before.revision.is_some();
+    let has_length = before.length.is_some();
+    println!("rootlist zero-length read: revision {has_revision}, length {has_length}");
+    let (base_revision, base_len) = match (before.revision, before.length) {
+        (Some(revision), Some(length)) => (revision, length),
+        _ => {
+            let full = rt
+                .block_on(playlist::rootlist(s.clone()))
+                .map_err(|e| e.class())
+                .expect("rootlist");
+            (full.revision, full.length)
+        }
+    };
+    sleep(spacing);
+    rt.block_on(write::rootlist_changes(
+        s.clone(),
+        write::list_changes(
+            base_revision,
+            vec![write::rootlist_add_op(&format!("spotify:playlist:{id}"))],
+        ),
+    ))
+    .map_err(|e| e.class())
+    .expect("rootlist add");
+    let after = rt
+        .block_on(playlist::rootlist_head(s.clone()))
+        .map_err(|e| e.class())
+        .expect("rootlist head after");
+    let after_len = match after.length {
+        Some(len) => len,
+        None => {
+            rt.block_on(playlist::rootlist(s.clone()))
+                .map_err(|e| e.class())
+                .expect("rootlist")
+                .length
+        }
+    };
+    assert_eq!(after_len, base_len + 1, "rootlist grew by one");
+    println!("rootlist add verified");
+    (k, id)
+}
+
 #[test]
 #[ignore = "needs cached librespot credentials and network; creates a test playlist (never deleted)"]
 fn playlist_write_round_trip() {
@@ -321,65 +394,7 @@ fn playlist_write_round_trip() {
     let track = |i: usize| TRACKS[i].to_string();
 
     with_session(|rt, s| {
-        // Create and record at once: the playlist is never deleted by a test.
-        let path = crate::test_playlists::file_path();
-        let k = crate::test_playlists::read(&path)
-            .expect("read the test-playlists file")
-            .len()
-            + 1;
-        sleep(spacing);
-        let created = rt
-            .block_on(write::create(s.clone(), format!("ncspot-test-{k}")))
-            .map_err(|e| e.class())
-            .expect("create");
-        crate::test_playlists::append(&path, &format!("spotify:playlist:{}", created.id))
-            .expect("record the test playlist");
-        println!("created ncspot-test-{k}, recorded");
-        let id = created.id.clone();
-
-        // Rootlist add, with the head read before and after.
-        let before = rt
-            .block_on(playlist::rootlist_head(s.clone()))
-            .map_err(|e| e.class())
-            .expect("rootlist head");
-        let has_revision = before.revision.is_some();
-        let has_length = before.length.is_some();
-        println!("rootlist zero-length read: revision {has_revision}, length {has_length}");
-        let (base_revision, base_len) = match (before.revision, before.length) {
-            (Some(revision), Some(length)) => (revision, length),
-            _ => {
-                let full = rt
-                    .block_on(playlist::rootlist(s.clone()))
-                    .map_err(|e| e.class())
-                    .expect("rootlist");
-                (full.revision, full.length)
-            }
-        };
-        sleep(spacing);
-        rt.block_on(write::rootlist_changes(
-            s.clone(),
-            write::list_changes(
-                base_revision,
-                vec![write::rootlist_add_op(&format!("spotify:playlist:{id}"))],
-            ),
-        ))
-        .map_err(|e| e.class())
-        .expect("rootlist add");
-        let after = rt
-            .block_on(playlist::rootlist_head(s.clone()))
-            .map_err(|e| e.class())
-            .expect("rootlist head after");
-        let after_len = match after.length {
-            Some(len) => len,
-            None => {
-                rt.block_on(playlist::rootlist(s.clone()))
-                    .map_err(|e| e.class())
-                    .expect("rootlist")
-                    .length
-            }
-        };
-        assert_eq!(after_len, base_len + 1, "rootlist grew by one");
-        println!("rootlist add verified");
+        let (_, id) = create_recorded(rt, &s, spacing);
 
         let head = |rt: &tokio::runtime::Runtime| -> Head {
             rt.block_on(playlist::head(s.clone(), id.clone()))
@@ -450,6 +465,114 @@ fn playlist_write_round_trip() {
         println!(
             "overwrite {OVERWRITE_ATOMIC_MAX} in one POST: length {:?}",
             h.length
+        );
+    });
+}
+
+#[test]
+#[ignore = "needs cached librespot credentials and network; creates a test playlist (never deleted)"]
+fn playlist_move_rename_round_trip() {
+    use super::playlist::{self, RootEntry};
+    use super::playlist_write::{self as write, move_target, moved_position};
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    const TRACKS: [&str; 3] = [
+        "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+        "spotify:track:7ouMYWpwJ422jRcDASZB7P",
+        "spotify:track:0VjIjW4GlUZAMYd2vXMi3b",
+    ];
+    let spacing = Duration::from_millis(300);
+    // A, B, C for TRACKS in order: the test prints letters, never uris.
+    let letters = |uris: &[String]| -> String {
+        uris.iter()
+            .map(|uri| {
+                TRACKS
+                    .iter()
+                    .position(|t| t == uri)
+                    .and_then(|i| u8::try_from(i).ok())
+                    .map_or('?', |i| char::from(b'A' + i))
+            })
+            .collect()
+    };
+
+    with_session(|rt, s| {
+        let (k, id) = create_recorded(rt, &s, spacing);
+        let head = || {
+            rt.block_on(playlist::head(s.clone(), id.clone()))
+                .map_err(|e| e.class())
+                .expect("head")
+        };
+        let post = |base: Vec<u8>, ops| {
+            sleep(spacing);
+            rt.block_on(write::changes(
+                s.clone(),
+                id.clone(),
+                write::list_changes(base, ops),
+            ))
+            .map_err(|e| e.class())
+            .expect("changes");
+        };
+        let order = || {
+            let (_, items) = rt
+                .block_on(playlist::contents(s.clone(), id.clone()))
+                .map_err(|e| e.class())
+                .expect("contents");
+            letters(&items.into_iter().map(|i| i.uri).collect::<Vec<_>>())
+        };
+
+        post(
+            head().revision,
+            vec![write::add_op(&TRACKS.map(String::from), None)],
+        );
+        assert_eq!(order(), "ABC");
+
+        // index, rows, up, the moved span after it, the whole order after it.
+        for (index, n, up, span, all) in [
+            (0, 1, false, "BA", "BAC"),
+            (2, 1, true, "CA", "BCA"),
+            (0, 10, false, "CAB", "CAB"),
+        ] {
+            let before = head();
+            let length = before.length.expect("head length");
+            let to = move_target(index, n, up, length).expect("a move");
+            post(before.revision.clone(), vec![write::move_op(index, 1, to)]);
+            let at = moved_position(index, to);
+            let (after, items) = rt
+                .block_on(playlist::range(
+                    s.clone(),
+                    id.clone(),
+                    index.min(at),
+                    index.abs_diff(at) + 1,
+                ))
+                .map_err(|e| e.class())
+                .expect("range");
+            let read = letters(&items.into_iter().map(|i| i.uri).collect::<Vec<_>>());
+            println!("move {index} by {n} (up {up}): span {read}");
+            assert_ne!(after.revision, before.revision, "a new revision");
+            assert_eq!(after.length, Some(3), "the length is unchanged");
+            assert_eq!(read, span, "the moved span");
+            assert_eq!(order(), all, "the whole order");
+        }
+
+        // Rename, verified by the head name and by the rootlist name.
+        let renamed = format!("ncspot-test-{k}-renamed");
+        post(head().revision, vec![write::rename_op(&renamed)]);
+        let head_named = head().name.as_deref() == Some(renamed.as_str());
+        println!("rename to ncspot-test-{k}-renamed: head name matches {head_named}");
+        assert!(head_named);
+        let rootlist = rt
+            .block_on(playlist::rootlist(s.clone()))
+            .map_err(|e| e.class())
+            .expect("rootlist");
+        let listed = rootlist
+            .entries
+            .iter()
+            .any(|e| matches!(e, RootEntry::Playlist(p) if p.id == id && p.name == renamed));
+        println!("rename: rootlist name matches {listed}");
+        assert!(
+            listed,
+            "the rootlist lists the new name right after the rename"
         );
     });
 }
