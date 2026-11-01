@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::iter::Iterator;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -23,7 +23,7 @@ use crate::internal_api::collection::{SET_ARTIST, SET_COLLECTION, SET_LISTEN_LAT
 use crate::internal_api::error::InternalError;
 use crate::internal_api::fallback::{Action, decide_after, run_with_fallback};
 use crate::internal_api::playlist::{RootEntry, RootPlaylist};
-use crate::internal_api::playlist_write::Created;
+use crate::internal_api::playlist_write::{Created, move_target};
 use crate::library_collection::{
     Membership, Mode, fetch_membership, merge_followed, plan_sync, rebuild, sort_albums,
     sort_newest_first, with_artist,
@@ -38,15 +38,17 @@ use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::model::show::Show;
 use crate::model::track::Track;
-use crate::playlist_edit::{self, EditError, created_playlist};
+use crate::playlist_edit::{self, EditError, created_playlist, server_item};
 use crate::playlist_items::UNAVAILABLE;
 use crate::playlist_layout::{
     LayoutEntry, PLAYLIST_FETCH_SPACING, Spacer, insert_after_pins, layout_from, pinned_ids,
     remove_from_layout, replace_if_unchanged, set_pins,
 };
+use crate::playlist_writer::{JobKind, PlaylistWriter, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
 use crate::spotify::Spotify;
 use crate::spotify_api::WebApi;
+use crate::traits::ListItem;
 
 /// Keys of `UserState::library_full_fetch`.
 const FULL_FETCH_TRACKS: &str = "tracks";
@@ -110,6 +112,13 @@ pub struct Library {
     resume_count: Arc<AtomicU32>,
     pub user_id: Option<String>,
     pub display_name: Option<String>,
+    /// The playlist write queue. Lock order: [Library::playlists] before the writer's lock,
+    /// never the reverse, so a store write and the overlay of the queued jobs are one step.
+    pub writer: PlaylistWriter,
+    /// Bumped on every write of [Library::playlists], so a view knows to take a new copy.
+    pub playlists_rev: Arc<AtomicU64>,
+    /// The last note [Library::post_note] posted, for the result of a queued write.
+    last_note: Arc<Mutex<Option<String>>>,
     ev: EventManager,
     spotify: Spotify,
     pub cfg: Arc<Config>,
@@ -143,6 +152,9 @@ impl Library {
             resume_count: Arc::new(AtomicU32::new(0)),
             user_id: None,
             display_name: None,
+            writer: PlaylistWriter::new(),
+            playlists_rev: Arc::new(AtomicU64::new(0)),
+            last_note: Arc::new(Mutex::new(None)),
             ev,
             spotify,
             cfg,
@@ -170,6 +182,9 @@ impl Library {
             resume_count: Arc::new(AtomicU32::new(0)),
             user_id,
             display_name,
+            writer: PlaylistWriter::new(),
+            playlists_rev: Arc::new(AtomicU64::new(0)),
+            last_note: Arc::new(Mutex::new(None)),
             ev,
             spotify,
             cfg,
@@ -253,6 +268,9 @@ impl Library {
     /// thread. Success stays silent; a note never carries an id, a URI or a name.
     pub fn post_note(&self, note: &str) {
         warn!("{note}");
+        // Kept for the queued write that runs now; a sync's note posted meanwhile may be
+        // taken for it instead (cosmetic only).
+        *self.last_note.lock().unwrap() = Some(note.to_string());
         self.ev.send(Event::StatusNote(note.to_string()));
     }
 
@@ -311,6 +329,7 @@ impl Library {
     /// Forget a deleted playlist locally: the store (and its cache), the fresh set, the layout.
     fn drop_deleted(&self, id: &str) {
         self.playlists.write().unwrap().retain(|p| p.id != id);
+        self.bump_playlists_rev();
         self.save_cache(
             &config::cache_path(CACHE_PLAYLISTS),
             &self.playlists.read().unwrap(),
@@ -391,19 +410,10 @@ impl Library {
             .any(|p| p.id == id && is_owned(&p.owner_id, self.user_id.as_deref()))
     }
 
-    /// Rename the stored playlist `id` to `name` (trimmed): the internal API first (a verified
-    /// attribute update), the Web API per the fallback classes; the store and `playlists.db`
-    /// take the new name, or after a dropped rename the server's. Returns a refusal note to
-    /// show; a failed write posts its own note.
+    /// Rename the stored playlist `id` to `name` (trimmed): see [Library::rename_copy].
+    /// Returns a refusal note to show; a failed write posts its own note.
     pub fn rename_playlist(&self, id: &str, name: &str) -> Option<String> {
-        let stored = self
-            .playlists
-            .read()
-            .unwrap()
-            .iter()
-            .find(|p| p.id == id)
-            .cloned();
-        let Some(mut playlist) = stored else {
+        let Some(mut playlist) = self.stored_playlist(id) else {
             return Some(RENAME_NOT_OWNER_NOTE.to_string());
         };
         let name = match rename_check(
@@ -416,32 +426,52 @@ impl Library {
             RenameCheck::Unchanged => return None,
             RenameCheck::Refused(note) => return Some(note.to_string()),
         };
+        self.rename_copy(&mut playlist, &name);
+        None
+    }
+
+    /// Rename `playlist` (a copy of a stored playlist, `name` already checked): the internal
+    /// API first (a verified attribute update), the Web API per the fallback classes; the copy,
+    /// the store and `playlists.db` take the new name, or after a dropped rename the server's.
+    /// True when the write landed; a failure posts its one note.
+    pub fn rename_copy(&self, playlist: &mut Playlist, name: &str) -> bool {
         let api = &self.spotify.api;
+        let id = playlist.id.clone();
         let note = Cell::new(None);
         let web_used = Cell::new(false);
         let written = write_through(
             api,
             Area::Playlists,
             || {
-                playlist_edit::rename(api, &mut playlist, &name).map_err(|err| {
+                playlist_edit::rename(api, playlist, name).map_err(|err| {
                     if err.stores_copy() {
-                        self.playlist_update(&playlist);
+                        self.playlist_update(playlist);
                     }
                     edit_failed(err, &note)
                 })
             },
             || {
                 web_used.set(true);
-                api.rename_playlist(id, &name).is_ok()
+                api.rename_playlist(&id, name).is_ok()
             },
         );
         if self.settle_write(written, &note) {
             if web_used.get() {
-                playlist.name = name;
+                playlist.name = name.to_string();
             }
-            self.playlist_update(&playlist);
+            self.playlist_update(playlist);
         }
-        None
+        written
+    }
+
+    /// A copy of the stored playlist `id`.
+    fn stored_playlist(&self, id: &str) -> Option<Playlist> {
+        self.playlists
+            .read()
+            .unwrap()
+            .iter()
+            .find(|p| p.id == id)
+            .cloned()
     }
 
     fn change_pin(&self, id: &str, pin: bool) -> PinOutcome {
@@ -488,6 +518,7 @@ impl Library {
             }
             store.insert(0, playlist);
         }
+        self.bump_playlists_rev();
         self.save_cache(
             &config::cache_path(CACHE_PLAYLISTS),
             &self.playlists.read().unwrap(),
@@ -581,9 +612,41 @@ impl Library {
         self.overwrite_and_list(id, tracks);
     }
 
-    /// The overwrite of [Library::overwrite_playlist]; true when it read the playlist listing
-    /// (after a Web overwrite).
+    /// The overwrite of [Library::overwrite_playlist] on the stored copy; true when it read the
+    /// playlist listing (after a Web overwrite).
     fn overwrite_and_list(&self, id: &str, tracks: &[Playable]) -> bool {
+        let mut stored = self.stored_playlist(id);
+        let (written, web_used) = self.overwrite_on(id, stored.as_mut(), tracks);
+        let listed = written && web_used;
+        if listed && self.fetch_playlists(false).listing_complete {
+            self.save_cache(
+                &config::cache_path(CACHE_PLAYLISTS),
+                &self.playlists.read().unwrap(),
+            );
+        }
+        listed
+    }
+
+    /// Set the playlist `id` to contain only `tracks`, on `copy` (a copy of it, when stored):
+    /// the internal API first (verified), the Web API per the fallback classes. A Web overwrite
+    /// sets the copy's tracks with its snapshot cleared, so the next sync reloads it. True when
+    /// the write landed; a failure posts its one note.
+    pub fn overwrite_copy(
+        &self,
+        id: &str,
+        copy: Option<&mut Playlist>,
+        tracks: &[Playable],
+    ) -> bool {
+        self.overwrite_on(id, copy, tracks).0
+    }
+
+    /// The write of [Library::overwrite_copy]: whether it landed and whether the Web API ran.
+    fn overwrite_on(
+        &self,
+        id: &str,
+        mut copy: Option<&mut Playlist>,
+        tracks: &[Playable],
+    ) -> (bool, bool) {
         debug!("saving {} tracks to a playlist", tracks.len());
         let api = &self.spotify.api;
         let known = || self.known_playables();
@@ -593,22 +656,15 @@ impl Library {
             api,
             Area::Playlists,
             || {
-                let stored = self
-                    .playlists
-                    .read()
-                    .unwrap()
-                    .iter()
-                    .find(|p| p.id == id)
-                    .cloned();
                 // Not a stored playlist: nothing to verify against, use the Web API.
-                let mut playlist = stored.ok_or(InternalError::NotFound)?;
-                playlist_edit::overwrite(api, &mut playlist, tracks, &known).map_err(|err| {
+                let playlist = copy.as_deref_mut().ok_or(InternalError::NotFound)?;
+                playlist_edit::overwrite(api, playlist, tracks, &known).map_err(|err| {
                     if err.stores_copy() {
-                        self.playlist_update(&playlist);
+                        self.playlist_update(playlist);
                     }
                     edit_failed(err, &note)
                 })?;
-                self.playlist_update(&playlist);
+                self.playlist_update(playlist);
                 Ok(())
             },
             || {
@@ -619,14 +675,26 @@ impl Library {
         );
 
         self.settle_write(written, &note);
-        let listed = written && web_used.get();
-        if listed && self.fetch_playlists(false).listing_complete {
-            self.save_cache(
-                &config::cache_path(CACHE_PLAYLISTS),
-                &self.playlists.read().unwrap(),
+        if written
+            && web_used.get()
+            && let Some(playlist) = copy
+        {
+            playlist.tracks = Some(
+                tracks
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, mut playable)| {
+                        playable.set_list_index(i);
+                        playable
+                    })
+                    .collect(),
             );
+            playlist.num_tracks = tracks.len();
+            playlist.snapshot_id.clear();
+            self.playlist_update(playlist);
         }
-        listed
+        (written, web_used.get())
     }
 
     /// Create a playlist with the given `name` and add `tracks` to it. One playlist listing
@@ -1068,6 +1136,11 @@ impl Library {
 
         let mut items_complete = true;
         for (index, remote) in listed.iter().enumerate() {
+            // A queued or running write owns this copy: left as it is, not counted as
+            // incomplete. The next sync after the writes reconciles it by snapshot.
+            if self.writer.is_pending(&remote.id) {
+                continue;
+            }
             // Download without holding the store lock; only the merge locks.
             let current = !needs_download(&self.playlists.read().unwrap(), remote, force_full);
             let mut downloaded = if current {
@@ -1086,12 +1159,17 @@ impl Library {
                 }
                 tracks
             };
-            items_complete &= merge_listed(
-                &mut self.playlists.write().unwrap(),
-                std::slice::from_ref(remote),
-                force_full,
-                |_| downloaded.take(),
-            );
+            {
+                let mut store = self.playlists.write().unwrap();
+                // Again under the lock: a write queued during the download keeps its copy.
+                if !self.writer.is_pending(&remote.id) {
+                    items_complete &=
+                        merge_listed(&mut store, std::slice::from_ref(remote), force_full, |_| {
+                            downloaded.take()
+                        });
+                }
+            }
+            self.bump_playlists_rev();
             // trigger redraw
             self.trigger_redraw();
         }
@@ -1105,6 +1183,7 @@ impl Library {
                 &list_order,
                 true,
             );
+            self.bump_playlists_rev();
         } else {
             warn!("playlist list incomplete, keeping cached playlists");
         }
@@ -1186,6 +1265,11 @@ impl Library {
         let mut items_complete = true;
 
         for (index, (listed_remote, status)) in listed.iter().enumerate() {
+            // A queued or running write owns this copy: left as it is, not counted as
+            // incomplete. The next sync after the writes reconciles it by snapshot.
+            if self.writer.is_pending(&listed_remote.id) {
+                continue;
+            }
             let remote = &self.with_head_snapshot(listed_remote, *status, &mut stopped);
             // Download without holding the store lock; only the merge locks.
             let current = !needs_download(&self.playlists.read().unwrap(), remote, force_full);
@@ -1207,8 +1291,9 @@ impl Library {
                     .iter()
                     .find(|p| p.id == remote.id)
                     .map(|p| (p.name.clone(), p.cover_url.clone(), p.num_tracks));
-                let merged =
-                    merge_listed(&mut store, std::slice::from_ref(remote), force_full, |_| {
+                // Again under the lock: a write queued during the download keeps its copy.
+                let merged = self.writer.is_pending(&remote.id)
+                    || merge_listed(&mut store, std::slice::from_ref(remote), force_full, |_| {
                         downloaded.take()
                     });
                 // A 403 playlist can never be downloaded; it does not make the sync incomplete.
@@ -1223,6 +1308,7 @@ impl Library {
                 downloaded_any || before.as_ref().is_none_or(|b| current && *b != refreshed)
             };
             if changed {
+                self.bump_playlists_rev();
                 self.trigger_redraw();
             }
         }
@@ -1254,6 +1340,7 @@ impl Library {
                 &order,
                 true,
             );
+            self.bump_playlists_rev();
             let layout = layout_from(&rootlist, &pinned);
             self.save_cache(
                 &config::cache_path(CACHE_PLAYLISTS),
@@ -1908,14 +1995,19 @@ impl Library {
     }
 
     /// If there is a local version of the playlist, update it, rewrite the cache and redraw the
-    /// views (also after a failed edit, whose copy may have been reloaded).
+    /// views (also after a failed edit, whose copy may have been reloaded). The store shows
+    /// `updated` with the queued optimistic writes of its id applied.
     pub fn playlist_update(&self, updated: &Playlist) {
         {
             let mut playlists = self.playlists.write().unwrap();
-            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == updated.id) {
-                *playlist = updated.clone();
+            // Under the store lock, so a write queued meanwhile is in the overlay or applies
+            // after this store write.
+            let shown = self.writer.overlay(updated);
+            if let Some(playlist) = playlists.iter_mut().find(|p| p.id == shown.id) {
+                *playlist = shown;
             }
         }
+        self.bump_playlists_rev();
 
         self.save_cache(
             &config::cache_path(CACHE_PLAYLISTS),
@@ -1925,12 +2017,16 @@ impl Library {
     }
 
     /// Store `updated`, copied from the entry with snapshot `base_snapshot`, unless a sync
-    /// replaced that entry meanwhile; on a replace rewrite the cache and redraw. Returns
-    /// whether it was stored.
+    /// replaced that entry meanwhile or a write of it is queued or running; on a replace
+    /// rewrite the cache and redraw. Returns whether it was stored.
     pub fn playlist_update_if_unchanged(&self, updated: &Playlist, base_snapshot: &str) -> bool {
-        let replaced =
-            replace_if_unchanged(&mut self.playlists.write().unwrap(), updated, base_snapshot);
+        let replaced = {
+            let mut store = self.playlists.write().unwrap();
+            !self.writer.is_pending(&updated.id)
+                && replace_if_unchanged(&mut store, updated, base_snapshot)
+        };
         if replaced {
+            self.bump_playlists_rev();
             self.save_cache(
                 &config::cache_path(CACHE_PLAYLISTS),
                 &self.playlists.read().unwrap(),
@@ -1938,6 +2034,289 @@ impl Library {
             self.trigger_redraw();
         }
         replaced
+    }
+
+    /// Mark the playlist store as written, for the views.
+    fn bump_playlists_rev(&self) {
+        self.playlists_rev.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Start the playlist write worker (once, from the application).
+    pub fn start_writer(&self) {
+        let library = self.clone();
+        thread::Builder::new()
+            .name("playlist-writer".into())
+            .spawn(move || {
+                while library.writer.wait_job() {
+                    library.run_next_write();
+                }
+            })
+            .expect("spawn the playlist writer");
+    }
+
+    /// Run the next queued playlist write and publish its result. False when none ran.
+    pub fn run_next_write(&self) -> bool {
+        self.run_next_write_with(|job, copy| self.run_job(job, copy))
+    }
+
+    /// [Library::run_next_write] with `run` doing the write (tests stand in for Spotify).
+    fn run_next_write_with(
+        &self,
+        run: impl FnOnce(&WriteJob, Option<&mut Playlist>) -> bool,
+    ) -> bool {
+        *self.last_note.lock().unwrap() = None;
+        let Some(settled) = self.writer.step(run) else {
+            return false;
+        };
+        if let Some(confirmed) = &settled.confirmed {
+            // The confirmed copy plus whatever is still queued for it.
+            self.playlist_update(confirmed);
+            // Only now: a job queued before this store write must still find the entry.
+            self.writer.release(&confirmed.id);
+        }
+        let note = if settled.ok {
+            None
+        } else {
+            self.last_note.lock().unwrap().take()
+        };
+        self.ev.try_send(Event::WriteSettled {
+            playlist_id: settled.playlist_id,
+            ok: settled.ok,
+            drained: settled.drained,
+            dropped: settled.dropped,
+            note,
+        });
+        true
+    }
+
+    /// The write of one job, on the worker: the synchronous write paths, on the confirmed copy
+    /// for a job on a copy. True when it landed; a failure has posted its note.
+    fn run_job(&self, job: &WriteJob, copy: Option<&mut Playlist>) -> bool {
+        let id = job.playlist_id.as_deref().unwrap_or_default();
+        match (&job.kind, copy) {
+            (JobKind::Move { index, uri, n, up }, Some(copy)) => {
+                if *n == 0 {
+                    return true; // a folded down-up pair
+                }
+                match row_at(copy, *index, uri) {
+                    Some(row) => copy
+                        .move_track(&row, *n, *up, &self.spotify, self)
+                        .is_some(),
+                    None => {
+                        self.settle_write(false, &Cell::new(EditError::Moved.note()));
+                        false
+                    }
+                }
+            }
+            (JobKind::Remove { index, uri }, Some(copy)) => match row_at(copy, *index, uri) {
+                Some(row) => match copy.delete_track(&row, self.spotify.clone(), self) {
+                    Ok(()) => true,
+                    Err(note) => {
+                        self.post_note(&note);
+                        false
+                    }
+                },
+                None => {
+                    self.settle_write(false, &Cell::new(EditError::Moved.note()));
+                    false
+                }
+            },
+            (JobKind::Add { tracks }, Some(copy)) => {
+                copy.append_tracks(tracks, &self.spotify, self)
+            }
+            (JobKind::Rename { name }, Some(copy)) => self.rename_copy(copy, name),
+            (JobKind::Overwrite { tracks }, copy) => self.overwrite_copy(id, copy, tracks),
+            (JobKind::Create { name }, _) => self.create_playlist(name).is_some(),
+            (JobKind::SaveAs { name, tracks }, _) => {
+                self.save_playlist(name, tracks);
+                true
+            }
+            (JobKind::Unfollow, _) => {
+                self.delete_playlist(id);
+                true
+            }
+            (JobKind::Follow { playlist }, _) => {
+                self.follow_playlist((**playlist).clone());
+                true
+            }
+            (JobKind::Pin { pinned }, _) => {
+                if let Some(note) = self.pin_command(id, *pinned) {
+                    self.post_note(&note);
+                }
+                true
+            }
+            // A job on a copy of a playlist that was not stored when it was queued.
+            _ => {
+                self.settle_write(false, &Cell::new(None));
+                false
+            }
+        }
+    }
+
+    /// Apply an optimistic job to the stored copy of `id` and queue it, unless `check` (run on
+    /// the stored copy under the same lock) refuses with its answer. Returns the local apply
+    /// result (a move's new position) or the refusal; `None` when `id` is not stored.
+    fn queue_on_copy<R>(
+        &self,
+        id: &str,
+        kind: JobKind,
+        check: impl FnOnce(&Playlist) -> Result<(), R>,
+    ) -> Option<Result<Option<usize>, R>> {
+        let at = {
+            // Held across the queue: the worker's store write and overlay never interleave.
+            let mut store = self.playlists.write().unwrap();
+            let stored = store.iter_mut().find(|p| p.id == id)?;
+            if let Err(refused) = check(stored) {
+                return Some(Err(refused));
+            }
+            let confirmed = stored.clone();
+            let at = apply_local(stored, &kind);
+            self.writer.queue(Some(id), kind, || Some(confirmed));
+            at
+        };
+        self.bump_playlists_rev();
+        self.save_cache(
+            &config::cache_path(CACHE_PLAYLISTS),
+            &self.playlists.read().unwrap(),
+        );
+        self.trigger_redraw();
+        Some(Ok(at))
+    }
+
+    /// Queue a job that is not shown before Spotify confirms it. An overwrite takes the stored
+    /// copy of `id` as its confirmed copy when it has none.
+    fn queue_as_is(&self, id: Option<&str>, kind: JobKind) {
+        // The store lock is held across the queue, so the copy cannot be one the worker is
+        // about to replace with its confirmed copy.
+        let store = self.playlists.read().unwrap();
+        let stored = id.and_then(|id| store.iter().find(|p| p.id == id).cloned());
+        self.writer.queue(id, kind, || stored);
+    }
+
+    /// Queue moving the track `row` of playlist `id` up or down by `n` rows (clamped) and show
+    /// it at once. Returns its new position: the same one when it is already at that end
+    /// (nothing queued), `None` when the row is not there (a note is posted).
+    pub fn queue_move(&self, id: &str, row: &Playable, n: usize, up: bool) -> Option<usize> {
+        let (index, uri) = (row.list_index(), row.uri());
+        let kind = JobKind::Move {
+            index,
+            uri: uri.clone(),
+            n,
+            up,
+        };
+        let queued = self.queue_on_copy(id, kind, |stored| {
+            let tracks = stored.tracks.as_deref().unwrap_or_default();
+            if server_item(tracks, index, &uri).is_none() {
+                return Err(None);
+            }
+            match move_target(index, n, up, tracks.len()) {
+                Some(_) => Ok(()),
+                None => Err(Some(index)),
+            }
+        });
+        match queued.unwrap_or(Err(None)) {
+            Ok(at) => at,
+            Err(Some(index)) => Some(index),
+            Err(None) => {
+                self.settle_write(false, &Cell::new(EditError::Moved.note()));
+                None
+            }
+        }
+    }
+
+    /// Queue removing the track `row` of playlist `id` and show it at once. On a refusal the
+    /// error is the status note to show.
+    pub fn queue_remove(&self, id: &str, row: &Playable) -> Result<(), String> {
+        let (index, uri) = (row.list_index(), row.uri());
+        let kind = JobKind::Remove {
+            index,
+            uri: uri.clone(),
+        };
+        let queued = self.queue_on_copy(id, kind, |stored| {
+            let tracks = stored.tracks.as_deref().unwrap_or_default();
+            let at = server_item(tracks, index, &uri).ok_or(())?;
+            if tracks[at].track().map(|t| t.is_local) == Some(true) {
+                warn!("track is a local file, can't delete");
+                return Err(());
+            }
+            Ok(())
+        });
+        match queued {
+            Some(Ok(_)) => Ok(()),
+            _ => Err("Could not delete track.".to_string()),
+        }
+    }
+
+    /// Queue appending `tracks` to playlist `id` and show it at once.
+    pub fn queue_add(&self, id: &str, tracks: &[Playable]) {
+        let kind = JobKind::Add {
+            tracks: tracks.to_vec(),
+        };
+        let _ = self.queue_on_copy(id, kind, |_| Ok::<(), ()>(()));
+    }
+
+    /// Queue renaming playlist `id` to `name` (trimmed) and show it at once. Refusals are
+    /// checked against the name Spotify confirmed; a name equal to the shown one queues
+    /// nothing. Returns a refusal note to show.
+    pub fn queue_rename(&self, id: &str, name: &str) -> Option<String> {
+        let Some(stored) = self.stored_playlist(id) else {
+            return Some(RENAME_NOT_OWNER_NOTE.to_string());
+        };
+        let confirmed = self.writer.confirmed(id).unwrap_or_else(|| stored.clone());
+        let name = match rename_check(
+            &confirmed.name,
+            &confirmed.owner_id,
+            self.user_id.as_deref(),
+            name,
+        ) {
+            RenameCheck::Send(name) => name,
+            RenameCheck::Unchanged => name.trim().to_string(),
+            RenameCheck::Refused(note) => return Some(note.to_string()),
+        };
+        let kind = JobKind::Rename { name: name.clone() };
+        let _ = self.queue_on_copy(
+            id,
+            kind,
+            |stored| {
+                if stored.name == name { Err(()) } else { Ok(()) }
+            },
+        );
+        None
+    }
+
+    /// Queue setting playlist `id` to contain only `tracks`; shown once Spotify confirms it.
+    pub fn queue_overwrite(&self, id: &str, tracks: &[Playable]) {
+        let tracks = tracks.to_vec();
+        self.queue_as_is(Some(id), JobKind::Overwrite { tracks });
+    }
+
+    /// Queue creating an empty playlist named `name`.
+    pub fn queue_create(&self, name: &str) {
+        let name = name.to_string();
+        self.queue_as_is(None, JobKind::Create { name });
+    }
+
+    /// Queue creating a playlist named `name` with `tracks`.
+    pub fn queue_save(&self, name: &str, tracks: &[Playable]) {
+        let (name, tracks) = (name.to_string(), tracks.to_vec());
+        self.queue_as_is(None, JobKind::SaveAs { name, tracks });
+    }
+
+    /// Queue deleting (unfollowing) playlist `id`; it stays listed until the write lands.
+    pub fn queue_unfollow(&self, id: &str) {
+        self.queue_as_is(Some(id), JobKind::Unfollow);
+    }
+
+    /// Queue following `playlist`.
+    pub fn queue_follow(&self, playlist: Playlist) {
+        let id = playlist.id.clone();
+        let playlist = Box::new(playlist);
+        self.queue_as_is(Some(&id), JobKind::Follow { playlist });
+    }
+
+    /// Queue pinning or unpinning playlist `id`.
+    pub fn queue_pin(&self, id: &str, pin: bool) {
+        self.queue_as_is(Some(id), JobKind::Pin { pinned: pin });
     }
 
     /// Check whether `track` is saved in the user's library.
@@ -2800,6 +3179,12 @@ pub(crate) fn rename_check(
         return RenameCheck::Refused(RENAME_NOT_OWNER_NOTE);
     }
     RenameCheck::Send(name.to_string())
+}
+
+/// The row of `playlist` at server position `index` that is still `uri`.
+fn row_at(playlist: &Playlist, index: usize, uri: &str) -> Option<Playable> {
+    let tracks = playlist.tracks.as_deref()?;
+    server_item(tracks, index, uri).map(|at| tracks[at].clone())
 }
 
 /// Collect the status note of a failed internal playlist edit, if it has one, and turn the
@@ -4424,5 +4809,245 @@ mod test {
         assert_eq!((p.num_tracks, p.owner_id.as_str()), (3, "o"));
         assert!(p.collaborative && p.owner_name.is_none() && p.tracks.is_none());
         assert_eq!(p.cover_url.as_deref(), Some("c"));
+    }
+
+    /// A library whose user owns playlist `id` with the placeholder tracks `uris`, at snapshot
+    /// "s0".
+    fn library_with_playlist(id: &str, uris: &[&str]) -> Arc<Library> {
+        let mut library = test_library();
+        Arc::get_mut(&mut library).unwrap().user_id = Some("me".into());
+        let tracks: Vec<Playable> = uris
+            .iter()
+            .enumerate()
+            .map(|(i, uri)| {
+                let mut playable = crate::playlist_items::placeholder(uri);
+                playable.set_list_index(i);
+                playable
+            })
+            .collect();
+        *library.playlists.write().unwrap() = vec![Playlist {
+            owner_id: "me".into(),
+            snapshot_id: "s0".into(),
+            num_tracks: tracks.len(),
+            tracks: Some(tracks),
+            ..playlist(id)
+        }];
+        library
+    }
+
+    fn stored_opt(library: &Library, id: &str) -> Option<Playlist> {
+        library
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .find(|p| p.id == id)
+            .cloned()
+    }
+
+    fn stored(library: &Library, id: &str) -> Playlist {
+        stored_opt(library, id).expect("stored")
+    }
+
+    fn stored_uris(library: &Library, id: &str) -> Vec<String> {
+        stored(library, id)
+            .tracks
+            .unwrap_or_default()
+            .iter()
+            .map(Playable::uri)
+            .collect()
+    }
+
+    fn stored_row(library: &Library, id: &str, at: usize) -> Playable {
+        stored(library, id).tracks.unwrap()[at].clone()
+    }
+
+    /// The `(ok, drained, dropped, note)` of each posted [Event::WriteSettled].
+    fn settled_events(library: &Library) -> Vec<(bool, bool, usize, Option<String>)> {
+        library
+            .ev
+            .msg_iter()
+            .filter_map(|event| match event {
+                Event::WriteSettled {
+                    playlist_id: _,
+                    ok,
+                    drained,
+                    dropped,
+                    note,
+                } => Some((ok, drained, dropped, note)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Runs a job like a server that accepts it: applied to the copy at a new snapshot.
+    fn accept(posts: &Cell<usize>) -> impl FnOnce(&WriteJob, Option<&mut Playlist>) -> bool {
+        |job, copy| {
+            posts.set(posts.get() + 1);
+            let copy = copy.expect("a job on a copy");
+            crate::playlist_writer::apply_local(copy, &job.kind);
+            copy.snapshot_id = "s1".into();
+            true
+        }
+    }
+
+    #[test]
+    fn a_queued_move_shows_at_once_and_settles_through_the_worker() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let posts = Cell::new(0);
+        let row = stored_row(&library, "p", 0);
+        assert_eq!(library.queue_move("p", &row, 1, false), Some(1));
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"], "optimistic");
+        assert!(library.writer.is_pending("p"));
+        assert_eq!(posts.get(), 0, "nothing sent on the UI thread");
+        assert!(library.run_next_write_with(accept(&posts)));
+        assert_eq!(posts.get(), 1);
+        assert!(!library.writer.is_pending("p"));
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
+        assert!(
+            !stored(&library, "p").snapshot_id.is_empty(),
+            "confirmed snapshot"
+        );
+        assert!(library.writer.confirmed("p").is_none(), "released");
+        assert_eq!(settled_events(&library), [(true, true, 0, None)]);
+        assert!(!library.run_next_write(), "nothing left to run");
+    }
+
+    #[test]
+    fn a_failed_move_reverts_the_store_and_drops_later_jobs() {
+        // No session and no Web token: the real write fails.
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        assert_eq!(library.queue_rename("p", "new"), None);
+        assert_eq!(stored(&library, "p").name, "new", "optimistic");
+        assert!(library.run_next_write());
+        assert_eq!(stored_uris(&library, "p"), ["a", "b", "c"]);
+        assert_ne!(stored(&library, "p").name, "new");
+        assert_eq!(library.writer.pending(), 0);
+        let settled = settled_events(&library);
+        assert_eq!(settled.len(), 1);
+        let (ok, drained, dropped, note) = &settled[0];
+        assert!(!ok && *drained);
+        assert_eq!(*dropped, 1);
+        assert!(note.is_some(), "the failure's note comes along");
+    }
+
+    #[test]
+    fn a_queued_rename_checks_against_the_confirmed_name() {
+        let library = library_with_playlist("p", &["a"]);
+        assert_eq!(library.queue_rename("p", "new"), None);
+        assert_eq!(stored(&library, "p").name, "new");
+        // The same name again is a no-op against the optimistic name: no second job.
+        assert_eq!(
+            library.queue_rename("p", "new"),
+            None,
+            "unchanged vs optimistic: no job"
+        );
+        assert_eq!(library.writer.pending(), 1);
+        // Back to the confirmed name is a change against the optimistic one.
+        assert_eq!(library.queue_rename("p", "p"), None);
+        assert_eq!(library.writer.pending(), 2);
+        assert_eq!(
+            library.queue_rename("p", "  "),
+            Some(RENAME_EMPTY_NOTE.to_string())
+        );
+    }
+
+    #[test]
+    fn rootlist_jobs_are_not_optimistic() {
+        let library = library_with_playlist("p", &["a"]);
+        library.queue_unfollow("p");
+        assert!(
+            stored_opt(&library, "p").is_some(),
+            "still listed until the worker runs"
+        );
+    }
+
+    #[test]
+    fn jobs_without_a_local_apply_are_queued_as_they_are() {
+        let library = library_with_playlist("p", &["a"]);
+        let before = stored(&library, "p");
+        library.queue_overwrite("p", &[]);
+        library.queue_pin("p", true);
+        library.queue_follow(playlist("q"));
+        library.queue_create("n");
+        library.queue_save("n", &[]);
+        assert_eq!(library.writer.pending(), 5);
+        assert_eq!(stored_uris(&library, "p"), ["a"]);
+        assert_eq!(stored(&library, "p").snapshot_id, before.snapshot_id);
+        assert_eq!(
+            library.writer.confirmed("p").map(|c| c.snapshot_id),
+            Some("s0".into()),
+            "an overwrite runs on the stored copy"
+        );
+    }
+
+    #[test]
+    fn a_move_of_a_row_no_longer_there_is_refused() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let mut row = stored_row(&library, "p", 0);
+        row.set_list_index(1);
+        assert_eq!(library.queue_move("p", &row, 1, false), None);
+        assert_eq!(library.writer.pending(), 0);
+        assert_eq!(posted_notes(&library), ["Playlist changed, try again"]);
+        let last = stored_row(&library, "p", 1);
+        assert_eq!(
+            library.queue_move("p", &last, 1, false),
+            Some(1),
+            "already last: nothing queued"
+        );
+        assert_eq!(library.writer.pending(), 0);
+    }
+
+    #[test]
+    fn a_queued_remove_and_add_show_at_once() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let row = stored_row(&library, "p", 0);
+        assert_eq!(library.queue_remove("p", &row), Ok(()));
+        let extra = crate::playlist_items::placeholder("c");
+        library.queue_add("p", &[extra]);
+        assert_eq!(stored_uris(&library, "p"), ["b", "c"]);
+        assert_eq!(stored(&library, "p").num_tracks, 2);
+        assert_eq!(library.writer.pending(), 2);
+        assert_eq!(
+            library.queue_remove("q", &row),
+            Err("Could not delete track.".to_string())
+        );
+    }
+
+    #[test]
+    fn a_sync_leaves_a_pending_playlist_alone() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        library.fetch_playlists(false);
+        assert!(library.fetch_playlists_internal(false).is_none());
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
+    }
+
+    #[test]
+    fn a_reload_never_replaces_a_pending_playlist() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        let mut reloaded = stored(&library, "p");
+        reloaded.snapshot_id = "reload".into();
+        assert!(!library.playlist_update_if_unchanged(&reloaded, ""));
+        assert_ne!(stored(&library, "p").snapshot_id, "reload");
+    }
+
+    #[test]
+    fn a_store_update_shows_the_queued_jobs_and_bumps_the_revision() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let rev = library.playlists_rev.load(Ordering::Relaxed);
+        let confirmed = stored(&library, "p");
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        assert!(library.playlists_rev.load(Ordering::Relaxed) > rev);
+        let rev = library.playlists_rev.load(Ordering::Relaxed);
+        library.playlist_update(&confirmed);
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
+        assert!(library.playlists_rev.load(Ordering::Relaxed) > rev);
     }
 }

@@ -12,8 +12,6 @@ use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
 
 /// One playlist write.
-// Create, SaveAs, Follow and Pin are built only by later callers; tests do not.
-#[cfg_attr(test, allow(dead_code))]
 #[derive(Clone, Debug)]
 pub enum JobKind {
     /// Move the item at server position `index` (still `uri`) by `n` rows, clamped.
