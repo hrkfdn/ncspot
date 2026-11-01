@@ -99,7 +99,9 @@ pub fn apply_local(playlist: &mut Playlist, kind: &JobKind) -> Option<usize> {
                 .tracks
                 .as_mut()
                 .is_some_and(|tracks| remove_server_item(tracks, *index, uri));
-            playlist.num_tracks = playlist.tracks.as_ref().map_or(0, Vec::len);
+            if removed {
+                playlist.num_tracks = playlist.tracks.as_ref().map_or(0, Vec::len);
+            }
             removed
         }
         JobKind::Add { tracks: new } => match &mut playlist.tracks {
@@ -282,6 +284,33 @@ mod tests {
         assert_eq!(p.tracks.as_deref().unwrap()[2].list_index(), 2);
         apply_local(&mut p, &JobKind::Rename { name: "new".into() });
         assert_eq!(p.name, "new");
+    }
+
+    #[test]
+    fn remove_on_an_unloaded_playlist_keeps_the_count_and_snapshot() {
+        let mut p = playlist_of(&["a", "b"]);
+        p.tracks = None;
+        let remove = JobKind::Remove {
+            index: 0,
+            uri: "a".into(),
+        };
+        assert_eq!(apply_local(&mut p, &remove), None);
+        assert_eq!(p.num_tracks, 2);
+        assert_eq!(p.snapshot_id, "snap");
+    }
+
+    #[test]
+    fn remove_with_a_wrong_uri_changes_nothing() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.num_tracks = 7;
+        let remove = JobKind::Remove {
+            index: 1,
+            uri: "zz".into(),
+        };
+        assert_eq!(apply_local(&mut p, &remove), None);
+        assert_eq!(uris(&p), ["a", "b", "c"]);
+        assert_eq!(p.num_tracks, 7);
+        assert_eq!(p.snapshot_id, "snap");
     }
 
     #[test]
