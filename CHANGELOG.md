@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   albums with missing tracks are loaded again when played
 - Playing an empty playlist, album or podcast no longer starts an unrelated
   track
+- Windows: wide characters (Japanese, Chinese, Korean) no longer shift the
+  rest of the row or leave stray text behind when switching views, as the
+  Windows build now uses the crossterm backend instead of pancurses
 
 ## [1.5.0]
 

@@ -67,8 +67,11 @@ cargo build --no-default-features --features portaudio_backend,pancurses_backend
 
 Rodio for Windows
 ```sh
-cargo build --no-default-features --features rodio_backend,pancurses_backend
+cargo build --no-default-features --features rodio_backend,crossterm_backend
 ```
+
+On Windows, prefer the crossterm UI backend over `pancurses_backend`: the bundled PDCurses
+writes a blank cell after every wide (e.g. Japanese) character, which shifts the rest of the line.
 
 ## Other Features
 Here are some auxiliary features you may wish to enable:
