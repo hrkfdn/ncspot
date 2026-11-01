@@ -2,7 +2,9 @@
 //! ([apply_local]) and queues it; one worker runs the queue in issue order against the copy
 //! Spotify last confirmed, so the store always shows the confirmed copy plus the queued jobs.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
@@ -167,6 +169,209 @@ pub fn fold_moves(mut job: WriteJob, queue: &mut VecDeque<WriteJob>, length: usi
         up: at < from,
     };
     job
+}
+
+#[derive(Default)]
+struct State {
+    queue: VecDeque<WriteJob>,
+    /// The id of the job being run, if it has one (`Some(None)`: a job with no id).
+    in_flight: Option<Option<String>>,
+    /// The copy Spotify last confirmed, for each id with a queued or running job.
+    confirmed: HashMap<String, Playlist>,
+    next_seq: u64,
+    stopping: bool,
+}
+
+impl State {
+    fn has_jobs(&self, id: &str) -> bool {
+        self.in_flight
+            .as_ref()
+            .is_some_and(|f| f.as_deref() == Some(id))
+            || self
+                .queue
+                .iter()
+                .any(|j| j.playlist_id.as_deref() == Some(id))
+    }
+}
+
+/// The outcome of one [PlaylistWriter::step].
+#[derive(Debug)]
+pub struct Settled {
+    pub seq: u64,
+    pub playlist_id: Option<String>,
+    pub ok: bool,
+    /// Later queued jobs of the same playlist dropped after a failure.
+    pub dropped: usize,
+    /// No job of this playlist is left queued.
+    pub drained: bool,
+    /// The confirmed copy after the job (for jobs that run on a copy).
+    pub confirmed: Option<Playlist>,
+}
+
+/// The playlist write queue, shared by the UI thread (queueing) and the worker (running).
+#[derive(Clone, Default)]
+pub struct PlaylistWriter {
+    shared: Arc<(Mutex<State>, Condvar)>,
+}
+
+impl PlaylistWriter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Queue a job and return its seq. For a job on a copy, `confirmed` supplies the stored
+    /// copy (taken before the job is applied locally) when the id has no confirmed copy yet.
+    pub fn queue(
+        &self,
+        playlist_id: Option<&str>,
+        kind: JobKind,
+        confirmed: impl FnOnce() -> Option<Playlist>,
+    ) -> u64 {
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock().unwrap();
+        state.next_seq += 1;
+        let seq = state.next_seq;
+        if let Some(id) = playlist_id
+            && kind.on_copy()
+            && !state.confirmed.contains_key(id)
+            && let Some(copy) = confirmed()
+        {
+            state.confirmed.insert(id.to_string(), copy);
+        }
+        state.queue.push_back(WriteJob {
+            seq,
+            playlist_id: playlist_id.map(str::to_string),
+            kind,
+        });
+        cvar.notify_all();
+        seq
+    }
+
+    /// `updated` with the queued optimistic jobs of its id applied.
+    pub fn overlay(&self, updated: &Playlist) -> Playlist {
+        let state = self.shared.0.lock().unwrap();
+        let mut shown = updated.clone();
+        for job in state
+            .queue
+            .iter()
+            .filter(|j| j.playlist_id.as_deref() == Some(&updated.id))
+        {
+            if job.kind.optimistic() {
+                apply_local(&mut shown, &job.kind);
+            }
+        }
+        shown
+    }
+
+    pub fn is_pending(&self, id: &str) -> bool {
+        self.shared.0.lock().unwrap().has_jobs(id)
+    }
+
+    pub fn pending(&self) -> usize {
+        let state = self.shared.0.lock().unwrap();
+        state.queue.len() + usize::from(state.in_flight.is_some())
+    }
+
+    pub fn confirmed(&self, id: &str) -> Option<Playlist> {
+        self.shared.0.lock().unwrap().confirmed.get(id).cloned()
+    }
+
+    /// Run the next job (folded with following held-key moves) through `run`, which gets the
+    /// confirmed copy for a job on a copy and returns whether the write landed. `None` when
+    /// nothing is queued or the writer is stopping.
+    pub fn step(
+        &self,
+        run: impl FnOnce(&WriteJob, Option<&mut Playlist>) -> bool,
+    ) -> Option<Settled> {
+        let (job, mut copy) = {
+            let mut state = self.shared.0.lock().unwrap();
+            if state.stopping {
+                return None;
+            }
+            let job = state.queue.pop_front()?;
+            let copy = job
+                .playlist_id
+                .as_ref()
+                .filter(|_| job.kind.on_copy())
+                .and_then(|id| state.confirmed.get(id).cloned());
+            let length = copy
+                .as_ref()
+                .and_then(|c| c.tracks.as_ref())
+                .map_or(0, Vec::len);
+            let job = fold_moves(job, &mut state.queue, length);
+            state.in_flight = Some(job.playlist_id.clone());
+            (job, copy)
+        };
+        let ok = run(&job, copy.as_mut());
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock().unwrap();
+        state.in_flight = None;
+        let id = job.playlist_id.clone();
+        let mut dropped = 0;
+        if let Some(id) = &id {
+            if let Some(copy) = copy.take() {
+                state.confirmed.insert(id.clone(), copy);
+            }
+            if !ok {
+                let before = state.queue.len();
+                state.queue.retain(|j| j.playlist_id.as_deref() != Some(id));
+                dropped = before - state.queue.len();
+            }
+        }
+        let drained = id.as_deref().is_none_or(|id| !state.has_jobs(id));
+        let confirmed = match &id {
+            Some(id) if drained => state.confirmed.remove(id),
+            Some(id) => state.confirmed.get(id).cloned(),
+            None => None,
+        };
+        cvar.notify_all();
+        Some(Settled {
+            seq: job.seq,
+            playlist_id: id,
+            ok,
+            dropped,
+            drained,
+            confirmed,
+        })
+    }
+
+    /// Block until a job is queued (true) or the writer stops (false).
+    pub fn wait_job(&self) -> bool {
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock().unwrap();
+        while state.queue.is_empty() && !state.stopping {
+            state = cvar.wait(state).unwrap();
+        }
+        !state.stopping
+    }
+
+    /// Stop taking jobs: drop the queued ones. Returns the ids with a confirmed copy, whose
+    /// stored copies must be reset to it (the job in flight, if any, still finishes).
+    pub fn stop(&self) -> Vec<String> {
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock().unwrap();
+        state.stopping = true;
+        state.queue.clear();
+        cvar.notify_all();
+        let mut ids: Vec<String> = state.confirmed.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    /// Wait until no job runs, at most `timeout`; true when idle.
+    pub fn wait_idle(&self, timeout: Duration) -> bool {
+        let (lock, cvar) = &*self.shared;
+        let deadline = Instant::now() + timeout;
+        let mut state = lock.lock().unwrap();
+        while state.in_flight.is_some() || (!state.stopping && !state.queue.is_empty()) {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return false;
+            }
+            state = cvar.wait_timeout(state, left).unwrap().0;
+        }
+        true
+    }
 }
 
 #[cfg(test)]
@@ -361,5 +566,139 @@ mod tests {
         let mut queue: VecDeque<WriteJob> = [mv(2, 1, "a", 1, true)].into();
         let folded = fold_moves(mv(1, 0, "a", 1, false), &mut queue, 3);
         assert!(matches!(folded.kind, JobKind::Move { n: 0, .. }));
+    }
+
+    fn writer_with(p: &Playlist) -> PlaylistWriter {
+        let w = PlaylistWriter::new();
+        let _ = p; // the first queue call supplies it
+        w
+    }
+
+    fn queue_move(w: &PlaylistWriter, p: &Playlist, index: usize, uri: &str) -> u64 {
+        w.queue(
+            Some("p"),
+            JobKind::Move {
+                index,
+                uri: uri.into(),
+                n: 1,
+                up: false,
+            },
+            || Some(p.clone()),
+        )
+    }
+
+    #[test]
+    fn jobs_run_in_issue_order_on_the_confirmed_copy() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.id = "p".into();
+        p.snapshot_id = "s0".into();
+        let w = writer_with(&p);
+        queue_move(&w, &p, 0, "a");
+        w.queue(Some("p"), JobKind::Rename { name: "n".into() }, || {
+            unreachable!("already confirmed")
+        });
+        assert_eq!(w.pending(), 2);
+        let mut seen = Vec::new();
+        let s1 = w
+            .step(|job, copy| {
+                let copy = copy.unwrap();
+                assert_eq!(copy.snapshot_id, "s0", "runs on the confirmed copy");
+                apply_local(copy, &job.kind);
+                copy.snapshot_id = "s1".into();
+                seen.push(job.seq);
+                true
+            })
+            .unwrap();
+        assert!(s1.ok && !s1.drained);
+        assert_eq!(s1.playlist_id.as_deref(), Some("p"));
+        let s2 = w
+            .step(|job, copy| {
+                assert_eq!(copy.unwrap().snapshot_id, "s1");
+                seen.push(job.seq);
+                true
+            })
+            .unwrap();
+        assert!(s2.drained);
+        assert_eq!(s2.confirmed.unwrap().snapshot_id, "s1");
+        assert_eq!(seen, [1, 2]);
+        assert_eq!(w.pending(), 0);
+        assert!(!w.is_pending("p"));
+    }
+
+    #[test]
+    fn overlay_shows_confirmed_plus_queued_jobs() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.id = "p".into();
+        let w = writer_with(&p);
+        queue_move(&w, &p, 0, "a");
+        let shown = w.overlay(&p);
+        assert_eq!(uris(&shown), ["b", "a", "c"]);
+        assert!(shown.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_failure_drops_later_jobs_of_that_playlist_only() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.id = "p".into();
+        let mut q = playlist_of(&["x"]);
+        q.id = "q".into();
+        let w = writer_with(&p);
+        queue_move(&w, &p, 0, "a");
+        w.queue(Some("q"), JobKind::Rename { name: "r".into() }, || {
+            Some(q.clone())
+        });
+        w.queue(
+            Some("p"),
+            JobKind::Remove {
+                index: 2,
+                uri: "c".into(),
+            },
+            || unreachable!(),
+        );
+        let s = w.step(|_, _| false).unwrap();
+        assert!(!s.ok);
+        assert_eq!(s.dropped, 1);
+        assert!(s.drained);
+        assert_eq!(w.pending(), 1, "the other playlist's job stays");
+    }
+
+    #[test]
+    fn step_folds_held_key_moves() {
+        let mut p = playlist_of(&["a", "b", "c", "d"]);
+        p.id = "p".into();
+        let w = writer_with(&p);
+        queue_move(&w, &p, 0, "a");
+        queue_move(&w, &p, 1, "a");
+        let mut runs = 0;
+        let s = w
+            .step(|job, _| {
+                runs += 1;
+                assert!(matches!(
+                    job.kind,
+                    JobKind::Move {
+                        index: 0,
+                        n: 2,
+                        up: false,
+                        ..
+                    }
+                ));
+                true
+            })
+            .unwrap();
+        assert_eq!((runs, s.seq, s.drained), (1, 2, true));
+    }
+
+    #[test]
+    fn stop_drops_queued_jobs_and_names_copies_to_reset() {
+        let mut p = playlist_of(&["a", "b"]);
+        p.id = "p".into();
+        let w = writer_with(&p);
+        queue_move(&w, &p, 0, "a");
+        assert_eq!(w.stop(), vec!["p".to_string()]);
+        assert_eq!(w.pending(), 0);
+        assert!(w.step(|_, _| true).is_none());
+        assert!(!w.wait_job(), "a stopped writer wakes its worker to exit");
+        assert_eq!(uris(&w.confirmed("p").unwrap()), ["a", "b"]);
+        assert!(w.wait_idle(Duration::from_millis(10)));
     }
 }
