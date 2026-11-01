@@ -380,9 +380,63 @@ impl PlaylistWriter {
     }
 }
 
+pub const SAVED_NOTE: &str = "Playlist changes saved";
+
+/// The note for a settled write, if any. Success: only once the playlist's queue drained and
+/// it is not the open view. Failure: its note was posted already; repeat it with the dropped
+/// count when later writes were dropped.
+pub fn settled_note(
+    ok: bool,
+    drained: bool,
+    dropped: usize,
+    note: Option<String>,
+    open: bool,
+) -> Option<String> {
+    if ok {
+        return (drained && !open).then(|| SAVED_NOTE.to_string());
+    }
+    if dropped == 0 {
+        return None;
+    }
+    let plural = if dropped == 1 { "change" } else { "changes" };
+    let base = note.unwrap_or_else(|| "Playlist change failed".to_string());
+    Some(format!("{base} ({dropped} later {plural} dropped)"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settled_notes() {
+        assert_eq!(
+            settled_note(true, true, 0, None, false).as_deref(),
+            Some(SAVED_NOTE)
+        );
+        assert_eq!(
+            settled_note(true, true, 0, None, true),
+            None,
+            "open view: silent"
+        );
+        assert_eq!(
+            settled_note(true, false, 0, None, false),
+            None,
+            "more queued: wait"
+        );
+        assert_eq!(
+            settled_note(false, true, 0, Some("x".into()), true),
+            None,
+            "already posted"
+        );
+        assert_eq!(
+            settled_note(false, true, 2, Some("x".into()), true).as_deref(),
+            Some("x (2 later changes dropped)")
+        );
+        assert_eq!(
+            settled_note(false, true, 1, None, false).as_deref(),
+            Some("Playlist change failed (1 later change dropped)")
+        );
+    }
     use crate::playlist_items::placeholder;
 
     fn playlist_of(ids: &[&str]) -> Playlist {

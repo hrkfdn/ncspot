@@ -142,6 +142,11 @@ impl View for StatusBar {
             ""
         };
 
+        let pending = match self.library.writer.pending() {
+            0 => String::new(),
+            n => format!("[{n} pending] "),
+        };
+
         let repeat = if self.use_nerdfont() {
             match self.queue.get_repeat() {
                 RepeatSetting::None => "",
@@ -191,6 +196,7 @@ impl View for StatusBar {
 
         let right = count
             + updating
+            + &pending
             + repeat
             + shuffle
             // + saved

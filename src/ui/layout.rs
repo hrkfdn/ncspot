@@ -179,6 +179,11 @@ impl Layout {
         self.result_time = None;
     }
 
+    /// The id of the playlist shown by the top view, if it is a playlist view.
+    pub fn top_playlist_id(&self) -> Option<String> {
+        self.get_top_view().and_then(|v| v.playlist_id())
+    }
+
     fn get_result(&self) -> Result<Option<String>, String> {
         if let Some(t) = self.result_time
             && t.elapsed().unwrap() > Duration::from_secs(5)

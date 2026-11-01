@@ -207,6 +207,10 @@ impl ViewExt for PlaylistView {
             .unwrap_or_else(|| self.playlist.name.clone())
     }
 
+    fn playlist_id(&self) -> Option<String> {
+        Some(self.playlist.id.clone())
+    }
+
     fn title_sub(&self) -> String {
         if let Some(tracks) = self.playlist.tracks.as_ref() {
             let duration_secs = tracks.iter().map(|p| p.duration() as u64 / 1000).sum();
