@@ -233,9 +233,21 @@ impl Library {
 
     /// Save the items from `store` in the file at `cache_path`. False (logged) on failure.
     fn save_cache<T: Serialize>(&self, cache_path: &Path, store: &[T]) -> bool {
-        let written = File::create(cache_path)
+        // Write beside the target and rename over it, so a reader (or a crash) never sees a
+        // truncated cache.
+        let mut tmp = cache_path.as_os_str().to_owned();
+        tmp.push(".tmp");
+        let tmp = std::path::PathBuf::from(tmp);
+        let written = File::create(&tmp)
             .map_err(|e| e.to_string())
-            .and_then(|file| serde_json::to_writer(file, store).map_err(|e| e.to_string()));
+            .and_then(|mut file| {
+                serde_json::to_writer(&mut file, store).map_err(|e| e.to_string())?;
+                std::io::Write::flush(&mut file).map_err(|e| e.to_string())
+            })
+            .and_then(|()| std::fs::rename(&tmp, cache_path).map_err(|e| e.to_string()));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
         match written {
             Ok(()) => true,
             Err(e) => {
@@ -2056,6 +2068,10 @@ impl Library {
     /// that had some, then save the playlist cache once.
     pub fn reset_pending_writes(&self) {
         let ids = self.writer.stop();
+        if ids.is_empty() {
+            // No optimistic copies: the cache is as saved.
+            return;
+        }
         {
             // Store lock first, then the writer's (the lock order).
             let mut store = self.playlists.write().unwrap();
@@ -2077,7 +2093,8 @@ impl Library {
     pub fn finish_writes_then(&self, then: impl FnOnce() + Send + 'static) {
         let writer = self.writer.clone();
         thread::spawn(move || {
-            writer.wait_idle(QUIT_GRACE);
+            // The worker exits after its job is stored and saved (the writer is stopped).
+            writer.wait_exited(QUIT_GRACE);
             then();
         });
     }
@@ -2090,12 +2107,14 @@ impl Library {
     /// Start the playlist write worker (once, from the application).
     pub fn start_writer(&self) {
         let library = self.clone();
+        self.writer.mark_running();
         thread::Builder::new()
             .name("playlist-writer".into())
             .spawn(move || {
                 while library.writer.wait_job() {
                     library.run_next_write();
                 }
+                library.writer.mark_exited();
             })
             .expect("spawn the playlist writer");
     }
@@ -4927,6 +4946,26 @@ mod test {
 
     fn stored_row(library: &Library, id: &str, at: usize) -> Playable {
         stored(library, id).tracks.unwrap()[at].clone()
+    }
+
+    #[test]
+    fn reset_pending_writes_with_nothing_queued_saves_nothing() {
+        let library = library_with_playlist("p", &["a"]);
+        let rev = library.playlists_rev.load(Ordering::Relaxed);
+        library.reset_pending_writes();
+        assert_eq!(library.playlists_rev.load(Ordering::Relaxed), rev);
+    }
+
+    #[test]
+    fn save_cache_is_atomic() {
+        let library = test_library();
+        let dir = std::env::temp_dir().join(format!("ncspot-save-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("x.db");
+        assert!(library.save_cache(&path, &[1, 2, 3]));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "[1,2,3]");
+        assert!(!dir.join("x.db.tmp").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

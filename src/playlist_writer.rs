@@ -178,6 +178,8 @@ struct State {
     confirmed: HashMap<String, Playlist>,
     next_seq: u64,
     stopping: bool,
+    /// A worker loop runs (between [PlaylistWriter::mark_running] and [PlaylistWriter::mark_exited]).
+    worker_running: bool,
 }
 
 impl State {
@@ -364,6 +366,34 @@ impl PlaylistWriter {
         ids
     }
 
+    /// The worker loop starts (before it is spawned).
+    pub fn mark_running(&self) {
+        self.shared.0.lock().unwrap().worker_running = true;
+    }
+
+    /// The worker loop ended.
+    pub fn mark_exited(&self) {
+        let (lock, cvar) = &*self.shared;
+        lock.lock().unwrap().worker_running = false;
+        cvar.notify_all();
+    }
+
+    /// Wait until no worker loop runs (at once when none was started), at most `timeout`; true
+    /// when it is gone. After [PlaylistWriter::stop] the worker exits once its job is done.
+    pub fn wait_exited(&self, timeout: Duration) -> bool {
+        let (lock, cvar) = &*self.shared;
+        let deadline = Instant::now() + timeout;
+        let mut state = lock.lock().unwrap();
+        while state.worker_running {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return false;
+            }
+            state = cvar.wait_timeout(state, left).unwrap().0;
+        }
+        true
+    }
+
     /// Wait until no job runs, at most `timeout`; true when idle.
     pub fn wait_idle(&self, timeout: Duration) -> bool {
         let (lock, cvar) = &*self.shared;
@@ -409,6 +439,30 @@ pub fn settled_note(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wait_exited_follows_the_worker() {
+        let writer = PlaylistWriter::new();
+        assert!(writer.wait_exited(Duration::ZERO), "no worker started");
+        writer.mark_running();
+        assert!(
+            !writer.wait_exited(Duration::from_millis(10)),
+            "still running"
+        );
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let w = writer.clone();
+        let worker = std::thread::spawn(move || {
+            rx.recv().unwrap();
+            w.mark_exited();
+        });
+        assert!(
+            !writer.wait_exited(Duration::from_millis(10)),
+            "blocked on a job"
+        );
+        tx.send(()).unwrap();
+        assert!(writer.wait_exited(Duration::from_secs(30)));
+        worker.join().unwrap();
+    }
 
     #[test]
     fn settled_notes() {
