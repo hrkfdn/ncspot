@@ -330,10 +330,7 @@ impl Library {
     fn drop_deleted(&self, id: &str) {
         self.playlists.write().unwrap().retain(|p| p.id != id);
         self.bump_playlists_rev();
-        self.save_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            &self.playlists.read().unwrap(),
-        );
+        self.save_playlists();
         self.fresh_playlists.write().unwrap().remove(id);
         let changed = remove_from_layout(&mut self.playlist_layout.write().unwrap(), id);
         if changed {
@@ -519,10 +516,7 @@ impl Library {
             store.insert(0, playlist);
         }
         self.bump_playlists_rev();
-        self.save_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            &self.playlists.read().unwrap(),
-        );
+        self.save_playlists();
         // An empty layout is the flat store list (the Web path ran): it stays empty.
         let layout_changed = {
             let mut layout = self.playlist_layout.write().unwrap();
@@ -619,10 +613,7 @@ impl Library {
         let (written, web_used) = self.overwrite_on(id, stored.as_mut(), tracks);
         let listed = written && web_used;
         if listed && self.fetch_playlists(false).listing_complete {
-            self.save_cache(
-                &config::cache_path(CACHE_PLAYLISTS),
-                &self.playlists.read().unwrap(),
-            );
+            self.save_playlists();
         }
         listed
     }
@@ -883,10 +874,7 @@ impl Library {
     /// Load the playlists cache (and the layout, over the internal API), sync the playlists
     /// and prefetch their covers. Returns whether the sync was complete.
     fn sync_playlists(&self, force_full: bool) -> bool {
-        self.load_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            self.playlists.write().unwrap().as_mut(),
-        );
+        self.reload_playlists(|store| self.load_cache(&config::cache_path(CACHE_PLAYLISTS), store));
         // With the area off the layout file is ignored, not deleted.
         let internal = self.spotify.api.internal_usable(Area::Playlists);
         if internal {
@@ -902,10 +890,7 @@ impl Library {
         let sync = internal_sync.unwrap_or_else(|| {
             let sync = self.fetch_playlists(force_full);
             if sync.listing_complete {
-                self.save_cache(
-                    &config::cache_path(CACHE_PLAYLISTS),
-                    &self.playlists.read().unwrap(),
-                );
+                self.save_playlists();
             }
             sync
         });
@@ -1143,7 +1128,7 @@ impl Library {
             }
             // Download without holding the store lock; only the merge locks.
             let current = !needs_download(&self.playlists.read().unwrap(), remote, force_full);
-            let mut downloaded = if current {
+            let downloaded = if current {
                 None
             } else {
                 info!("updating playlist (index: {index})");
@@ -1162,12 +1147,10 @@ impl Library {
             {
                 let mut store = self.playlists.write().unwrap();
                 // Again under the lock: a write queued during the download keeps its copy.
-                if !self.writer.is_pending(&remote.id) {
-                    items_complete &=
-                        merge_listed(&mut store, std::slice::from_ref(remote), force_full, |_| {
-                            downloaded.take()
-                        });
-                }
+                items_complete &=
+                    merge_unless_pending(&mut store, remote, force_full, downloaded, |id| {
+                        self.writer.is_pending(id)
+                    });
             }
             self.bump_playlists_rev();
             // trigger redraw
@@ -1273,7 +1256,7 @@ impl Library {
             let remote = &self.with_head_snapshot(listed_remote, *status, &mut stopped);
             // Download without holding the store lock; only the merge locks.
             let current = !needs_download(&self.playlists.read().unwrap(), remote, force_full);
-            let mut downloaded = if current {
+            let downloaded = if current {
                 None
             } else {
                 debug!("updating playlist at index {index}");
@@ -1292,9 +1275,9 @@ impl Library {
                     .find(|p| p.id == remote.id)
                     .map(|p| (p.name.clone(), p.cover_url.clone(), p.num_tracks));
                 // Again under the lock: a write queued during the download keeps its copy.
-                let merged = self.writer.is_pending(&remote.id)
-                    || merge_listed(&mut store, std::slice::from_ref(remote), force_full, |_| {
-                        downloaded.take()
+                let merged =
+                    merge_unless_pending(&mut store, remote, force_full, downloaded, |id| {
+                        self.writer.is_pending(id)
                     });
                 // A 403 playlist can never be downloaded; it does not make the sync incomplete.
                 if *status != FORBIDDEN {
@@ -1342,10 +1325,7 @@ impl Library {
             );
             self.bump_playlists_rev();
             let layout = layout_from(&rootlist, &pinned);
-            self.save_cache(
-                &config::cache_path(CACHE_PLAYLISTS),
-                &self.playlists.read().unwrap(),
-            );
+            self.save_playlists();
             self.save_cache(&config::cache_path(CACHE_PLAYLIST_LAYOUT), &layout);
             *self.playlist_layout.write().unwrap() = layout;
         } else {
@@ -2009,10 +1989,7 @@ impl Library {
         }
         self.bump_playlists_rev();
 
-        self.save_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            &self.playlists.read().unwrap(),
-        );
+        self.save_playlists();
         self.trigger_redraw();
     }
 
@@ -2027,13 +2004,52 @@ impl Library {
         };
         if replaced {
             self.bump_playlists_rev();
-            self.save_cache(
-                &config::cache_path(CACHE_PLAYLISTS),
-                &self.playlists.read().unwrap(),
-            );
+            self.save_playlists();
             self.trigger_redraw();
         }
         replaced
+    }
+
+    /// Replace the store with what `load` reads (the cache), keeping the copies of the
+    /// playlists with a queued or running write: they show writes the cache does not have.
+    fn reload_playlists(&self, load: impl FnOnce(&mut Vec<Playlist>) -> bool) {
+        {
+            let mut store = self.playlists.write().unwrap();
+            let kept: Vec<Playlist> = store
+                .iter()
+                .filter(|p| self.writer.is_pending(&p.id))
+                .cloned()
+                .collect();
+            if !load(&mut store) {
+                return;
+            }
+            for copy in kept {
+                match store.iter_mut().find(|p| p.id == copy.id) {
+                    Some(entry) => *entry = copy,
+                    None => store.insert(0, copy),
+                }
+            }
+        }
+        self.bump_playlists_rev();
+    }
+
+    /// The store as `playlists.db` gets it: a playlist with a confirmed copy in the writer is
+    /// cached as that copy, never as one showing writes Spotify has not confirmed yet.
+    fn cached_playlists(&self) -> Vec<Playlist> {
+        self.playlists
+            .read()
+            .unwrap()
+            .iter()
+            .map(|p| self.writer.confirmed(&p.id).unwrap_or_else(|| p.clone()))
+            .collect()
+    }
+
+    /// Save the store to `playlists.db` (see [Library::cached_playlists]).
+    fn save_playlists(&self) {
+        self.save_cache(
+            &config::cache_path(CACHE_PLAYLISTS),
+            &self.cached_playlists(),
+        );
     }
 
     /// Mark the playlist store as written, for the views.
@@ -2127,23 +2143,24 @@ impl Library {
             (JobKind::Rename { name }, Some(copy)) => self.rename_copy(copy, name),
             (JobKind::Overwrite { tracks }, copy) => self.overwrite_copy(id, copy, tracks),
             (JobKind::Create { name }, _) => self.create_playlist(name).is_some(),
+            // These report a failure only by its note: ok when none was posted.
             (JobKind::SaveAs { name, tracks }, _) => {
                 self.save_playlist(name, tracks);
-                true
+                self.no_note_posted()
             }
             (JobKind::Unfollow, _) => {
                 self.delete_playlist(id);
-                true
+                self.no_note_posted()
             }
             (JobKind::Follow { playlist }, _) => {
                 self.follow_playlist((**playlist).clone());
-                true
+                self.no_note_posted()
             }
             (JobKind::Pin { pinned }, _) => {
                 if let Some(note) = self.pin_command(id, *pinned) {
                     self.post_note(&note);
                 }
-                true
+                self.no_note_posted()
             }
             // A job on a copy of a playlist that was not stored when it was queued.
             _ => {
@@ -2151,6 +2168,11 @@ impl Library {
                 false
             }
         }
+    }
+
+    /// No note was posted since [Library::run_next_write] started the job.
+    fn no_note_posted(&self) -> bool {
+        self.last_note.lock().unwrap().is_none()
     }
 
     /// Apply an optimistic job to the stored copy of `id` and queue it, unless `check` (run on
@@ -2174,11 +2196,9 @@ impl Library {
             self.writer.queue(Some(id), kind, || Some(confirmed));
             at
         };
+        // No cache write on the UI thread: the cache keeps the confirmed copy, saved by the
+        // worker when the job settles.
         self.bump_playlists_rev();
-        self.save_cache(
-            &config::cache_path(CACHE_PLAYLISTS),
-            &self.playlists.read().unwrap(),
-        );
         self.trigger_redraw();
         Some(Ok(at))
     }
@@ -3179,6 +3199,23 @@ pub(crate) fn rename_check(
         return RenameCheck::Refused(RENAME_NOT_OWNER_NOTE);
     }
     RenameCheck::Send(name.to_string())
+}
+
+/// [merge_listed] of one listed `remote` with its `downloaded` tracks, unless a write of it is
+/// `pending`: its store copy is left as it is and it counts as complete. Returns whether it is.
+fn merge_unless_pending(
+    store: &mut Vec<Playlist>,
+    remote: &Playlist,
+    force_full: bool,
+    mut downloaded: Option<Vec<Playable>>,
+    pending: impl Fn(&str) -> bool,
+) -> bool {
+    if pending(&remote.id) {
+        return true;
+    }
+    merge_listed(store, std::slice::from_ref(remote), force_full, |_| {
+        downloaded.take()
+    })
 }
 
 /// The row of `playlist` at server position `index` that is still `uri`.
@@ -5017,13 +5054,83 @@ mod test {
     }
 
     #[test]
-    fn a_sync_leaves_a_pending_playlist_alone() {
+    fn a_sync_merge_leaves_a_pending_playlist_alone() {
         let library = library_with_playlist("p", &["a", "b", "c"]);
         let row = stored_row(&library, "p", 0);
         library.queue_move("p", &row, 1, false);
-        library.fetch_playlists(false);
-        assert!(library.fetch_playlists_internal(false).is_none());
-        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
+        let pending = |id: &str| library.writer.is_pending(id);
+        let mut store = library.playlists.read().unwrap().clone();
+        store.push(playlist("q"));
+        // A changed listing of both, with downloaded tracks.
+        let listed = |id: &str| Playlist {
+            snapshot_id: "remote".into(),
+            ..playlist(id)
+        };
+        let tracks = || Some(stored_row(&library, "p", 2)).map(|t| vec![t]);
+        assert!(
+            merge_unless_pending(&mut store, &listed("p"), false, tracks(), pending),
+            "a pending playlist does not make the sync incomplete"
+        );
+        let p = store.iter().find(|p| p.id == "p").unwrap();
+        assert_ne!(p.snapshot_id, "remote", "not merged");
+        assert_eq!(p.tracks.as_ref().map(Vec::len), Some(3));
+        assert!(merge_unless_pending(
+            &mut store,
+            &listed("q"),
+            false,
+            tracks(),
+            pending
+        ));
+        let q = store.iter().find(|p| p.id == "q").unwrap();
+        assert_eq!(q.snapshot_id, "remote", "merged");
+    }
+
+    #[test]
+    fn a_cache_load_keeps_the_copies_of_pending_playlists() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let disk = library.playlists.read().unwrap().clone();
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        let rev = library.playlists_rev.load(Ordering::Relaxed);
+        library.reload_playlists(|store| {
+            *store = disk.clone();
+            store.push(playlist("q"));
+            true
+        });
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"], "optimistic");
+        assert!(stored_opt(&library, "q").is_some(), "the rest is loaded");
+        assert!(library.playlists_rev.load(Ordering::Relaxed) > rev);
+    }
+
+    #[test]
+    fn the_cache_gets_the_confirmed_copy_of_a_pending_playlist() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        let cached = library.cached_playlists();
+        let uris: Vec<String> = cached[0]
+            .tracks
+            .as_deref()
+            .unwrap()
+            .iter()
+            .map(Playable::uri)
+            .collect();
+        assert_eq!(uris, ["a", "b", "c"]);
+        assert_eq!(cached[0].snapshot_id, "s0");
+    }
+
+    #[test]
+    fn a_rootlist_job_that_posted_a_note_settles_as_failed() {
+        // No session and no Web token: the unfollow fails and posts its note.
+        let library = library_with_playlist("p", &["a"]);
+        *library.is_done.write().unwrap() = true;
+        library.queue_unfollow("p");
+        assert!(library.run_next_write());
+        let settled = settled_events(&library);
+        assert_eq!(settled.len(), 1);
+        assert!(!settled[0].0, "not ok");
+        assert!(settled[0].3.is_some());
+        assert!(stored_opt(&library, "p").is_some());
     }
 
     #[test]

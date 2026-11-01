@@ -80,7 +80,7 @@ pub fn final_position(index: usize, n: usize, up: bool, length: usize) -> usize 
 }
 
 /// Apply an optimistic job to `playlist` (a copy in server order). Clears the snapshot when
-/// anything changed, so a cached optimistic copy is reloaded by the next sync. Returns the
+/// anything changed, so an optimistic copy never passes for a Spotify version. Returns the
 /// moved item's new position for a move; `None` for other jobs or when nothing changed.
 pub fn apply_local(playlist: &mut Playlist, kind: &JobKind) -> Option<usize> {
     let changed = match kind {
