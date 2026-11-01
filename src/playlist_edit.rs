@@ -743,7 +743,10 @@ fn moved_span(from: usize, to: usize) -> (usize, usize) {
     (from.min(to), from.abs_diff(to) + 1)
 }
 
-/// The uris of the moved span after the item at `from` moves to `to`.
+/// The uris of the moved span after the item at `from` moves to `to`. A copy loaded through the
+/// Web API holds relinked uris (Market::FromToken) while the range read returns the originals,
+/// so the first move on such a copy can report a false mismatch ("changed elsewhere, reloaded");
+/// the reload heals it. Accepted.
 fn expected_span(tracks: &[Playable], from: usize, to: usize) -> Vec<String> {
     let (first, length) = moved_span(from, to);
     let mut span = uris(&tracks[first..first + length]);
@@ -764,7 +767,10 @@ enum MoveCheck {
 
 /// A move applied when the span read after it holds the expected order at a revision other
 /// than the base, with the length unchanged. Span only: a concurrent edit elsewhere that keeps
-/// the length is not detected (as in B1, whose check is the length).
+/// the length is not detected (as in B1, whose check is the length). Rare: after a reload whose
+/// reply length differs from its item count, `base.length` is the item count while the range
+/// read reports the server length, so this always differs; such a playlist reloads and reports
+/// a mismatch.
 fn verify_move(base: &Base, after: &Head, span: &[String], expected: &[String]) -> MoveCheck {
     let Some(length) = after.length.filter(|_| !after.revision.is_empty()) else {
         return MoveCheck::Unreadable;
@@ -830,15 +836,41 @@ pub fn move_track(
     }
 }
 
-/// After the Web API moved the item at server position `from` to `to`: the same move in the
-/// local copy, with the snapshot the Web reply named (the Web API applies a move to exactly
-/// the snapshot it was sent). A copy not in server order cannot take the move; its snapshot is
-/// cleared so the next open reloads it.
-pub fn move_after_web(playlist: &mut Playlist, from: usize, to: usize, snapshot_id: &str) {
+/// After the Web API moved the item at server position `from` to its final position `at`
+/// (`uri` is the moved row, `sent_snapshot` the snapshot_id the call was sent with,
+/// `reply_snapshot` the one the reply named): the same move in the local copy, taking the
+/// reply snapshot. The move is applied only when all hold, else the snapshot is cleared (so the
+/// next write or open reloads the copy) and nothing moves:
+/// - `playlist.snapshot_id == sent_snapshot`: the copy was not reloaded or cleared since the
+///   call (the internal path may have reloaded it before falling back), so `from` still means
+///   what the Web call meant;
+/// - the copy is in server order, else it cannot take a positional move;
+/// - `from` and `at` are in bounds;
+/// - the item at `from` is still `uri` (see [server_item]).
+///
+/// Accepted limit: with the internal API off, a copy edited elsewhere since it was loaded
+/// (same length, same item at `from`) still takes the move and the reply snapshot; Spotify
+/// applied the move to the version the copy was loaded at, so the server is right, and the next
+/// sync or reload corrects the copy.
+pub fn move_after_web(
+    playlist: &mut Playlist,
+    from: usize,
+    at: usize,
+    uri: &str,
+    sent_snapshot: &str,
+    reply_snapshot: &str,
+) {
+    let current = playlist.snapshot_id == sent_snapshot;
     match playlist.tracks.as_mut() {
-        Some(tracks) if in_server_order(tracks) && from < tracks.len() && to < tracks.len() => {
-            move_server_item(tracks, from, to);
-            playlist.snapshot_id = snapshot_id.to_string();
+        Some(tracks)
+            if current
+                && in_server_order(tracks)
+                && from < tracks.len()
+                && at < tracks.len()
+                && server_item(tracks, from, uri) == Some(from) =>
+        {
+            move_server_item(tracks, from, at);
+            playlist.snapshot_id = reply_snapshot.to_string();
         }
         _ => playlist.snapshot_id.clear(),
     }
@@ -2889,7 +2921,7 @@ mod tests {
     #[test]
     fn a_web_move_takes_the_reply_snapshot() {
         let mut playlist = holding("s", &["a", "b", "c"]);
-        move_after_web(&mut playlist, 0, 2, "w");
+        move_after_web(&mut playlist, 0, 2, "spotify:track:a", "s", "w");
         assert_eq!(uri_list(&playlist), track_uris(&["b", "c", "a"]));
         assert!(in_server_order(playlist.tracks.as_deref().unwrap()));
         assert_eq!(playlist.snapshot_id, "w");
@@ -2899,9 +2931,59 @@ mod tests {
     fn a_web_move_on_a_copy_out_of_order_clears_the_snapshot() {
         let mut playlist = held_sorted();
         let before = uri_list(&playlist);
-        move_after_web(&mut playlist, 0, 1, "w");
+        let sent = playlist.snapshot_id.clone();
+        let uri = before[0].clone();
+        move_after_web(&mut playlist, 0, 1, &uri, &sent, "w");
         assert_eq!(uri_list(&playlist), before);
         assert!(playlist.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_web_move_whose_item_moved_clears_the_snapshot() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        move_after_web(&mut playlist, 0, 2, "spotify:track:b", "s", "w");
+        assert_eq!(uri_list(&playlist), track_uris(&["a", "b", "c"]));
+        assert!(playlist.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_web_move_on_a_reloaded_copy_clears_the_snapshot() {
+        let mut playlist = holding("reloaded", &["a", "b", "c"]);
+        move_after_web(&mut playlist, 0, 2, "spotify:track:a", "s", "w");
+        assert_eq!(uri_list(&playlist), track_uris(&["a", "b", "c"]));
+        assert!(playlist.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_web_move_out_of_bounds_clears_the_snapshot() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        move_after_web(&mut playlist, 0, 3, "spotify:track:a", "s", "w");
+        assert_eq!(uri_list(&playlist), track_uris(&["a", "b", "c"]));
+        assert!(playlist.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_move_with_a_head_without_a_revision_sends_nothing() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default().heads([Ok(Head {
+            revision: Vec::new(),
+            ..head("s", 3)
+        })]);
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            EditError::Internal(InternalError::ProtocolChanged(_))
+        ));
+        assert!(api.sent.borrow().is_empty());
     }
 
     #[test]

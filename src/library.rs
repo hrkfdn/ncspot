@@ -404,7 +404,7 @@ impl Library {
             .find(|p| p.id == id)
             .cloned();
         let Some(mut playlist) = stored else {
-            return Some(RENAME_HINT.to_string());
+            return Some(RENAME_NOT_OWNER_NOTE.to_string());
         };
         let name = match rename_check(
             &playlist.name,

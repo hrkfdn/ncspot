@@ -223,7 +223,7 @@ impl Playlist {
         }
         if let Some(snapshot) = web_snapshot.take() {
             let at = moved_position(index, to);
-            playlist_edit::move_after_web(self, index, at, &snapshot);
+            playlist_edit::move_after_web(self, index, at, &uri, &snapshot_id, &snapshot);
             moved.set(Some(at));
         }
         library.playlist_update(self);
