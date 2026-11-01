@@ -316,6 +316,7 @@ impl Playlist {
                         SortKey::Duration => a.duration.cmp(&b.duration),
                         SortKey::Album => compare_album(&a, &b),
                         SortKey::Added => a.added_at.cmp(&b.added_at),
+                        SortKey::Custom => std::cmp::Ordering::Equal,
                         SortKey::Artist => compare_artists(&a.artists, &b.artists)
                             .then_with(|| compare_album(&a, &b)),
                     }

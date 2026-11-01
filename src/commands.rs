@@ -354,6 +354,11 @@ impl CommandManager {
                 Ok(None)
             }
 
+            Command::Rename(_) => Err(crate::library::RENAME_HINT.to_string()),
+            Command::Sort(crate::command::SortKey::Custom, _) => {
+                Err("sort custom works in a playlist".to_string())
+            }
+
             Command::Queue
             | Command::PlayNext
             | Command::Play

@@ -47,6 +47,7 @@ const RELOAD_CONFIG_CMD: &str = "reload";
 const NOOP_CMD: &str = "noop";
 const INSERT_CMD: &str = "insert";
 const NEW_PLAYLIST_CMD: &str = "newplaylist";
+const RENAME_CMD: &str = "rename";
 const SORT_CMD: &str = "sort";
 const LOGOUT_CMD: &str = "logout";
 const SHOW_RECOMMENDATIONS_CMD: &str = "similar";
@@ -113,6 +114,7 @@ pub const ALL_COMMANDS: &[&str] = &[
     NOOP_CMD,
     INSERT_CMD,
     NEW_PLAYLIST_CMD,
+    RENAME_CMD,
     SORT_CMD,
     LOGOUT_CMD,
     SHOW_RECOMMENDATIONS_CMD,
@@ -176,6 +178,8 @@ pub enum SortKey {
     Artist,
     Album,
     Added,
+    /// Server order: no saved sort.
+    Custom,
 }
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
@@ -314,6 +318,7 @@ pub enum Command {
     Noop,
     Insert(InsertSource),
     NewPlaylist(String),
+    Rename(String),
     Sort(SortKey, SortDirection),
     Logout,
     ShowRecommendations(TargetMode),
@@ -412,6 +417,9 @@ impl fmt::Display for Command {
             },
             Self::Insert(source) => vec![source.to_string()],
             Self::NewPlaylist(name) => vec![name.to_owned()],
+            Self::Rename(name) => vec![name.to_owned()],
+            // Custom has one direction, so it has no direction argument.
+            Self::Sort(SortKey::Custom, _) => vec![SortKey::Custom.to_string()],
             Self::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
             Self::ShowRecommendations(mode) => vec![mode.to_string()],
             Self::Execute(cmd) => vec![cmd.to_owned()],
@@ -506,6 +514,7 @@ impl Command {
             Self::Noop => NOOP_CMD,
             Self::Insert(_) => INSERT_CMD,
             Self::NewPlaylist(_) => NEW_PLAYLIST_CMD,
+            Self::Rename(_) => RENAME_CMD,
             Self::Sort(_, _) => SORT_CMD,
             Self::Logout => LOGOUT_CMD,
             Self::ShowRecommendations(_) => SHOW_RECOMMENDATIONS_CMD,
@@ -1025,6 +1034,16 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         })
                     }?
                 }
+                RENAME_CMD => {
+                    if !args.is_empty() {
+                        Ok(Command::Rename(args.join(" ")))
+                    } else {
+                        Err(E::InsufficientArgs {
+                            cmd: command.into(),
+                            hint: Some("a name".into()),
+                        })
+                    }?
+                }
                 SORT_CMD => {
                     let &key_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
@@ -1036,6 +1055,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         "album" => Ok(SortKey::Album),
                         "added" => Ok(SortKey::Added),
                         "artist" => Ok(SortKey::Artist),
+                        "custom" => Ok(SortKey::Custom),
                         _ => Err(E::BadEnumArg {
                             arg: key_raw.into(),
                             accept: vec![
@@ -1044,10 +1064,17 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 "album".into(),
                                 "added".into(),
                                 "artist".into(),
+                                "custom".into(),
                             ],
                             optional: false,
                         }),
                     }?;
+                    if let (SortKey::Custom, Some(&direction_raw)) = (&key, args.get(1)) {
+                        return Err(E::ArgParseError {
+                            arg: direction_raw.into(),
+                            err: "custom order has one direction".into(),
+                        });
+                    }
                     let direction = match args.get(1).copied() {
                         Some("a" | "asc" | "ascending") => Ok(SortDirection::Ascending),
                         Some("d" | "desc" | "descending") => Ok(SortDirection::Descending),
@@ -1209,6 +1236,34 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn parses_rename_with_the_rest_of_the_line() {
+        assert!(matches!(
+            parse("rename my new name").as_deref(),
+            Ok([Command::Rename(name)]) if name == "my new name"
+        ));
+        assert!(parse("rename").is_err(), "a name is required");
+        assert_eq!(Command::Rename("a b".into()).to_string(), "rename a b");
+    }
+
+    #[test]
+    fn parses_sort_custom_without_a_direction() {
+        assert!(matches!(
+            parse("sort custom").as_deref(),
+            Ok([Command::Sort(SortKey::Custom, _)])
+        ));
+        let err = parse("sort custom desc").unwrap_err().to_string();
+        assert!(err.contains("custom order has one direction"), "{err}");
+        assert_eq!(
+            Command::Sort(SortKey::Custom, SortDirection::Ascending).to_string(),
+            "sort custom"
+        );
+        assert_eq!(
+            Command::Sort(SortKey::Title, SortDirection::Descending).to_string(),
+            "sort title descending"
+        );
+    }
+
     use super::*;
 
     #[cfg(feature = "harness")]
