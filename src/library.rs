@@ -124,6 +124,28 @@ pub struct Library {
     pub cfg: Arc<Config>,
 }
 
+thread_local! {
+    /// Set on the thread running a playlist write job (the worker, or a test calling
+    /// [Library::run_next_write]), so only that thread's notes are taken for the job.
+    static IN_WRITE_JOB: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Marks the current thread as running a write job until dropped.
+struct WriteJobThread;
+
+impl WriteJobThread {
+    fn enter() -> Self {
+        IN_WRITE_JOB.set(true);
+        Self
+    }
+}
+
+impl Drop for WriteJobThread {
+    fn drop(&mut self) {
+        IN_WRITE_JOB.set(false);
+    }
+}
+
 /// Outcome of [Library::fetch_playlists] and [Library::fetch_playlists_internal].
 struct PlaylistSync {
     /// The remote playlist listing was read to the end.
@@ -282,9 +304,11 @@ impl Library {
     /// thread. Success stays silent; a note never carries an id, a URI or a name.
     pub fn post_note(&self, note: &str) {
         warn!("{note}");
-        // Kept for the queued write that runs now; a sync's note posted meanwhile may be
-        // taken for it instead (cosmetic only).
-        *self.last_note.lock().unwrap() = Some(note.to_string());
+        // Kept for the queued write that runs now, only from its thread: a note another
+        // thread posts meanwhile (a sync, a refusal on the UI thread) is not the job's.
+        if IN_WRITE_JOB.get() {
+            *self.last_note.lock().unwrap() = Some(note.to_string());
+        }
         self.ev.send(Event::StatusNote(note.to_string()));
     }
 
@@ -2110,7 +2134,11 @@ impl Library {
         run: impl FnOnce(&WriteJob, Option<&mut Playlist>) -> bool,
     ) -> bool {
         *self.last_note.lock().unwrap() = None;
-        let Some(settled) = self.writer.step(run) else {
+        let settled = {
+            let _job = WriteJobThread::enter();
+            self.writer.step(run)
+        };
+        let Some(settled) = settled else {
             return false;
         };
         if let Some(confirmed) = &settled.confirmed {
@@ -5214,6 +5242,23 @@ mod test {
         assert!(!settled[0].0, "not ok");
         assert!(settled[0].3.is_some());
         assert!(stored_opt(&library, "p").is_some());
+    }
+
+    #[test]
+    fn a_note_from_another_thread_does_not_fail_the_job() {
+        let library = library_with_playlist("p", &["a"]);
+        library.queue_pin("p", true);
+        assert!(library.run_next_write_with(|_, _| {
+            std::thread::scope(|s| {
+                s.spawn(|| library.post_note("Not the job's note"));
+            });
+            library.no_note_posted()
+        }));
+        let settled = settled_events(&library);
+        assert_eq!(settled.len(), 1);
+        assert!(settled[0].0, "ok: the job posted nothing");
+        library.post_note("After the job");
+        assert!(library.no_note_posted(), "outside a job nothing is kept");
     }
 
     #[test]
