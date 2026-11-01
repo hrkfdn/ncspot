@@ -308,6 +308,8 @@ impl Library {
     /// place.
     pub fn delete_playlist(&self, id: &str) {
         if !*self.is_done.read().unwrap() {
+            // Nothing sent: the note fails the queued unfollow.
+            self.post_note(LOADING_NOTE);
             return;
         }
 
@@ -2651,6 +2653,8 @@ impl Library {
     /// internal API first, the Web API per the fallback classes.
     pub fn follow_playlist(&self, mut playlist: Playlist) {
         if !*self.is_done.read().unwrap() {
+            // Nothing sent: the note fails the queued follow.
+            self.post_note(LOADING_NOTE);
             return;
         }
 
@@ -3189,6 +3193,9 @@ fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> bool {
 
 /// The status note shown for a failed playlist write that has no specific one.
 const GENERIC_WRITE_NOTE: &str = "Could not change the playlist";
+
+/// A follow or unfollow refused before the library finished loading.
+const LOADING_NOTE: &str = "Library is still loading, try again";
 
 /// `rename` outside the Playlists tab and a playlist view, or on a row that is not a playlist.
 pub const RENAME_HINT: &str = "rename works on a playlist";
@@ -5207,6 +5214,21 @@ mod test {
         assert!(!settled[0].0, "not ok");
         assert!(settled[0].3.is_some());
         assert!(stored_opt(&library, "p").is_some());
+    }
+
+    #[test]
+    fn rootlist_jobs_before_the_library_loaded_settle_as_failed() {
+        let library = library_with_playlist("p", &["a"]);
+        library.queue_follow(playlist("q"));
+        library.queue_unfollow("p");
+        assert!(library.run_next_write());
+        assert!(library.run_next_write());
+        let settled = settled_events(&library);
+        assert_eq!(settled.len(), 2);
+        for (ok, _, _, note) in settled {
+            assert!(!ok, "nothing was sent");
+            assert_eq!(note.as_deref(), Some(LOADING_NOTE));
+        }
     }
 
     #[test]
