@@ -1,13 +1,15 @@
 //! Playlist writes off the UI thread. The UI thread applies a job to the stored copy at once
 //! ([apply_local]) and queues it; one worker runs the queue in issue order against the copy
 //! Spotify last confirmed, so the store always shows the confirmed copy plus the queued jobs.
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 use std::collections::{HashMap, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::error;
+use parking_lot::{Condvar, Mutex};
 
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
@@ -231,7 +233,7 @@ impl PlaylistWriter {
         confirmed: impl FnOnce() -> Option<Playlist>,
     ) -> u64 {
         let (lock, cvar) = &*self.shared;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         state.next_seq += 1;
         let seq = state.next_seq;
         if let Some(id) = playlist_id
@@ -252,7 +254,7 @@ impl PlaylistWriter {
 
     /// `updated` with the queued optimistic jobs of its id applied.
     pub fn overlay(&self, updated: &Playlist) -> Playlist {
-        let state = self.shared.0.lock().unwrap();
+        let state = self.shared.0.lock();
         let mut shown = updated.clone();
         for job in state
             .queue
@@ -267,25 +269,25 @@ impl PlaylistWriter {
     }
 
     pub fn is_pending(&self, id: &str) -> bool {
-        self.shared.0.lock().unwrap().has_jobs(id)
+        self.shared.0.lock().has_jobs(id)
     }
 
     pub fn pending(&self) -> usize {
-        let state = self.shared.0.lock().unwrap();
+        let state = self.shared.0.lock();
         state.queue.len() + usize::from(state.in_flight.is_some())
     }
 
     /// Forget the confirmed copy of `id` once no job of it is left. Called after the store
     /// holds the confirmed copy, so a new job never adopts an optimistic store copy as base.
     pub fn release(&self, id: &str) {
-        let mut state = self.shared.0.lock().unwrap();
+        let mut state = self.shared.0.lock();
         if !state.has_jobs(id) {
             state.confirmed.remove(id);
         }
     }
 
     pub fn confirmed(&self, id: &str) -> Option<Playlist> {
-        self.shared.0.lock().unwrap().confirmed.get(id).cloned()
+        self.shared.0.lock().confirmed.get(id).cloned()
     }
 
     /// Run the next job (folded with following held-key moves) through `run`, which gets the
@@ -297,7 +299,7 @@ impl PlaylistWriter {
         run: impl FnOnce(&WriteJob, Option<&mut Playlist>) -> bool,
     ) -> Option<Settled> {
         let (job, mut copy) = {
-            let mut state = self.shared.0.lock().unwrap();
+            let mut state = self.shared.0.lock();
             if state.stopping {
                 return None;
             }
@@ -325,7 +327,7 @@ impl PlaylistWriter {
             }
         };
         let (lock, cvar) = &*self.shared;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         state.in_flight = None;
         let id = job.playlist_id.clone();
         let mut dropped = 0;
@@ -358,9 +360,9 @@ impl PlaylistWriter {
     /// Block until a job is queued (true) or the writer stops (false).
     pub fn wait_job(&self) -> bool {
         let (lock, cvar) = &*self.shared;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         while state.queue.is_empty() && !state.stopping {
-            state = cvar.wait(state).unwrap();
+            cvar.wait(&mut state);
         }
         !state.stopping
     }
@@ -369,7 +371,7 @@ impl PlaylistWriter {
     /// stored copies must be reset to it (the job in flight, if any, still finishes).
     pub fn stop(&self) -> Vec<String> {
         let (lock, cvar) = &*self.shared;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         state.stopping = true;
         state.queue.clear();
         cvar.notify_all();
@@ -380,7 +382,7 @@ impl PlaylistWriter {
 
     /// The worker loop starts (before it is spawned).
     pub fn mark_running(&self) {
-        self.shared.0.lock().unwrap().worker_running = true;
+        self.shared.0.lock().worker_running = true;
     }
 
     /// A guard that marks the worker loop ended when dropped, also when its thread unwinds.
@@ -391,7 +393,7 @@ impl PlaylistWriter {
     /// The worker loop ended.
     pub fn mark_exited(&self) {
         let (lock, cvar) = &*self.shared;
-        lock.lock().unwrap().worker_running = false;
+        lock.lock().worker_running = false;
         cvar.notify_all();
     }
 
@@ -400,13 +402,13 @@ impl PlaylistWriter {
     pub fn wait_exited(&self, timeout: Duration) -> bool {
         let (lock, cvar) = &*self.shared;
         let deadline = Instant::now() + timeout;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         while state.worker_running {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
                 return false;
             }
-            state = cvar.wait_timeout(state, left).unwrap().0;
+            cvar.wait_for(&mut state, left);
         }
         true
     }
@@ -415,13 +417,13 @@ impl PlaylistWriter {
     pub fn wait_idle(&self, timeout: Duration) -> bool {
         let (lock, cvar) = &*self.shared;
         let deadline = Instant::now() + timeout;
-        let mut state = lock.lock().unwrap();
+        let mut state = lock.lock();
         while state.in_flight.is_some() || (!state.stopping && !state.queue.is_empty()) {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
                 return false;
             }
-            state = cvar.wait_timeout(state, left).unwrap().0;
+            cvar.wait_for(&mut state, left);
         }
         true
     }

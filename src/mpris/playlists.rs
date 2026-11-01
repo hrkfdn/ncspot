@@ -1,4 +1,5 @@
 #![allow(clippy::use_self)]
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 use std::sync::Arc;
 
@@ -6,6 +7,7 @@ use zbus::interface;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath};
 
+use crate::ext_traits::RwLockExt;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
@@ -52,8 +54,7 @@ pub struct MprisPlaylists {
 fn all_playlist_tuples(library: &Library) -> Vec<(OwnedObjectPath, String, String)> {
     library
         .playlists
-        .read()
-        .unwrap()
+        .read_unpoisoned()
         .iter()
         .map(|p| {
             (
@@ -70,7 +71,7 @@ impl MprisPlaylists {
     /// Total number of playlists available.
     #[zbus(property)]
     fn playlist_count(&self) -> u32 {
-        self.library.playlists.read().unwrap().len() as u32
+        self.library.playlists.read_unpoisoned().len() as u32
     }
 
     /// Supported playlist orderings – ncspot exposes only UserDefined.
@@ -84,7 +85,7 @@ impl MprisPlaylists {
     #[zbus(property)]
     fn active_playlist(&self) -> (bool, (OwnedObjectPath, String, String)) {
         if let Some(id) = self.queue.active_playlist() {
-            let playlists = self.library.playlists.read().unwrap();
+            let playlists = self.library.playlists.read_unpoisoned();
             if let Some(p) = playlists.iter().find(|p| p.id == id) {
                 return (
                     true,
@@ -114,7 +115,7 @@ impl MprisPlaylists {
             return;
         };
         let playlist_copy = {
-            let playlists = self.library.playlists.read().unwrap();
+            let playlists = self.library.playlists.read_unpoisoned();
             playlists.iter().find(|p| p.id == id).cloned()
         };
         let Some(mut playlist) = playlist_copy else {

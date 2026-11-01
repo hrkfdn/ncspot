@@ -29,6 +29,9 @@ repository = "https://github.com/hrkfdn/ncspot"
 enum_glob_use = "warn"
 use_self = "deny"
 multiple_inherent_impl = "deny"
+# Opted into per module (see clippy.toml); allowed elsewhere until the whole crate moves.
+disallowed_methods = "allow"
+disallowed_types = "allow"
 
 [lints]
 workspace = true
@@ -62,6 +65,7 @@ librespot-playback = {version = "0.8.0", default-features = false, features = ["
 librespot-protocol = "0.8.0"
 log = "0.4.32"
 pancurses = {version = "0.17.0", optional = true}
+parking_lot = "0.12"
 parse_duration = "2.1.1"
 pinyin = "0.10"
 http = "1"

@@ -1,3 +1,5 @@
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLock};
@@ -8,6 +10,7 @@ use cursive::{Cursive, Vec2};
 use crate::command::{Command, ShiftMode, SortDirection, SortKey};
 use crate::commands::CommandResult;
 use crate::config::SortingOrder;
+use crate::ext_traits::RwLockExt;
 use crate::library::{Library, is_owned};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
@@ -29,8 +32,7 @@ fn needs_refresh(seen: u64, current: u64) -> bool {
 fn store_copy(library: &Library, id: &str) -> Option<Playlist> {
     library
         .playlists
-        .read()
-        .unwrap()
+        .read_unpoisoned()
         .iter()
         .find(|p| p.id == id && p.tracks.is_some())
         .cloned()
@@ -155,8 +157,7 @@ impl PlaylistView {
     fn stored_name(&self) -> Option<String> {
         self.library
             .playlists
-            .read()
-            .unwrap()
+            .read_unpoisoned()
             .iter()
             .find(|p| p.id == self.playlist.id)
             .map(|p| p.name.clone())
@@ -175,7 +176,7 @@ impl PlaylistView {
         }
         self.playlist = copy;
         // In place: the list keeps its scroll position, selection and search.
-        *self.rows.write().unwrap() = sorted_rows(&self.library, &self.playlist);
+        *self.rows.write_unpoisoned() = sorted_rows(&self.library, &self.playlist);
         self.list.content_replaced();
     }
 
@@ -197,7 +198,7 @@ impl PlaylistView {
         }
         let (up, n) = shift_direction(mode, amount);
         let pos = self.list.get_selected_index();
-        let row = self.rows.read().unwrap().get(pos).cloned()?;
+        let row = self.rows.read_unpoisoned().get(pos).cloned()?;
         if let Some(at) = self.library.queue_move(&self.playlist.id, &row, n, up) {
             self.refresh_from_store();
             self.list.move_focus_to(at);
@@ -271,7 +272,7 @@ impl ViewExt for PlaylistView {
             let pos = self.list.get_selected_index();
             // The row itself: its server position and uri (the rows may be sorted, `playlist`
             // is not).
-            let Some(row) = self.rows.read().unwrap().get(pos).cloned() else {
+            let Some(row) = self.rows.read_unpoisoned().get(pos).cloned() else {
                 return Ok(CommandResult::Consumed(None));
             };
 
@@ -351,7 +352,7 @@ mod tests {
         playlist.snapshot_id = "s0".into();
         playlist.num_tracks = tracks.len();
         playlist.tracks = Some(tracks);
-        *library.playlists.write().unwrap() = vec![playlist.clone()];
+        *library.playlists.write_unpoisoned() = vec![playlist.clone()];
         let queue = Arc::new(Queue::new(spotify, cfg, library.clone()));
         (
             PlaylistView::new(queue, library.clone(), &playlist),
@@ -389,8 +390,7 @@ mod tests {
 
     fn view_uris(view: &PlaylistView) -> Vec<String> {
         view.rows
-            .read()
-            .unwrap()
+            .read_unpoisoned()
             .iter()
             .map(Playable::uri)
             .collect()
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(view.shift(&ShiftMode::Down, 1), None);
         assert_eq!(view.list.get_selected_index(), 1);
         assert_eq!(view_uris(&view), ["b", "a", "c"]);
-        let stored: Vec<String> = library.playlists.read().unwrap()[0]
+        let stored: Vec<String> = library.playlists.read_unpoisoned()[0]
             .tracks
             .as_ref()
             .unwrap()
@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn the_view_takes_the_store_copy_when_the_revision_changes() {
         let (mut view, library) = test_view(&["a", "b", "c"]);
-        let row = view.rows.read().unwrap()[2].clone();
+        let row = view.rows.read_unpoisoned()[2].clone();
         library.queue_remove("p", &row).unwrap();
         assert_eq!(view_uris(&view), ["a", "b", "c"], "not yet polled");
         assert!(needs_refresh(
@@ -438,7 +438,7 @@ mod tests {
         view.refresh_from_store();
         assert_eq!(view.list.get_selected_index(), 1);
         view.list.move_focus_to(2);
-        let row = view.rows.read().unwrap()[2].clone();
+        let row = view.rows.read_unpoisoned()[2].clone();
         library.queue_remove("p", &row).unwrap();
         view.refresh_from_store();
         assert_eq!(view.list.get_selected_index(), 1, "clamped");
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(view.list.get_selected_index(), 2);
         assert!(Arc::ptr_eq(&rows, &view.rows));
         // Mark the rows: an unchanged copy must not rewrite them.
-        view.rows.write().unwrap().truncate(1);
+        view.rows.write_unpoisoned().truncate(1);
         view.refresh_from_store();
         assert_eq!(view_uris(&view), ["a"], "unchanged copy: no rebuild");
     }
@@ -465,7 +465,7 @@ mod tests {
     fn a_refresh_in_place_keeps_the_search_and_follows_the_rows() {
         let (mut view, library) = test_view(&["a", "b", "c"]);
         view.list.set_search_for_test("zzz", vec![2]);
-        let row = view.rows.read().unwrap()[0].clone();
+        let row = view.rows.read_unpoisoned()[0].clone();
         library.queue_remove("p", &row).unwrap();
         view.refresh_from_store();
         assert_eq!(view_uris(&view), ["b", "c"]);
@@ -483,7 +483,7 @@ mod tests {
     fn a_store_copy_without_tracks_is_not_taken() {
         let (_view, library) = test_view(&["a"]);
         assert!(store_copy(&library, "p").is_some());
-        library.playlists.write().unwrap()[0].tracks = None;
+        library.playlists.write_unpoisoned()[0].tracks = None;
         assert!(store_copy(&library, "p").is_none());
         assert!(store_copy(&library, "other").is_none());
     }

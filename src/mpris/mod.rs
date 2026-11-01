@@ -18,6 +18,7 @@ use zbus::zvariant::ObjectPath;
 
 use crate::application::ASYNC_RUNTIME;
 use crate::events::EventManager;
+use crate::ext_traits::RwLockExt;
 use crate::library::Library;
 use crate::queue::Queue;
 use crate::spotify::Spotify;
@@ -238,7 +239,7 @@ impl MprisManager {
                     match id {
                         Some(id) => {
                             let tuple = {
-                                let guard = pl.library.playlists.read().unwrap();
+                                let guard = pl.library.playlists.read_unpoisoned();
                                 guard.iter().find(|p| p.id == id).map(|p| {
                                     (
                                         playlists::playlist_path_for_id(&p.id),

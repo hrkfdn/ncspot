@@ -1,3 +1,5 @@
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use std::sync::Arc;
 
 use cursive::Cursive;
@@ -6,6 +8,7 @@ use cursive::views::{Dialog, EditView, NamedView, ScrollView, SelectView};
 
 use crate::command::Command;
 use crate::commands::CommandResult;
+use crate::ext_traits::RwLockExt;
 use crate::ext_traits::SelectViewExt;
 use crate::library::Library;
 use crate::model::artist::Artist;
@@ -61,7 +64,7 @@ impl ContextMenu {
         let mut list_select: SelectView<Playlist> = SelectView::new();
         let current_user_id = library.user_id.as_ref().unwrap();
 
-        for list in library.playlists.read().unwrap().iter() {
+        for list in library.playlists.read_unpoisoned().iter() {
             if current_user_id == &list.owner_id || list.collaborative {
                 list_select.add_item(list.name.clone(), list.clone());
             }
@@ -195,8 +198,7 @@ impl ContextMenu {
         const EDIT: &str = "rename_edit";
         let current = library
             .playlists
-            .read()
-            .unwrap()
+            .read_unpoisoned()
             .iter()
             .find(|p| p.id == id)
             .map(|p| p.name.clone())

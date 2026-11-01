@@ -1,3 +1,5 @@
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use cursive::view::scroll::Scroller;
 use log::info;
 use std::cmp::{Ordering, max, min};
@@ -13,7 +15,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::command::{Command, GotoMode, InsertSource, JumpMode, MoveAmount, MoveMode, TargetMode};
 use crate::commands::CommandResult;
-use crate::ext_traits::CursiveExt;
+use crate::ext_traits::{CursiveExt, RwLockExt};
 use crate::library::Library;
 use crate::model::album::Album;
 use crate::model::artist::Artist;
@@ -96,7 +98,7 @@ impl<I: ListItem + Clone> ListView<I> {
     /// If `include_paginator` is `true`, the pagination entry will be included
     /// in the count.
     pub fn content_len(&self, include_paginator: bool) -> usize {
-        let content_len = self.content.read().unwrap().len();
+        let content_len = self.content.read_unpoisoned().len();
 
         // add 1 more row for paginator if we can paginate
         if self.can_paginate() && include_paginator {
@@ -123,7 +125,7 @@ impl<I: ListItem + Clone> ListView<I> {
         //    OR
         //   The scroller can't scroll further down (mouse scrolling)
         if self.can_paginate()
-            && (self.selected == self.content.read().unwrap().len().saturating_sub(1)
+            && (self.selected == self.content.read_unpoisoned().len().saturating_sub(1)
                 || !self.scroller.can_scroll_down())
         {
             self.pagination.call(&self.content, self.library.clone());
@@ -140,7 +142,7 @@ impl<I: ListItem + Clone> ListView<I> {
     }
 
     pub fn get_indexes_of(&self, query: &str) -> Vec<usize> {
-        let content = self.content.read().unwrap();
+        let content = self.content.read_unpoisoned();
         content
             .iter()
             .enumerate()
@@ -193,7 +195,7 @@ impl<I: ListItem + Clone> ListView<I> {
     /// currently playing track and start playing them. Returns true if adding and playing the
     /// tracks succeeded, false otherwhise.
     fn attempt_play_all_tracks(&self) -> bool {
-        let content = self.content.read().unwrap();
+        let content = self.content.read_unpoisoned();
         let any = &(*content) as &dyn std::any::Any;
         let playables = any.downcast_ref::<Vec<Playable>>();
         let tracks = any.downcast_ref::<Vec<Track>>().map(|t| {
@@ -212,7 +214,7 @@ impl<I: ListItem + Clone> ListView<I> {
 
     /// Appends the currently focused item after the currently playing item and starts playing it.
     fn play_current_item(&mut self) {
-        let mut content = self.content.write().unwrap();
+        let mut content = self.content.write_unpoisoned();
         if let Some(listitem) = content.get_mut(self.selected) {
             listitem.play(&self.queue);
         }
@@ -270,8 +272,7 @@ impl<I: ListItem + Clone> ListView<I> {
                 } else if let Some(clicked_row_index) = self.get_selected_row(position, offset) {
                     let currently_selected_listitem = self
                         .content
-                        .read()
-                        .unwrap()
+                        .read_unpoisoned()
                         .get(clicked_row_index)
                         .map(ListItem::as_listitem);
                     let currently_selected_is_individual = currently_selected_listitem
@@ -283,7 +284,7 @@ impl<I: ListItem + Clone> ListView<I> {
                         // The clicked position wasn't focused yet or the item is a collection
                         // that can be opened.
                         self.move_focus_to(clicked_row_index);
-                        let content = self.content.read().unwrap();
+                        let content = self.content.read_unpoisoned();
                         let clicked_list_item =
                             content.get(self.selected).map(ListItem::as_listitem);
 
@@ -311,7 +312,7 @@ impl<I: ListItem + Clone> ListView<I> {
                     let queue = self.queue.clone();
                     let library = self.library.clone();
                     if let Some(target) = {
-                        let content = self.content.read().unwrap();
+                        let content = self.content.read_unpoisoned();
                         content.get(self.selected).map(|t| t.as_listitem())
                     } {
                         let contextmenu = ContextMenu::new(&*target, queue, library);
@@ -348,7 +349,7 @@ impl<I: ListItem + Clone> ListView<I> {
 
 impl<I: ListItem + Clone> View for ListView<I> {
     fn draw(&self, printer: &Printer<'_, '_>) {
-        let content = self.content.read().unwrap();
+        let content = self.content.read_unpoisoned();
 
         scroll::draw_lines(self, printer, |_, printer, i| {
             // draw paginator after content
@@ -532,7 +533,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
 
     #[cfg(feature = "harness")]
     fn harness_state(&self) -> Option<crate::harness::HarnessState> {
-        let content = self.content.read().unwrap();
+        let content = self.content.read_unpoisoned();
         Some(crate::harness::HarnessState {
             view: "list".into(),
             tab: None,
@@ -553,7 +554,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::PlayNext => {
                 info!("played next");
-                let mut content = self.content.write().unwrap();
+                let mut content = self.content.write_unpoisoned();
                 if let Some(item) = content.get_mut(self.selected) {
                     item.play_next(&self.queue);
                 }
@@ -561,7 +562,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 return Ok(CommandResult::Consumed(None));
             }
             Command::Queue => {
-                let mut content = self.content.write().unwrap();
+                let mut content = self.content.write_unpoisoned();
                 if let Some(item) = content.get_mut(self.selected) {
                     item.queue(&self.queue);
                 }
@@ -570,7 +571,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Save => {
                 let mut item = {
-                    let content = self.content.read().unwrap();
+                    let content = self.content.read_unpoisoned();
                     content.get(self.selected).cloned()
                 };
 
@@ -582,7 +583,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Add => {
                 let item = {
-                    let content = self.content.read().unwrap();
+                    let content = self.content.read_unpoisoned();
                     content.get(self.selected).cloned()
                 };
 
@@ -597,7 +598,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             }
             Command::Delete => {
                 let mut item = {
-                    let content = self.content.read().unwrap();
+                    let content = self.content.read_unpoisoned();
                     content.get(self.selected).cloned()
                 };
 
@@ -610,9 +611,11 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
             #[cfg(feature = "share_clipboard")]
             Command::Share(mode) => {
                 let url = match mode {
-                    TargetMode::Selected => self.content.read().ok().and_then(|content| {
-                        content.get(self.selected).and_then(ListItem::share_url)
-                    }),
+                    TargetMode::Selected => self
+                        .content
+                        .read_unpoisoned()
+                        .get(self.selected)
+                        .and_then(ListItem::share_url),
                     TargetMode::Current => self
                         .queue
                         .get_current()
@@ -668,7 +671,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 }
             },
             Command::Move(mode, amount) => {
-                let last_idx = self.content.read().unwrap().len().saturating_sub(1);
+                let last_idx = self.content.read_unpoisoned().len().saturating_sub(1);
 
                 match mode {
                     MoveMode::Up => {
@@ -707,7 +710,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let target: Option<Box<dyn ListItem>> = match mode {
                     TargetMode::Current => self.queue.get_current().map(|t| t.as_listitem()),
                     TargetMode::Selected => {
-                        let content = self.content.read().unwrap();
+                        let content = self.content.read_unpoisoned();
                         content.get(self.selected).map(|t| t.as_listitem())
                     }
                 };
@@ -725,7 +728,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 }
             }
             Command::Goto(mode) => {
-                let mut content = self.content.write().unwrap();
+                let mut content = self.content.write_unpoisoned();
                 if let Some(item) = content.get_mut(self.selected) {
                     let queue = self.queue.clone();
                     let library = self.library.clone();
@@ -827,7 +830,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 let target: Option<Box<dyn ListItem>> = match mode {
                     TargetMode::Current => self.queue.get_current().map(|t| t.as_listitem()),
                     TargetMode::Selected => {
-                        let content = self.content.read().unwrap();
+                        let content = self.content.read_unpoisoned();
                         content.get(self.selected).map(|t| t.as_listitem())
                     }
                 };

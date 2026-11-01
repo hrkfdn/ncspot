@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use crate::command::{Command, MoveMode, ShiftMode};
 use crate::commands::CommandResult;
+use crate::ext_traits::RwLockExt;
 use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::Queue;
@@ -69,7 +70,7 @@ impl QueueView {
         let mut list_select: SelectView<Option<String>> = SelectView::new().autojump();
         list_select.add_item("[Create new]", None);
 
-        for list in library.playlists.read().unwrap().iter() {
+        for list in library.playlists.read_unpoisoned().iter() {
             list_select.add_item(list.name.clone(), Some(list.id.clone()));
         }
 
