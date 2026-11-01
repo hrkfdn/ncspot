@@ -153,6 +153,31 @@ impl<I: ListItem + Clone> ListView<I> {
             .collect()
     }
 
+    /// The content was replaced in place: keep the scroll state and the selection (clamped to
+    /// the new length) and redo the search matches, whose positions are stale.
+    pub fn content_replaced(&mut self) {
+        let last = self.content_len(false).saturating_sub(1);
+        self.selected = min(self.selected, last);
+        if !self.search_query.is_empty() {
+            self.search_indexes = self.get_indexes_of(&self.search_query);
+            self.search_selected_index = min(
+                self.search_selected_index,
+                self.search_indexes.len().saturating_sub(1),
+            );
+        }
+    }
+
+    #[cfg(test)]
+    pub fn set_search_for_test(&mut self, query: &str, indexes: Vec<usize>) {
+        self.search_query = query.to_string();
+        self.search_indexes = indexes;
+    }
+
+    #[cfg(test)]
+    pub fn search_for_test(&self) -> (String, Vec<usize>) {
+        (self.search_query.clone(), self.search_indexes.clone())
+    }
+
     pub fn move_focus_to(&mut self, target: usize) {
         let len = self.content_len(false).saturating_sub(1);
         self.selected = min(target, len);

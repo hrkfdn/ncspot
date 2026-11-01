@@ -36,6 +36,22 @@ fn store_copy(library: &Library, id: &str) -> Option<Playlist> {
         .cloned()
 }
 
+/// Whether `a` and `b` show the same: name, revision, length and the (position, uri) of each
+/// track.
+fn same_playlist(a: &Playlist, b: &Playlist) -> bool {
+    let key = |p: &Playlist| -> Vec<(usize, String)> {
+        p.tracks
+            .iter()
+            .flatten()
+            .map(|t| (t.list_index(), t.uri()))
+            .collect()
+    };
+    a.name == b.name
+        && a.snapshot_id == b.snapshot_id
+        && a.num_tracks == b.num_tracks
+        && key(a) == key(b)
+}
+
 /// Up (true) or down, and the row count, of `shift <mode> <amount>`: a negative amount flips
 /// the direction, as in the queue.
 pub fn shift_direction(mode: &ShiftMode, amount: i32) -> (bool, usize) {
@@ -136,10 +152,13 @@ impl PlaylistView {
         let Some(copy) = store_copy(&self.library, &self.playlist.id) else {
             return;
         };
+        if same_playlist(&self.playlist, &copy) {
+            return;
+        }
         self.playlist = copy;
-        let selected = self.list.get_selected_index();
-        self.show_tracks();
-        self.list.move_focus_to(selected);
+        // In place: the list keeps its scroll position, selection and search.
+        *self.rows.write().unwrap() = sorted_rows(&self.library, &self.playlist);
+        self.list.content_replaced();
     }
 
     /// Move the selected track `amount` rows (`shift up|down [amount]`); the note to show, if
@@ -377,6 +396,41 @@ mod tests {
         library.queue_remove("p", &row).unwrap();
         view.refresh_from_store();
         assert_eq!(view.list.get_selected_index(), 1, "clamped");
+    }
+
+    #[test]
+    fn an_unrelated_rev_bump_leaves_the_list_untouched() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        view.list.move_focus_to(2);
+        let rows = view.rows.clone();
+        let before = view.seen_rev;
+        library.playlists_rev.fetch_add(1, Ordering::Relaxed);
+        view.refresh_from_store();
+        assert_ne!(view.seen_rev, before, "the revision is taken");
+        assert_eq!(view.list.get_selected_index(), 2);
+        assert!(Arc::ptr_eq(&rows, &view.rows));
+        // Mark the rows: an unchanged copy must not rewrite them.
+        view.rows.write().unwrap().truncate(1);
+        view.refresh_from_store();
+        assert_eq!(view_uris(&view), ["a"], "unchanged copy: no rebuild");
+    }
+
+    #[test]
+    fn a_refresh_in_place_keeps_the_search_and_follows_the_rows() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        view.list.set_search_for_test("zzz", vec![2]);
+        let row = view.rows.read().unwrap()[0].clone();
+        library.queue_remove("p", &row).unwrap();
+        view.refresh_from_store();
+        assert_eq!(view_uris(&view), ["b", "c"]);
+        let (query, indexes) = view.list.search_for_test();
+        assert_eq!(query, "zzz", "the search survives");
+        assert_eq!(
+            indexes,
+            view.list.get_indexes_of("zzz"),
+            "redone, not stale"
+        );
+        assert!(indexes.is_empty());
     }
 
     #[test]
