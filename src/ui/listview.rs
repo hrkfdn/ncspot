@@ -564,11 +564,7 @@ impl<I: ListItem + Clone> ViewExt for ListView<I> {
                 if let Some(track) = item
                     && let Some(track) = track.track()
                 {
-                    let dialog = ContextMenu::add_track_dialog(
-                        self.library.clone(),
-                        self.queue.get_spotify(),
-                        track,
-                    );
+                    let dialog = ContextMenu::add_track_dialog(self.library.clone(), track);
                     return Ok(CommandResult::Modal(Box::new(dialog)));
                 }
 

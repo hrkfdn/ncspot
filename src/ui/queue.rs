@@ -43,14 +43,14 @@ impl QueueView {
         let tracks = queue.queue.read().unwrap().clone();
         match id {
             Some(id) => {
-                library.overwrite_playlist(&id, &tracks);
+                library.queue_overwrite(&id, &tracks);
                 s.pop_layer();
             }
             None => {
                 s.pop_layer();
                 let edit = EditView::new()
                     .on_submit(move |s: &mut Cursive, name| {
-                        library.save_playlist(name, &tracks);
+                        library.queue_save(name, &tracks);
                         s.pop_layer();
                     })
                     .with_name("name")

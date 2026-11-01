@@ -449,18 +449,18 @@ impl ListItem for Playlist {
         }
 
         if library.is_saved_playlist(self) {
-            library.delete_playlist(&self.id);
+            library.queue_unfollow(&self.id);
         } else {
-            library.follow_playlist(self.clone());
+            library.queue_follow(self.clone());
         }
     }
 
     fn save(&mut self, library: &Library) {
-        library.follow_playlist(self.clone());
+        library.queue_follow(self.clone());
     }
 
     fn unsave(&mut self, library: &Library) {
-        library.delete_playlist(&self.id);
+        library.queue_unfollow(&self.id);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {

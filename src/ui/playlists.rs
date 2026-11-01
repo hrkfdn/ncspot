@@ -92,7 +92,7 @@ impl PlaylistsView {
             .title("Delete playlist")
             .dismiss_button("No")
             .button("Yes", move |s: &mut Cursive| {
-                library.delete_playlist(&id);
+                library.queue_unfollow(&id);
                 s.pop_layer();
             });
         Some(Modal::new(dialog))
@@ -179,15 +179,19 @@ impl ViewExt for PlaylistsView {
 
         if let Command::Rename(name) = cmd {
             let note = match self.selected_playlist_id() {
-                Some(id) => self.library.rename_playlist(&id, name),
+                Some(id) => self.library.queue_rename(&id, name),
                 None => Some(crate::library::RENAME_HINT.to_string()),
             };
             return Ok(CommandResult::Consumed(note));
         }
 
         if let Command::Pin | Command::Unpin = cmd {
+            // The worker posts the failure note, if any.
             let note = match self.selected_playlist_id() {
-                Some(id) => self.library.pin_command(&id, matches!(cmd, Command::Pin)),
+                Some(id) => {
+                    self.library.queue_pin(&id, matches!(cmd, Command::Pin));
+                    None
+                }
                 None => Some(PIN_HINT.to_string()),
             };
             return Ok(CommandResult::Consumed(note));

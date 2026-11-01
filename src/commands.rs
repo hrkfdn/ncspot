@@ -288,10 +288,8 @@ impl CommandManager {
                 Ok(None)
             }
             Command::NewPlaylist(name) => {
-                if self.library.create_playlist(name).is_none() {
-                    // create_playlist already posted the failure note.
-                    debug!("could not create playlist");
-                }
+                // The worker posts the failure note, if any.
+                self.library.queue_create(name);
                 Ok(None)
             }
             Command::Search(term) => {
@@ -338,11 +336,7 @@ impl CommandManager {
                 if let Some(track) = self.queue.get_current()
                     && let Some(track) = track.track()
                 {
-                    let dialog = ContextMenu::add_track_dialog(
-                        self.library.clone(),
-                        self.queue.get_spotify(),
-                        track,
-                    );
+                    let dialog = ContextMenu::add_track_dialog(self.library.clone(), track);
                     s.add_layer(dialog);
                 }
                 Ok(None)

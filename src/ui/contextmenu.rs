@@ -4,6 +4,7 @@ use cursive::Cursive;
 use cursive::view::{Margins, ViewWrapper};
 use cursive::views::{Dialog, EditView, NamedView, ScrollView, SelectView};
 
+use crate::command::Command;
 use crate::commands::CommandResult;
 use crate::ext_traits::SelectViewExt;
 use crate::library::Library;
@@ -18,7 +19,6 @@ use crate::spotify::PlayerEvent;
 use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
-use crate::{command::Command, spotify::Spotify};
 use cursive::traits::{Finder, Nameable, Resizable};
 
 pub struct ContextMenu {
@@ -57,11 +57,7 @@ enum ContextMenuAction {
 }
 
 impl ContextMenu {
-    pub fn add_track_dialog(
-        library: Arc<Library>,
-        spotify: Spotify,
-        track: Track,
-    ) -> NamedView<AddToPlaylistMenu> {
+    pub fn add_track_dialog(library: Arc<Library>, track: Track) -> NamedView<AddToPlaylistMenu> {
         let mut list_select: SelectView<Playlist> = SelectView::new();
         let current_user_id = library.user_id.as_ref().unwrap();
 
@@ -73,17 +69,16 @@ impl ContextMenu {
 
         list_select.set_on_submit(move |s, selected| {
             let track = track.clone();
-            let mut playlist = selected.clone();
-            let spotify = spotify.clone();
+            let playlist = selected.clone();
             let library = library.clone();
 
             if playlist.has_track(track.id.as_ref().unwrap_or(&String::new())) {
                 let mut already_added_dialog = Self::track_already_added();
 
                 already_added_dialog.add_button("Add anyway", move |c| {
-                    let mut playlist = playlist.clone();
+                    let playlist = playlist.clone();
 
-                    playlist.append_tracks(&[Playable::Track(track.clone())], &spotify, &library);
+                    library.queue_add(&playlist.id, &[Playable::Track(track.clone())]);
                     c.pop_layer();
 
                     // Close add_track_dialog too
@@ -93,7 +88,7 @@ impl ContextMenu {
                 let modal = Modal::new(already_added_dialog);
                 s.add_layer(modal);
             } else {
-                playlist.append_tracks(&[Playable::Track(track)], &spotify, &library);
+                library.queue_add(&playlist.id, &[Playable::Track(track)]);
                 s.pop_layer();
             }
         });
@@ -362,8 +357,7 @@ impl ContextMenu {
                         write_share(url.to_string()).ok();
                     }
                     ContextMenuAction::AddToPlaylist(track) => {
-                        let dialog =
-                            Self::add_track_dialog(library, queue.get_spotify(), *track.clone());
+                        let dialog = Self::add_track_dialog(library, *track.clone());
                         s.add_layer(dialog);
                     }
                     ContextMenuAction::ShowRecommendations(item) => {
@@ -388,9 +382,8 @@ impl ContextMenu {
                     ContextMenuAction::TogglePlayback => queue.toggleplayback(),
                     ContextMenuAction::Queue(item) => item.as_listitem().queue(&queue),
                     ContextMenuAction::TogglePin(id, pin) => {
-                        if let Some(note) = library.pin_command(id, *pin) {
-                            s.call_on_name("main", |v: &mut Layout| v.set_result(Ok(Some(note))));
-                        }
+                        // The worker posts the failure note, if any.
+                        library.queue_pin(id, *pin);
                     }
                     ContextMenuAction::Rename(id) => {
                         s.add_layer(Self::rename_dialog(library, id.clone()));
@@ -476,7 +469,7 @@ impl ViewWrapper for SelectArtistActionMenu {
 /// Close the rename dialog and rename; a refusal note goes to the status line.
 fn rename_submit(s: &mut Cursive, library: &Library, id: &str, name: &str) {
     s.pop_layer();
-    if let Some(note) = library.rename_playlist(id, name) {
+    if let Some(note) = library.queue_rename(id, name) {
         s.call_on_name("main", |v: &mut Layout| v.set_result(Ok(Some(note))));
     }
 }
