@@ -344,7 +344,8 @@ impl<I: ListItem + Clone> View for ListView<I> {
                 let style = ColorStyle::secondary();
 
                 let max = self.pagination.max_content().unwrap();
-                let buf = format!("{} more items, scroll to load", max - i);
+                // the search total can drop while paging
+                let buf = format!("{} more items, scroll to load", max.saturating_sub(i));
                 printer.with_color(style, |printer| {
                     printer.print((0, 0), &buf);
                 });

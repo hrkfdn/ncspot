@@ -211,11 +211,28 @@ impl Library {
     /// Set the playlist with `id` to contain only `tracks`. If the playlist already contains
     /// tracks, they will be removed. Update the cache to match the new state.
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
+        let user_owned = self
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .any(|p| p.id == id && is_user_owned(self.user_id.as_deref(), p));
+        self.overwrite_and_reload(id, tracks, user_owned);
+    }
+
+    /// Like [Self::overwrite_playlist]. Only a `user_owned` playlist is reloaded with the own
+    /// client ID, as it leaves out the items of other playlists.
+    fn overwrite_and_reload(&self, id: &str, tracks: &[Playable], user_owned: bool) {
         debug!("saving {} tracks to list {}", tracks.len(), id);
         self.spotify.api.overwrite_playlist(id, tracks);
 
         // only reload this playlist, as a full sync runs on the UI thread here
-        if let Ok(remote) = self.spotify.api.playlist(id) {
+        let remote = if user_owned {
+            self.spotify.api.user_owned_playlist(id)
+        } else {
+            self.spotify.api.playlist(id)
+        };
+        if let Ok(remote) = remote {
             let mut playlist = Playlist::from(&remote);
             playlist.load_tracks(&self.spotify);
             // a new playlist goes first, as on Spotify
@@ -232,7 +249,7 @@ impl Library {
     pub fn save_playlist(&self, name: &str, tracks: &[Playable]) {
         debug!("saving {} tracks to new list {}", tracks.len(), name);
         match self.spotify.api.create_playlist(name, None, None) {
-            Ok(id) => self.overwrite_playlist(&id, tracks),
+            Ok(id) => self.overwrite_and_reload(&id, tracks, true),
             Err(_) => error!("could not create new playlist.."),
         }
     }
@@ -375,7 +392,7 @@ impl Library {
             .map(|p| p.id.clone())
             .collect();
         let mut list_order: HashMap<String, usize> = HashMap::new();
-        let rate_limit_failures = self.spotify.api.rate_limit_failures();
+        let rate_limits = self.spotify.api.rate_limits();
 
         let lists_page = self.spotify.api.current_user_playlist();
         let mut lists_batch = Some(lists_page.items.read().unwrap().clone());
@@ -389,7 +406,8 @@ impl Library {
                 let mut playlist: Playlist = remote.clone();
                 playlist.tracks = None;
                 // once rate limited, load the rest on the next update
-                if self.spotify.api.rate_limit_failures() != rate_limit_failures {
+                let user_owned = is_user_owned(self.user_id.as_deref(), remote);
+                if self.spotify.api.rate_limited_since(rate_limits, user_owned) {
                     if !cached.contains(&playlist.id) {
                         self.append_or_update(playlist, false);
                     }
@@ -1042,6 +1060,11 @@ fn trim_leading_the(name: &str) -> &str {
     name.strip_prefix("The ").unwrap_or(name)
 }
 
+/// Whether the user with `user_id` owns `playlist`. `false` while the user is unknown.
+fn is_user_owned(user_id: Option<&str>, playlist: &Playlist) -> bool {
+    user_id == Some(playlist.owner_id.as_str())
+}
+
 /// Whether `local` must be reloaded: the snapshot changed or the tracks failed to load. Empty
 /// tracks with a non-zero count are included, to repair caches from before this check.
 fn is_stale(local: &Playlist, remote: &Playlist) -> bool {
@@ -1181,6 +1204,14 @@ mod tests {
         let ids: Vec<_> = list.iter().map(|a| a.id.clone().unwrap()).collect();
         assert_eq!(ids, ["2", "1", "3"]);
         assert!(!sort_albums(&mut list));
+    }
+
+    #[test]
+    fn playlist_is_user_owned_only_with_the_owner_known() {
+        let list = playlist("s", 0, None);
+        assert!(is_user_owned(Some("owner"), &list));
+        assert!(!is_user_owned(Some("someone else"), &list));
+        assert!(!is_user_owned(None, &list));
     }
 
     fn playlist(snapshot_id: &str, num_tracks: usize, tracks: Option<Vec<Playable>>) -> Playlist {
