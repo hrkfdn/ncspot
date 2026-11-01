@@ -117,11 +117,12 @@ def write_atomic(path, data):
 
 
 def settled(d):
-    """Every tab idle, no call in flight, and quiet for at least QUIET_MS."""
+    """Every tab idle, no call in flight, no playlist write pending, and quiet for at least QUIET_MS."""
     quiet = d.get("quiet_ms")
     return (
         all(not t["busy"] for t in d["tabs"])
         and d["in_flight"] == 0
+        and d.get("pending_writes", 0) == 0
         and quiet is not None
         and quiet >= QUIET_MS
     )
@@ -723,6 +724,14 @@ def sc_playlist_write(inst, args):
         blocked_if_throttled(d, ["internal"])
         expect(d.get("error") is None, f"{cmd}: no error", d.get("error"))
         expect(d["playlists"]["last_test_order"] == want, f"{cmd}: order {want}", d["playlists"])
+    # Held key: two moves sent back to back, so the worker sees both queued and folds them
+    # into one move. C goes down twice: ACB, then ABC.
+    inst.send("harness playlist-move-test 0 1")
+    inst.send("harness playlist-move-test 1 1")
+    d = inst.wait_settled(args.settle_timeout)
+    blocked_if_throttled(d, ["internal"])
+    expect(d.get("error") is None, "held-key moves: no error", d.get("error"))
+    expect(d["playlists"]["last_test_order"] == "ABC", "held-key moves: order ABC", d["playlists"])
     inst.send("harness playlist-rename-test")
     d = inst.wait_settled(args.settle_timeout)
     blocked_if_throttled(d, ["internal"])

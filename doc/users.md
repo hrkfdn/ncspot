@@ -268,6 +268,13 @@ Note: \<FOO\> - mandatory arg; [BAR] - optional arg
 | `add [current]`                                                  | Add selected track to playlist, if `current` is passed the currently playing track will be added                                                                                                                                                                |
 | `save [current]`                                                 | Save selected item, if `current` is passed the currently playing item will be saved                                                                                                                                                                             |
 
+Playlist edits (adding, removing, moving and renaming tracks, overwriting and
+the like) show at once and are saved to Spotify in the background, so the UI
+never waits on them. While edits are waiting the status bar shows `[N pending]`.
+If Spotify refuses an edit, ncspot undoes it and shows a note. When you quit,
+ncspot waits up to 3 seconds for pending edits to finish and then drops any
+that are still unsaved.
+
 ## Remote control (IPC)
 Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms (Linux, macOS, *BSD).
 The socket will be created in the platform's runtime directory. Run `ncspot info` to show the

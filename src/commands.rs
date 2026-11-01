@@ -439,6 +439,7 @@ impl CommandManager {
                         last_test_order: crate::harness::last_test_order(&self.library),
                         last_test_renamed: crate::harness::last_test_renamed(&self.library),
                     },
+                    self.library.writer.pending(),
                 );
                 let mut dump = dump;
                 if crate::harness::take_test_playlists_request() {
@@ -482,12 +483,12 @@ impl CommandManager {
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistAddTest(n)) => {
-                crate::harness::playlist_add_test(&self.library, &self.spotify, *n)?;
+                crate::harness::playlist_add_test(&self.library, *n)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistRemoveTest(index)) => {
-                crate::harness::playlist_remove_test(&self.library, &self.spotify, *index)?;
+                crate::harness::playlist_remove_test(&self.library, *index)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
@@ -497,7 +498,7 @@ impl CommandManager {
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistMoveTest(index, n)) => {
-                crate::harness::playlist_move_test(&self.library, &self.spotify, *index, *n)?;
+                crate::harness::playlist_move_test(&self.library, *index, *n)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
