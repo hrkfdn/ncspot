@@ -272,6 +272,15 @@ impl PlaylistWriter {
         state.queue.len() + usize::from(state.in_flight.is_some())
     }
 
+    /// Forget the confirmed copy of `id` once no job of it is left. Called after the store
+    /// holds the confirmed copy, so a new job never adopts an optimistic store copy as base.
+    pub fn release(&self, id: &str) {
+        let mut state = self.shared.0.lock().unwrap();
+        if !state.has_jobs(id) {
+            state.confirmed.remove(id);
+        }
+    }
+
     pub fn confirmed(&self, id: &str) -> Option<Playlist> {
         self.shared.0.lock().unwrap().confirmed.get(id).cloned()
     }
@@ -320,7 +329,6 @@ impl PlaylistWriter {
         }
         let drained = id.as_deref().is_none_or(|id| !state.has_jobs(id));
         let confirmed = match &id {
-            Some(id) if drained => state.confirmed.remove(id),
             Some(id) => state.confirmed.get(id).cloned(),
             None => None,
         };
@@ -700,5 +708,75 @@ mod tests {
         assert!(!w.wait_job(), "a stopped writer wakes its worker to exit");
         assert_eq!(uris(&w.confirmed("p").unwrap()), ["a", "b"]);
         assert!(w.wait_idle(Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn the_confirmed_copy_outlives_the_drain_until_released() {
+        let mut p = playlist_of(&["a", "b", "c"]);
+        p.id = "p".into();
+        p.snapshot_id = "s0".into();
+        let w = PlaylistWriter::new();
+        queue_move(&w, &p, 0, "a");
+        let s = w
+            .step(|_, copy| {
+                copy.unwrap().snapshot_id = "s1".into();
+                true
+            })
+            .unwrap();
+        assert!(s.drained);
+        assert_eq!(s.confirmed.unwrap().snapshot_id, "s1");
+        assert_eq!(w.confirmed("p").unwrap().snapshot_id, "s1");
+        // The store still shows the optimistic copy: a new job must not adopt it.
+        let mut cleared = p.clone();
+        cleared.snapshot_id.clear();
+        w.queue(Some("p"), JobKind::Rename { name: "n".into() }, || {
+            Some(cleared)
+        });
+        w.release("p");
+        assert!(w.confirmed("p").is_some(), "a queued job keeps the entry");
+        w.step(|_, copy| {
+            assert_eq!(copy.unwrap().snapshot_id, "s1");
+            true
+        })
+        .unwrap();
+        w.release("p");
+        assert!(w.confirmed("p").is_none());
+    }
+
+    #[test]
+    fn stop_wakes_a_running_step_to_idle() {
+        let mut p = playlist_of(&["a", "b"]);
+        p.id = "p".into();
+        let w = PlaylistWriter::new();
+        queue_move(&w, &p, 0, "a");
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let worker = {
+            let w = w.clone();
+            std::thread::spawn(move || {
+                w.step(|_, _| {
+                    rx.recv().unwrap();
+                    true
+                })
+            })
+        };
+        while w.wait_idle(Duration::from_millis(10)) {
+            std::thread::yield_now();
+        }
+        assert!(!w.wait_idle(Duration::from_millis(10)));
+        w.stop();
+        tx.send(()).unwrap();
+        assert!(w.wait_idle(Duration::from_secs(1)));
+        assert!(worker.join().unwrap().unwrap().drained);
+    }
+
+    #[test]
+    fn wait_job_wakes_when_another_thread_queues() {
+        let w = PlaylistWriter::new();
+        let waiter = {
+            let w = w.clone();
+            std::thread::spawn(move || w.wait_job())
+        };
+        w.queue(None, JobKind::Create { name: "n".into() }, || None);
+        assert!(waiter.join().unwrap());
     }
 }
