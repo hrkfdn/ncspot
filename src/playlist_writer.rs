@@ -380,6 +380,9 @@ impl PlaylistWriter {
     }
 }
 
+/// How long quit waits for the playlist write in flight.
+pub const QUIT_GRACE: Duration = Duration::from_secs(3);
+
 pub const SAVED_NOTE: &str = "Playlist changes saved";
 
 /// The note for a settled write, if any. Success: only once the playlist's queue drained and

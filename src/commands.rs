@@ -27,7 +27,7 @@ use cursive::views::Dialog;
 use log::{debug, error, info};
 use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// Upper bound for a count prefix, bounding the repeat loop.
 const MAX_COUNT: usize = 9999;
@@ -63,6 +63,8 @@ pub struct CommandManager {
     /// Pending vim-style repeat count (`0` means none), shared with the status
     /// bar so it can be shown while being typed.
     pending_count: Arc<AtomicUsize>,
+    /// Set by the first quit that waits for playlist writes; a second quit goes straight through.
+    quitting: Arc<AtomicBool>,
 }
 
 impl CommandManager {
@@ -85,6 +87,7 @@ impl CommandManager {
             events,
             jukebox,
             pending_count: Arc::new(AtomicUsize::new(0)),
+            quitting: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -160,6 +163,22 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Quit => {
+                // First q with writes pending: let the write in flight finish (at most
+                // QUIT_GRACE), then quit through this same arm with `quitting` set.
+                if self.library.writer.pending() > 0 && !self.quitting.swap(true, Ordering::Relaxed)
+                {
+                    self.library.writer.stop();
+                    let sink = s.cb_sink().clone();
+                    self.library.finish_writes_then(move || {
+                        let _ = sink.send(Box::new(|s: &mut Cursive| {
+                            if let Some(data) = s.user_data::<UserData>().cloned() {
+                                data.cmd.handle(s, Command::Quit);
+                            }
+                        }));
+                    });
+                    return Ok(Some("Finishing playlist changes...".into()));
+                }
+                self.library.reset_pending_writes();
                 let queue = self.queue.queue.read().unwrap();
                 self.config.with_state_mut(move |s| {
                     debug!(

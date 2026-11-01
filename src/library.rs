@@ -44,7 +44,7 @@ use crate::playlist_layout::{
     LayoutEntry, PLAYLIST_FETCH_SPACING, Spacer, insert_after_pins, layout_from, pinned_ids,
     remove_from_layout, replace_if_unchanged, set_pins,
 };
-use crate::playlist_writer::{JobKind, PlaylistWriter, WriteJob, apply_local};
+use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
 use crate::spotify::Spotify;
 use crate::spotify_api::WebApi;
@@ -2050,6 +2050,36 @@ impl Library {
             &config::cache_path(CACHE_PLAYLISTS),
             &self.cached_playlists(),
         );
+    }
+
+    /// For quit: drop queued playlist writes and put back the confirmed copy of every playlist
+    /// that had some, then save the playlist cache once.
+    pub fn reset_pending_writes(&self) {
+        let ids = self.writer.stop();
+        {
+            // Store lock first, then the writer's (the lock order).
+            let mut store = self.playlists.write().unwrap();
+            for id in &ids {
+                // No entry: the job in flight landed and stored its confirmed copy already.
+                if let (Some(confirmed), Some(stored)) = (
+                    self.writer.confirmed(id),
+                    store.iter_mut().find(|p| &p.id == id),
+                ) {
+                    *stored = confirmed;
+                }
+            }
+        }
+        self.bump_playlists_rev();
+        self.save_playlists();
+    }
+
+    /// Wait (on a helper thread) for the write in flight, at most [QUIT_GRACE], then `then`.
+    pub fn finish_writes_then(&self, then: impl FnOnce() + Send + 'static) {
+        let writer = self.writer.clone();
+        thread::spawn(move || {
+            writer.wait_idle(QUIT_GRACE);
+            then();
+        });
     }
 
     /// Mark the playlist store as written, for the views.
@@ -4897,6 +4927,19 @@ mod test {
 
     fn stored_row(library: &Library, id: &str, at: usize) -> Playable {
         stored(library, id).tracks.unwrap()[at].clone()
+    }
+
+    #[test]
+    fn reset_pending_writes_restores_confirmed_copies() {
+        let library = library_with_playlist("p", &["a", "b", "c"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
+        library.reset_pending_writes();
+        assert_eq!(stored_uris(&library, "p"), ["a", "b", "c"]);
+        assert!(!stored(&library, "p").snapshot_id.is_empty());
+        assert_eq!(library.writer.pending(), 0);
+        assert!(!library.run_next_write(), "stopped");
     }
 
     /// The `(ok, drained, dropped, note)` of each posted [Event::WriteSettled].
