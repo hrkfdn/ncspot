@@ -102,7 +102,6 @@ fn remove_range_op(index: usize, length: usize) -> Op {
 
 /// MOV of `length` items at `from` to before `to`, where `to` is an index in the list before
 /// the move (`to` equal to the length is the end).
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn move_op(from: usize, length: usize, to: usize) -> Op {
     let mut out = op(Kind::MOV);
     out.mov = MessageField::some(Mov {
@@ -117,7 +116,6 @@ pub fn move_op(from: usize, length: usize, to: usize) -> Op {
 /// The `to` of a [move_op] that moves the item at `index` of a list of `length` up or down
 /// by `n` rows, clamped to the first or last row. None when nothing would move: `n` is 0, the
 /// item is already at that end, or `index` is past the end.
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn move_target(index: usize, n: usize, up: bool, length: usize) -> Option<usize> {
     if n == 0 || index >= length {
         return None;
@@ -130,7 +128,6 @@ pub fn move_target(index: usize, n: usize, up: bool, length: usize) -> Option<us
 }
 
 /// Where the item at `from` ends up after a [move_op] to `to`.
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn moved_position(from: usize, to: usize) -> usize {
     if to > from { to - 1 } else { to }
 }

@@ -17,8 +17,8 @@ use crate::internal_api::Area;
 use crate::internal_api::error::InternalError;
 use crate::internal_api::playlist::{Head, RootEntry, RootHead, Rootlist, base64_encode};
 use crate::internal_api::playlist_write::{
-    ADD_BATCH, Created, OVERWRITE_ATOMIC_MAX, add_op, list_changes, overwrite_ops, remove_at_op,
-    rootlist_add_op, rootlist_remove_op,
+    ADD_BATCH, Created, OVERWRITE_ATOMIC_MAX, add_op, list_changes, move_op, move_target,
+    moved_position, overwrite_ops, remove_at_op, rename_op, rootlist_add_op, rootlist_remove_op,
 };
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
@@ -43,7 +43,6 @@ pub trait PlaylistServer {
     ) -> Result<(Head, Vec<Playable>), InternalError>;
     /// Items `from..from + length` (their uris) with the head they were read at; past the end
     /// the items are empty.
-    #[expect(dead_code)]
     fn playlist_range(
         &self,
         id: &str,
@@ -261,6 +260,9 @@ pub enum EditError {
     /// The head after the write does not match; the local copy was reloaded (when the reload
     /// failed, its snapshot was cleared instead).
     Mismatch,
+    /// The head after a rename reports another name (a dropped rename); the local copy took
+    /// that name.
+    NameNotApplied,
     /// The rootlist read stopped at the page cap, so a copy of the playlist may lie past it;
     /// nothing was sent.
     TooLong,
@@ -286,6 +288,7 @@ impl EditError {
             Self::Refused(_) => "refused",
             Self::Moved => "moved",
             Self::Mismatch => "mismatch",
+            Self::NameNotApplied => "name_not_applied",
             Self::TooLong => "too_long",
             Self::PartlyDeleted => "partly_deleted",
             Self::Partial { .. } => "partial",
@@ -298,6 +301,7 @@ impl EditError {
             Self::Internal(_) => return None,
             Self::Moved => "Playlist changed, try again",
             Self::Mismatch => "Playlist changed elsewhere, reloaded",
+            Self::NameNotApplied => "Spotify did not apply the new name",
             Self::Unverified(_) => "Could not confirm the change; it may have applied",
             Self::Refused(_) => "Spotify refused the change",
             Self::TooLong => "Playlist list too long to edit",
@@ -322,7 +326,7 @@ impl EditError {
     pub fn stores_copy(&self) -> bool {
         matches!(
             self,
-            Self::Unverified(_) | Self::Mismatch | Self::Partial { .. }
+            Self::Unverified(_) | Self::Mismatch | Self::NameNotApplied | Self::Partial { .. }
         )
     }
 }
@@ -346,6 +350,7 @@ impl From<EditError> for InternalError {
             EditError::Refused(err) => Self::Transient(format!("the write was refused: {err}")),
             EditError::Moved => Self::Transient("the selected item moved".into()),
             EditError::Mismatch => Self::Transient("the playlist changed during the write".into()),
+            EditError::NameNotApplied => Self::Transient("the new name was not applied".into()),
             EditError::TooLong => Self::Transient("the playlist list is too long to edit".into()),
             EditError::PartlyDeleted => {
                 Self::Transient("only some copies of the playlist were removed".into())
@@ -574,6 +579,12 @@ fn send_verified(
         Verify::Differs(length) => length,
     };
     warn!("Playlist write did not verify: length {length} after it, {expected_len} expected");
+    Err(mismatch(api, playlist, known))
+}
+
+/// A write that did not verify: reload the local copy (or, when the reload fails, clear its
+/// snapshot so the next write or open reloads it, see [reload_cleared]).
+fn mismatch(api: &impl PlaylistServer, playlist: &mut Playlist, known: Known<'_>) -> EditError {
     if let Err(err) = reload(api, playlist, known) {
         warn!(
             "Could not reload the playlist after a write that did not verify ({})",
@@ -581,7 +592,7 @@ fn send_verified(
         );
         playlist.snapshot_id.clear();
     }
-    Err(EditError::Mismatch)
+    EditError::Mismatch
 }
 
 fn uris(playables: &[Playable]) -> Vec<String> {
@@ -715,6 +726,165 @@ pub fn remove_track(
     }
     playlist.snapshot_id = after.snapshot_id;
     Ok(())
+}
+
+/// Move the item at position `from` of a copy in server order to position `to`, and renumber
+/// every `list_index` by position.
+fn move_server_item(tracks: &mut Vec<Playable>, from: usize, to: usize) {
+    let item = tracks.remove(from);
+    tracks.insert(to, item);
+    for (index, playable) in tracks.iter_mut().enumerate() {
+        playable.set_list_index(index);
+    }
+}
+
+/// The first position and the length of the span a move from `from` to `to` changes.
+fn moved_span(from: usize, to: usize) -> (usize, usize) {
+    (from.min(to), from.abs_diff(to) + 1)
+}
+
+/// The uris of the moved span after the item at `from` moves to `to`.
+fn expected_span(tracks: &[Playable], from: usize, to: usize) -> Vec<String> {
+    let (first, length) = moved_span(from, to);
+    let mut span = uris(&tracks[first..first + length]);
+    let item = span.remove(from - first);
+    span.insert(to - first, item);
+    span
+}
+
+/// The outcome of the range read after a move.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MoveCheck {
+    /// A new revision, the same length and the expected order in the span.
+    Applied,
+    Differs,
+    /// The read lacks its revision or its length, so it proves nothing.
+    Unreadable,
+}
+
+/// A move applied when the span read after it holds the expected order at a revision other
+/// than the base, with the length unchanged. Span only: a concurrent edit elsewhere that keeps
+/// the length is not detected (as in B1, whose check is the length).
+fn verify_move(base: &Base, after: &Head, span: &[String], expected: &[String]) -> MoveCheck {
+    let Some(length) = after.length.filter(|_| !after.revision.is_empty()) else {
+        return MoveCheck::Unreadable;
+    };
+    if after.revision != base.revision && length == base.length && span == expected {
+        MoveCheck::Applied
+    } else {
+        MoveCheck::Differs
+    }
+}
+
+/// Move the item at server position `index` (still `uri`) up or down by `n` rows, clamped to
+/// the first or last row, with one MOV against a fresh head, then read the moved span back.
+/// Returns the item's new server position; `index` when it is already at that end (nothing is
+/// sent). A stale copy is reloaded first, as for any write.
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn move_track(
+    api: &impl PlaylistServer,
+    playlist: &mut Playlist,
+    index: usize,
+    uri: &str,
+    n: usize,
+    up: bool,
+    known: Known<'_>,
+) -> Result<usize, EditError> {
+    let base = prepare_head(api, playlist, known)?;
+    let tracks = playlist.tracks.as_deref().unwrap_or_default();
+    if server_item(tracks, index, uri).is_none() {
+        return Err(EditError::Moved);
+    }
+    let Some(to) = move_target(index, n, up, base.length) else {
+        return Ok(index);
+    };
+    let at = moved_position(index, to);
+    let expected = expected_span(tracks, index, at);
+    send_post(api, Post::First, || {
+        api.playlist_changes(
+            &playlist.id,
+            list_changes(base.revision.clone(), vec![move_op(index, 1, to)]),
+        )
+    })?;
+    let (first, length) = moved_span(index, at);
+    let (after, span) = match api.playlist_range(&playlist.id, first, length) {
+        Ok(read) => read,
+        Err(err) => return Err(unconfirmed(playlist, err)),
+    };
+    match verify_move(&base, &after, &span, &expected) {
+        MoveCheck::Applied => {
+            if let Some(tracks) = playlist.tracks.as_mut() {
+                move_server_item(tracks, index, at);
+            }
+            playlist.snapshot_id = after.snapshot_id;
+            Ok(at)
+        }
+        // Not latched: the POST went through and may have applied (see send_verified).
+        MoveCheck::Unreadable => Err(unconfirmed(
+            playlist,
+            InternalError::ProtocolChanged("playlist range without a revision or length".into()),
+        )),
+        MoveCheck::Differs => {
+            warn!("Playlist move did not verify");
+            Err(mismatch(api, playlist, known))
+        }
+    }
+}
+
+/// After the Web API moved the item at server position `from` to `to`: the same move in the
+/// local copy, with the snapshot the Web reply named (the Web API applies a move to exactly
+/// the snapshot it was sent). A copy not in server order cannot take the move; its snapshot is
+/// cleared so the next open reloads it.
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn move_after_web(playlist: &mut Playlist, from: usize, to: usize, snapshot_id: &str) {
+    match playlist.tracks.as_mut() {
+        Some(tracks) if in_server_order(tracks) && from < tracks.len() && to < tracks.len() => {
+            move_server_item(tracks, from, to);
+            playlist.snapshot_id = snapshot_id.to_string();
+        }
+        _ => playlist.snapshot_id.clear(),
+    }
+}
+
+/// Rename the playlist with one attribute update against a fresh head (on a stale base the
+/// service answers ok and drops the rename), verified by the head name after it (both
+/// trimmed). The tracks are not read; a current copy takes the new snapshot, a stale one
+/// keeps its own so the next open reloads it. When the head reports another name, the copy
+/// takes it ([EditError::NameNotApplied]).
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn rename(
+    api: &impl PlaylistServer,
+    playlist: &mut Playlist,
+    name: &str,
+) -> Result<(), EditError> {
+    let head = require_revision(api.playlist_head(&playlist.id)?, "playlist head")?;
+    let current = freshness(playlist, &head) == Freshness::Current;
+    send_post(api, Post::First, || {
+        api.playlist_changes(
+            &playlist.id,
+            list_changes(head.revision, vec![rename_op(name)]),
+        )
+    })?;
+    let after = api
+        .playlist_head(&playlist.id)
+        .map_err(EditError::Unverified)?;
+    match after.name.as_deref().map(str::trim) {
+        Some(applied) if applied == name.trim() => {
+            playlist.name = name.to_string();
+            if current && !after.revision.is_empty() {
+                playlist.snapshot_id = after.snapshot_id;
+            }
+            Ok(())
+        }
+        Some(other) => {
+            warn!("Spotify did not apply the new name");
+            playlist.name = other.to_string();
+            Err(EditError::NameNotApplied)
+        }
+        None => Err(EditError::Unverified(InternalError::ProtocolChanged(
+            "playlist head without a name".into(),
+        ))),
+    }
 }
 
 /// Replace the contents with `tracks`: one atomic POST up to [OVERWRITE_ATOMIC_MAX] tracks,
@@ -1375,6 +1545,7 @@ mod tests {
             (EditError::Moved, false),
             (EditError::Refused(InternalError::Denied), false),
             (EditError::Mismatch, true),
+            (EditError::NameNotApplied, true),
             (
                 EditError::Partial {
                     added: 100,
@@ -1631,6 +1802,7 @@ mod tests {
             EditError::Refused(InternalError::ProtocolChanged("/user/x".into())).class(),
             "refused"
         );
+        assert_eq!(EditError::NameNotApplied.class(), "name_not_applied");
     }
 
     #[test]
@@ -1668,10 +1840,8 @@ mod tests {
     struct Fake {
         heads: RefCell<VecDeque<Result<Head, InternalError>>>,
         contents: RefCell<VecDeque<ContentsRead>>,
-        #[expect(dead_code)]
         ranges: RefCell<VecDeque<RangeRead>>,
         /// `(from, length)` of each range read, in order.
-        #[expect(dead_code)]
         range_reads: RefCell<Vec<(usize, usize)>>,
         posts: RefCell<VecDeque<Result<(), InternalError>>>,
         sent: RefCell<Vec<ListChanges>>,
@@ -1694,7 +1864,6 @@ mod tests {
             self
         }
 
-        #[expect(dead_code)]
         fn ranges(self, reads: impl IntoIterator<Item = RangeRead>) -> Self {
             self.ranges.borrow_mut().extend(reads);
             self
@@ -2359,5 +2528,526 @@ mod tests {
         // Past the first remove, the cap's mismatch is a partial delete.
         assert!(matches!(unfollow(&api, "p"), Err(EditError::PartlyDeleted)));
         assert_eq!(api.removed_at(), [Some(1)]);
+    }
+
+    /// A head at `revision` (the base heads of `head()` are at revision 1).
+    fn head_at(snapshot: &str, length: usize, revision: u8) -> Head {
+        Head {
+            revision: vec![revision],
+            ..head(snapshot, length)
+        }
+    }
+
+    fn named(snapshot: &str, length: usize, revision: u8, name: &str) -> Head {
+        Head {
+            name: Some(name.into()),
+            ..head_at(snapshot, length, revision)
+        }
+    }
+
+    fn track_uris(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|id| format!("spotify:track:{id}")).collect()
+    }
+
+    /// A copy in server order holding `ids` (`spotify:track:<id>`).
+    fn holding(snapshot: &str, ids: &[&str]) -> Playlist {
+        let tracks: Vec<Playable> = ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| at(&format!("spotify:track:{id}"), i))
+            .collect();
+        Playlist {
+            snapshot_id: snapshot.into(),
+            num_tracks: tracks.len(),
+            tracks: Some(tracks),
+            ..test_playlist("p")
+        }
+    }
+
+    fn mov(api: &Fake) -> (Option<i32>, Option<i32>, Option<i32>) {
+        let sent = api.sent.borrow();
+        let mov = &sent[0].deltas[0].ops[0].mov;
+        (mov.from_index, mov.length, mov.to_index)
+    }
+
+    #[test]
+    fn a_move_down_sends_one_mov_and_reads_the_span() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["b", "a"])))]);
+        let at = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .expect("verified");
+        assert_eq!(at, 1);
+        assert_eq!(mov(&api), (Some(0), Some(1), Some(2)));
+        assert_eq!(
+            api.sent.borrow()[0].base_revision,
+            Some(vec![1]),
+            "the fresh head"
+        );
+        assert_eq!(*api.range_reads.borrow(), [(0, 2)]);
+        assert_eq!(uri_list(&playlist), track_uris(&["b", "a", "c"]));
+        assert!(in_server_order(playlist.tracks.as_deref().unwrap()));
+        assert_eq!(playlist.snapshot_id, "t");
+        assert_eq!(api.contents_reads.get(), 0);
+    }
+
+    #[test]
+    fn a_move_up_reads_the_span_above() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["c", "b"])))]);
+        let at = move_track(
+            &api,
+            &mut playlist,
+            2,
+            "spotify:track:c",
+            1,
+            true,
+            &no_known,
+        )
+        .expect("verified");
+        assert_eq!(at, 1);
+        assert_eq!(mov(&api), (Some(2), Some(1), Some(1)));
+        assert_eq!(*api.range_reads.borrow(), [(1, 2)]);
+        assert_eq!(uri_list(&playlist), track_uris(&["a", "c", "b"]));
+    }
+
+    #[test]
+    fn a_move_past_the_end_is_clamped() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["b", "c", "a"])))]);
+        let at = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            10,
+            false,
+            &no_known,
+        )
+        .expect("verified");
+        assert_eq!(at, 2);
+        assert_eq!(mov(&api), (Some(0), Some(1), Some(3)));
+        assert_eq!(*api.range_reads.borrow(), [(0, 3)]);
+    }
+
+    #[test]
+    fn a_move_at_the_end_sends_nothing() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default().heads([Ok(head("s", 3))]);
+        let at = move_track(
+            &api,
+            &mut playlist,
+            2,
+            "spotify:track:c",
+            1,
+            false,
+            &no_known,
+        )
+        .expect("nothing to do");
+        assert_eq!(at, 2);
+        assert!(api.sent.borrow().is_empty());
+    }
+
+    #[test]
+    fn a_stale_copy_whose_item_moved_sends_no_move() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let server = vec![
+            at("spotify:track:a", 0),
+            at("spotify:track:x", 1),
+            at("spotify:track:c", 2),
+        ];
+        let api = Fake::default()
+            .heads([Ok(head("u", 3))])
+            .contents(Ok((head("u", 3), server)));
+        let err = move_track(
+            &api,
+            &mut playlist,
+            1,
+            "spotify:track:b",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Moved));
+        assert!(api.sent.borrow().is_empty());
+        assert_eq!(
+            playlist.snapshot_id, "u",
+            "the reloaded copy, for the caller to store"
+        );
+    }
+
+    #[test]
+    fn a_stale_copy_is_reloaded_then_moved() {
+        let mut playlist = holding("s", &["a", "b"]);
+        let server = vec![
+            at("spotify:track:a", 0),
+            at("spotify:track:b", 1),
+            at("spotify:track:c", 2),
+        ];
+        let api = Fake::default()
+            .heads([Ok(head("u", 3))])
+            .contents(Ok((head("u", 3), server)))
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["b", "a"])))]);
+        move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .expect("verified");
+        assert_eq!(api.contents_reads.get(), 1);
+        assert_eq!(uri_list(&playlist), track_uris(&["b", "a", "c"]));
+    }
+
+    #[test]
+    fn a_span_that_differs_reloads_the_copy() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let server = vec![
+            at("spotify:track:a", 0),
+            at("spotify:track:b", 1),
+            at("spotify:track:c", 2),
+        ];
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["a", "b"])))])
+            .contents(Ok((head("t", 3), server)));
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Mismatch));
+        assert!(err.stores_copy());
+        assert_eq!(api.contents_reads.get(), 1);
+        assert_eq!(playlist.snapshot_id, "t");
+    }
+
+    #[test]
+    fn a_duplicate_at_the_destination_does_not_pass_for_the_moved_track() {
+        // a b a: moving the first a down 2 expects b a a. Unapplied, the server still holds
+        // a b a, whose last item is also a: only the whole span tells them apart.
+        let mut playlist = holding("s", &["a", "b", "a"]);
+        let server = vec![
+            at("spotify:track:a", 0),
+            at("spotify:track:b", 1),
+            at("spotify:track:a", 2),
+        ];
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("t", 3, 2), track_uris(&["a", "b", "a"])))])
+            .contents(Ok((head("t", 3), server)));
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            2,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Mismatch));
+    }
+
+    #[test]
+    fn a_span_at_the_base_revision_is_a_mismatch() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((head_at("s", 3, 1), track_uris(&["b", "a"])))])
+            .contents(Err(InternalError::Transient("x".into())));
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Mismatch));
+        assert!(
+            playlist.snapshot_id.is_empty(),
+            "reload failed: snapshot cleared"
+        );
+    }
+
+    #[test]
+    fn a_failed_range_read_is_unverified_and_clears_the_snapshot() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Err(InternalError::Transient("x".into()))]);
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Unverified(_)));
+        assert!(playlist.snapshot_id.is_empty());
+        assert_eq!(uri_list(&playlist), track_uris(&["a", "b", "c"]));
+    }
+
+    #[test]
+    fn a_range_without_revision_or_length_is_unverified() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let unreadable = Head {
+            revision: Vec::new(),
+            snapshot_id: String::new(),
+            length: Some(3),
+            name: None,
+        };
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Ok(())])
+            .ranges([Ok((unreadable, track_uris(&["b", "a"])))]);
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Unverified(_)));
+        assert_eq!(api.latches.get(), 0, "not latched after a POST");
+    }
+
+    #[test]
+    fn a_refused_mov_fails_without_a_range_read() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default()
+            .heads([Ok(head("s", 3))])
+            .posts([Err(InternalError::NotFound)]);
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Refused(_)));
+        assert!(api.range_reads.borrow().is_empty());
+    }
+
+    #[test]
+    fn a_move_without_a_session_sends_nothing() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        let api = Fake::default().heads([Err(InternalError::NoSession)]);
+        let err = move_track(
+            &api,
+            &mut playlist,
+            0,
+            "spotify:track:a",
+            1,
+            false,
+            &no_known,
+        )
+        .unwrap_err();
+        assert!(matches!(err, EditError::Internal(InternalError::NoSession)));
+        assert!(api.sent.borrow().is_empty());
+    }
+
+    #[test]
+    fn a_web_move_takes_the_reply_snapshot() {
+        let mut playlist = holding("s", &["a", "b", "c"]);
+        move_after_web(&mut playlist, 0, 2, "w");
+        assert_eq!(uri_list(&playlist), track_uris(&["b", "c", "a"]));
+        assert!(in_server_order(playlist.tracks.as_deref().unwrap()));
+        assert_eq!(playlist.snapshot_id, "w");
+    }
+
+    #[test]
+    fn a_web_move_on_a_copy_out_of_order_clears_the_snapshot() {
+        let mut playlist = held_sorted();
+        let before = uri_list(&playlist);
+        move_after_web(&mut playlist, 0, 1, "w");
+        assert_eq!(uri_list(&playlist), before);
+        assert!(playlist.snapshot_id.is_empty());
+    }
+
+    #[test]
+    fn a_rename_is_based_on_a_fresh_head_and_verified_by_name() {
+        let mut playlist = holding("s", &["a"]);
+        playlist.name = "old".into();
+        let api = Fake::default()
+            .heads([Ok(named("s", 1, 1, "old")), Ok(named("t", 1, 2, "new"))])
+            .posts([Ok(())]);
+        rename(&api, &mut playlist, "new").expect("verified");
+        let sent = api.sent.borrow();
+        assert_eq!(sent[0].base_revision, Some(vec![1]));
+        let op = &sent[0].deltas[0].ops[0];
+        assert_eq!(
+            op.update_list_attributes
+                .new_attributes
+                .values
+                .name
+                .as_deref(),
+            Some("new")
+        );
+        assert_eq!(playlist.name, "new");
+        assert_eq!(
+            playlist.snapshot_id, "t",
+            "current copy: takes the new snapshot"
+        );
+        assert_eq!(
+            api.contents_reads.get(),
+            0,
+            "a rename never reads the tracks"
+        );
+    }
+
+    #[test]
+    fn a_rename_of_a_stale_copy_keeps_its_snapshot() {
+        let mut playlist = holding("s", &["a"]);
+        let api = Fake::default()
+            .heads([Ok(named("u", 2, 1, "old")), Ok(named("t", 2, 2, "new"))])
+            .posts([Ok(())]);
+        rename(&api, &mut playlist, "new").expect("verified");
+        assert_eq!(playlist.name, "new");
+        assert_eq!(playlist.snapshot_id, "s", "stale: the next open reloads it");
+    }
+
+    #[test]
+    fn a_dropped_rename_takes_the_server_name() {
+        // R2: a rename on a stale base answers ok and the name stays.
+        let mut playlist = holding("s", &["a"]);
+        playlist.name = "old".into();
+        let api = Fake::default()
+            .heads([Ok(named("s", 1, 1, "old")), Ok(named("s", 1, 1, "server"))])
+            .posts([Ok(())]);
+        let err = rename(&api, &mut playlist, "new").unwrap_err();
+        assert!(matches!(err, EditError::NameNotApplied));
+        assert!(err.stores_copy());
+        assert_eq!(
+            err.note().as_deref(),
+            Some("Spotify did not apply the new name")
+        );
+        assert_eq!(playlist.name, "server");
+    }
+
+    #[test]
+    fn a_rename_compares_trimmed_names() {
+        let mut playlist = holding("s", &["a"]);
+        let api = Fake::default()
+            .heads([Ok(named("s", 1, 1, "old")), Ok(named("t", 1, 2, " new "))])
+            .posts([Ok(())]);
+        rename(&api, &mut playlist, "new").expect("verified");
+    }
+
+    #[test]
+    fn a_failed_or_nameless_head_after_a_rename_is_unverified() {
+        for after in [
+            Err(InternalError::Transient("x".into())),
+            Ok(head_at("t", 1, 2)),
+        ] {
+            let mut playlist = holding("s", &["a"]);
+            playlist.name = "old".into();
+            let api = Fake::default()
+                .heads([Ok(named("s", 1, 1, "old")), after])
+                .posts([Ok(())]);
+            let err = rename(&api, &mut playlist, "new").unwrap_err();
+            assert!(matches!(err, EditError::Unverified(_)));
+            assert_eq!(playlist.name, "old");
+            assert_eq!(
+                playlist.snapshot_id, "s",
+                "a rename never clears the snapshot"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rename_without_a_session_sends_nothing() {
+        let mut playlist = holding("s", &["a"]);
+        let api = Fake::default().heads([Err(InternalError::NoSession)]);
+        let err = rename(&api, &mut playlist, "new").unwrap_err();
+        assert!(matches!(err, EditError::Internal(InternalError::NoSession)));
+        assert!(api.sent.borrow().is_empty());
+    }
+
+    #[test]
+    fn the_expected_span_moves_the_item_inside_it() {
+        let tracks: Vec<Playable> = ["a", "b", "c", "d"]
+            .iter()
+            .enumerate()
+            .map(|(i, id)| at(&format!("spotify:track:{id}"), i))
+            .collect();
+        assert_eq!(expected_span(&tracks, 0, 2), track_uris(&["b", "c", "a"]));
+        assert_eq!(expected_span(&tracks, 3, 1), track_uris(&["d", "b", "c"]));
+        assert_eq!(moved_span(3, 1), (1, 3));
+    }
+
+    #[test]
+    fn verify_move_needs_a_new_revision_the_same_length_and_the_order() {
+        let base = Base {
+            revision: vec![1],
+            snapshot_id: "s".into(),
+            length: 3,
+        };
+        let want = track_uris(&["b", "a"]);
+        let check =
+            |after: Head, span: &[&str]| verify_move(&base, &after, &track_uris(span), &want);
+        assert_eq!(check(head_at("t", 3, 2), &["b", "a"]), MoveCheck::Applied);
+        assert_eq!(
+            check(head_at("s", 3, 1), &["b", "a"]),
+            MoveCheck::Differs,
+            "same revision"
+        );
+        assert_eq!(
+            check(head_at("t", 4, 2), &["b", "a"]),
+            MoveCheck::Differs,
+            "length"
+        );
+        assert_eq!(
+            check(head_at("t", 3, 2), &["a", "b"]),
+            MoveCheck::Differs,
+            "order"
+        );
+        let no_length = Head {
+            length: None,
+            ..head_at("t", 3, 2)
+        };
+        assert_eq!(check(no_length, &["b", "a"]), MoveCheck::Unreadable);
     }
 }
