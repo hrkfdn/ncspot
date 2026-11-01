@@ -421,26 +421,6 @@ impl Library {
             .any(|p| p.id == id && is_owned(&p.owner_id, self.user_id.as_deref()))
     }
 
-    /// Rename the stored playlist `id` to `name` (trimmed): see [Library::rename_copy].
-    /// Returns a refusal note to show; a failed write posts its own note.
-    pub fn rename_playlist(&self, id: &str, name: &str) -> Option<String> {
-        let Some(mut playlist) = self.stored_playlist(id) else {
-            return Some(RENAME_NOT_OWNER_NOTE.to_string());
-        };
-        let name = match rename_check(
-            &playlist.name,
-            &playlist.owner_id,
-            self.user_id.as_deref(),
-            name,
-        ) {
-            RenameCheck::Send(name) => name,
-            RenameCheck::Unchanged => return None,
-            RenameCheck::Refused(note) => return Some(note.to_string()),
-        };
-        self.rename_copy(&mut playlist, &name);
-        None
-    }
-
     /// Rename `playlist` (a copy of a stored playlist, `name` already checked): the internal
     /// API first (a verified attribute update), the Web API per the fallback classes; the copy,
     /// the store and `playlists.db` take the new name, or after a dropped rename the server's.
@@ -614,14 +594,8 @@ impl Library {
         Some((id, web_created.get()))
     }
 
-    /// Set the playlist with `id` to contain only `tracks`. If the playlist already contains
-    /// tracks, they will be removed. Update the cache to match the new state.
-    pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
-        self.overwrite_and_list(id, tracks);
-    }
-
-    /// The overwrite of [Library::overwrite_playlist] on the stored copy; true when it read the
-    /// playlist listing (after a Web overwrite).
+    /// Set playlist `id` (just created by a save-as job) to contain only `tracks`, on the
+    /// stored copy; true when it read the playlist listing (after a Web overwrite).
     fn overwrite_and_list(&self, id: &str, tracks: &[Playable]) -> bool {
         let mut stored = self.stored_playlist(id);
         let (written, web_used) = self.overwrite_on(id, stored.as_mut(), tracks);
@@ -1990,7 +1964,9 @@ impl Library {
 
     /// If there is a local version of the playlist, update it, rewrite the cache and redraw the
     /// views (also after a failed edit, whose copy may have been reloaded). The store shows
-    /// `updated` with the queued optimistic writes of its id applied.
+    /// `updated` with the queued optimistic writes of its id applied, so `updated` must be
+    /// built on the confirmed copy (the writer's, or a stored one with no write queued), never
+    /// on the optimistic store copy: its queued writes would show twice.
     pub fn playlist_update(&self, updated: &Playlist) {
         {
             let mut playlists = self.playlists.write().unwrap();
