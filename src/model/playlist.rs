@@ -11,10 +11,11 @@ use rspotify::model::playlist::{FullPlaylist, SimplifiedPlaylist};
 
 use crate::internal_api::Area;
 use crate::internal_api::fallback::{Action, decide_after, run_with_fallback};
+use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::library::{edit_failed, write_through};
 use crate::model::playable::Playable;
 use crate::model::track::Track;
-use crate::playlist_edit;
+use crate::playlist_edit::{self, EditError};
 use crate::queue::Queue;
 use crate::spotify::Spotify;
 use crate::traits::{IntoBoxedViewExt, ListItem, ViewExt};
@@ -154,6 +155,79 @@ impl Playlist {
         }
         library.playlist_update(self);
         Ok(())
+    }
+
+    /// Move the track `row` (a row of this playlist, which is in server order) up or down by
+    /// `n` rows, clamped to the first or last row: the internal API first (one verified MOV),
+    /// the Web API per the fallback classes. Returns the track's new server position, or
+    /// `None` when the move failed (its one note is posted). Nothing is sent when the track is
+    /// already at that end.
+    pub fn move_track(
+        &mut self,
+        row: &Playable,
+        n: usize,
+        up: bool,
+        spotify: &Spotify,
+        library: &Library,
+    ) -> Option<usize> {
+        let index = row.list_index();
+        let uri = row.uri();
+        let note = Cell::new(None);
+        let tracks = self.tracks.as_deref().unwrap_or_default();
+        if playlist_edit::server_item(tracks, index, &uri).is_none() {
+            note.set(EditError::Moved.note());
+            library.settle_write(false, &note);
+            return None;
+        }
+        let Some(to) = move_target(index, n, up, tracks.len()) else {
+            return Some(index);
+        };
+
+        let api = &spotify.api;
+        let known = || library.known_playables();
+        let moved = Cell::new(None);
+        let web_snapshot = Cell::new(None);
+        let id = self.id.clone();
+        let snapshot_id = self.snapshot_id.clone();
+        let written = write_through(
+            api,
+            Area::Playlists,
+            || {
+                playlist_edit::move_track(api, self, index, &uri, n, up, &known)
+                    .map(|at| moved.set(Some(at)))
+                    .map_err(|err| {
+                        // Also a copy reloaded before the failure (its snapshot changed).
+                        if err.stores_copy() || self.snapshot_id != snapshot_id {
+                            library.playlist_update(self);
+                        }
+                        edit_failed(err, &note)
+                    })
+            },
+            || {
+                // A cleared copy has no version for Spotify to apply the move to.
+                if snapshot_id.is_empty() {
+                    note.set(EditError::Moved.note());
+                    return false;
+                }
+                match api.reorder_playlist_item(&id, index, to, &snapshot_id) {
+                    Ok(snapshot) => {
+                        web_snapshot.set(Some(snapshot));
+                        true
+                    }
+                    Err(()) => false,
+                }
+            },
+        );
+        if !library.settle_write(written, &note) {
+            return None;
+        }
+        if let Some(snapshot) = web_snapshot.take() {
+            let at = moved_position(index, to);
+            playlist_edit::move_after_web(self, index, at, &snapshot);
+            moved.set(Some(at));
+        }
+        library.playlist_update(self);
+        moved.get()
     }
 
     pub fn append_tracks(&mut self, new_tracks: &[Playable], spotify: &Spotify, library: &Library) {

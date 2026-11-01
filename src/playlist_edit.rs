@@ -780,7 +780,6 @@ fn verify_move(base: &Base, after: &Head, span: &[String], expected: &[String]) 
 /// the first or last row, with one MOV against a fresh head, then read the moved span back.
 /// Returns the item's new server position; `index` when it is already at that end (nothing is
 /// sent). A stale copy is reloaded first, as for any write.
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn move_track(
     api: &impl PlaylistServer,
     playlist: &mut Playlist,
@@ -835,7 +834,6 @@ pub fn move_track(
 /// local copy, with the snapshot the Web reply named (the Web API applies a move to exactly
 /// the snapshot it was sent). A copy not in server order cannot take the move; its snapshot is
 /// cleared so the next open reloads it.
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn move_after_web(playlist: &mut Playlist, from: usize, to: usize, snapshot_id: &str) {
     match playlist.tracks.as_mut() {
         Some(tracks) if in_server_order(tracks) && from < tracks.len() && to < tracks.len() => {
@@ -851,7 +849,6 @@ pub fn move_after_web(playlist: &mut Playlist, from: usize, to: usize, snapshot_
 /// trimmed). The tracks are not read; a current copy takes the new snapshot, a stale one
 /// keeps its own so the next open reloads it. When the head reports another name, the copy
 /// takes it ([EditError::NameNotApplied]).
-#[cfg_attr(not(test), expect(dead_code))]
 pub fn rename(
     api: &impl PlaylistServer,
     playlist: &mut Playlist,

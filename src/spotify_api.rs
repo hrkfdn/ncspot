@@ -943,6 +943,46 @@ impl WebApi {
         .ok_or(())
     }
 
+    /// Move the item at `from` to before `insert_before` (an index before the move), against
+    /// `snapshot_id`: Spotify applies the move to that version or refuses it. Returns the new
+    /// snapshot id.
+    pub fn reorder_playlist_item(
+        &self,
+        playlist_id: &str,
+        from: usize,
+        insert_before: usize,
+        snapshot_id: &str,
+    ) -> Result<String, ()> {
+        let from = i32::try_from(from).map_err(|_| ())?;
+        let insert_before = i32::try_from(insert_before).map_err(|_| ())?;
+        self.api_with_retry(Route::Bulk, |api| {
+            api.playlist_reorder_items(
+                PlaylistId::from_id(playlist_id).unwrap(),
+                Some(from),
+                Some(insert_before),
+                Some(1),
+                Some(snapshot_id),
+            )
+        })
+        .map(|result| result.snapshot_id)
+        .ok_or(())
+    }
+
+    /// Set the name of the playlist with `playlist_id`.
+    pub fn rename_playlist(&self, playlist_id: &str, name: &str) -> Result<(), ()> {
+        self.api_with_retry(Route::Bulk, |api| {
+            api.playlist_change_detail(
+                PlaylistId::from_id(playlist_id).unwrap(),
+                Some(name),
+                None,
+                None,
+                None,
+            )
+        })
+        .map(|_| ())
+        .ok_or(())
+    }
+
     /// Set the playlist with `id` to contain only `tracks`. If the playlist already contains
     /// tracks, they will be removed.
     pub fn overwrite_playlist(&self, id: &str, tracks: &[Playable]) {
