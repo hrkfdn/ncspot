@@ -36,6 +36,15 @@ fn store_copy(library: &Library, id: &str) -> Option<Playlist> {
         .cloned()
 }
 
+/// The store's copy of playlist `id` while a write of it is queued or running, to open as is.
+fn pending_copy(library: &Library, id: &str) -> Option<Playlist> {
+    if library.writer.is_pending(id) {
+        store_copy(library, id)
+    } else {
+        None
+    }
+}
+
 /// Whether `a` and `b` show the same: name, revision, length and the (position, uri) of each
 /// track.
 fn same_playlist(a: &Playlist, b: &Playlist) -> bool {
@@ -103,16 +112,25 @@ pub struct PlaylistView {
 
 impl PlaylistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, playlist: &Playlist) -> Self {
-        let mut playlist = playlist.clone();
-        let cleared = playlist.tracks.is_some() && playlist.snapshot_id.is_empty();
-        playlist.load_tracks(&queue.get_spotify());
-        if cleared && !playlist.snapshot_id.is_empty() {
-            // Reloaded: store the current copy so the library matches the view, unless a
-            // sync stored a newer one meanwhile.
-            library.playlist_update_if_unchanged(&playlist, "");
-        }
-
-        let seen_rev = library.playlists_rev.load(Ordering::Relaxed);
+        // Read first, as in a refresh: a write after it is seen on the next poll.
+        let mut seen_rev = library.playlists_rev.load(Ordering::Relaxed);
+        let playlist = match pending_copy(&library, &playlist.id) {
+            // Queued writes: the store copy shows them (its cleared snapshot is theirs). A
+            // reload would show the server copy without them and could not be stored anyway.
+            Some(copy) => copy,
+            None => {
+                let mut playlist = playlist.clone();
+                let cleared = playlist.tracks.is_some() && playlist.snapshot_id.is_empty();
+                playlist.load_tracks(&queue.get_spotify());
+                if cleared && !playlist.snapshot_id.is_empty() {
+                    // Reloaded: store the current copy so the library matches the view,
+                    // unless a sync stored a newer one meanwhile.
+                    library.playlist_update_if_unchanged(&playlist, "");
+                }
+                seen_rev = library.playlists_rev.load(Ordering::Relaxed);
+                playlist
+            }
+        };
         let rows = Arc::new(RwLock::new(sorted_rows(&library, &playlist)));
         let list = ListView::new(rows.clone(), queue.clone(), library.clone());
 
@@ -339,6 +357,34 @@ mod tests {
             PlaylistView::new(queue, library.clone(), &playlist),
             library,
         )
+    }
+
+    #[test]
+    fn a_view_opened_on_pending_writes_shows_them() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        let before = view.playlist.clone();
+        assert_eq!(view.shift(&ShiftMode::Down, 1), None);
+        library.queue_rename("p", "renamed");
+        // Opened from a copy taken before the writes (the Playlists tab's row).
+        let queue = view.queue.clone();
+        let reopened = PlaylistView::new(queue, library.clone(), &before);
+        assert_eq!(view_uris(&reopened), ["b", "a", "c"]);
+        assert_eq!(reopened.playlist.name, "renamed");
+        assert!(
+            reopened.playlist.snapshot_id.is_empty(),
+            "the optimistic copy"
+        );
+        assert!(pending_copy(&library, "p").is_some(), "opened as is");
+        assert!(!needs_refresh(
+            reopened.seen_rev,
+            library.playlists_rev.load(Ordering::Relaxed)
+        ));
+    }
+
+    #[test]
+    fn a_playlist_without_pending_writes_is_not_opened_as_is() {
+        let (_view, library) = test_view(&["a"]);
+        assert!(pending_copy(&library, "p").is_none());
     }
 
     fn view_uris(view: &PlaylistView) -> Vec<String> {
