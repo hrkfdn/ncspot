@@ -234,9 +234,11 @@ impl Library {
     /// Save the items from `store` in the file at `cache_path`. False (logged) on failure.
     fn save_cache<T: Serialize>(&self, cache_path: &Path, store: &[T]) -> bool {
         // Write beside the target and rename over it, so a reader (or a crash) never sees a
-        // truncated cache.
+        // truncated cache. The name is unique per call: two saves of one cache never share it.
+        static SAVES: AtomicU64 = AtomicU64::new(0);
+        let n = SAVES.fetch_add(1, Ordering::Relaxed);
         let mut tmp = cache_path.as_os_str().to_owned();
-        tmp.push(".tmp");
+        tmp.push(format!(".{}.{n}.tmp", std::process::id()));
         let tmp = std::path::PathBuf::from(tmp);
         let written = File::create(&tmp)
             .map_err(|e| e.to_string())
@@ -4964,7 +4966,23 @@ mod test {
         let path = dir.join("x.db");
         assert!(library.save_cache(&path, &[1, 2, 3]));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "[1,2,3]");
-        assert!(!dir.join("x.db.tmp").exists());
+        let saves: Vec<_> = (0..8)
+            .map(|i| {
+                let (library, path) = (library.clone(), path.clone());
+                std::thread::spawn(move || library.save_cache(&path, &vec![i; 2000]))
+            })
+            .collect();
+        for save in saves {
+            assert!(save.join().unwrap());
+        }
+        let saved: Vec<u32> =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).expect("one whole save");
+        assert!(saved.len() == 2000 && saved.iter().all(|&v| v == saved[0]));
+        let left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(left, ["x.db"], "no temp file is left");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
