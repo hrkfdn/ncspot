@@ -690,8 +690,8 @@ def sc_playlists_area_off(inst, args):
 
 
 def sc_playlist_write(inst, args):
-    """Create a test playlist, add, remove and overwrite over the internal API, no fallback.
-    The playlist is recorded for the user to remove; nothing is deleted here."""
+    """Create a test playlist, add, remove, overwrite, move and rename over the internal
+    API, no fallback. The playlist is recorded for the user to remove; nothing is deleted here."""
     d = inst.wait_library(args.settle_timeout * 4, blocked_on=["internal"])
     blocked_if_throttled(d, ["internal"])
     inst.base_dump = d
@@ -711,6 +711,23 @@ def sc_playlist_write(inst, args):
         blocked_if_throttled(d, ["internal"])
         expect(d.get("error") is None, f"{cmd}: no error", d.get("error"))
         expect(d["playlists"]["last_test_len"] == want, f"{cmd}: test playlist holds {want}", d["playlists"])
+    # The overwrite left the public test tracks A, B, C; each move with the order after it.
+    moves = (
+        ("harness playlist-move-test 0 1", "BAC"),
+        ("harness playlist-move-test 2 -1", "BCA"),
+        ("harness playlist-move-test 0 10", "CAB"),
+    )
+    for cmd, want in moves:
+        inst.send(cmd)
+        d = inst.wait_settled(args.settle_timeout)
+        blocked_if_throttled(d, ["internal"])
+        expect(d.get("error") is None, f"{cmd}: no error", d.get("error"))
+        expect(d["playlists"]["last_test_order"] == want, f"{cmd}: order {want}", d["playlists"])
+    inst.send("harness playlist-rename-test")
+    d = inst.wait_settled(args.settle_timeout)
+    blocked_if_throttled(d, ["internal"])
+    expect(d.get("error") is None, "rename: no error", d.get("error"))
+    expect(d["playlists"]["last_test_renamed"] is True, "rename: name ends in -renamed", d["playlists"])
     m = area_delta(inst, d, "playlists")
     expect(m["fallback"] == 0, "no playlists fallback", m)
     expect(not d["areas"]["playlists"]["latched"], "area not latched", d["areas"]["playlists"])

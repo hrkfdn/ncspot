@@ -271,6 +271,11 @@ pub enum HarnessCommand {
     PlaylistRemoveTest(usize),
     /// Replace the most recent test playlist's contents with the first n public test tracks.
     PlaylistOverwriteTest(usize),
+    /// Move the track at an index of the most recent test playlist by a signed row count
+    /// (negative: up).
+    PlaylistMoveTest(usize, i32),
+    /// Rename the most recent test playlist to its name plus `-renamed`.
+    PlaylistRenameTest,
     /// Shut the playback session down so the worker has to reconnect.
     DropSession,
     /// Write a JSON snapshot of the current view to a file.
@@ -396,6 +401,16 @@ impl fmt::Display for Command {
             #[cfg(feature = "harness")]
             Self::Harness(HarnessCommand::PlaylistOverwriteTest(n)) => {
                 vec!["playlist-overwrite-test".into(), n.to_string()]
+            }
+            #[cfg(feature = "harness")]
+            Self::Harness(HarnessCommand::PlaylistMoveTest(index, n)) => vec![
+                "playlist-move-test".into(),
+                index.to_string(),
+                n.to_string(),
+            ],
+            #[cfg(feature = "harness")]
+            Self::Harness(HarnessCommand::PlaylistRenameTest) => {
+                vec!["playlist-rename-test".into()]
             }
             #[cfg(feature = "harness")]
             Self::Harness(HarnessCommand::DropSession) => vec!["drop-session".into()],
@@ -1163,6 +1178,20 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                             cmd: format!("{command} {sub}"),
                             hint: Some("a number".into()),
                         }),
+                    (Some("playlist-move-test"), [index, n]) => {
+                        match (index.parse(), n.parse()) {
+                            (Ok(index), Ok(n)) => {
+                                Ok(Command::Harness(HarnessCommand::PlaylistMoveTest(index, n)))
+                            }
+                            _ => Err(E::InsufficientArgs {
+                                cmd: format!("{command} playlist-move-test"),
+                                hint: Some("an index and a signed count".into()),
+                            }),
+                        }
+                    }
+                    (Some("playlist-rename-test"), []) => {
+                        Ok(Command::Harness(HarnessCommand::PlaylistRenameTest))
+                    }
                     (Some("save"), [target]) => Ok(Command::Harness(HarnessCommand::Save(
                         (*target).to_string(),
                     ))),
@@ -1179,7 +1208,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         Some(
                             sub @ ("open" | "dump" | "save" | "unsave" | "unfollow-recorded"
                             | "playlist-add-test" | "playlist-remove-test"
-                            | "playlist-overwrite-test"),
+                            | "playlist-overwrite-test" | "playlist-move-test"),
                         ),
                         _,
                     ) => {
@@ -1189,6 +1218,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 match sub {
                                     "dump" => "a file path",
                                     "unfollow-recorded" => "a recorded playlist number",
+                                    "playlist-move-test" => "an index and a signed count",
                                     "playlist-add-test" | "playlist-remove-test"
                                     | "playlist-overwrite-test" => "a number",
                                     _ => "a Spotify URI or URL",
@@ -1211,13 +1241,15 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                             "playlist-add-test".into(),
                             "playlist-remove-test".into(),
                             "playlist-overwrite-test".into(),
+                            "playlist-move-test".into(),
+                            "playlist-rename-test".into(),
                         ],
                         optional: false,
                     }),
                     (None, _) => Err(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some(
-                            "open|dump|drop-session|save|unsave|newplaylist-test|test-playlists|unfollow-recorded|playlist-add-test|playlist-remove-test|playlist-overwrite-test"
+                            "open|dump|drop-session|save|unsave|newplaylist-test|test-playlists|unfollow-recorded|playlist-add-test|playlist-remove-test|playlist-overwrite-test|playlist-move-test|playlist-rename-test"
                                 .into(),
                         ),
                     }),
@@ -1327,6 +1359,25 @@ mod tests {
         assert!(parse("harness playlist-add-test").is_err());
         assert!(parse("harness playlist-remove-test x").is_err());
         assert!(parse("harness playlist-overwrite-test -1").is_err());
+    }
+
+    #[cfg(feature = "harness")]
+    #[test]
+    fn parses_the_playlist_move_and_rename_verbs() {
+        assert!(matches!(
+            parse("harness playlist-move-test 2 -1").as_deref(),
+            Ok([Command::Harness(HarnessCommand::PlaylistMoveTest(2, -1))])
+        ));
+        assert!(parse("harness playlist-move-test 2").is_err());
+        assert!(parse("harness playlist-move-test x 1").is_err());
+        assert!(matches!(
+            parse("harness playlist-rename-test").as_deref(),
+            Ok([Command::Harness(HarnessCommand::PlaylistRenameTest)])
+        ));
+        assert_eq!(
+            Command::Harness(HarnessCommand::PlaylistMoveTest(0, 10)).to_string(),
+            "harness playlist-move-test 0 10"
+        );
     }
 
     #[test]

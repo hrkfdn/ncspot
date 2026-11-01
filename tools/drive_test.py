@@ -307,28 +307,35 @@ class CleanupTest(unittest.TestCase):
 
 class PlaylistsScenarioTest(unittest.TestCase):
     @staticmethod
-    def d(fallback=0, latched=False, stored=9, layout=8, rows=9, base=False, tab=True, last_len=3, error=None):
+    def d(fallback=0, latched=False, stored=9, layout=8, rows=9, base=False, tab=True, last_len=3, error=None, order=None, renamed=None):
         return {
             "areas": {
                 "playlists": {"internal_ok": 0 if base else 4, "fallback": fallback, "latched": latched}
             },
             "web": {"shared": 0, "personal": 0},
             "throttled": {},
-            "playlists": {"stored": stored, "layout": layout, "last_test_len": last_len},
+            "playlists": {"stored": stored, "layout": layout, "last_test_len": last_len,
+                          "last_test_order": order, "last_test_renamed": renamed},
             "error": error,
             "tabs": [{"name": "Playlists", "rows": rows}] if tab else [{"name": "Albums", "rows": 3}],
         }
 
     # The test playlist's length after the create and after each write command.
     WRITE_LENS = (0, 2, 1, 3)
+    # The order after each of the three moves.
+    WRITE_ORDERS = ("BAC", "BCA", "CAB")
 
-    def run_with(self, func, lens=None, **kw):
+    def run_with(self, func, lens=None, orders=None, **kw):
         base = self.d(base=True)
         dump = self.d(**kw)
         if lens is None and func is drive.sc_playlist_write:
             lens = self.WRITE_LENS
         # One dump per settle, in order; past the end (or without lens) the same dump.
         settled = [self.d(**{**kw, "last_len": n}) for n in lens or ()]
+        if func is drive.sc_playlist_write:
+            orders = orders or self.WRITE_ORDERS
+            settled += [self.d(**{**kw, "order": o}) for o in orders]
+            settled.append(self.d(**{**kw, "renamed": True}))
 
         class Inst:
             base_dump = base
@@ -394,6 +401,10 @@ class PlaylistsScenarioTest(unittest.TestCase):
         for lens in ((0, 1, 1, 3), (0, 2, 2, 3), (0, 2, 1, 2), (0, 2, 1, None)):
             with self.assertRaises(drive.Fail, msg=lens):
                 self.run_with(drive.sc_playlist_write, lens=lens)
+
+    def test_playlist_write_wrong_order_or_unrenamed_fails(self):
+        with self.assertRaises(drive.Fail):
+            self.run_with(drive.sc_playlist_write, orders=("BAC", "ABC", "CAB"))
 
     def test_playlist_write_throttled_is_blocked(self):
         original = self.d
