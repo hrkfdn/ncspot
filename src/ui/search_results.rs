@@ -370,11 +370,16 @@ impl SearchResultsView {
                 let loaded_items = results.read().unwrap().len();
                 if total_items > loaded_items {
                     let ev = ev.clone();
+                    let max_content = paginator.max_content_handle();
 
                     // paginator callback
                     let cb = move |items: Arc<RwLock<Vec<I>>>| {
                         let offset = items.read().unwrap().len();
-                        handler(&spotify, &results, &query, offset, true);
+                        let total = handler(&spotify, &results, &query, offset, true);
+                        // 0 is a failed page, which scrolling again retries
+                        if total > 0 {
+                            *max_content.write().unwrap() = Some(total as usize);
+                        }
                         ev.trigger();
                     };
                     paginator.set(loaded_items, total_items, Box::new(cb));
