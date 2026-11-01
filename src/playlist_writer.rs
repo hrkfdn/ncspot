@@ -750,18 +750,18 @@ mod tests {
         let w = PlaylistWriter::new();
         queue_move(&w, &p, 0, "a");
         let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let (started_tx, started) = std::sync::mpsc::channel::<()>();
         let worker = {
             let w = w.clone();
             std::thread::spawn(move || {
                 w.step(|_, _| {
+                    started_tx.send(()).unwrap();
                     rx.recv().unwrap();
                     true
                 })
             })
         };
-        while w.wait_idle(Duration::from_millis(10)) {
-            std::thread::yield_now();
-        }
+        started.recv().unwrap();
         assert!(!w.wait_idle(Duration::from_millis(10)));
         w.stop();
         tx.send(()).unwrap();
