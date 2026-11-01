@@ -390,6 +390,21 @@ impl WebApi {
         })
     }
 
+    /// Items `from..from + length` of one playlist (their uris) with the head they were read
+    /// at; past the end the items are empty.
+    pub fn playlist_range(
+        &self,
+        id: &str,
+        from: usize,
+        length: usize,
+    ) -> Result<(Head, Vec<String>), InternalError> {
+        let id = id.to_string();
+        self.run_internal(Area::Playlists, |session| {
+            playlist::range(session, id.clone(), from, length)
+        })
+        .map(|(head, items)| (head, items.into_iter().map(|item| item.uri).collect()))
+    }
+
     /// The rootlist revision and length, without entries.
     pub fn rootlist_head(&self) -> Result<RootHead, InternalError> {
         self.run_internal(Area::Playlists, playlist::rootlist_head)

@@ -41,6 +41,15 @@ pub trait PlaylistServer {
         id: &str,
         known: &HashMap<String, Playable>,
     ) -> Result<(Head, Vec<Playable>), InternalError>;
+    /// Items `from..from + length` (their uris) with the head they were read at; past the end
+    /// the items are empty.
+    #[expect(dead_code)]
+    fn playlist_range(
+        &self,
+        id: &str,
+        from: usize,
+        length: usize,
+    ) -> Result<(Head, Vec<String>), InternalError>;
     /// One write POST, sent at most once.
     fn playlist_changes(&self, id: &str, body: ListChanges) -> Result<(), InternalError>;
     /// The whole rootlist, page by page (up to the page cap).
@@ -65,6 +74,15 @@ impl PlaylistServer for WebApi {
         known: &HashMap<String, Playable>,
     ) -> Result<(Head, Vec<Playable>), InternalError> {
         Self::playlist_playables_at(self, id, known)
+    }
+
+    fn playlist_range(
+        &self,
+        id: &str,
+        from: usize,
+        length: usize,
+    ) -> Result<(Head, Vec<String>), InternalError> {
+        Self::playlist_range(self, id, from, length)
     }
 
     fn playlist_changes(&self, id: &str, body: ListChanges) -> Result<(), InternalError> {
@@ -1642,6 +1660,7 @@ mod tests {
     }
 
     type ContentsRead = Result<(Head, Vec<Playable>), InternalError>;
+    type RangeRead = Result<(Head, Vec<String>), InternalError>;
 
     /// A scripted server: each call takes the next queued reply (a call with none queued
     /// panics) and is recorded.
@@ -1649,6 +1668,11 @@ mod tests {
     struct Fake {
         heads: RefCell<VecDeque<Result<Head, InternalError>>>,
         contents: RefCell<VecDeque<ContentsRead>>,
+        #[expect(dead_code)]
+        ranges: RefCell<VecDeque<RangeRead>>,
+        /// `(from, length)` of each range read, in order.
+        #[expect(dead_code)]
+        range_reads: RefCell<Vec<(usize, usize)>>,
         posts: RefCell<VecDeque<Result<(), InternalError>>>,
         sent: RefCell<Vec<ListChanges>>,
         contents_reads: std::cell::Cell<usize>,
@@ -1667,6 +1691,12 @@ mod tests {
 
         fn posts(self, posts: impl IntoIterator<Item = Result<(), InternalError>>) -> Self {
             self.posts.borrow_mut().extend(posts);
+            self
+        }
+
+        #[expect(dead_code)]
+        fn ranges(self, reads: impl IntoIterator<Item = RangeRead>) -> Self {
+            self.ranges.borrow_mut().extend(reads);
             self
         }
 
@@ -1716,6 +1746,14 @@ mod tests {
                 .borrow_mut()
                 .pop_front()
                 .expect("a queued contents read")
+        }
+
+        fn playlist_range(&self, _id: &str, from: usize, length: usize) -> RangeRead {
+            self.range_reads.borrow_mut().push((from, length));
+            self.ranges
+                .borrow_mut()
+                .pop_front()
+                .expect("a queued range read")
         }
 
         fn playlist_changes(&self, _id: &str, body: ListChanges) -> Result<(), InternalError> {

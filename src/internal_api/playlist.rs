@@ -306,6 +306,29 @@ pub async fn head(session: Session, id: String) -> Result<Head, InternalError> {
     Ok(parse_head(&parse(&bytes)?))
 }
 
+/// Items `from..from + length` of one playlist with the head they were read at (the revision
+/// and the whole playlist's length, not the count read). Past the end the items are empty, not
+/// an error. An id that does not parse does not exist.
+pub async fn range(
+    session: Session,
+    id: String,
+    from: usize,
+    length: usize,
+) -> Result<(Head, Vec<PlaylistItem>), InternalError> {
+    debug!("playlist range");
+    let id = SpotifyId::from_base62(&id).map_err(|_| InternalError::NotFound)?;
+    let endpoint = format!(
+        "/playlist/v2/playlist/{}?from={from}&length={length}",
+        id.to_base62()
+    );
+    let bytes = session
+        .spclient()
+        .request(&Method::GET, &endpoint, None, None)
+        .await
+        .map_err(|e| classify(&e))?;
+    Ok(parse_listing(parse(&bytes)?))
+}
+
 /// The rootlist revision and length, without entries.
 pub async fn rootlist_head(session: Session) -> Result<RootHead, InternalError> {
     debug!("rootlist head");
@@ -323,6 +346,29 @@ mod tests {
     use librespot_protocol::playlist4_external::{
         Item, ListAttributes, ListItems, MetaItem, PictureSize, SelectedListContent,
     };
+
+    #[test]
+    fn a_range_read_reports_the_whole_length_and_its_items() {
+        let content = SelectedListContent {
+            revision: Some(vec![7]),
+            length: Some(3),
+            contents: protobuf::MessageField::some(ListItems {
+                pos: Some(1),
+                items: vec![item("spotify:track:c")],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let (head, items) = parse_listing(content);
+        assert_eq!(
+            head.length,
+            Some(3),
+            "the playlist length, not the count read"
+        );
+        assert_eq!(head.revision, vec![7]);
+        let uris: Vec<&str> = items.iter().map(|i| i.uri.as_str()).collect();
+        assert_eq!(uris, ["spotify:track:c"]);
+    }
 
     fn item(uri: &str) -> Item {
         Item {
