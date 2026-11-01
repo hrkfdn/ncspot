@@ -1,4 +1,5 @@
-//! Playlist v2 writes (create, add, remove, rootlist edits) over the librespot session.
+//! Playlist v2 writes (create, add, remove, move, rename, rootlist edits) over the librespot
+//! session.
 //!
 //! The request builders are pure; the senders POST protobuf through the spclient. A reply never
 //! proves a write applied, so callers verify with a head read.
@@ -7,7 +8,8 @@ use http::{HeaderMap, HeaderValue, Method, header};
 use librespot_core::Session;
 use librespot_protocol::playlist4_external::{
     Add, ChangeInfo, CreateListReply, Delta, Item, ListAttributes, ListAttributesPartialState,
-    ListChanges, Op, OpList, Rem, SourceInfo, UpdateListAttributes, op::Kind, source_info::Client,
+    ListChanges, Mov, Op, OpList, Rem, SourceInfo, UpdateListAttributes, op::Kind,
+    source_info::Client,
 };
 use log::debug;
 use protobuf::{EnumOrUnknown, Message, MessageField};
@@ -44,8 +46,8 @@ fn items(uris: &[String]) -> Vec<Item> {
         .collect()
 }
 
-/// The body that creates a playlist with `name` (and nothing else).
-pub fn create_body(name: &str) -> OpList {
+/// The attribute update that sets the playlist name to `name` (and nothing else).
+pub fn rename_op(name: &str) -> Op {
     let mut update = op(Kind::UPDATE_LIST_ATTRIBUTES);
     update.update_list_attributes = MessageField::some(UpdateListAttributes {
         new_attributes: MessageField::some(ListAttributesPartialState {
@@ -57,8 +59,13 @@ pub fn create_body(name: &str) -> OpList {
         }),
         ..Default::default()
     });
+    update
+}
+
+/// The body that creates a playlist with `name` (and nothing else).
+pub fn create_body(name: &str) -> OpList {
     OpList {
-        ops: vec![update],
+        ops: vec![rename_op(name)],
         ..Default::default()
     }
 }
@@ -91,6 +98,41 @@ fn remove_range_op(index: usize, length: usize) -> Op {
         ..Default::default()
     });
     out
+}
+
+/// MOV of `length` items at `from` to before `to`, where `to` is an index in the list before
+/// the move (`to` equal to the length is the end).
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn move_op(from: usize, length: usize, to: usize) -> Op {
+    let mut out = op(Kind::MOV);
+    out.mov = MessageField::some(Mov {
+        from_index: Some(to_i32(from)),
+        length: Some(to_i32(length)),
+        to_index: Some(to_i32(to)),
+        ..Default::default()
+    });
+    out
+}
+
+/// The `to` of a [move_op] that moves the item at `index` of a list of `length` up or down
+/// by `n` rows, clamped to the first or last row. None when nothing would move: `n` is 0, the
+/// item is already at that end, or `index` is past the end.
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn move_target(index: usize, n: usize, up: bool, length: usize) -> Option<usize> {
+    if n == 0 || index >= length {
+        return None;
+    }
+    if up {
+        (index > 0).then(|| index.saturating_sub(n))
+    } else {
+        (index + 1 < length).then(|| index.saturating_add(n).min(length - 1) + 1)
+    }
+}
+
+/// Where the item at `from` ends up after a [move_op] to `to`.
+#[cfg_attr(not(test), expect(dead_code))]
+pub fn moved_position(from: usize, to: usize) -> usize {
+    if to > from { to - 1 } else { to }
 }
 
 /// REM of the current contents (when `current_len > 0`) then ADD ops of up to [ADD_BATCH]
@@ -246,6 +288,60 @@ mod tests {
         assert_eq!(kind(&body.ops[0]), Kind::UPDATE_LIST_ATTRIBUTES);
         let values = &body.ops[0].update_list_attributes.new_attributes.values;
         assert_eq!(values.name.as_deref(), Some("ncspot-test-1"));
+    }
+
+    #[test]
+    fn move_op_names_from_length_and_to() {
+        let op = move_op(0, 2, 3);
+        assert_eq!(kind(&op), Kind::MOV);
+        assert_eq!(
+            (op.mov.from_index, op.mov.length, op.mov.to_index),
+            (Some(0), Some(2), Some(3))
+        );
+        assert!(op.mov.items.is_empty());
+    }
+
+    #[test]
+    fn rename_op_sets_only_the_name() {
+        let op = rename_op("ncspot-test-1-renamed");
+        assert_eq!(kind(&op), Kind::UPDATE_LIST_ATTRIBUTES);
+        let values = &op.update_list_attributes.new_attributes.values;
+        assert_eq!(values.name.as_deref(), Some("ncspot-test-1-renamed"));
+        assert_eq!(values.description, None);
+    }
+
+    #[test]
+    fn move_target_matches_the_spike() {
+        // P1: ABC, 0 down 1 -> to 2 (BAC). P2: 2 up 2 -> to 0. P3: 0 down 2 -> to 3 (the end).
+        // P4: 1 up 1 -> to 0.
+        assert_eq!(move_target(0, 1, false, 3), Some(2));
+        assert_eq!(move_target(2, 2, true, 3), Some(0));
+        assert_eq!(move_target(0, 2, false, 3), Some(3));
+        assert_eq!(move_target(1, 1, true, 3), Some(0));
+    }
+
+    #[test]
+    fn move_target_clamps_past_either_end() {
+        assert_eq!(move_target(1, 10, false, 3), Some(3));
+        assert_eq!(move_target(1, 10, true, 3), Some(0));
+    }
+
+    #[test]
+    fn move_target_is_none_when_nothing_moves() {
+        assert_eq!(move_target(0, 1, true, 3), None, "already first");
+        assert_eq!(move_target(2, 1, false, 3), None, "already last");
+        assert_eq!(move_target(1, 0, true, 3), None, "n is 0");
+        assert_eq!(move_target(1, 0, false, 3), None, "n is 0");
+        assert_eq!(move_target(3, 1, true, 3), None, "past the end");
+        assert_eq!(move_target(0, 1, false, 0), None, "empty");
+    }
+
+    #[test]
+    fn moved_position_is_to_minus_one_down_and_to_up() {
+        assert_eq!(moved_position(0, 2), 1);
+        assert_eq!(moved_position(0, 3), 2);
+        assert_eq!(moved_position(2, 0), 0);
+        assert_eq!(moved_position(2, 1), 1);
     }
 
     #[test]
