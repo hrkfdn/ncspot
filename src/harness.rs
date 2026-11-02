@@ -10,6 +10,7 @@ use log::error;
 use serde::Serialize;
 
 use crate::activity::ACTIVITY;
+use crate::command::ShiftMode;
 use crate::internal_api::{Area, AreaCounts};
 use crate::library::Library;
 use crate::model::album::Album;
@@ -97,7 +98,7 @@ pub struct Dump {
 }
 
 /// How many playlists the library holds and how many of them the Playlists tab layout lists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PlaylistCounts {
     pub stored: usize,
     /// Number of `LayoutEntry::Playlist` entries.
@@ -105,6 +106,12 @@ pub struct PlaylistCounts {
     /// Track count of the most recently recorded test playlist in the store; `None` when there
     /// is none (or it is not stored).
     pub last_test_len: Option<usize>,
+    /// The most recent test playlist's tracks as letters (`A`, `B`, `C`: the public test
+    /// tracks in order; `?`: any other); `None` as for `last_test_len`.
+    pub last_test_order: Option<String>,
+    /// Whether the most recent test playlist's name ends in `-renamed`; `None` as for
+    /// `last_test_len`.
+    pub last_test_renamed: Option<bool>,
 }
 
 /// What the player is doing.
@@ -295,6 +302,73 @@ pub fn playlist_overwrite_test(library: &Library, n: usize) -> Result<(), String
     let playlist = last_test_playlist(library, "playlist-overwrite-test")?;
     library.overwrite_playlist(&playlist.id, &public_test_tracks(n));
     Ok(())
+}
+
+/// Name suffix `playlist-rename-test` adds.
+const RENAMED_SUFFIX: &str = "-renamed";
+
+/// Move the track at `index` of the most recent test playlist by `n` rows (negative: up),
+/// through the same path as `Shift` in a playlist view.
+pub fn playlist_move_test(
+    library: &Library,
+    spotify: &Spotify,
+    index: usize,
+    n: i32,
+) -> Result<(), String> {
+    let mut playlist = last_test_playlist(library, "playlist-move-test")?;
+    let row = playlist
+        .tracks
+        .as_ref()
+        .and_then(|tracks| tracks.get(index))
+        .cloned()
+        .ok_or_else(|| format!("harness playlist-move-test: no track {index}"))?;
+    let (up, steps) = crate::ui::playlist::shift_direction(&ShiftMode::Down, n);
+    playlist
+        .move_track(&row, steps, up, spotify, library)
+        .map(|_| ())
+        .ok_or_else(|| "harness playlist-move-test: the move failed".to_string())
+}
+
+/// Rename the most recent test playlist to its name plus [RENAMED_SUFFIX].
+pub fn playlist_rename_test(library: &Library) -> Result<(), String> {
+    let playlist = last_test_playlist(library, "playlist-rename-test")?;
+    if playlist.name.ends_with(RENAMED_SUFFIX) {
+        return Err("harness playlist-rename-test: already renamed".into());
+    }
+    let name = format!("{}{RENAMED_SUFFIX}", playlist.name);
+    match library.rename_playlist(&playlist.id, &name) {
+        Some(note) => Err(format!("harness playlist-rename-test: {note}")),
+        None => Ok(()),
+    }
+}
+
+/// `A`, `B`, `C` for the public test tracks in order, `?` for any other track.
+fn track_letter(uri: &str) -> char {
+    PUBLIC_TEST_TRACKS
+        .iter()
+        .position(|track| *track == uri)
+        .and_then(|i| u8::try_from(i).ok())
+        .map_or('?', |i| char::from(b'A' + i))
+}
+
+/// The most recent test playlist's tracks as letters ([track_letter]), for the dump.
+pub fn last_test_order(library: &Library) -> Option<String> {
+    let playlist = last_test_playlist(library, "dump").ok()?;
+    Some(
+        playlist
+            .tracks
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .map(|playable| track_letter(&playable.uri()))
+            .collect(),
+    )
+}
+
+/// Whether the most recent test playlist's name ends in [RENAMED_SUFFIX], for the dump.
+pub fn last_test_renamed(library: &Library) -> Option<bool> {
+    let playlist = last_test_playlist(library, "dump").ok()?;
+    Some(playlist.name.ends_with(RENAMED_SUFFIX))
 }
 
 /// Names of the recorded test playlists, in file order: from the store, else the internal head
@@ -714,6 +788,8 @@ mod tests {
                 stored: 9,
                 layout: 8,
                 last_test_len: Some(3),
+                last_test_order: Some("ABC".into()),
+                last_test_renamed: Some(false),
             },
             player: PlayerState {
                 status: "playing".into(),
@@ -732,8 +808,15 @@ mod tests {
         let json = serde_json::to_string(&sample()).unwrap();
         assert_eq!(
             json,
-            r#"{"seq":7,"view":"album","title":"T","tab":"Tracks","tabs":[{"name":"Tracks","rows":12,"playable":11,"max":12,"busy":false}],"in_flight":0,"quiet_ms":850,"error":null,"areas":{"metadata":{"internal_ok":14,"fallback":0,"latched":false},"library":{"internal_ok":3,"fallback":0,"latched":false},"playlists":{"internal_ok":5,"fallback":1,"latched":false}},"web":{"shared":0,"personal":2},"throttled":{"shared":false,"personal":false,"internal":false},"library_done":true,"playlists":{"stored":9,"layout":8,"last_test_len":3},"player":{"status":"playing","position_ms":1200},"session":{"valid":true,"reconnects":1},"test_playlists":[]}"#
+            r#"{"seq":7,"view":"album","title":"T","tab":"Tracks","tabs":[{"name":"Tracks","rows":12,"playable":11,"max":12,"busy":false}],"in_flight":0,"quiet_ms":850,"error":null,"areas":{"metadata":{"internal_ok":14,"fallback":0,"latched":false},"library":{"internal_ok":3,"fallback":0,"latched":false},"playlists":{"internal_ok":5,"fallback":1,"latched":false}},"web":{"shared":0,"personal":2},"throttled":{"shared":false,"personal":false,"internal":false},"library_done":true,"playlists":{"stored":9,"layout":8,"last_test_len":3,"last_test_order":"ABC","last_test_renamed":false},"player":{"status":"playing","position_ms":1200},"session":{"valid":true,"reconnects":1},"test_playlists":[]}"#
         );
+    }
+
+    #[test]
+    fn public_test_tracks_are_letters_in_order() {
+        assert_eq!(track_letter(PUBLIC_TEST_TRACKS[0]), 'A');
+        assert_eq!(track_letter(PUBLIC_TEST_TRACKS[2]), 'C');
+        assert_eq!(track_letter("spotify:track:other"), '?');
     }
 
     #[test]
@@ -763,6 +846,8 @@ mod tests {
             stored: 3,
             layout: 2,
             last_test_len: None,
+            last_test_order: None,
+            last_test_renamed: None,
         };
         let first = build_dump(
             "x".into(),
@@ -770,9 +855,9 @@ mod tests {
             Some("boom".into()),
             &spotify,
             false,
-            counts,
+            counts.clone(),
         );
-        let second = build_dump("x".into(), None, None, &spotify, false, counts);
+        let second = build_dump("x".into(), None, None, &spotify, false, counts.clone());
         assert!(!first.session.valid);
         assert_eq!(first.session.reconnects, 0);
         assert_eq!(first.player.status, "stopped");

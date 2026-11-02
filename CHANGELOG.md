@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Save episodes to Your Episodes from their context menu
 - `u` updates only the current library tab
 - Pin and unpin playlists (`pin`, `unpin`, the context menu)
+- Rename a playlist (`rename`, the context menu)
+- Move tracks in a playlist with `Shift+Up` and `Shift+Down` (`shift`)
+- `sort custom` shows a playlist in its own order again
 
 ### Changed
 

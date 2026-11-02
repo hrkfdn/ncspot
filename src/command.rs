@@ -47,6 +47,7 @@ const RELOAD_CONFIG_CMD: &str = "reload";
 const NOOP_CMD: &str = "noop";
 const INSERT_CMD: &str = "insert";
 const NEW_PLAYLIST_CMD: &str = "newplaylist";
+const RENAME_CMD: &str = "rename";
 const SORT_CMD: &str = "sort";
 const LOGOUT_CMD: &str = "logout";
 const SHOW_RECOMMENDATIONS_CMD: &str = "similar";
@@ -113,6 +114,7 @@ pub const ALL_COMMANDS: &[&str] = &[
     NOOP_CMD,
     INSERT_CMD,
     NEW_PLAYLIST_CMD,
+    RENAME_CMD,
     SORT_CMD,
     LOGOUT_CMD,
     SHOW_RECOMMENDATIONS_CMD,
@@ -176,6 +178,8 @@ pub enum SortKey {
     Artist,
     Album,
     Added,
+    /// Server order: no saved sort.
+    Custom,
 }
 
 #[derive(Display, Clone, Serialize, Deserialize, Debug)]
@@ -267,6 +271,11 @@ pub enum HarnessCommand {
     PlaylistRemoveTest(usize),
     /// Replace the most recent test playlist's contents with the first n public test tracks.
     PlaylistOverwriteTest(usize),
+    /// Move the track at an index of the most recent test playlist by a signed row count
+    /// (negative: up).
+    PlaylistMoveTest(usize, i32),
+    /// Rename the most recent test playlist to its name plus `-renamed`.
+    PlaylistRenameTest,
     /// Shut the playback session down so the worker has to reconnect.
     DropSession,
     /// Write a JSON snapshot of the current view to a file.
@@ -314,6 +323,7 @@ pub enum Command {
     Noop,
     Insert(InsertSource),
     NewPlaylist(String),
+    Rename(String),
     Sort(SortKey, SortDirection),
     Logout,
     ShowRecommendations(TargetMode),
@@ -393,6 +403,16 @@ impl fmt::Display for Command {
                 vec!["playlist-overwrite-test".into(), n.to_string()]
             }
             #[cfg(feature = "harness")]
+            Self::Harness(HarnessCommand::PlaylistMoveTest(index, n)) => vec![
+                "playlist-move-test".into(),
+                index.to_string(),
+                n.to_string(),
+            ],
+            #[cfg(feature = "harness")]
+            Self::Harness(HarnessCommand::PlaylistRenameTest) => {
+                vec!["playlist-rename-test".into()]
+            }
+            #[cfg(feature = "harness")]
             Self::Harness(HarnessCommand::DropSession) => vec!["drop-session".into()],
             Self::Goto(mode) => vec![mode.to_string()],
             Self::Move(mode, amount) => match (mode, amount) {
@@ -412,6 +432,9 @@ impl fmt::Display for Command {
             },
             Self::Insert(source) => vec![source.to_string()],
             Self::NewPlaylist(name) => vec![name.to_owned()],
+            Self::Rename(name) => vec![name.to_owned()],
+            // Custom has one direction, so it has no direction argument.
+            Self::Sort(SortKey::Custom, _) => vec![SortKey::Custom.to_string()],
             Self::Sort(key, direction) => vec![key.to_string(), direction.to_string()],
             Self::ShowRecommendations(mode) => vec![mode.to_string()],
             Self::Execute(cmd) => vec![cmd.to_owned()],
@@ -506,6 +529,7 @@ impl Command {
             Self::Noop => NOOP_CMD,
             Self::Insert(_) => INSERT_CMD,
             Self::NewPlaylist(_) => NEW_PLAYLIST_CMD,
+            Self::Rename(_) => RENAME_CMD,
             Self::Sort(_, _) => SORT_CMD,
             Self::Logout => LOGOUT_CMD,
             Self::ShowRecommendations(_) => SHOW_RECOMMENDATIONS_CMD,
@@ -1025,6 +1049,16 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         })
                     }?
                 }
+                RENAME_CMD => {
+                    if !args.is_empty() {
+                        Ok(Command::Rename(args.join(" ")))
+                    } else {
+                        Err(E::InsufficientArgs {
+                            cmd: command.into(),
+                            hint: Some("a name".into()),
+                        })
+                    }?
+                }
                 SORT_CMD => {
                     let &key_raw = args.first().ok_or(E::InsufficientArgs {
                         cmd: command.into(),
@@ -1036,6 +1070,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         "album" => Ok(SortKey::Album),
                         "added" => Ok(SortKey::Added),
                         "artist" => Ok(SortKey::Artist),
+                        "custom" => Ok(SortKey::Custom),
                         _ => Err(E::BadEnumArg {
                             arg: key_raw.into(),
                             accept: vec![
@@ -1044,10 +1079,17 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 "album".into(),
                                 "added".into(),
                                 "artist".into(),
+                                "custom".into(),
                             ],
                             optional: false,
                         }),
                     }?;
+                    if let (SortKey::Custom, Some(&direction_raw)) = (&key, args.get(1)) {
+                        return Err(E::ArgParseError {
+                            arg: direction_raw.into(),
+                            err: "custom order has one direction".into(),
+                        });
+                    }
                     let direction = match args.get(1).copied() {
                         Some("a" | "asc" | "ascending") => Ok(SortDirection::Ascending),
                         Some("d" | "desc" | "descending") => Ok(SortDirection::Descending),
@@ -1136,6 +1178,20 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                             cmd: format!("{command} {sub}"),
                             hint: Some("a number".into()),
                         }),
+                    (Some("playlist-move-test"), [index, n]) => {
+                        match (index.parse(), n.parse()) {
+                            (Ok(index), Ok(n)) => {
+                                Ok(Command::Harness(HarnessCommand::PlaylistMoveTest(index, n)))
+                            }
+                            _ => Err(E::InsufficientArgs {
+                                cmd: format!("{command} playlist-move-test"),
+                                hint: Some("an index and a signed count".into()),
+                            }),
+                        }
+                    }
+                    (Some("playlist-rename-test"), []) => {
+                        Ok(Command::Harness(HarnessCommand::PlaylistRenameTest))
+                    }
                     (Some("save"), [target]) => Ok(Command::Harness(HarnessCommand::Save(
                         (*target).to_string(),
                     ))),
@@ -1152,7 +1208,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                         Some(
                             sub @ ("open" | "dump" | "save" | "unsave" | "unfollow-recorded"
                             | "playlist-add-test" | "playlist-remove-test"
-                            | "playlist-overwrite-test"),
+                            | "playlist-overwrite-test" | "playlist-move-test"),
                         ),
                         _,
                     ) => {
@@ -1162,6 +1218,7 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                                 match sub {
                                     "dump" => "a file path",
                                     "unfollow-recorded" => "a recorded playlist number",
+                                    "playlist-move-test" => "an index and a signed count",
                                     "playlist-add-test" | "playlist-remove-test"
                                     | "playlist-overwrite-test" => "a number",
                                     _ => "a Spotify URI or URL",
@@ -1184,13 +1241,15 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
                             "playlist-add-test".into(),
                             "playlist-remove-test".into(),
                             "playlist-overwrite-test".into(),
+                            "playlist-move-test".into(),
+                            "playlist-rename-test".into(),
                         ],
                         optional: false,
                     }),
                     (None, _) => Err(E::InsufficientArgs {
                         cmd: command.into(),
                         hint: Some(
-                            "open|dump|drop-session|save|unsave|newplaylist-test|test-playlists|unfollow-recorded|playlist-add-test|playlist-remove-test|playlist-overwrite-test"
+                            "open|dump|drop-session|save|unsave|newplaylist-test|test-playlists|unfollow-recorded|playlist-add-test|playlist-remove-test|playlist-overwrite-test|playlist-move-test|playlist-rename-test"
                                 .into(),
                         ),
                     }),
@@ -1209,6 +1268,34 @@ pub fn parse(input: &str) -> Result<Vec<Command>, CommandParseError> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn parses_rename_with_the_rest_of_the_line() {
+        assert!(matches!(
+            parse("rename my new name").as_deref(),
+            Ok([Command::Rename(name)]) if name == "my new name"
+        ));
+        assert!(parse("rename").is_err(), "a name is required");
+        assert_eq!(Command::Rename("a b".into()).to_string(), "rename a b");
+    }
+
+    #[test]
+    fn parses_sort_custom_without_a_direction() {
+        assert!(matches!(
+            parse("sort custom").as_deref(),
+            Ok([Command::Sort(SortKey::Custom, _)])
+        ));
+        let err = parse("sort custom desc").unwrap_err().to_string();
+        assert!(err.contains("custom order has one direction"), "{err}");
+        assert_eq!(
+            Command::Sort(SortKey::Custom, SortDirection::Ascending).to_string(),
+            "sort custom"
+        );
+        assert_eq!(
+            Command::Sort(SortKey::Title, SortDirection::Descending).to_string(),
+            "sort title descending"
+        );
+    }
+
     use super::*;
 
     #[cfg(feature = "harness")]
@@ -1272,6 +1359,25 @@ mod tests {
         assert!(parse("harness playlist-add-test").is_err());
         assert!(parse("harness playlist-remove-test x").is_err());
         assert!(parse("harness playlist-overwrite-test -1").is_err());
+    }
+
+    #[cfg(feature = "harness")]
+    #[test]
+    fn parses_the_playlist_move_and_rename_verbs() {
+        assert!(matches!(
+            parse("harness playlist-move-test 2 -1").as_deref(),
+            Ok([Command::Harness(HarnessCommand::PlaylistMoveTest(2, -1))])
+        ));
+        assert!(parse("harness playlist-move-test 2").is_err());
+        assert!(parse("harness playlist-move-test x 1").is_err());
+        assert!(matches!(
+            parse("harness playlist-rename-test").as_deref(),
+            Ok([Command::Harness(HarnessCommand::PlaylistRenameTest)])
+        ));
+        assert_eq!(
+            Command::Harness(HarnessCommand::PlaylistMoveTest(0, 10)).to_string(),
+            "harness playlist-move-test 0 10"
+        );
     }
 
     #[test]

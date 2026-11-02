@@ -97,6 +97,16 @@ impl PlaylistsView {
             });
         Some(Modal::new(dialog))
     }
+
+    /// The id of the playlist on the selected row; None on a header or folder row.
+    fn selected_playlist_id(&self) -> Option<String> {
+        self.rows
+            .read()
+            .unwrap()
+            .get(self.list.get_selected_index())
+            .and_then(PlaylistRow::playlist_id)
+            .map(str::to_string)
+    }
 }
 
 /// Whether `cmd` acts on the selected row (and so does nothing on a header row).
@@ -110,6 +120,7 @@ fn acts_on_selection(cmd: &Command) -> bool {
         | Command::Delete
         | Command::Pin
         | Command::Unpin
+        | Command::Rename(_)
         | Command::Goto(_) => true,
         Command::Open(TargetMode::Selected)
         | Command::ShowRecommendations(TargetMode::Selected) => true,
@@ -166,15 +177,16 @@ impl ViewExt for PlaylistsView {
             return Ok(CommandResult::Consumed(None));
         }
 
+        if let Command::Rename(name) = cmd {
+            let note = match self.selected_playlist_id() {
+                Some(id) => self.library.rename_playlist(&id, name),
+                None => Some(crate::library::RENAME_HINT.to_string()),
+            };
+            return Ok(CommandResult::Consumed(note));
+        }
+
         if let Command::Pin | Command::Unpin = cmd {
-            let id = self
-                .rows
-                .read()
-                .unwrap()
-                .get(self.list.get_selected_index())
-                .and_then(PlaylistRow::playlist_id)
-                .map(str::to_string);
-            let note = match id {
+            let note = match self.selected_playlist_id() {
                 Some(id) => self.library.pin_command(&id, matches!(cmd, Command::Pin)),
                 None => Some(PIN_HINT.to_string()),
             };

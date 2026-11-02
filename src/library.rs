@@ -382,6 +382,68 @@ impl Library {
         pin_note(&outcome).map(str::to_string)
     }
 
+    /// Whether the stored playlist `id` is the user's own (an unknown user owns nothing).
+    pub fn owns_playlist(&self, id: &str) -> bool {
+        self.playlists
+            .read()
+            .unwrap()
+            .iter()
+            .any(|p| p.id == id && is_owned(&p.owner_id, self.user_id.as_deref()))
+    }
+
+    /// Rename the stored playlist `id` to `name` (trimmed): the internal API first (a verified
+    /// attribute update), the Web API per the fallback classes; the store and `playlists.db`
+    /// take the new name, or after a dropped rename the server's. Returns a refusal note to
+    /// show; a failed write posts its own note.
+    pub fn rename_playlist(&self, id: &str, name: &str) -> Option<String> {
+        let stored = self
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .find(|p| p.id == id)
+            .cloned();
+        let Some(mut playlist) = stored else {
+            return Some(RENAME_NOT_OWNER_NOTE.to_string());
+        };
+        let name = match rename_check(
+            &playlist.name,
+            &playlist.owner_id,
+            self.user_id.as_deref(),
+            name,
+        ) {
+            RenameCheck::Send(name) => name,
+            RenameCheck::Unchanged => return None,
+            RenameCheck::Refused(note) => return Some(note.to_string()),
+        };
+        let api = &self.spotify.api;
+        let note = Cell::new(None);
+        let web_used = Cell::new(false);
+        let written = write_through(
+            api,
+            Area::Playlists,
+            || {
+                playlist_edit::rename(api, &mut playlist, &name).map_err(|err| {
+                    if err.stores_copy() {
+                        self.playlist_update(&playlist);
+                    }
+                    edit_failed(err, &note)
+                })
+            },
+            || {
+                web_used.set(true);
+                api.rename_playlist(id, &name).is_ok()
+            },
+        );
+        if self.settle_write(written, &note) {
+            if web_used.get() {
+                playlist.name = name;
+            }
+            self.playlist_update(&playlist);
+        }
+        None
+    }
+
     fn change_pin(&self, id: &str, pin: bool) -> PinOutcome {
         let api = &self.spotify.api;
         let uri = format!("{PLAYLIST_URI_PREFIX}{id}");
@@ -2313,7 +2375,7 @@ fn is_current(store: &[Playlist], remote: &Playlist) -> bool {
 }
 
 /// Whether `owner_id` is the logged-in user; an unknown user owns nothing.
-fn is_owned(owner_id: &str, user_id: Option<&str>) -> bool {
+pub(crate) fn is_owned(owner_id: &str, user_id: Option<&str>) -> bool {
     Some(owner_id) == user_id
 }
 
@@ -2702,6 +2764,44 @@ fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> bool {
 /// The status note shown for a failed playlist write that has no specific one.
 const GENERIC_WRITE_NOTE: &str = "Could not change the playlist";
 
+/// `rename` outside the Playlists tab and a playlist view, or on a row that is not a playlist.
+pub const RENAME_HINT: &str = "rename works on a playlist";
+const RENAME_EMPTY_NOTE: &str = "Name can't be empty";
+const RENAME_NOT_OWNER_NOTE: &str = "Only your own playlists can be renamed";
+
+/// What a rename does before any request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RenameCheck {
+    /// Send this (trimmed) name.
+    Send(String),
+    /// The name is the current one: nothing to do, no note.
+    Unchanged,
+    /// Refused with this note.
+    Refused(&'static str),
+}
+
+/// Refuse an empty name or a playlist the user does not own (only the owner can rename, also
+/// a collaborative playlist; an unknown user owns nothing); a name equal to `current` does
+/// nothing.
+pub(crate) fn rename_check(
+    current: &str,
+    owner_id: &str,
+    user_id: Option<&str>,
+    name: &str,
+) -> RenameCheck {
+    let name = name.trim();
+    if name.is_empty() {
+        return RenameCheck::Refused(RENAME_EMPTY_NOTE);
+    }
+    if name == current {
+        return RenameCheck::Unchanged;
+    }
+    if !is_owned(owner_id, user_id) {
+        return RenameCheck::Refused(RENAME_NOT_OWNER_NOTE);
+    }
+    RenameCheck::Send(name.to_string())
+}
+
 /// Collect the status note of a failed internal playlist edit, if it has one, and turn the
 /// error into its fallback class. The note is posted by [Library::settle_write] only if the
 /// whole write fails, since the Web API may still recover it.
@@ -2938,6 +3038,31 @@ mod test {
             collaborative: false,
             cover_url: None,
         }
+    }
+
+    #[test]
+    fn rename_check_refuses_before_any_request() {
+        let user = Some("me");
+        assert!(matches!(
+            rename_check("old", "me", user, "  "),
+            RenameCheck::Refused("Name can't be empty")
+        ));
+        assert!(matches!(
+            rename_check("old", "me", user, " old "),
+            RenameCheck::Unchanged
+        ));
+        assert!(matches!(
+            rename_check("old", "other", user, "new"),
+            RenameCheck::Refused("Only your own playlists can be renamed")
+        ));
+        assert!(matches!(
+            rename_check("old", "me", None, "new"),
+            RenameCheck::Refused("Only your own playlists can be renamed"),
+        ));
+        assert!(matches!(
+            rename_check("old", "me", user, "  new "),
+            RenameCheck::Send(name) if name == "new"
+        ));
     }
 
     fn listed(id: &str, snap: &str) -> Playlist {

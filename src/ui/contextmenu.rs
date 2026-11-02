@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cursive::Cursive;
 use cursive::view::{Margins, ViewWrapper};
-use cursive::views::{Dialog, NamedView, ScrollView, SelectView};
+use cursive::views::{Dialog, EditView, NamedView, ScrollView, SelectView};
 
 use crate::commands::CommandResult;
 use crate::ext_traits::SelectViewExt;
@@ -19,7 +19,7 @@ use crate::traits::{ListItem, ViewExt};
 use crate::ui::layout::Layout;
 use crate::ui::modal::Modal;
 use crate::{command::Command, spotify::Spotify};
-use cursive::traits::{Finder, Nameable};
+use cursive::traits::{Finder, Nameable, Resizable};
 
 pub struct ContextMenu {
     dialog: Modal<Dialog>,
@@ -52,6 +52,8 @@ enum ContextMenuAction {
     Queue(Box<dyn ListItem>),
     /// Pin (true) or unpin (false) the playlist with this id.
     TogglePin(String, bool),
+    /// Rename the playlist with this id (a dialog asks for the name).
+    Rename(String),
 }
 
 impl ContextMenu {
@@ -193,6 +195,37 @@ impl ContextMenu {
         .with_name("selectartistaction")
     }
 
+    /// An edit field holding the playlist's current name; OK (or Enter) renames it.
+    fn rename_dialog(library: Arc<Library>, id: String) -> Modal<Dialog> {
+        const EDIT: &str = "rename_edit";
+        let current = library
+            .playlists
+            .read()
+            .unwrap()
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| p.name.clone())
+            .unwrap_or_default();
+        let (enter_library, enter_id) = (library.clone(), id.clone());
+        let edit = EditView::new()
+            .content(current)
+            .on_submit(move |s, name| rename_submit(s, &enter_library, &enter_id, name))
+            .with_name(EDIT)
+            .fixed_width(30);
+        let dialog = Dialog::new()
+            .title("Rename playlist")
+            .padding(Margins::lrtb(1, 1, 1, 0))
+            .content(edit)
+            .button("OK", move |s| {
+                let name = s
+                    .call_on_name(EDIT, |v: &mut EditView| v.get_content().to_string())
+                    .unwrap_or_default();
+                rename_submit(s, &library, &id, &name);
+            })
+            .dismiss_button("Cancel");
+        Modal::new(dialog)
+    }
+
     fn track_already_added() -> Dialog {
         Dialog::text("This track is already in your playlist")
             .title("Track already exists")
@@ -304,6 +337,12 @@ impl ContextMenu {
             );
         }
 
+        if let Some(id) = item.playlist_id()
+            && library.owns_playlist(&id)
+        {
+            content.add_item("Rename", ContextMenuAction::Rename(id));
+        }
+
         // open detail view of artist/album
         {
             let library = library.clone();
@@ -352,6 +391,9 @@ impl ContextMenu {
                         if let Some(note) = library.pin_command(id, *pin) {
                             s.call_on_name("main", |v: &mut Layout| v.set_result(Ok(Some(note))));
                         }
+                    }
+                    ContextMenuAction::Rename(id) => {
+                        s.add_layer(Self::rename_dialog(library, id.clone()));
                     }
                 }
             });
@@ -429,4 +471,12 @@ impl ViewWrapper for SelectArtistMenu {
 
 impl ViewWrapper for SelectArtistActionMenu {
     wrap_impl!(self.dialog: Modal<Dialog>);
+}
+
+/// Close the rename dialog and rename; a refusal note goes to the status line.
+fn rename_submit(s: &mut Cursive, library: &Library, id: &str, name: &str) {
+    s.pop_layer();
+    if let Some(note) = library.rename_playlist(id, name) {
+        s.call_on_name("main", |v: &mut Layout| v.set_result(Ok(Some(note))));
+    }
 }

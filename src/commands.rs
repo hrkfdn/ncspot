@@ -354,6 +354,11 @@ impl CommandManager {
                 Ok(None)
             }
 
+            Command::Rename(_) => Err(crate::library::RENAME_HINT.to_string()),
+            Command::Sort(crate::command::SortKey::Custom, _) => {
+                Err("sort custom works in a playlist".to_string())
+            }
+
             Command::Queue
             | Command::PlayNext
             | Command::Play
@@ -418,6 +423,8 @@ impl CommandManager {
                             })
                             .count(),
                         last_test_len: crate::harness::last_test_len(&self.library),
+                        last_test_order: crate::harness::last_test_order(&self.library),
+                        last_test_renamed: crate::harness::last_test_renamed(&self.library),
                     },
                 );
                 let mut dump = dump;
@@ -473,6 +480,16 @@ impl CommandManager {
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistOverwriteTest(n)) => {
                 crate::harness::playlist_overwrite_test(&self.library, *n)?;
+                Ok(None)
+            }
+            #[cfg(feature = "harness")]
+            Command::Harness(crate::command::HarnessCommand::PlaylistMoveTest(index, n)) => {
+                crate::harness::playlist_move_test(&self.library, &self.spotify, *index, *n)?;
+                Ok(None)
+            }
+            #[cfg(feature = "harness")]
+            Command::Harness(crate::command::HarnessCommand::PlaylistRenameTest) => {
+                crate::harness::playlist_rename_test(&self.library)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
