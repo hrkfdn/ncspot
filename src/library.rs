@@ -121,6 +121,8 @@ pub struct Library {
     /// The Your Episodes tab is offered: the internal API library area is on.
     pub episodes_enabled: bool,
     pub is_done: Arc<RwLock<bool>>,
+    /// Which save stores hold real data; saves wait for it.
+    filled: Arc<FilledStores>,
     /// Set while a library sync runs, so a second one (Shift+U twice, or during the startup
     /// sync) is skipped instead of doubling the API traffic.
     syncing: Arc<AtomicBool>,
@@ -192,6 +194,7 @@ impl Library {
             episodes: Arc::new(RwLock::new(Vec::new())),
             episodes_enabled: false,
             is_done: Arc::new(RwLock::new(false)),
+            filled: Arc::default(),
             syncing: Arc::new(AtomicBool::new(false)),
             resume_pending: Arc::new(AtomicBool::new(false)),
             resume_count: Arc::new(AtomicU32::new(0)),
@@ -224,6 +227,7 @@ impl Library {
             episodes: Arc::new(RwLock::new(Vec::new())),
             episodes_enabled: spotify.api.internal_enabled(Area::Library),
             is_done: Arc::new(RwLock::new(false)),
+            filled: Arc::default(),
             syncing: Arc::new(AtomicBool::new(false)),
             resume_pending: Arc::new(AtomicBool::new(false)),
             resume_count: Arc::new(AtomicU32::new(0)),
@@ -299,6 +303,13 @@ impl Library {
     }
 
     /// Replace the store under `lock` with the cache at `cache_path`; false leaves it as it is.
+    /// Note a store's cache load: a valid one fills it.
+    fn mark_filled(&self, flag: &AtomicBool, valid: bool) {
+        if valid {
+            flag.store(true, Ordering::Release);
+        }
+    }
+
     fn load_store<T: DeserializeOwned + SavedStore>(
         &self,
         cache_path: &Path,
@@ -878,6 +889,7 @@ impl Library {
             let shows_complete = t_shows.join().unwrap();
             let episodes_complete = t_episodes.join().unwrap();
 
+            library.filled.mark_all();
             *library.is_done.write_unpoisoned() = true;
             library.ev.trigger();
 
@@ -928,6 +940,7 @@ impl Library {
                     library.sync_episodes(false);
                 }
             }
+            library.filled.mark_all();
             *library.is_done.write_unpoisoned() = true;
             library.ev.trigger();
         });
@@ -952,15 +965,18 @@ impl Library {
     /// Load the liked songs and saved albums caches and sync the `collection` set. Returns
     /// whether the sync was complete.
     fn sync_collection(&self, force_full: bool) -> bool {
-        let valid = self.load_store(&config::cache_path(CACHE_TRACKS), &self.tracks)
-            & self.load_store(&config::cache_path(CACHE_ALBUMS), &self.albums);
-        self.fetch_collection(valid, force_full)
+        let tracks = self.load_store(&config::cache_path(CACHE_TRACKS), &self.tracks);
+        let albums = self.load_store(&config::cache_path(CACHE_ALBUMS), &self.albums);
+        self.mark_filled(&self.filled.tracks, tracks);
+        self.mark_filled(&self.filled.albums, albums);
+        self.fetch_collection(tracks && albums, force_full)
     }
 
     /// Load the artists cache and sync the followed artists. Finish with
     /// [Library::finish_artists] once the liked songs are in.
     fn sync_artists(&self, force_full: bool) -> ArtistsSync {
         let valid = self.load_store(&config::cache_path(CACHE_ARTISTS), &self.artists);
+        self.mark_filled(&self.filled.artists, valid);
         self.fetch_artists_any(valid, force_full)
     }
 
@@ -1033,6 +1049,7 @@ impl Library {
         // With the area off nothing is loaded: the Web fetcher runs as before.
         let valid = self.spotify.api.internal_enabled(Area::Library)
             && self.load_store(&config::cache_path(CACHE_SHOWS), &self.shows);
+        self.mark_filled(&self.filled.shows, valid);
         self.fetch_shows_any(valid, force_full)
     }
 
@@ -1043,6 +1060,7 @@ impl Library {
             return true;
         }
         let valid = self.load_store(&config::cache_path(CACHE_EPISODES), &self.episodes);
+        self.mark_filled(&self.filled.episodes, valid);
         self.fetch_episodes(valid, force_full)
     }
 
@@ -2409,9 +2427,14 @@ impl Library {
     fn queue_library_save<T: SavedStore>(
         &self,
         lock: &RwLock<Vec<T>>,
+        filled: &AtomicBool,
         item: SaveItem,
         remove: bool,
     ) {
+        if !filled.load(Ordering::Acquire) {
+            self.post_note(LOADING_NOTE);
+            return;
+        }
         let op = {
             let mut store = lock.write_unpoisoned();
             let prior = T::prior(&store, &item);
@@ -2434,6 +2457,7 @@ impl Library {
     fn queue_episode(&self, episode: &Episode) {
         self.queue_library_save(
             &self.episodes,
+            &self.filled.episodes,
             SaveItem::Episode(Box::new(episode.clone())),
             false,
         );
@@ -2592,23 +2616,17 @@ impl Library {
 
     /// Check whether `track` is saved in the user's library.
     pub fn is_saved_track(&self, track: &Playable) -> bool {
-        if !*self.is_done.read_unpoisoned() {
-            return false;
-        }
-
         let tracks = self.tracks.read_unpoisoned();
         tracks.iter().any(|t| t.id == track.id())
     }
 
     /// Save `tracks` to the user's library.
     pub fn save_tracks(&self, tracks: &[&Track]) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
         // Each goes to the top: last first, so they read in the given order.
         for track in tracks.iter().rev() {
             self.queue_library_save(
                 &self.tracks,
+                &self.filled.tracks,
                 SaveItem::Track(Box::new((*track).clone())),
                 false,
             );
@@ -2617,12 +2635,10 @@ impl Library {
 
     /// Remove `tracks` from the user's library.
     pub fn unsave_tracks(&self, tracks: &[&Track]) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
         for track in tracks {
             self.queue_library_save(
                 &self.tracks,
+                &self.filled.tracks,
                 SaveItem::Track(Box::new((*track).clone())),
                 true,
             );
@@ -2631,21 +2647,15 @@ impl Library {
 
     /// Check whether `album` is saved to the user's library.
     pub fn is_saved_album(&self, album: &Album) -> bool {
-        if !*self.is_done.read_unpoisoned() {
-            return false;
-        }
-
         let albums = self.albums.read_unpoisoned();
         albums.iter().any(|a| a.id == album.id)
     }
 
     /// Save `album` to the user's library.
     pub fn save_album(&self, album: &Album) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
         self.queue_library_save(
             &self.albums,
+            &self.filled.albums,
             SaveItem::Album(Box::new(album.clone())),
             false,
         );
@@ -2653,29 +2663,25 @@ impl Library {
 
     /// Remove `album` from the user's library.
     pub fn unsave_album(&self, album: &Album) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
-        self.queue_library_save(&self.albums, SaveItem::Album(Box::new(album.clone())), true);
+        self.queue_library_save(
+            &self.albums,
+            &self.filled.albums,
+            SaveItem::Album(Box::new(album.clone())),
+            true,
+        );
     }
 
     /// Check whether the user follows `artist`.
     pub fn is_followed_artist(&self, artist: &Artist) -> bool {
-        if !*self.is_done.read_unpoisoned() {
-            return false;
-        }
-
         let artists = self.artists.read_unpoisoned();
         artists.iter().any(|a| a.id == artist.id && a.is_followed)
     }
 
     /// Follow `artist` as the logged in user.
     pub fn follow_artist(&self, artist: &Artist) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
         self.queue_library_save(
             &self.artists,
+            &self.filled.artists,
             SaveItem::Artist(Box::new(artist.clone())),
             false,
         );
@@ -2683,11 +2689,9 @@ impl Library {
 
     /// Unfollow `artist` as the logged in user.
     pub fn unfollow_artist(&self, artist: &Artist) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
         self.queue_library_save(
             &self.artists,
+            &self.filled.artists,
             SaveItem::Artist(Box::new(artist.clone())),
             true,
         );
@@ -2744,25 +2748,18 @@ impl Library {
 
     /// Check whether `show` is already in the user's library.
     pub fn is_saved_show(&self, show: &Show) -> bool {
-        if !*self.is_done.read_unpoisoned() {
-            return false;
-        }
-
         let shows = self.shows.read_unpoisoned();
         shows.iter().any(|s| s.id == show.id)
     }
 
-    /// Whether `episode` is in Your Episodes; None while Your Episodes is off or loading.
+    /// Whether `episode` is in Your Episodes; None while Your Episodes is off.
     pub fn is_saved_episode(&self, episode: &Episode) -> Option<bool> {
-        if !self.episodes_enabled || !*self.is_done.read_unpoisoned() {
-            return None;
-        }
-        Some(
+        self.episodes_enabled.then(|| {
             self.episodes
                 .read_unpoisoned()
                 .iter()
-                .any(|e| e.id == episode.id),
-        )
+                .any(|e| e.id == episode.id)
+        })
     }
 
     /// Add `episode` to Your Episodes.
@@ -2772,7 +2769,12 @@ impl Library {
         }
         let mut episode = episode.clone();
         episode.added_at = Some(chrono::Utc::now());
-        self.queue_library_save(&self.episodes, SaveItem::Episode(Box::new(episode)), false);
+        self.queue_library_save(
+            &self.episodes,
+            &self.filled.episodes,
+            SaveItem::Episode(Box::new(episode)),
+            false,
+        );
     }
 
     /// Remove `episode` from Your Episodes.
@@ -2782,6 +2784,7 @@ impl Library {
         }
         self.queue_library_save(
             &self.episodes,
+            &self.filled.episodes,
             SaveItem::Episode(Box::new(episode.clone())),
             true,
         );
@@ -2789,18 +2792,22 @@ impl Library {
 
     /// Save the `show` to the user's library.
     pub fn save_show(&self, show: &Show) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
-        self.queue_library_save(&self.shows, SaveItem::Show(Box::new(show.clone())), false);
+        self.queue_library_save(
+            &self.shows,
+            &self.filled.shows,
+            SaveItem::Show(Box::new(show.clone())),
+            false,
+        );
     }
 
     /// Remove the `show` from the user's library.
     pub fn unsave_show(&self, show: &Show) {
-        if !*self.is_done.read_unpoisoned() {
-            return;
-        }
-        self.queue_library_save(&self.shows, SaveItem::Show(Box::new(show.clone())), true);
+        self.queue_library_save(
+            &self.shows,
+            &self.filled.shows,
+            SaveItem::Show(Box::new(show.clone())),
+            true,
+        );
     }
 
     /// Force redraw the user interface.
@@ -3192,6 +3199,32 @@ fn outcome(api: &WebApi, set: &str, result: Result<String, InternalError>) -> Se
                 SetOutcome::Incomplete
             }
         },
+    }
+}
+
+/// Whether each save store holds real data: its cache loaded valid, or a first sync ended. An
+/// empty store cannot tell a saved item from an unsaved one, and saving a saved item may re-date
+/// it, so saves wait for this. Goes true once, never back.
+#[derive(Default)]
+struct FilledStores {
+    tracks: AtomicBool,
+    albums: AtomicBool,
+    artists: AtomicBool,
+    shows: AtomicBool,
+    episodes: AtomicBool,
+}
+
+impl FilledStores {
+    fn mark_all(&self) {
+        for flag in [
+            &self.tracks,
+            &self.albums,
+            &self.artists,
+            &self.shows,
+            &self.episodes,
+        ] {
+            flag.store(true, Ordering::Release);
+        }
     }
 }
 
@@ -3940,7 +3973,7 @@ mod test {
     fn episode_store_is_unchanged_when_the_write_fails() {
         let mut library = test_library();
         Arc::get_mut(&mut library).unwrap().episodes_enabled = true;
-        *library.is_done.write_unpoisoned() = true;
+        library.filled.mark_all();
         let episode = |id: &str| Episode {
             id: id.into(),
             uri: format!("spotify:episode:{id}"),
@@ -5560,8 +5593,63 @@ mod test {
 
     fn loaded_library() -> Arc<Library> {
         let library = test_library();
-        *library.is_done.write_unpoisoned() = true;
+        library.filled.mark_all();
         library
+    }
+
+    #[test]
+    fn saves_work_and_marks_stay_during_a_sync() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.tracks.write_unpoisoned().push(t.clone());
+        *library.is_done.write_unpoisoned() = false;
+        assert!(
+            library.is_saved_track(&Playable::Track(t.clone())),
+            "the mark stays"
+        );
+        library.save_tracks(&[&track("u", &[])]);
+        assert_eq!(library.writer.pending(), 1);
+    }
+
+    #[test]
+    fn an_unfilled_store_refuses_saves_with_the_loading_note() {
+        let library = test_library();
+        library.save_tracks(&[&track("t", &[])]);
+        assert_eq!(library.writer.pending(), 0);
+        assert!(saved_ids(&library).is_empty());
+        let refused = library
+            .ev
+            .msg_iter()
+            .any(|e| matches!(e, Event::StatusNote(n) if n == LOADING_NOTE));
+        assert!(refused);
+    }
+
+    #[test]
+    fn a_valid_cache_fills_its_store_only() {
+        let library = test_library();
+        let path = cache_file("filled");
+        let gate = Mutex::new(());
+        assert!(library.save_store(&path, &RwLock::new(vec![track("t", &[])]), &gate));
+        assert!(library.load_store(&path, &library.tracks));
+        library.mark_filled(&library.filled.tracks, true);
+        library.save_tracks(&[&track("u", &[])]);
+        assert_eq!(library.writer.pending(), 1);
+        library.save_album(&Album::default_for_test("a"));
+        assert_eq!(library.writer.pending(), 1, "albums are still empty");
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_filled_store_stays_filled() {
+        let library = test_library();
+        library.mark_filled(&library.filled.tracks, true);
+        library.mark_filled(&library.filled.tracks, false);
+        library.save_tracks(&[&track("t", &[])]);
+        assert_eq!(
+            library.writer.pending(),
+            1,
+            "a failed later load changes nothing"
+        );
     }
 
     #[test]
