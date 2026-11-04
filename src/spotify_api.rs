@@ -496,7 +496,9 @@ impl WebApi {
     ) -> Result<(), InternalError> {
         for batch in uris.chunks(collection::WRITE_BATCH) {
             let batch = batch.to_vec();
-            self.run_internal(area, |session| {
+            // Once: on the write worker `run_internal` would add its own retries and sleeps,
+            // which a quit cannot wake. The save job retries instead.
+            self.run_internal_once(area, |session| {
                 collection::write(session, set, batch.clone(), removed)
             })?;
         }
@@ -692,6 +694,15 @@ impl WebApi {
                 let _ = handle.await;
             }
         }))
+    }
+
+    /// What is left of the internal API's rate-limit window.
+    pub fn internal_window(&self) -> Option<Duration> {
+        self.internal
+            .throttle
+            .read()
+            .unwrap()
+            .remaining(Stamp::now())
     }
 
     /// Remaining rate-limit window of each throttled client, personal first.

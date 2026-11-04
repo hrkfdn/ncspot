@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::time::Duration;
 
 use crate::internal_api::collection::{SET_ARTIST, SET_COLLECTION, SET_LISTEN_LATER, SET_SHOW};
 use crate::library_collection::sort_albums;
@@ -117,7 +118,6 @@ pub fn rebuild_artists(stored: &[Artist], tracks: &[Track]) -> Vec<Artist> {
 
 /// One item a save acts on.
 #[derive(Clone)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub enum SaveItem {
     Track(Box<Track>),
     Album(Box<Album>),
@@ -137,7 +137,6 @@ impl SaveItem {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn id(&self) -> Option<&str> {
         match self {
             Self::Track(t) => t.id.as_deref(),
@@ -148,7 +147,6 @@ impl SaveItem {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn same(&self, other: &Self) -> bool {
         self.kind() == other.kind() && self.id() == other.id()
     }
@@ -168,7 +166,6 @@ impl SaveItem {
 #[derive(Clone)]
 pub struct SaveOp {
     /// The [SaveLog] entry: the job is queued after it exists, so the writer's seq cannot name it.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub entry: u64,
     pub item: SaveItem,
     pub remove: bool,
@@ -185,7 +182,6 @@ impl fmt::Debug for SaveOp {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Prior {
     Absent,
-    #[cfg_attr(not(test), allow(dead_code))]
     Present(usize),
 }
 
@@ -206,7 +202,6 @@ pub trait SavedStore: Clone {
     fn settle(_store: &mut [Self]) {}
 
     /// The state of `item` in `store`.
-    #[cfg_attr(not(test), allow(dead_code))]
     fn prior(store: &[Self], item: &SaveItem) -> Prior {
         let row = Self::of(item).and_then(|item| store.iter().position(|e| e.key() == item.key()));
         row.map_or(Prior::Absent, Prior::Present)
@@ -360,14 +355,12 @@ struct Entry {
 /// Saves not yet settled, and saves that landed while a sync ran.
 #[derive(Default)]
 pub struct SaveLog {
-    #[cfg_attr(not(test), allow(dead_code))]
     next: u64,
     entries: Vec<Entry>,
 }
 
 impl SaveLog {
     /// Log a new op on `item`, whose state before it is `prior`.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn add(&mut self, item: SaveItem, remove: bool, prior: Prior) -> SaveOp {
         self.next += 1;
         let op = SaveOp {
@@ -384,7 +377,6 @@ impl SaveLog {
     }
 
     /// Spotify took `entry`.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn mark_landed(&mut self, entry: u64) {
         if let Some(e) = self.entries.iter_mut().find(|e| e.op.entry == entry) {
             e.state = State::Landed;
@@ -392,14 +384,12 @@ impl SaveLog {
     }
 
     /// Forget `entry`.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn remove(&mut self, entry: u64) {
         self.entries.retain(|e| e.op.entry != entry);
     }
 
     /// Forget the failed `entry`. Returns what to undo, or None when a later op on the item
     /// decides its state: that op inherits the prior state, so its own failure restores it.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn fail(&mut self, entry: u64) -> Option<(SaveOp, Prior)> {
         let at = self.entries.iter().position(|e| e.op.entry == entry)?;
         let failed = self.entries.remove(at);
@@ -447,9 +437,57 @@ impl SaveLog {
     }
 }
 
+/// How one try of a save ended.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum WriteOutcome {
+    Done,
+    RateLimited,
+    Transient,
+    Failed,
+}
+
+/// Tries of one save.
+const TRIES: usize = 3;
+/// The waits after a transient failure.
+const TRANSIENT_WAITS: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(4)];
+/// The shortest and longest wait for a rate limit.
+const MIN_WAIT: Duration = Duration::from_secs(2);
+const MAX_WAIT: Duration = Duration::from_secs(30);
+/// A rate-limit window longer than this cannot be waited out in the tries left.
+const LONG_WINDOW: Duration = Duration::from_secs(60);
+
+/// Run `write` up to [TRIES] times; true when it landed. `window` is the rate-limit window left,
+/// `wait` waits and returns false when the writer stopped.
+pub fn run_with_retries(
+    mut write: impl FnMut() -> WriteOutcome,
+    window: impl Fn() -> Option<Duration>,
+    mut wait: impl FnMut(Duration) -> bool,
+) -> bool {
+    for attempt in 0..TRIES {
+        let delay = match write() {
+            WriteOutcome::Done => return true,
+            WriteOutcome::Failed => return false,
+            WriteOutcome::Transient => TRANSIENT_WAITS[attempt.min(TRANSIENT_WAITS.len() - 1)],
+            WriteOutcome::RateLimited => {
+                let left = window();
+                if left.is_some_and(|left| left > LONG_WINDOW) {
+                    return false;
+                }
+                left.unwrap_or(MIN_WAIT).clamp(MIN_WAIT, MAX_WAIT)
+            }
+        };
+        if attempt + 1 == TRIES || !wait(delay) {
+            return false;
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 pub mod test_items {
     use crate::model::artist::Artist;
+    use crate::model::episode::Episode;
+    use crate::model::show::Show;
     use crate::model::track::Track;
 
     pub fn track(id: &str, artists: &[(&str, &str)]) -> Track {
@@ -480,12 +518,106 @@ pub mod test_items {
         artist.tracks = Some(Vec::new());
         artist
     }
+
+    pub fn show(id: &str) -> Show {
+        Show {
+            id: id.to_string(),
+            uri: format!("spotify:show:{id}"),
+            name: String::new(),
+            description: String::new(),
+            cover_url: None,
+            episodes: None,
+            added_at: None,
+        }
+    }
+
+    pub fn episode(id: &str) -> Episode {
+        Episode {
+            id: id.to_string(),
+            uri: format!("spotify:episode:{id}"),
+            duration: 0,
+            name: String::new(),
+            description: String::new(),
+            release_date: String::new(),
+            cover_url: None,
+            added_at: None,
+            list_index: 0,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::test_items::{artist, track};
     use super::*;
+    use WriteOutcome::{Done, Failed, RateLimited, Transient};
+    use std::cell::{Cell, RefCell};
+    use std::time::Duration;
+
+    /// Runs `outcomes` through the retries; returns the result, the tries and the waits.
+    fn retried(
+        outcomes: &[WriteOutcome],
+        window: Option<Duration>,
+        stop_at_wait: Option<usize>,
+    ) -> (bool, usize, Vec<u64>) {
+        let tries = Cell::new(0);
+        let waits = RefCell::new(Vec::new());
+        let ok = run_with_retries(
+            || {
+                tries.set(tries.get() + 1);
+                outcomes[tries.get() - 1]
+            },
+            || window,
+            |wait| {
+                waits.borrow_mut().push(wait.as_secs());
+                stop_at_wait != Some(waits.borrow().len())
+            },
+        );
+        (ok, tries.get(), waits.into_inner())
+    }
+
+    #[test]
+    fn a_first_try_success_does_not_wait() {
+        assert_eq!(retried(&[Done], None, None), (true, 1, vec![]));
+    }
+
+    #[test]
+    fn a_hard_failure_is_final() {
+        assert_eq!(retried(&[Failed], None, None), (false, 1, vec![]));
+    }
+
+    #[test]
+    fn a_transient_failure_waits_2_then_4_seconds_for_3_tries() {
+        let all = [Transient, Transient, Transient];
+        assert_eq!(retried(&all, None, None), (false, 3, vec![2, 4]));
+        let late = [Transient, Done];
+        assert_eq!(retried(&late, None, None), (true, 2, vec![2]));
+    }
+
+    #[test]
+    fn a_rate_limit_waits_the_window_capped() {
+        let all = [RateLimited, RateLimited, RateLimited];
+        let secs = |s| Some(Duration::from_secs(s));
+        assert_eq!(retried(&all, secs(5), None), (false, 3, vec![5, 5]));
+        assert_eq!(retried(&all, secs(45), None), (false, 3, vec![30, 30]));
+        assert_eq!(
+            retried(&all, None, None),
+            (false, 3, vec![2, 2]),
+            "no window: the floor"
+        );
+    }
+
+    #[test]
+    fn a_window_too_long_to_wait_out_fails_at_once() {
+        let window = Some(Duration::from_secs(61));
+        assert_eq!(retried(&[RateLimited], window, None), (false, 1, vec![]));
+    }
+
+    #[test]
+    fn a_stop_during_a_wait_ends_the_retries() {
+        let all = [Transient, Transient, Transient];
+        assert_eq!(retried(&all, None, Some(1)), (false, 1, vec![2]));
+    }
 
     /// (id, followed, sorted track ids), sorted: the order of equal names and of an artist's
     /// tracks is not part of the contract.

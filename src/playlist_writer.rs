@@ -15,6 +15,7 @@ use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
+use crate::save_log::SaveOp;
 
 /// One playlist write.
 #[derive(Clone, Debug)]
@@ -53,6 +54,8 @@ pub enum JobKind {
     Pin {
         pinned: bool,
     },
+    /// A library save, with no playlist: the save log holds its optimistic state.
+    LibrarySave(SaveOp),
 }
 
 impl JobKind {
@@ -211,6 +214,8 @@ pub struct Settled {
     pub drained: bool,
     /// The confirmed copy after the job (for jobs that run on a copy).
     pub confirmed: Option<Playlist>,
+    /// The save this job was, for the library to settle.
+    pub save: Option<SaveOp>,
 }
 
 /// The playlist write queue, shared by the UI thread (queueing) and the worker (running).
@@ -347,6 +352,10 @@ impl PlaylistWriter {
             None => None,
         };
         cvar.notify_all();
+        let save = match &job.kind {
+            JobKind::LibrarySave(op) => Some(op.clone()),
+            _ => None,
+        };
         Some(Settled {
             seq: job.seq,
             playlist_id: id,
@@ -354,6 +363,7 @@ impl PlaylistWriter {
             dropped,
             drained,
             confirmed,
+            save,
         })
     }
 
@@ -365,6 +375,21 @@ impl PlaylistWriter {
             cvar.wait(&mut state);
         }
         !state.stopping
+    }
+
+    /// Wait up to `timeout`; false as soon as the writer stops.
+    pub fn wait_unless_stopped(&self, timeout: Duration) -> bool {
+        let (lock, cvar) = &*self.shared;
+        let deadline = Instant::now() + timeout;
+        let mut state = lock.lock();
+        while !state.stopping {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return true;
+            }
+            cvar.wait_for(&mut state, left);
+        }
+        false
     }
 
     /// Stop taking jobs: drop the queued ones. Returns the ids with a confirmed copy, whose
@@ -444,7 +469,7 @@ pub const QUIT_GRACE: Duration = Duration::from_secs(3);
 pub const SAVED_NOTE: &str = "Playlist changes saved";
 
 /// The note for a settled write, if any. Success: only once the playlist's queue drained and
-/// it is not the open view. Failure: its note was posted already; repeat it with the dropped
+/// it is not the open view, and never for a `silent` one. Failure: its note was posted already; repeat it with the dropped
 /// count when later writes were dropped.
 pub fn settled_note(
     ok: bool,
@@ -452,9 +477,10 @@ pub fn settled_note(
     dropped: usize,
     note: Option<String>,
     open: bool,
+    silent: bool,
 ) -> Option<String> {
     if ok {
-        return (drained && !open).then(|| SAVED_NOTE.to_string());
+        return (drained && !open && !silent).then(|| SAVED_NOTE.to_string());
     }
     if dropped == 0 {
         return None;
@@ -493,32 +519,49 @@ mod tests {
     }
 
     #[test]
+    fn a_wait_ends_with_a_stop_and_otherwise_runs_out() {
+        let w = PlaylistWriter::new();
+        assert!(w.wait_unless_stopped(Duration::from_millis(1)));
+        let waiter = {
+            let w = w.clone();
+            std::thread::spawn(move || w.wait_unless_stopped(Duration::from_secs(30)))
+        };
+        w.stop();
+        assert!(!waiter.join().unwrap());
+    }
+
+    #[test]
     fn settled_notes() {
         assert_eq!(
-            settled_note(true, true, 0, None, false).as_deref(),
+            settled_note(true, true, 0, None, false, false).as_deref(),
             Some(SAVED_NOTE)
         );
         assert_eq!(
-            settled_note(true, true, 0, None, true),
+            settled_note(true, true, 0, None, true, false),
             None,
             "open view: silent"
         );
         assert_eq!(
-            settled_note(true, false, 0, None, false),
+            settled_note(true, false, 0, None, false, false),
             None,
             "more queued: wait"
         );
         assert_eq!(
-            settled_note(false, true, 0, Some("x".into()), true),
+            settled_note(false, true, 0, Some("x".into()), true, false),
             None,
             "already posted"
         );
         assert_eq!(
-            settled_note(false, true, 2, Some("x".into()), true).as_deref(),
+            settled_note(true, true, 0, None, false, true),
+            None,
+            "a save is silent"
+        );
+        assert_eq!(
+            settled_note(false, true, 2, Some("x".into()), true, false).as_deref(),
             Some("x (2 later changes dropped)")
         );
         assert_eq!(
-            settled_note(false, true, 1, None, false).as_deref(),
+            settled_note(false, true, 1, None, false, false).as_deref(),
             Some("Playlist change failed (1 later change dropped)")
         );
     }

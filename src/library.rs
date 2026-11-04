@@ -51,7 +51,7 @@ use crate::playlist_layout::{
 use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
 use crate::save_log::{
-    SaveLog, SavedStore, add_track, rebuild_artists, remove_track, set_followed,
+    Prior, SaveItem, SaveLog, SaveOp, SavedStore, WriteOutcome, rebuild_artists, run_with_retries,
 };
 use crate::spotify::Spotify;
 use crate::spotify_api::WebApi;
@@ -341,8 +341,8 @@ impl Library {
         }
     }
 
-    /// Write the store under `lock` to `cache_path`, the file I/O outside the store lock. False
-    /// (logged) on failure.
+    /// Write the confirmed view of the store under `lock` to `cache_path`, the file I/O outside
+    /// the store lock. False (logged) on failure.
     fn save_store<T: Serialize + SavedStore>(
         &self,
         cache_path: &Path,
@@ -1668,7 +1668,7 @@ impl Library {
             SetOutcome::Incomplete => false,
             SetOutcome::Synced(_) => true,
         };
-        // A skipped write counts as saved: the file on disk already matches the store.
+        // A skipped write counts as saved: the file on disk already matches the confirmed view.
         let tracks_saved =
             !cache_write_needed(cache_valid, changes.tracks) || self.save_tracks_db();
         let albums_saved =
@@ -2149,6 +2149,9 @@ impl Library {
             // Only now: a job queued before this store write must still find the entry.
             self.writer.release(&confirmed.id);
         }
+        if let Some(op) = &settled.save {
+            self.settle_save(op, settled.ok);
+        }
         let note = if settled.ok {
             None
         } else {
@@ -2160,6 +2163,7 @@ impl Library {
             drained: settled.drained,
             dropped: settled.dropped,
             note,
+            silent: settled.save.is_some(),
         });
         true
     }
@@ -2221,6 +2225,7 @@ impl Library {
                 }
                 self.no_note_posted()
             }
+            (JobKind::LibrarySave(op), _) => self.run_save(op),
             // A job on a copy of a playlist that was not stored when it was queued.
             _ => {
                 self.settle_write(false, &Cell::new(None));
@@ -2398,6 +2403,192 @@ impl Library {
         self.queue_as_is(Some(id), JobKind::Pin { pinned: pin });
     }
 
+    /// Apply `item` to its store at once and queue the write. A repeat is skipped: every write
+    /// sends `added_at = now`, so saving a saved item may re-date it on Spotify.
+    fn queue_library_save<T: SavedStore>(
+        &self,
+        lock: &RwLock<Vec<T>>,
+        item: SaveItem,
+        remove: bool,
+    ) {
+        let op = {
+            let mut store = lock.write_unpoisoned();
+            let prior = T::prior(&store, &item);
+            if (prior != Prior::Absent) != remove {
+                return;
+            }
+            let op = self.saves.lock().add(item, remove, prior);
+            T::apply(&mut store, &op);
+            op
+        };
+        if matches!(op.item, SaveItem::Track(_)) {
+            Artist::apply(&mut self.artists.write_unpoisoned(), &op);
+        }
+        // Last: the worker must not undo an artist step that has not happened yet.
+        self.writer.queue(None, JobKind::LibrarySave(op), || None);
+        self.trigger_redraw();
+    }
+
+    #[cfg(test)]
+    fn queue_episode(&self, episode: &Episode) {
+        self.queue_library_save(
+            &self.episodes,
+            SaveItem::Episode(Box::new(episode.clone())),
+            false,
+        );
+    }
+
+    /// One try of a save, on the worker.
+    fn write_save(&self, op: &SaveOp) -> WriteOutcome {
+        let api = &self.spotify.api;
+        let remove = op.remove;
+        match &op.item {
+            SaveItem::Track(track) => {
+                let Some(id) = track.id.as_deref() else {
+                    return WriteOutcome::Done;
+                };
+                let uris = [track.uri.clone()];
+                write_outcome(
+                    api,
+                    Area::Library,
+                    || api.collection_write(Area::Library, SET_COLLECTION, &uris, remove),
+                    || {
+                        if remove {
+                            api.current_user_saved_tracks_delete(vec![id]).is_ok()
+                        } else {
+                            api.current_user_saved_tracks_add(vec![id]).is_ok()
+                        }
+                    },
+                )
+            }
+            SaveItem::Album(album) => {
+                let Some(id) = album.id.as_deref() else {
+                    return WriteOutcome::Done;
+                };
+                let uris = [format!("spotify:album:{id}")];
+                write_outcome(
+                    api,
+                    Area::Library,
+                    || api.collection_write(Area::Library, SET_COLLECTION, &uris, remove),
+                    || {
+                        if remove {
+                            api.current_user_saved_albums_delete(vec![id]).is_ok()
+                        } else {
+                            api.current_user_saved_albums_add(vec![id]).is_ok()
+                        }
+                    },
+                )
+            }
+            SaveItem::Artist(artist) => {
+                let Some(id) = artist.id.as_deref() else {
+                    return WriteOutcome::Done;
+                };
+                let uris = [format!("spotify:artist:{id}")];
+                write_outcome(
+                    api,
+                    Area::Library,
+                    || api.collection_write(Area::Library, SET_ARTIST, &uris, remove),
+                    || {
+                        if remove {
+                            api.user_unfollow_artists(vec![id]).is_ok()
+                        } else {
+                            api.user_follow_artists(vec![id]).is_ok()
+                        }
+                    },
+                )
+            }
+            SaveItem::Show(show) => {
+                let uris = [show.uri.clone()];
+                write_outcome(
+                    api,
+                    Area::Library,
+                    || api.collection_write(Area::Library, SET_SHOW, &uris, remove),
+                    || {
+                        if remove {
+                            api.unsave_shows(&[show.id.as_str()]).is_ok()
+                        } else {
+                            api.save_shows(&[show.id.as_str()]).is_ok()
+                        }
+                    },
+                )
+            }
+            SaveItem::Episode(episode) => {
+                episode_write(api, std::slice::from_ref(&episode.uri), remove)
+            }
+        }
+    }
+
+    /// A save job on the worker: the tries, with the waits between them. True when it landed.
+    fn run_save(&self, op: &SaveOp) -> bool {
+        run_with_retries(
+            || self.write_save(op),
+            || self.spotify.api.internal_window(),
+            |wait| self.writer.wait_unless_stopped(wait),
+        )
+    }
+
+    /// Undo the failed `entry` in `lock`'s store; returns what was undone, if anything.
+    fn undo_in<T: SavedStore>(&self, lock: &RwLock<Vec<T>>, entry: u64) -> Option<(SaveOp, Prior)> {
+        let mut store = lock.write_unpoisoned();
+        let undone = self.saves.lock().fail(entry);
+        if let Some((op, prior)) = &undone {
+            T::undo(&mut store, op, *prior);
+        }
+        undone
+    }
+
+    /// Finish a save after its job, also a panicking one. On success save the caches, then forget
+    /// the entry unless a sync may still need to replay it.
+    fn settle_save(&self, op: &SaveOp, ok: bool) {
+        if ok {
+            self.saves.lock().mark_landed(op.entry);
+            match &op.item {
+                SaveItem::Track(_) => {
+                    self.save_tracks_db();
+                    self.save_artists_db();
+                }
+                SaveItem::Album(_) => {
+                    self.save_albums_db();
+                }
+                SaveItem::Artist(_) => {
+                    self.save_artists_db();
+                }
+                SaveItem::Show(_) => {
+                    self.save_shows_db();
+                }
+                SaveItem::Episode(_) => {
+                    self.save_episodes_db();
+                }
+            }
+            let mut saves = self.saves.lock();
+            if !self.syncing.load(Ordering::Acquire) {
+                saves.remove(op.entry);
+            }
+            return;
+        }
+        match &op.item {
+            SaveItem::Track(_) => {
+                if let Some((op, prior)) = self.undo_in(&self.tracks, op.entry) {
+                    Artist::undo(&mut self.artists.write_unpoisoned(), &op, prior);
+                }
+            }
+            SaveItem::Album(_) => {
+                self.undo_in(&self.albums, op.entry);
+            }
+            SaveItem::Artist(_) => {
+                self.undo_in(&self.artists, op.entry);
+            }
+            SaveItem::Show(_) => {
+                self.undo_in(&self.shows, op.entry);
+            }
+            SaveItem::Episode(_) => {
+                self.undo_in(&self.episodes, op.entry);
+            }
+        }
+        self.post_note(SAVE_FAILED_NOTE);
+        self.trigger_redraw();
+    }
+
     /// Check whether `track` is saved in the user's library.
     pub fn is_saved_track(&self, track: &Playable) -> bool {
         if !*self.is_done.read_unpoisoned() {
@@ -2413,45 +2604,14 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        let ids: Vec<&str> = tracks.iter().filter_map(|t| t.id.as_deref()).collect();
-        let uris: Vec<String> = tracks
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.uri.clone())
-            .collect();
-        let api = &self.spotify.api;
-        if !write_through(
-            api,
-            Area::Library,
-            || api.collection_write(Area::Library, SET_COLLECTION, &uris, false),
-            || api.current_user_saved_tracks_add(ids).is_ok(),
-        ) {
-            return;
+        // Each goes to the top: last first, so they read in the given order.
+        for track in tracks.iter().rev() {
+            self.queue_library_save(
+                &self.tracks,
+                SaveItem::Track(Box::new((*track).clone())),
+                false,
+            );
         }
-
-        {
-            let mut store = self.tracks.write_unpoisoned();
-            let mut i = 0;
-            for track in tracks {
-                if store.iter().any(|t| t.id == track.id) {
-                    continue;
-                }
-
-                store.insert(i, (*track).clone());
-                i += 1;
-            }
-        }
-
-        {
-            let mut artists = self.artists.write_unpoisoned();
-            for track in tracks {
-                add_track(&mut artists, track);
-            }
-        }
-
-        self.save_tracks_db();
-        self.save_artists_db();
     }
 
     /// Remove `tracks` from the user's library.
@@ -2459,41 +2619,13 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        let ids: Vec<&str> = tracks.iter().filter_map(|t| t.id.as_deref()).collect();
-        let uris: Vec<String> = tracks
-            .iter()
-            .filter(|t| t.id.is_some())
-            .map(|t| t.uri.clone())
-            .collect();
-        let api = &self.spotify.api;
-        if !write_through(
-            api,
-            Area::Library,
-            || api.collection_write(Area::Library, SET_COLLECTION, &uris, true),
-            || api.current_user_saved_tracks_delete(ids).is_ok(),
-        ) {
-            return;
+        for track in tracks {
+            self.queue_library_save(
+                &self.tracks,
+                SaveItem::Track(Box::new((*track).clone())),
+                true,
+            );
         }
-
-        {
-            let mut store = self.tracks.write_unpoisoned();
-            *store = store
-                .iter()
-                .filter(|t| !tracks.iter().any(|tt| t.id == tt.id))
-                .cloned()
-                .collect();
-        }
-
-        {
-            let mut artists = self.artists.write_unpoisoned();
-            for track in tracks {
-                remove_track(&mut artists, track);
-            }
-        }
-
-        self.save_tracks_db();
-        self.save_artists_db();
     }
 
     /// Check whether `album` is saved to the user's library.
@@ -2511,34 +2643,11 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        if let Some(ref album_id) = album.id {
-            let api = &self.spotify.api;
-            let uris = vec![format!("spotify:album:{album_id}")];
-            if !write_through(
-                api,
-                Area::Library,
-                || api.collection_write(Area::Library, SET_COLLECTION, &uris, false),
-                || {
-                    api.current_user_saved_albums_add(vec![album_id.as_str()])
-                        .is_ok()
-                },
-            ) {
-                return;
-            }
-        }
-
-        {
-            let mut store = self.albums.write_unpoisoned();
-            if !store.iter().any(|a| a.id == album.id) {
-                store.insert(0, album.clone());
-
-                // resort list of albums
-                sort_albums(&mut store);
-            }
-        }
-
-        self.save_albums_db();
+        self.queue_library_save(
+            &self.albums,
+            SaveItem::Album(Box::new(album.clone())),
+            false,
+        );
     }
 
     /// Remove `album` from the user's library.
@@ -2546,29 +2655,7 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        if let Some(ref album_id) = album.id {
-            let api = &self.spotify.api;
-            let uris = vec![format!("spotify:album:{album_id}")];
-            if !write_through(
-                api,
-                Area::Library,
-                || api.collection_write(Area::Library, SET_COLLECTION, &uris, true),
-                || {
-                    api.current_user_saved_albums_delete(vec![album_id.as_str()])
-                        .is_ok()
-                },
-            ) {
-                return;
-            }
-        }
-
-        {
-            let mut store = self.albums.write_unpoisoned();
-            *store = store.iter().filter(|a| a.id != album.id).cloned().collect();
-        }
-
-        self.save_albums_db();
+        self.queue_library_save(&self.albums, SaveItem::Album(Box::new(album.clone())), true);
     }
 
     /// Check whether the user follows `artist`.
@@ -2586,23 +2673,11 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        if let Some(ref artist_id) = artist.id {
-            let api = &self.spotify.api;
-            let uris = vec![format!("spotify:artist:{artist_id}")];
-            if !write_through(
-                api,
-                Area::Library,
-                || api.collection_write(Area::Library, SET_ARTIST, &uris, false),
-                || api.user_follow_artists(vec![artist_id.as_str()]).is_ok(),
-            ) {
-                return;
-            }
-        }
-
-        set_followed(&mut self.artists.write_unpoisoned(), artist, true);
-
-        self.save_artists_db();
+        self.queue_library_save(
+            &self.artists,
+            SaveItem::Artist(Box::new(artist.clone())),
+            false,
+        );
     }
 
     /// Unfollow `artist` as the logged in user.
@@ -2610,23 +2685,11 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        if let Some(ref artist_id) = artist.id {
-            let api = &self.spotify.api;
-            let uris = vec![format!("spotify:artist:{artist_id}")];
-            if !write_through(
-                api,
-                Area::Library,
-                || api.collection_write(Area::Library, SET_ARTIST, &uris, true),
-                || api.user_unfollow_artists(vec![artist_id.as_str()]).is_ok(),
-            ) {
-                return;
-            }
-        }
-
-        set_followed(&mut self.artists.write_unpoisoned(), artist, false);
-
-        self.save_artists_db();
+        self.queue_library_save(
+            &self.artists,
+            SaveItem::Artist(Box::new(artist.clone())),
+            true,
+        );
     }
 
     /// Check whether `playlist` is saved in the user's library.
@@ -2703,28 +2766,24 @@ impl Library {
 
     /// Add `episode` to Your Episodes.
     pub fn save_episode(&self, episode: &Episode) {
-        if self.is_saved_episode(episode) != Some(false)
-            || !episode_write(&self.spotify.api, std::slice::from_ref(&episode.uri), false)
-        {
+        if self.is_saved_episode(episode).is_none() {
             return;
         }
         let mut episode = episode.clone();
         episode.added_at = Some(chrono::Utc::now());
-        self.episodes.write_unpoisoned().insert(0, episode);
-        self.save_episodes_db();
+        self.queue_library_save(&self.episodes, SaveItem::Episode(Box::new(episode)), false);
     }
 
     /// Remove `episode` from Your Episodes.
     pub fn unsave_episode(&self, episode: &Episode) {
-        if self.is_saved_episode(episode) != Some(true)
-            || !episode_write(&self.spotify.api, std::slice::from_ref(&episode.uri), true)
-        {
+        if self.is_saved_episode(episode).is_none() {
             return;
         }
-        self.episodes
-            .write_unpoisoned()
-            .retain(|e| e.id != episode.id);
-        self.save_episodes_db();
+        self.queue_library_save(
+            &self.episodes,
+            SaveItem::Episode(Box::new(episode.clone())),
+            true,
+        );
     }
 
     /// Save the `show` to the user's library.
@@ -2732,23 +2791,7 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        let api = &self.spotify.api;
-        let uris = vec![show.uri.clone()];
-        if write_through(
-            api,
-            Area::Library,
-            || api.collection_write(Area::Library, SET_SHOW, &uris, false),
-            || api.save_shows(&[show.id.as_str()]).is_ok(),
-        ) {
-            {
-                let mut store = self.shows.write_unpoisoned();
-                if !store.iter().any(|s| s.id == show.id) {
-                    store.insert(0, show.clone());
-                }
-            }
-            self.save_shows_db();
-        }
+        self.queue_library_save(&self.shows, SaveItem::Show(Box::new(show.clone())), false);
     }
 
     /// Remove the `show` from the user's library.
@@ -2756,21 +2799,7 @@ impl Library {
         if !*self.is_done.read_unpoisoned() {
             return;
         }
-
-        let api = &self.spotify.api;
-        let uris = vec![show.uri.clone()];
-        if write_through(
-            api,
-            Area::Library,
-            || api.collection_write(Area::Library, SET_SHOW, &uris, true),
-            || api.unsave_shows(&[show.id.as_str()]).is_ok(),
-        ) {
-            {
-                let mut store = self.shows.write_unpoisoned();
-                *store = store.iter().filter(|s| s.id != show.id).cloned().collect();
-            }
-            self.save_shows_db();
-        }
+        self.queue_library_save(&self.shows, SaveItem::Show(Box::new(show.clone())), true);
     }
 
     /// Force redraw the user interface.
@@ -3167,18 +3196,21 @@ fn outcome(api: &WebApi, set: &str, result: Result<String, InternalError>) -> Se
 
 /// An episode write. Episodes have no Web API fallback: any failure fails the action with a
 /// warning; a protocol change still latches the area.
-fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> bool {
+fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> WriteOutcome {
     match api.collection_write(Area::Library, SET_LISTEN_LATER, uris, removed) {
-        Ok(()) => true,
+        Ok(()) => WriteOutcome::Done,
         Err(err) => {
             if let InternalError::ProtocolChanged(_) = err {
                 api.latch_area(Area::Library, &err);
             }
             warn!("Could not update Your Episodes: {err}");
-            false
+            outcome_of(&err)
         }
     }
 }
+
+/// The status note shown for a save that failed and was undone.
+const SAVE_FAILED_NOTE: &str = "Could not update your library, change undone";
 
 /// The status note shown for a failed playlist write that has no specific one.
 const GENERIC_WRITE_NOTE: &str = "Could not change the playlist";
@@ -3465,6 +3497,36 @@ pub(crate) fn write_through(
         |err| api.latch_area(area, err),
     )
     .is_some()
+}
+
+/// `write_through`, telling apart the failures worth another try.
+fn write_outcome(
+    api: &WebApi,
+    area: Area,
+    internal: impl FnOnce() -> Result<(), InternalError>,
+    web: impl FnOnce() -> bool,
+) -> WriteOutcome {
+    let failure = Cell::new(WriteOutcome::Failed);
+    let written = write_through(
+        api,
+        area,
+        || internal().inspect_err(|err| failure.set(outcome_of(err))),
+        web,
+    );
+    if written {
+        WriteOutcome::Done
+    } else {
+        failure.get()
+    }
+}
+
+/// The retry class of an internal API error.
+fn outcome_of(err: &InternalError) -> WriteOutcome {
+    match err {
+        InternalError::RateLimited => WriteOutcome::RateLimited,
+        InternalError::Transient(_) => WriteOutcome::Transient,
+        _ => WriteOutcome::Failed,
+    }
 }
 
 #[cfg(test)]
@@ -3761,8 +3823,7 @@ mod test {
     use crate::config::Config;
     use crate::events::EventManager;
     use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY};
-    use crate::save_log::test_items::{artist, track};
-    use crate::save_log::{Prior, SaveItem, SaveOp};
+    use crate::save_log::test_items::{self, artist, track};
     use crate::spotify::Spotify;
 
     #[test]
@@ -3844,11 +3905,10 @@ mod test {
     fn episode_writes_have_no_web_fallback() {
         let api = WebApi::new(&crate::config::Config::new_for_test());
         // No session: NoSession, which for other sets would use the Web API.
-        assert!(!episode_write(
-            &api,
-            &["spotify:episode:e".to_string()],
-            false
-        ));
+        assert_eq!(
+            episode_write(&api, &["spotify:episode:e".to_string()], false),
+            WriteOutcome::Failed
+        );
         assert_eq!(
             api.area_counts(Area::Library).fallback,
             0,
@@ -3892,9 +3952,11 @@ mod test {
             list_index: 0,
         };
         library.save_episode(&episode("new"));
+        assert!(library.run_next_write());
         assert!(library.episodes.read_unpoisoned().is_empty());
         library.episodes.write_unpoisoned().push(episode("kept"));
         library.unsave_episode(&episode("kept"));
+        assert!(library.run_next_write());
         let store = library.episodes.read_unpoisoned();
         assert_eq!(store.len(), 1);
         assert_eq!(store[0].id, "kept");
@@ -5053,6 +5115,7 @@ mod test {
                     drained,
                     dropped,
                     note,
+                    silent: _,
                 } => Some((ok, drained, dropped, note)),
                 _ => None,
             })
@@ -5483,5 +5546,227 @@ mod test {
             .map(|a| a.id)
             .collect();
         assert_eq!(ids, [Some("a".to_string())]);
+    }
+
+    fn saved_ids(library: &Library) -> Vec<String> {
+        library
+            .tracks
+            .read_unpoisoned()
+            .iter()
+            .filter_map(|t| t.id.clone())
+            .collect()
+    }
+
+    fn loaded_library() -> Arc<Library> {
+        let library = test_library();
+        *library.is_done.write_unpoisoned() = true;
+        library
+    }
+
+    #[test]
+    fn a_save_shows_at_once_and_queues_one_job() {
+        let library = loaded_library();
+        let t = track("t", &[("a", "A")]);
+        library.save_tracks(&[&t]);
+        assert_eq!(saved_ids(&library), ["t"]);
+        assert_eq!(
+            library.artists.read_unpoisoned().len(),
+            1,
+            "the artist side too"
+        );
+        assert_eq!(library.writer.pending(), 1);
+    }
+
+    #[test]
+    fn every_entry_point_changes_its_store_and_queues_a_job() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        let mut album = Album::default_for_test("a");
+        album.id = Some("a".into());
+        let artist = test_items::artist("r", "R", false);
+        let show = test_items::show("s");
+        let episode = test_items::episode("e");
+        library.save_tracks(&[&t]);
+        library.save_album(&album);
+        library.follow_artist(&artist);
+        library.save_show(&show);
+        library.queue_episode(&episode);
+        assert_eq!(library.writer.pending(), 5);
+        assert!(library.is_saved_album(&album) && library.is_followed_artist(&artist));
+        assert!(library.is_saved_show(&show));
+        library.unsave_tracks(&[&t]);
+        library.unsave_album(&album);
+        library.unfollow_artist(&artist);
+        library.unsave_show(&show);
+        assert_eq!(library.writer.pending(), 9);
+        assert!(saved_ids(&library).is_empty());
+        assert!(!library.is_saved_album(&album) && !library.is_followed_artist(&artist));
+        assert!(!library.is_saved_show(&show));
+    }
+
+    #[test]
+    fn a_repeat_op_creates_no_job() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        library.save_tracks(&[&t]);
+        assert_eq!(library.writer.pending(), 1, "already saved");
+        library.unsave_tracks(&[&track("missing", &[])]);
+        assert_eq!(library.writer.pending(), 1, "nothing to remove");
+    }
+
+    #[test]
+    fn several_tracks_keep_their_order_at_the_top() {
+        let library = loaded_library();
+        let (a, b) = (track("a", &[]), track("b", &[]));
+        library.save_tracks(&[&a, &b]);
+        assert_eq!(saved_ids(&library), ["a", "b"]);
+    }
+
+    #[test]
+    fn a_failed_save_is_undone_with_one_note() {
+        // No session and no Web token: the real write fails.
+        let library = loaded_library();
+        let t = track("t", &[("a", "A")]);
+        library.save_tracks(&[&t]);
+        assert!(library.run_next_write());
+        assert!(saved_ids(&library).is_empty());
+        assert!(library.artists.read_unpoisoned().is_empty());
+        assert_eq!(library.writer.pending(), 0);
+        let events: Vec<Event> = library.ev.msg_iter().collect();
+        let notes = events
+            .iter()
+            .filter(|e| matches!(e, Event::StatusNote(n) if n == SAVE_FAILED_NOTE))
+            .count();
+        assert_eq!(notes, 1);
+    }
+
+    #[test]
+    fn a_landed_save_stays_and_is_silent() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        assert!(library.run_next_write_with(|_, _| true));
+        assert_eq!(saved_ids(&library), ["t"]);
+        assert_eq!(library.writer.pending(), 0);
+        library.with_store(&library.tracks, |store| store.clear());
+        assert!(saved_ids(&library).is_empty(), "no sync: the entry is gone");
+        let silent = library.ev.msg_iter().any(|e| {
+            matches!(
+                e,
+                Event::WriteSettled {
+                    ok: true,
+                    silent: true,
+                    ..
+                }
+            )
+        });
+        assert!(silent);
+    }
+
+    #[test]
+    fn a_save_landed_during_a_sync_survives_its_swap() {
+        let library = loaded_library();
+        library.syncing.store(true, Ordering::SeqCst);
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        assert!(library.run_next_write_with(|_, _| true));
+        library.with_store(&library.tracks, |store| store.clear());
+        assert_eq!(saved_ids(&library), ["t"]);
+    }
+
+    #[test]
+    fn a_save_failing_after_a_sync_copy_does_not_come_back() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        let copy = library.confirmed(&library.tracks);
+        assert!(library.run_next_write_with(|_, _| false));
+        library.with_store(&library.tracks, |store| *store = copy);
+        assert!(saved_ids(&library).is_empty());
+    }
+
+    #[test]
+    fn an_unsave_failing_after_a_sync_copy_does_not_vanish() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.tracks.write_unpoisoned().push(t.clone());
+        library.unsave_tracks(&[&t]);
+        let copy = library.confirmed(&library.tracks);
+        assert!(library.run_next_write_with(|_, _| false));
+        library.with_store(&library.tracks, |store| *store = copy);
+        assert_eq!(saved_ids(&library), ["t"]);
+    }
+
+    #[test]
+    fn save_then_unsave_both_failing_ends_unsaved() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        library.unsave_tracks(&[&t]);
+        assert!(library.run_next_write_with(|_, _| false));
+        assert!(saved_ids(&library).is_empty());
+        assert!(library.run_next_write_with(|_, _| false));
+        assert!(saved_ids(&library).is_empty());
+    }
+
+    #[test]
+    fn a_panicking_save_is_undone() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        assert!(library.run_next_write_with(|_, _| panic!("save job failed")));
+        assert!(saved_ids(&library).is_empty());
+    }
+
+    #[test]
+    fn the_cache_copy_leaves_a_pending_save_out() {
+        let library = loaded_library();
+        let t = track("t", &[]);
+        library.save_tracks(&[&t]);
+        assert!(library.confirmed(&library.tracks).is_empty());
+        assert!(library.run_next_write_with(|_, _| true));
+        assert_eq!(library.tracks.read_unpoisoned().len(), 1);
+    }
+
+    #[test]
+    fn a_track_without_an_id_saves_with_no_request() {
+        // No session and no Web token: a request would fail and undo the save.
+        let library = loaded_library();
+        let mut t = track("t", &[]);
+        t.id = None;
+        library.save_tracks(&[&t]);
+        assert_eq!(library.tracks.read_unpoisoned().len(), 1, "shows at once");
+        assert!(library.run_next_write());
+        assert_eq!(library.tracks.read_unpoisoned().len(), 1, "stays");
+        let events: Vec<Event> = library.ev.msg_iter().collect();
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::WriteSettled { ok: true, .. }))
+        );
+        assert!(!events.iter().any(|e| matches!(e, Event::StatusNote(_))));
+    }
+
+    #[test]
+    fn a_write_outcome_keeps_the_class_of_the_internal_failure() {
+        let api = WebApi::new(&Config::new_for_test());
+        let run = |internal: Result<(), InternalError>, web: bool| {
+            write_outcome(&api, Area::Library, || internal, || web)
+        };
+        assert_eq!(run(Ok(()), false), WriteOutcome::Done);
+        assert_eq!(
+            run(Err(InternalError::RateLimited), true),
+            WriteOutcome::RateLimited
+        );
+        assert_eq!(
+            run(Err(InternalError::Transient("x".into())), true),
+            WriteOutcome::Transient
+        );
+        assert_eq!(run(Err(InternalError::NoSession), true), WriteOutcome::Done);
+        assert_eq!(
+            run(Err(InternalError::NoSession), false),
+            WriteOutcome::Failed
+        );
     }
 }
