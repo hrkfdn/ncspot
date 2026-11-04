@@ -410,6 +410,11 @@ impl SaveLog {
         self.entries.retain(|e| e.state != State::Landed);
     }
 
+    /// Whether any op is still unsettled: not yet landed or failed.
+    pub fn any_pending(&self) -> bool {
+        self.entries.iter().any(|e| e.state == State::Pending)
+    }
+
     /// Whether `set` has an op Spotify has not confirmed.
     pub fn has_pending(&self, set: &str) -> bool {
         self.entries

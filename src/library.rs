@@ -2614,6 +2614,19 @@ impl Library {
         self.trigger_redraw();
     }
 
+    /// Wait until no save is pending: each has landed or been undone. True when settled, false
+    /// when `timeout` ran out first.
+    pub fn wait_saves_settled(&self, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        while self.saves.lock().any_pending() {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        true
+    }
+
     /// Check whether `track` is saved in the user's library.
     pub fn is_saved_track(&self, track: &Playable) -> bool {
         let tracks = self.tracks.read_unpoisoned();
@@ -5512,6 +5525,15 @@ mod test {
         let mut store: Vec<Track> = vec![];
         saves.lock().replay(&mut store);
         assert!(store.is_empty());
+    }
+
+    #[test]
+    fn wait_saves_settled_waits_for_the_job_to_settle() {
+        let library = test_library();
+        let op = pending_save(&library, &track("t", &[]));
+        assert!(!library.wait_saves_settled(Duration::from_millis(30)));
+        library.settle_save(&op, true);
+        assert!(library.wait_saves_settled(Duration::from_millis(30)));
     }
 
     /// Apply a save of `t` to the tracks store and log it, as the UI thread does.

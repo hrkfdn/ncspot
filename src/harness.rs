@@ -308,8 +308,6 @@ pub fn playlist_overwrite_test(library: &Library, n: usize) -> Result<(), String
 }
 
 /// Name suffix `playlist-rename-test` adds.
-/// How long the harness waits for a library save to settle.
-const SAVE_SETTLE: Duration = Duration::from_secs(120);
 const RENAMED_SUFFIX: &str = "-renamed";
 
 /// Move the track at `index` of the most recent test playlist by `n` rows (negative: up),
@@ -571,6 +569,9 @@ pub fn open_view(
     Ok(view)
 }
 
+/// How long the harness waits for a library save to settle.
+const SAVE_SETTLE: Duration = Duration::from_secs(120);
+
 /// A library membership check and its write, for one item.
 type ItemOps<'a> = (Box<dyn Fn() -> bool + 'a>, Box<dyn Fn() + 'a>);
 
@@ -677,7 +678,9 @@ pub fn write_item(
     write();
     // The store shows a save at once: only the settled write says it landed. The longest a save
     // can take is about 90 s.
-    library.writer.wait_idle(SAVE_SETTLE);
+    if !library.wait_saves_settled(SAVE_SETTLE) {
+        return Err(format!("{verb}: save did not settle"));
+    }
     if is_saved() == before {
         return Err(format!("{verb}: library unchanged"));
     }
