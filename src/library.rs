@@ -85,6 +85,17 @@ const CACHE_SHOWS: &str = "shows.db";
 /// Cached Your Episodes database filename.
 const CACHE_EPISODES: &str = "episodes.db";
 
+/// One lock per cache file, held across the copy of its store and the write, so whoever copies
+/// last also writes last. Worker and sync threads only: the UI thread never takes these.
+#[derive(Default)]
+struct CacheGates {
+    tracks: Mutex<()>,
+    albums: Mutex<()>,
+    artists: Mutex<()>,
+    shows: Mutex<()>,
+    episodes: Mutex<()>,
+}
+
 /// The user library with all their saved tracks, albums, playlists... High level interface to the
 /// Spotify API used to manage items in the user library.
 #[derive(Clone)]
@@ -123,6 +134,8 @@ pub struct Library {
     pub playlists_rev: Arc<AtomicU64>,
     /// The last note [Library::post_note] posted, for the result of a queued write.
     last_note: Arc<Mutex<Option<String>>>,
+    /// The locks that order the writes of the cache files.
+    cache_gates: Arc<CacheGates>,
     ev: EventManager,
     spotify: Spotify,
     pub cfg: Arc<Config>,
@@ -181,6 +194,7 @@ impl Library {
             writer: PlaylistWriter::new(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
+            cache_gates: Arc::default(),
             ev,
             spotify,
             cfg,
@@ -211,6 +225,7 @@ impl Library {
             writer: PlaylistWriter::new(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
+            cache_gates: Arc::default(),
             ev,
             spotify,
             cfg,
@@ -220,41 +235,44 @@ impl Library {
         library
     }
 
-    /// Load cached items from the file at `cache_path` into the given `store`. True when a file
-    /// was read and parsed; false when it is missing, unparseable or ignored for its version.
-    fn load_cache<T: DeserializeOwned>(&self, cache_path: &Path, store: &mut Vec<T>) -> bool {
+    /// The items in the cache at `cache_path`, read and parsed with no store lock held. None for
+    /// an old cache version, a missing file or a parse error.
+    fn read_cache<T: DeserializeOwned>(&self, cache_path: &Path) -> Option<Vec<T>> {
         let saved_cache_version = self.cfg.state().cache_version;
         if saved_cache_version < CACHE_VERSION {
             debug!(
                 "Cache version for {cache_path:?} has changed from {saved_cache_version} to {CACHE_VERSION}, ignoring cache"
             );
-            return false;
+            return None;
         }
-
-        if let Ok(contents) = std::fs::read_to_string(cache_path) {
-            debug!("loading cache from {}", cache_path.display());
-            // Parse from in-memory string instead of directly from the file because it's faster.
-            let parsed = serde_json::from_str::<Vec<_>>(&contents);
-            match parsed {
-                Ok(cache) => {
-                    debug!(
-                        "cache from {} loaded ({} items)",
-                        cache_path.display(),
-                        cache.len()
-                    );
-                    store.clear();
-                    store.extend(cache);
-
-                    // force refresh of UI (if visible)
-                    self.trigger_redraw();
-                    return true;
-                }
-                Err(e) => {
-                    error!("can't parse cache: {e}");
-                }
+        let contents = std::fs::read_to_string(cache_path).ok()?;
+        debug!("loading cache from {}", cache_path.display());
+        // Parse from in-memory string instead of directly from the file because it's faster.
+        match serde_json::from_str::<Vec<T>>(&contents) {
+            Ok(cache) => {
+                debug!(
+                    "cache from {} loaded ({} items)",
+                    cache_path.display(),
+                    cache.len()
+                );
+                Some(cache)
+            }
+            Err(e) => {
+                error!("can't parse cache: {e}");
+                None
             }
         }
-        false
+    }
+
+    /// Replace the store under `lock` with the cache at `cache_path`; false leaves it as it is.
+    fn load_store<T: DeserializeOwned>(&self, cache_path: &Path, lock: &RwLock<Vec<T>>) -> bool {
+        let Some(cache) = self.read_cache(cache_path) else {
+            return false;
+        };
+        *lock.write_unpoisoned() = cache;
+        // force refresh of UI (if visible)
+        self.trigger_redraw();
+        true
     }
 
     /// Save the items from `store` in the file at `cache_path`. False (logged) on failure.
@@ -283,6 +301,59 @@ impl Library {
                 false
             }
         }
+    }
+
+    /// Write the store under `lock` to `cache_path`, the file I/O outside the store lock. False
+    /// (logged) on failure.
+    fn save_store<T: Serialize + Clone>(
+        &self,
+        cache_path: &Path,
+        lock: &RwLock<Vec<T>>,
+        gate: &Mutex<()>,
+    ) -> bool {
+        let _gate = gate.lock();
+        let copy = lock.read_unpoisoned().clone();
+        self.save_cache(cache_path, &copy)
+    }
+
+    fn save_tracks_db(&self) -> bool {
+        self.save_store(
+            &config::cache_path(CACHE_TRACKS),
+            &self.tracks,
+            &self.cache_gates.tracks,
+        )
+    }
+
+    fn save_albums_db(&self) -> bool {
+        self.save_store(
+            &config::cache_path(CACHE_ALBUMS),
+            &self.albums,
+            &self.cache_gates.albums,
+        )
+    }
+
+    fn save_artists_db(&self) -> bool {
+        self.save_store(
+            &config::cache_path(CACHE_ARTISTS),
+            &self.artists,
+            &self.cache_gates.artists,
+        )
+    }
+
+    fn save_shows_db(&self) -> bool {
+        self.save_store(
+            &config::cache_path(CACHE_SHOWS),
+            &self.shows,
+            &self.cache_gates.shows,
+        )
+    }
+
+    fn save_episodes_db(&self) -> bool {
+        self.save_store(
+            &config::cache_path(CACHE_EPISODES),
+            &self.episodes,
+            &self.cache_gates.episodes,
+        )
     }
 
     /// The stored collection v2 sync token of `set`, if any.
@@ -837,23 +908,15 @@ impl Library {
     /// Load the liked songs and saved albums caches and sync the `collection` set. Returns
     /// whether the sync was complete.
     fn sync_collection(&self, force_full: bool) -> bool {
-        let valid = self.load_cache(
-            &config::cache_path(CACHE_TRACKS),
-            self.tracks.write_unpoisoned().as_mut(),
-        ) & self.load_cache(
-            &config::cache_path(CACHE_ALBUMS),
-            self.albums.write_unpoisoned().as_mut(),
-        );
+        let valid = self.load_store(&config::cache_path(CACHE_TRACKS), &self.tracks)
+            & self.load_store(&config::cache_path(CACHE_ALBUMS), &self.albums);
         self.fetch_collection(valid, force_full)
     }
 
     /// Load the artists cache and sync the followed artists. Finish with
     /// [Library::finish_artists] once the liked songs are in.
     fn sync_artists(&self, force_full: bool) -> ArtistsSync {
-        let valid = self.load_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            self.artists.write_unpoisoned().as_mut(),
-        );
+        let valid = self.load_store(&config::cache_path(CACHE_ARTISTS), &self.artists);
         self.fetch_artists_any(valid, force_full)
     }
 
@@ -861,10 +924,7 @@ impl Library {
     /// False (logged) if the save failed.
     fn save_artists(&self) -> bool {
         self.populate_artists();
-        self.save_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            &self.artists.read_unpoisoned(),
-        )
+        self.save_artists_db()
     }
 
     /// Save the artists and finish the `artist` set of a [Library::sync_artists]. Returns
@@ -890,13 +950,13 @@ impl Library {
     /// Load the playlists cache (and the layout, over the internal API), sync the playlists
     /// and prefetch their covers. Returns whether the sync was complete.
     fn sync_playlists(&self, force_full: bool) -> bool {
-        self.reload_playlists(|store| self.load_cache(&config::cache_path(CACHE_PLAYLISTS), store));
+        self.reload_playlists(self.read_cache(&config::cache_path(CACHE_PLAYLISTS)));
         // With the area off the layout file is ignored, not deleted.
         let internal = self.spotify.api.internal_usable(Area::Playlists);
         if internal {
-            self.load_cache(
+            self.load_store(
                 &config::cache_path(CACHE_PLAYLIST_LAYOUT),
-                self.playlist_layout.write_unpoisoned().as_mut(),
+                &self.playlist_layout,
             );
         }
         // The internal sync saves its own caches.
@@ -927,10 +987,7 @@ impl Library {
     fn sync_shows(&self, force_full: bool) -> bool {
         // With the area off nothing is loaded: the Web fetcher runs as before.
         let valid = self.spotify.api.internal_enabled(Area::Library)
-            && self.load_cache(
-                &config::cache_path(CACHE_SHOWS),
-                self.shows.write_unpoisoned().as_mut(),
-            );
+            && self.load_store(&config::cache_path(CACHE_SHOWS), &self.shows);
         self.fetch_shows_any(valid, force_full)
     }
 
@@ -940,10 +997,7 @@ impl Library {
         if !self.episodes_enabled {
             return true;
         }
-        let valid = self.load_cache(
-            &config::cache_path(CACHE_EPISODES),
-            self.episodes.write_unpoisoned().as_mut(),
-        );
+        let valid = self.load_store(&config::cache_path(CACHE_EPISODES), &self.episodes);
         self.fetch_episodes(valid, force_full)
     }
 
@@ -1584,16 +1638,10 @@ impl Library {
             SetOutcome::Synced(_) => true,
         };
         // A skipped write counts as saved: the file on disk already matches the store.
-        let tracks_saved = !cache_write_needed(cache_valid, changes.tracks)
-            || self.save_cache(
-                &config::cache_path(CACHE_TRACKS),
-                &self.tracks.read_unpoisoned(),
-            );
-        let albums_saved = !cache_write_needed(cache_valid, changes.albums)
-            || self.save_cache(
-                &config::cache_path(CACHE_ALBUMS),
-                &self.albums.read_unpoisoned(),
-            );
+        let tracks_saved =
+            !cache_write_needed(cache_valid, changes.tracks) || self.save_tracks_db();
+        let albums_saved =
+            !cache_write_needed(cache_valid, changes.albums) || self.save_albums_db();
         let saved = tracks_saved && albums_saved;
         let synced = matches!(outcome, SetOutcome::Synced(_));
         self.apply_finish(
@@ -1740,10 +1788,7 @@ impl Library {
         };
         let (complete, saved) = match outcome {
             SetOutcome::Synced(_) => {
-                let saved = self.save_cache(
-                    &config::cache_path(CACHE_SHOWS),
-                    &self.shows.read_unpoisoned(),
-                );
+                let saved = self.save_shows_db();
                 (saved, saved)
             }
             SetOutcome::Incomplete => (false, false),
@@ -1787,10 +1832,7 @@ impl Library {
         let outcome = outcome(api, SET_LISTEN_LATER, result);
         let (complete, saved) = match outcome {
             SetOutcome::Synced(_) => {
-                let saved = self.save_cache(
-                    &config::cache_path(CACHE_EPISODES),
-                    &self.episodes.read_unpoisoned(),
-                );
+                let saved = self.save_episodes_db();
                 (saved, saved)
             }
             SetOutcome::Incomplete => (false, false),
@@ -2021,9 +2063,12 @@ impl Library {
         replaced
     }
 
-    /// Replace the store with what `load` reads (the cache), keeping the copies of the
+    /// Replace the store with the read `cache` (None leaves it), keeping the copies of the
     /// playlists with a queued or running write: they show writes the cache does not have.
-    fn reload_playlists(&self, load: impl FnOnce(&mut Vec<Playlist>) -> bool) {
+    fn reload_playlists(&self, cache: Option<Vec<Playlist>>) {
+        let Some(cache) = cache else {
+            return;
+        };
         {
             let mut store = self.playlists.write_unpoisoned();
             let kept: Vec<Playlist> = store
@@ -2031,9 +2076,7 @@ impl Library {
                 .filter(|p| self.writer.is_pending(&p.id))
                 .cloned()
                 .collect();
-            if !load(&mut store) {
-                return;
-            }
+            *store = cache;
             for copy in kept {
                 match store.iter_mut().find(|p| p.id == copy.id) {
                     Some(entry) => *entry = copy,
@@ -2042,6 +2085,8 @@ impl Library {
             }
         }
         self.bump_playlists_rev();
+        // force refresh of UI (if visible)
+        self.trigger_redraw();
     }
 
     /// The store as `playlists.db` gets it: a playlist with a confirmed copy in the writer is
@@ -2437,14 +2482,8 @@ impl Library {
 
         self.populate_artists();
 
-        self.save_cache(
-            &config::cache_path(CACHE_TRACKS),
-            &self.tracks.read_unpoisoned(),
-        );
-        self.save_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            &self.artists.read_unpoisoned(),
-        );
+        self.save_tracks_db();
+        self.save_artists_db();
     }
 
     /// Remove `tracks` from the user's library.
@@ -2480,14 +2519,8 @@ impl Library {
 
         self.populate_artists();
 
-        self.save_cache(
-            &config::cache_path(CACHE_TRACKS),
-            &self.tracks.read_unpoisoned(),
-        );
-        self.save_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            &self.artists.read_unpoisoned(),
-        );
+        self.save_tracks_db();
+        self.save_artists_db();
     }
 
     /// Check whether `album` is saved to the user's library.
@@ -2532,10 +2565,7 @@ impl Library {
             }
         }
 
-        self.save_cache(
-            &config::cache_path(CACHE_ALBUMS),
-            &self.albums.read_unpoisoned(),
-        );
+        self.save_albums_db();
     }
 
     /// Remove `album` from the user's library.
@@ -2565,10 +2595,7 @@ impl Library {
             *store = store.iter().filter(|a| a.id != album.id).cloned().collect();
         }
 
-        self.save_cache(
-            &config::cache_path(CACHE_ALBUMS),
-            &self.albums.read_unpoisoned(),
-        );
+        self.save_albums_db();
     }
 
     /// Check whether the user follows `artist`.
@@ -2613,10 +2640,7 @@ impl Library {
 
         self.populate_artists();
 
-        self.save_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            &self.artists.read_unpoisoned(),
-        );
+        self.save_artists_db();
     }
 
     /// Unfollow `artist` as the logged in user.
@@ -2647,10 +2671,7 @@ impl Library {
 
         self.populate_artists();
 
-        self.save_cache(
-            &config::cache_path(CACHE_ARTISTS),
-            &self.artists.read_unpoisoned(),
-        );
+        self.save_artists_db();
     }
 
     /// Check whether `playlist` is saved in the user's library.
@@ -2735,10 +2756,7 @@ impl Library {
         let mut episode = episode.clone();
         episode.added_at = Some(chrono::Utc::now());
         self.episodes.write_unpoisoned().insert(0, episode);
-        self.save_cache(
-            &config::cache_path(CACHE_EPISODES),
-            &self.episodes.read_unpoisoned(),
-        );
+        self.save_episodes_db();
     }
 
     /// Remove `episode` from Your Episodes.
@@ -2751,10 +2769,7 @@ impl Library {
         self.episodes
             .write_unpoisoned()
             .retain(|e| e.id != episode.id);
-        self.save_cache(
-            &config::cache_path(CACHE_EPISODES),
-            &self.episodes.read_unpoisoned(),
-        );
+        self.save_episodes_db();
     }
 
     /// Save the `show` to the user's library.
@@ -2777,10 +2792,7 @@ impl Library {
                     store.insert(0, show.clone());
                 }
             }
-            self.save_cache(
-                &config::cache_path(CACHE_SHOWS),
-                &self.shows.read_unpoisoned(),
-            );
+            self.save_shows_db();
         }
     }
 
@@ -2802,10 +2814,7 @@ impl Library {
                 let mut store = self.shows.write_unpoisoned();
                 *store = store.iter().filter(|s| s.id != show.id).cloned().collect();
             }
-            self.save_cache(
-                &config::cache_path(CACHE_SHOWS),
-                &self.shows.read_unpoisoned(),
-            );
+            self.save_shows_db();
         }
     }
 
@@ -3944,12 +3953,69 @@ mod test {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("x.db");
         assert!(library.save_cache(&path, &[1u32, 2]));
-        let mut store: Vec<u32> = Vec::new();
-        assert!(library.load_cache(&path, &mut store));
-        assert_eq!(store, vec![1, 2]);
-        assert!(!library.load_cache(&dir.join("missing.db"), &mut store));
+        assert_eq!(library.read_cache::<u32>(&path), Some(vec![1, 2]));
+        assert!(library.read_cache::<u32>(&dir.join("missing.db")).is_none());
         assert!(!library.save_cache(&dir.join("no-such-dir").join("x.db"), &[1u32]));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn cache_file(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("ncspot-test-{}-{name}.db", std::process::id()))
+    }
+
+    #[test]
+    fn read_cache_leaves_a_bad_file_to_the_caller() {
+        let library = test_library();
+        let path = cache_file("bad");
+        std::fs::write(&path, "not json").unwrap();
+        assert!(library.read_cache::<u32>(&path).is_none());
+        let store = RwLock::new(vec![7u32]);
+        assert!(!library.load_store(&path, &store));
+        assert_eq!(*store.read_unpoisoned(), [7], "the store stays as it is");
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn read_cache_ignores_an_old_cache_version() {
+        let library = test_library();
+        let path = cache_file("old");
+        std::fs::write(&path, "[1]").unwrap();
+        library.cfg.with_state_mut(|s| s.cache_version = 0);
+        assert!(library.read_cache::<u32>(&path).is_none());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn load_store_replaces_the_store_from_a_saved_cache() {
+        let library = test_library();
+        let path = cache_file("round");
+        let gate = Mutex::new(());
+        let saved = RwLock::new(vec![1u32, 2]);
+        assert!(library.save_store(&path, &saved, &gate));
+        let store = RwLock::new(vec![9u32]);
+        assert!(library.load_store(&path, &store));
+        assert_eq!(*store.read_unpoisoned(), [1, 2]);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn concurrent_cache_saves_keep_the_newest_copy() {
+        let library = test_library();
+        let path = cache_file("newest");
+        let gate = Mutex::new(());
+        let store = RwLock::new(Vec::<u32>::new());
+        std::thread::scope(|s| {
+            for n in 0..16 {
+                let (library, path, gate, store) = (&library, &path, &gate, &store);
+                s.spawn(move || {
+                    store.write_unpoisoned().push(n);
+                    library.save_store(path, store, gate);
+                });
+            }
+        });
+        let read: Vec<u32> = library.read_cache(&path).unwrap();
+        assert_eq!(read.len(), 16, "the last write holds every push");
+        std::fs::remove_file(path).unwrap();
     }
 
     fn pin_items(uris: &[&str]) -> crate::internal_api::collection::Listing {
@@ -5199,11 +5265,9 @@ mod test {
         let row = stored_row(&library, "p", 0);
         library.queue_move("p", &row, 1, false);
         let rev = library.playlists_rev.load(Ordering::Relaxed);
-        library.reload_playlists(|store| {
-            *store = disk.clone();
-            store.push(playlist("q"));
-            true
-        });
+        let mut cache = disk.clone();
+        cache.push(playlist("q"));
+        library.reload_playlists(Some(cache));
         assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"], "optimistic");
         assert!(stored_opt(&library, "q").is_some(), "the rest is loaded");
         assert!(library.playlists_rev.load(Ordering::Relaxed) > rev);
