@@ -50,6 +50,7 @@ use crate::playlist_layout::{
 };
 use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
+use crate::save_log::{add_track, rebuild_artists, remove_track, set_followed};
 use crate::spotify::Spotify;
 use crate::spotify_api::WebApi;
 use crate::traits::ListItem;
@@ -1574,21 +1575,6 @@ impl Library {
         true
     }
 
-    /// Add the artist with `id` and `name` to the user library, but don't sync with the API.
-    /// This does not add if there is already an artist with `id`.
-    fn insert_artist(&self, id: String, name: String) {
-        let mut artists = self.artists.write_unpoisoned();
-
-        if !artists
-            .iter()
-            .any(|a| a.id.as_ref().is_some_and(|value| *value == id))
-        {
-            let mut artist = Artist::new(id.to_string(), name.to_string());
-            artist.tracks = Some(Vec::new());
-            artists.push(artist);
-        }
-    }
-
     /// Sync liked songs and saved albums, which share the `collection` set and its token.
     /// Saves each cache that changed (or was not valid at load); the token is stored only if
     /// the writes that were needed worked. `force_full` downloads both lists again.
@@ -1955,74 +1941,12 @@ impl Library {
         }
     }
 
+    /// Rebuild the artists of the liked songs: built with no lock held, then swapped in.
     fn populate_artists(&self) {
-        // Remove old unfollowed artists
-        {
-            let mut artists = self.artists.write_unpoisoned();
-            *artists = artists.iter().filter(|a| a.is_followed).cloned().collect();
-        }
-
-        // Add artists that aren't followed but have saved tracks
-        {
-            let tracks = self.tracks.read_unpoisoned();
-            let mut track_artists: Vec<(&String, &String)> = tracks
-                .iter()
-                .flat_map(|t| t.artist_ids.iter().zip(t.artists.iter()))
-                .collect();
-            track_artists.dedup_by(|a, b| a.0 == b.0);
-
-            for (id, name) in track_artists.iter() {
-                self.insert_artist(id.to_string(), name.to_string());
-            }
-        }
-
-        let mut artists = self.artists.write_unpoisoned();
-        let mut lookup: HashMap<String, Option<usize>> = HashMap::new();
-
-        // Make sure only saved tracks are played when playing artists
-        for artist in artists.iter_mut() {
-            artist.tracks = Some(Vec::new());
-        }
-
-        artists.sort_unstable_by(|a, b| {
-            let a_cmp = a.name.strip_prefix("The ").unwrap_or(&a.name);
-            let b_cmp = b.name.strip_prefix("The ").unwrap_or(&b.name);
-
-            a_cmp.partial_cmp(b_cmp).unwrap()
-        });
-
-        // Add saved tracks to artists
-        {
-            let tracks = self.tracks.read_unpoisoned();
-            for track in tracks.iter() {
-                for artist_id in &track.artist_ids {
-                    let index = if let Some(i) = lookup.get(artist_id).cloned() {
-                        i
-                    } else {
-                        let i = artists
-                            .iter()
-                            .position(|a| &a.id.clone().unwrap_or_default() == artist_id);
-                        lookup.insert(artist_id.clone(), i);
-                        i
-                    };
-
-                    if let Some(i) = index {
-                        let artist = artists.get_mut(i).unwrap();
-                        if artist.tracks.is_none() {
-                            artist.tracks = Some(Vec::new());
-                        }
-
-                        if let Some(tracks) = artist.tracks.as_mut() {
-                            if tracks.iter().any(|t| t.id == track.id) {
-                                continue;
-                            }
-
-                            tracks.push(track.clone());
-                        }
-                    }
-                }
-            }
-        }
+        let stored = self.artists.read_unpoisoned().clone();
+        let tracks = self.tracks.read_unpoisoned().clone();
+        let rebuilt = rebuild_artists(&stored, &tracks);
+        *self.artists.write_unpoisoned() = rebuilt;
     }
 
     /// If there is a local version of the playlist, update it, rewrite the cache and redraw the
@@ -2480,7 +2404,12 @@ impl Library {
             }
         }
 
-        self.populate_artists();
+        {
+            let mut artists = self.artists.write_unpoisoned();
+            for track in tracks {
+                add_track(&mut artists, track);
+            }
+        }
 
         self.save_tracks_db();
         self.save_artists_db();
@@ -2517,7 +2446,12 @@ impl Library {
                 .collect();
         }
 
-        self.populate_artists();
+        {
+            let mut artists = self.artists.write_unpoisoned();
+            for track in tracks {
+                remove_track(&mut artists, track);
+            }
+        }
 
         self.save_tracks_db();
         self.save_artists_db();
@@ -2627,18 +2561,7 @@ impl Library {
             }
         }
 
-        {
-            let mut store = self.artists.write_unpoisoned();
-            if let Some(i) = store.iter().position(|a| a.id == artist.id) {
-                store[i].is_followed = true;
-            } else {
-                let mut artist = artist.clone();
-                artist.is_followed = true;
-                store.push(artist);
-            }
-        }
-
-        self.populate_artists();
+        set_followed(&mut self.artists.write_unpoisoned(), artist, true);
 
         self.save_artists_db();
     }
@@ -2662,14 +2585,7 @@ impl Library {
             }
         }
 
-        {
-            let mut store = self.artists.write_unpoisoned();
-            if let Some(i) = store.iter().position(|a| a.id == artist.id) {
-                store[i].is_followed = false;
-            }
-        }
-
-        self.populate_artists();
+        set_followed(&mut self.artists.write_unpoisoned(), artist, false);
 
         self.save_artists_db();
     }
