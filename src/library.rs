@@ -50,7 +50,9 @@ use crate::playlist_layout::{
 };
 use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
-use crate::save_log::{add_track, rebuild_artists, remove_track, set_followed};
+use crate::save_log::{
+    SaveLog, SavedStore, add_track, rebuild_artists, remove_track, set_followed,
+};
 use crate::spotify::Spotify;
 use crate::spotify_api::WebApi;
 use crate::traits::ListItem;
@@ -131,6 +133,9 @@ pub struct Library {
     /// The playlist write queue. Lock order: [Library::playlists] before the writer's lock,
     /// never the reverse, so a store write and the overlay of the queued jobs are one step.
     pub writer: PlaylistWriter,
+    /// The saves on their way to Spotify. Lock order: cache gate, then store, then this, then the
+    /// writer's lock.
+    saves: Arc<Mutex<SaveLog>>,
     /// Bumped on every write of [Library::playlists], so a view knows to take a new copy.
     pub playlists_rev: Arc<AtomicU64>,
     /// The last note [Library::post_note] posted, for the result of a queued write.
@@ -193,6 +198,7 @@ impl Library {
             user_id: None,
             display_name: None,
             writer: PlaylistWriter::new(),
+            saves: Arc::default(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
             cache_gates: Arc::default(),
@@ -224,6 +230,7 @@ impl Library {
             user_id,
             display_name,
             writer: PlaylistWriter::new(),
+            saves: Arc::default(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
             cache_gates: Arc::default(),
@@ -265,12 +272,42 @@ impl Library {
         }
     }
 
+    /// Change a store for a sync (a new list or a merge), then replay the saves it does not know
+    /// of. Under the store lock: an op is in the log here or applies after this, so a sync can
+    /// never erase it.
+    fn with_store<T: SavedStore>(&self, lock: &RwLock<Vec<T>>, change: impl FnOnce(&mut Vec<T>)) {
+        let mut store = lock.write_unpoisoned();
+        change(&mut store);
+        self.saves.lock().replay(&mut store);
+    }
+
+    /// A copy of a store with the unconfirmed saves undone: what syncs build from and caches hold.
+    /// Syncs must not build from the store itself: a save that fails after the copy would come
+    /// back with the swap, with no entry left to remove it.
+    fn confirmed<T: SavedStore>(&self, lock: &RwLock<Vec<T>>) -> Vec<T> {
+        let store = lock.read_unpoisoned();
+        let mut copy = store.clone();
+        self.saves.lock().confirmed(&mut copy);
+        copy
+    }
+
+    /// The followed artists of the confirmed view, what a sync of the `artist` set builds from.
+    fn confirmed_followed(&self) -> Vec<Artist> {
+        let mut artists = self.confirmed(&self.artists);
+        artists.retain(|a| a.is_followed);
+        artists
+    }
+
     /// Replace the store under `lock` with the cache at `cache_path`; false leaves it as it is.
-    fn load_store<T: DeserializeOwned>(&self, cache_path: &Path, lock: &RwLock<Vec<T>>) -> bool {
+    fn load_store<T: DeserializeOwned + SavedStore>(
+        &self,
+        cache_path: &Path,
+        lock: &RwLock<Vec<T>>,
+    ) -> bool {
         let Some(cache) = self.read_cache(cache_path) else {
             return false;
         };
-        *lock.write_unpoisoned() = cache;
+        self.with_store(lock, |store| *store = cache);
         // force refresh of UI (if visible)
         self.trigger_redraw();
         true
@@ -306,14 +343,14 @@ impl Library {
 
     /// Write the store under `lock` to `cache_path`, the file I/O outside the store lock. False
     /// (logged) on failure.
-    fn save_store<T: Serialize + Clone>(
+    fn save_store<T: Serialize + SavedStore>(
         &self,
         cache_path: &Path,
         lock: &RwLock<Vec<T>>,
         gate: &Mutex<()>,
     ) -> bool {
         let _gate = gate.lock();
-        let copy = lock.read_unpoisoned().clone();
+        let copy = self.confirmed(lock);
         self.save_cache(cache_path, &copy)
     }
 
@@ -806,7 +843,10 @@ impl Library {
     fn run_update(&self, force_full: bool) {
         let library = self.clone();
         thread::spawn(move || {
-            let _guard = SyncGuard(library.syncing.clone());
+            let _guard = SyncGuard {
+                syncing: library.syncing.clone(),
+                saves: library.saves.clone(),
+            };
             let sync_start = Stamp::now();
 
             let t_collection = {
@@ -864,7 +904,10 @@ impl Library {
 
         let library = self.clone();
         thread::spawn(move || {
-            let _guard = SyncGuard(library.syncing.clone());
+            let _guard = SyncGuard {
+                syncing: library.syncing.clone(),
+                saves: library.saves.clone(),
+            };
             match set {
                 SyncSet::Collection => {
                     library.sync_collection(false);
@@ -955,10 +998,11 @@ impl Library {
         // With the area off the layout file is ignored, not deleted.
         let internal = self.spotify.api.internal_usable(Area::Playlists);
         if internal {
-            self.load_store(
-                &config::cache_path(CACHE_PLAYLIST_LAYOUT),
-                &self.playlist_layout,
-            );
+            // No saves act on the layout: a plain swap, not [Library::load_store].
+            if let Some(layout) = self.read_cache(&config::cache_path(CACHE_PLAYLIST_LAYOUT)) {
+                *self.playlist_layout.write_unpoisoned() = layout;
+                self.trigger_redraw();
+            }
         }
         // The internal sync saves its own caches.
         let internal_sync = internal
@@ -1102,6 +1146,8 @@ impl Library {
     /// under every key of [full_fetch_keys].
     fn apply_finish(&self, set: &str, finish: Finish, now: i64) {
         match finish.token {
+            // The delta may already hold a pending save the caches leave out: read it again.
+            TokenAction::Store(_) if self.saves.lock().has_pending(set) => {}
             TokenAction::Store(token) => self.set_sync_token(set, token),
             TokenAction::Clear => self.clear_sync_token(set),
             TokenAction::Keep => {}
@@ -1119,8 +1165,7 @@ impl Library {
     fn fetch_shows(&self, force_full: bool) -> bool {
         debug!("loading shows");
         let stored_ids: Vec<Option<String>> = self
-            .shows
-            .read_unpoisoned()
+            .confirmed(&self.shows)
             .iter()
             .map(|show| Some(show.id.clone()))
             .collect();
@@ -1146,7 +1191,7 @@ impl Library {
         });
         match synced {
             Synced::Full(shows) => {
-                *self.shows.write_unpoisoned() = shows;
+                self.with_store(&self.shows, |store| *store = shows);
                 self.record_full_fetch(FULL_FETCH_SHOWS, now);
                 true
             }
@@ -1559,19 +1604,19 @@ impl Library {
             }
         }
 
-        let mut store = self.artists.write_unpoisoned();
+        self.with_store(&self.artists, |store| {
+            for mut artist in artists {
+                let pos = store.iter().position(|a| a.id == artist.id);
+                if let Some(i) = pos {
+                    store[i].is_followed = true;
+                    continue;
+                }
 
-        for mut artist in artists {
-            let pos = store.iter().position(|a| a.id == artist.id);
-            if let Some(i) = pos {
-                store[i].is_followed = true;
-                continue;
+                artist.is_followed = true;
+
+                store.push(artist);
             }
-
-            artist.is_followed = true;
-
-            store.push(artist);
-        }
+        });
         true
     }
 
@@ -1651,11 +1696,11 @@ impl Library {
         let refetch = mode == Mode::Full;
         let track_members = fetched.membership.only("track");
         let album_members = fetched.membership.only("album");
-        let tracks_now = self.tracks.read_unpoisoned().clone();
+        let tracks_now = self.confirmed(&self.tracks);
         let mut tracks = rebuild(&tracks_now, &track_members, refetch, |u| {
             api.library_tracks(u)
         })?;
-        let albums_now = self.albums.read_unpoisoned().clone();
+        let albums_now = self.confirmed(&self.albums);
         let mut albums: Vec<Album> = rebuild(&albums_now, &album_members, refetch, |u| {
             api.library_albums(u)
         })?
@@ -1670,8 +1715,8 @@ impl Library {
             tracks.len(),
             albums.len()
         );
-        *self.tracks.write_unpoisoned() = tracks;
-        *self.albums.write_unpoisoned() = albums;
+        self.with_store(&self.tracks, |store| *store = tracks);
+        self.with_store(&self.albums, |store| *store = albums);
         // An empty delta leaves a store exactly as it was.
         let changes = Changes {
             tracks: !track_members.is_empty_delta(),
@@ -1702,13 +1747,7 @@ impl Library {
             let result = (|| {
                 let fetched = fetch_membership(api, SET_ARTIST, mode, token.as_deref())?;
                 let members = fetched.membership.only("artist");
-                let followed_now: Vec<Artist> = self
-                    .artists
-                    .read_unpoisoned()
-                    .iter()
-                    .filter(|a| a.is_followed)
-                    .cloned()
-                    .collect();
+                let followed_now = self.confirmed_followed();
                 let followed = rebuild(&followed_now, &members, mode == Mode::Full, |u| {
                     api.library_artists(u)
                 })?;
@@ -1717,7 +1756,7 @@ impl Library {
                     describe_sync(mode, &[&members]),
                     followed.len()
                 );
-                merge_followed(&mut self.artists.write_unpoisoned(), followed);
+                self.with_store(&self.artists, |store| merge_followed(store, followed));
                 Ok::<String, InternalError>(fetched.sync_token)
             })();
             outcome(api, SET_ARTIST, result)
@@ -1757,7 +1796,7 @@ impl Library {
             let result = (|| {
                 let fetched = fetch_membership(api, SET_SHOW, mode, token.as_deref())?;
                 let members = fetched.membership.only("show");
-                let shows_now = self.shows.read_unpoisoned().clone();
+                let shows_now = self.confirmed(&self.shows);
                 let mut shows = rebuild(&shows_now, &members, mode == Mode::Full, |u| {
                     api.library_shows(u)
                 })?;
@@ -1767,7 +1806,7 @@ impl Library {
                     describe_sync(mode, &[&members]),
                     shows.len()
                 );
-                *self.shows.write_unpoisoned() = shows;
+                self.with_store(&self.shows, |store| *store = shows);
                 Ok::<String, InternalError>(fetched.sync_token)
             })();
             outcome(api, SET_SHOW, result)
@@ -1802,7 +1841,7 @@ impl Library {
         let result = (|| {
             let fetched = fetch_membership(api, SET_LISTEN_LATER, mode, token.as_deref())?;
             let members = fetched.membership.only("episode");
-            let episodes_now = self.episodes.read_unpoisoned().clone();
+            let episodes_now = self.confirmed(&self.episodes);
             let mut episodes = rebuild(&episodes_now, &members, mode == Mode::Full, |u| {
                 api.library_episodes(u)
             })?;
@@ -1812,7 +1851,7 @@ impl Library {
                 describe_sync(mode, &[&members]),
                 episodes.len()
             );
-            *self.episodes.write_unpoisoned() = episodes;
+            self.with_store(&self.episodes, |store| *store = episodes);
             Ok::<String, InternalError>(fetched.sync_token)
         })();
         let outcome = outcome(api, SET_LISTEN_LATER, result);
@@ -1837,7 +1876,7 @@ impl Library {
     /// were.
     fn fetch_albums(&self, force_full: bool) -> Fetch {
         let (stored_ids, incomplete) = {
-            let albums = self.albums.read_unpoisoned();
+            let albums = self.confirmed(&self.albums);
             (
                 albums
                     .iter()
@@ -1885,7 +1924,7 @@ impl Library {
 
         sort_albums(&mut albums);
 
-        *self.albums.write_unpoisoned() = albums;
+        self.with_store(&self.albums, |store| *store = albums);
         self.record_full_fetch(FULL_FETCH_ALBUMS, now);
         Fetch::Changed
     }
@@ -1894,7 +1933,7 @@ impl Library {
     /// likes are downloaded when nothing else changed, unless `force_full`. On a failed page the
     /// stored songs stay as they were.
     fn fetch_tracks(&self, force_full: bool) -> Fetch {
-        let cached: Vec<Track> = self.tracks.read_unpoisoned().clone();
+        let cached: Vec<Track> = self.confirmed(&self.tracks);
         let (now, full) = self.full_fetch_check(FULL_FETCH_TRACKS, "liked songs", force_full);
         let synced = sync_liked(
             &cached,
@@ -1925,11 +1964,11 @@ impl Library {
         match synced {
             Synced::Prepended { items, new_count } => {
                 debug!("liked songs: {new_count} new");
-                *self.tracks.write_unpoisoned() = items;
+                self.with_store(&self.tracks, |store| *store = items);
                 Fetch::Changed
             }
             Synced::Full(items) => {
-                *self.tracks.write_unpoisoned() = items;
+                self.with_store(&self.tracks, |store| *store = items);
                 self.record_full_fetch(FULL_FETCH_TRACKS, now);
                 Fetch::Changed
             }
@@ -1943,10 +1982,10 @@ impl Library {
 
     /// Rebuild the artists of the liked songs: built with no lock held, then swapped in.
     fn populate_artists(&self) {
-        let stored = self.artists.read_unpoisoned().clone();
-        let tracks = self.tracks.read_unpoisoned().clone();
+        let stored = self.confirmed(&self.artists);
+        let tracks = self.confirmed(&self.tracks);
         let rebuilt = rebuild_artists(&stored, &tracks);
-        *self.artists.write_unpoisoned() = rebuilt;
+        self.with_store(&self.artists, |store| *store = rebuilt);
     }
 
     /// If there is a local version of the playlist, update it, rewrite the cache and redraw the
@@ -2947,13 +2986,19 @@ fn tab_set(tab: &LibraryTab, episodes_enabled: bool) -> Option<SyncSet> {
     }
 }
 
-/// Clears a library's `syncing` flag when dropped, so the flag is released even if the sync
-/// thread panics.
-struct SyncGuard(Arc<AtomicBool>);
+/// When dropped, also from a panicking sync thread: forgets the saves that landed during the
+/// sync and clears the `syncing` flag, together under the log lock, which is also where the
+/// worker reads the flag.
+struct SyncGuard {
+    syncing: Arc<AtomicBool>,
+    saves: Arc<Mutex<SaveLog>>,
+}
 
 impl Drop for SyncGuard {
     fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
+        let mut saves = self.saves.lock();
+        saves.clear_landed();
+        self.syncing.store(false, Ordering::Release);
     }
 }
 
@@ -3716,6 +3761,8 @@ mod test {
     use crate::config::Config;
     use crate::events::EventManager;
     use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY};
+    use crate::save_log::test_items::{artist, track};
+    use crate::save_log::{Prior, SaveItem, SaveOp};
     use crate::spotify::Spotify;
 
     #[test]
@@ -3774,7 +3821,10 @@ mod test {
         let flag = Arc::new(AtomicBool::new(true));
         let in_thread = flag.clone();
         let result = std::thread::spawn(move || {
-            let _guard = SyncGuard(in_thread);
+            let _guard = SyncGuard {
+                syncing: in_thread,
+                saves: Arc::default(),
+            };
             panic!("fetch thread failed");
         })
         .join();
@@ -3885,9 +3935,10 @@ mod test {
         let path = cache_file("bad");
         std::fs::write(&path, "not json").unwrap();
         assert!(library.read_cache::<u32>(&path).is_none());
-        let store = RwLock::new(vec![7u32]);
+        let store = RwLock::new(vec![track("7", &[])]);
         assert!(!library.load_store(&path, &store));
-        assert_eq!(*store.read_unpoisoned(), [7], "the store stays as it is");
+        let kept = store.read_unpoisoned()[0].id.clone();
+        assert_eq!(kept.as_deref(), Some("7"), "the store stays as it is");
         std::fs::remove_file(path).unwrap();
     }
 
@@ -3906,11 +3957,13 @@ mod test {
         let library = test_library();
         let path = cache_file("round");
         let gate = Mutex::new(());
-        let saved = RwLock::new(vec![1u32, 2]);
+        let saved = RwLock::new(vec![track("1", &[]), track("2", &[])]);
         assert!(library.save_store(&path, &saved, &gate));
-        let store = RwLock::new(vec![9u32]);
+        let store = RwLock::new(vec![track("9", &[])]);
         assert!(library.load_store(&path, &store));
-        assert_eq!(*store.read_unpoisoned(), [1, 2]);
+        let store = store.read_unpoisoned();
+        let ids: Vec<_> = store.iter().filter_map(|t| t.id.as_deref()).collect();
+        assert_eq!(ids, ["1", "2"]);
         std::fs::remove_file(path).unwrap();
     }
 
@@ -3919,17 +3972,17 @@ mod test {
         let library = test_library();
         let path = cache_file("newest");
         let gate = Mutex::new(());
-        let store = RwLock::new(Vec::<u32>::new());
+        let store = RwLock::new(Vec::<Track>::new());
         std::thread::scope(|s| {
             for n in 0..16 {
                 let (library, path, gate, store) = (&library, &path, &gate, &store);
                 s.spawn(move || {
-                    store.write_unpoisoned().push(n);
+                    store.write_unpoisoned().push(track(&n.to_string(), &[]));
                     library.save_store(path, store, gate);
                 });
             }
         });
-        let read: Vec<u32> = library.read_cache(&path).unwrap();
+        let read: Vec<Track> = library.read_cache(&path).unwrap();
         assert_eq!(read.len(), 16, "the last write holds every push");
         std::fs::remove_file(path).unwrap();
     }
@@ -5297,5 +5350,138 @@ mod test {
         library.playlist_update(&confirmed);
         assert_eq!(stored_uris(&library, "p"), ["b", "a", "c"]);
         assert!(library.playlists_rev.load(Ordering::Relaxed) > rev);
+    }
+
+    #[test]
+    fn a_store_change_replays_the_log_and_the_confirmed_copy_undoes_it() {
+        let library = test_library();
+        let t = track("t", &[]);
+        {
+            let mut store = library.tracks.write_unpoisoned();
+            let item = SaveItem::Track(Box::new(t.clone()));
+            let prior = Track::prior(&store, &item);
+            let op = library.saves.lock().add(item, false, prior);
+            Track::apply(&mut store, &op);
+        }
+        library.with_store(&library.tracks, |store| store.clear());
+        assert_eq!(
+            library.tracks.read_unpoisoned().len(),
+            1,
+            "the swap kept it"
+        );
+        assert!(library.confirmed(&library.tracks).is_empty());
+    }
+
+    #[test]
+    fn a_set_with_pending_saves_keeps_its_old_token() {
+        let library = test_library();
+        library.set_sync_token(SET_COLLECTION, "old".into());
+        let item = SaveItem::Track(Box::new(track("t", &[])));
+        let op = library.saves.lock().add(item, false, Prior::Absent);
+        let finish = Finish {
+            token: TokenAction::Store("new".into()),
+            record_full: false,
+        };
+        library.apply_finish(SET_COLLECTION, finish, 0);
+        assert_eq!(library.sync_token(SET_COLLECTION).as_deref(), Some("old"));
+        library.saves.lock().mark_landed(op.entry);
+        let finish = Finish {
+            token: TokenAction::Store("new".into()),
+            record_full: false,
+        };
+        library.apply_finish(SET_COLLECTION, finish, 0);
+        assert_eq!(library.sync_token(SET_COLLECTION).as_deref(), Some("new"));
+    }
+
+    #[test]
+    fn the_sync_guard_clears_landed_entries_on_panic() {
+        let saves: Arc<Mutex<SaveLog>> = Arc::default();
+        let item = SaveItem::Track(Box::new(track("t", &[])));
+        let op = saves.lock().add(item, false, Prior::Absent);
+        saves.lock().mark_landed(op.entry);
+        let flag = Arc::new(AtomicBool::new(true));
+        let (in_thread, log) = (flag.clone(), saves.clone());
+        let result = std::thread::spawn(move || {
+            let _guard = SyncGuard {
+                syncing: in_thread,
+                saves: log,
+            };
+            panic!("fetch thread failed");
+        })
+        .join();
+        assert!(result.is_err());
+        assert!(!flag.load(Ordering::SeqCst));
+        let mut store: Vec<Track> = vec![];
+        saves.lock().replay(&mut store);
+        assert!(store.is_empty());
+    }
+
+    /// Apply a save of `t` to the tracks store and log it, as the UI thread does.
+    fn pending_save(library: &Library, t: &Track) -> SaveOp {
+        let mut store = library.tracks.write_unpoisoned();
+        let item = SaveItem::Track(Box::new(t.clone()));
+        let prior = Track::prior(&store, &item);
+        let op = library.saves.lock().add(item, false, prior);
+        Track::apply(&mut store, &op);
+        op
+    }
+
+    #[test]
+    fn a_cache_load_replays_the_log() {
+        let library = test_library();
+        let path = cache_file("replay");
+        library.save_cache(&path, &[track("old", &[])]);
+        let op = pending_save(&library, &track("t", &[]));
+        assert!(library.load_store(&path, &library.tracks));
+        let store = library.tracks.read_unpoisoned();
+        let ids: Vec<_> = store.iter().filter_map(|t| t.id.as_deref()).collect();
+        assert_eq!(ids, ["t", "old"]);
+        drop(store);
+        library.saves.lock().remove(op.entry);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cache_writes_leave_out_pending_saves_and_keep_landed_ones() {
+        let library = test_library();
+        let path = cache_file("confirmed");
+        let gate = Mutex::new(());
+        let landed = pending_save(&library, &track("landed", &[]));
+        library.saves.lock().mark_landed(landed.entry);
+        pending_save(&library, &track("pending", &[]));
+        assert!(library.save_store(&path, &library.tracks, &gate));
+        let read: Vec<Track> = library.read_cache(&path).unwrap();
+        let ids: Vec<_> = read.iter().filter_map(|t| t.id.as_deref()).collect();
+        assert_eq!(ids, ["landed"]);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_rebuilt_artist_list_keeps_a_pending_track_out_of_its_confirmed_copy() {
+        let library = test_library();
+        pending_save(&library, &track("t", &[("a", "A")]));
+        library.populate_artists();
+        assert_eq!(library.artists.read_unpoisoned().len(), 1, "replayed");
+        assert!(library.confirmed(&library.artists).is_empty());
+    }
+
+    #[test]
+    fn a_pending_follow_stays_out_of_what_a_followed_sync_builds_from() {
+        let library = test_library();
+        let followed = artist("a", "A", true);
+        library.artists.write_unpoisoned().push(followed);
+        {
+            let mut store = library.artists.write_unpoisoned();
+            let item = SaveItem::Artist(Box::new(artist("b", "B", false)));
+            let prior = Artist::prior(&store, &item);
+            let op = library.saves.lock().add(item, false, prior);
+            Artist::apply(&mut store, &op);
+        }
+        let ids: Vec<_> = library
+            .confirmed_followed()
+            .into_iter()
+            .map(|a| a.id)
+            .collect();
+        assert_eq!(ids, [Some("a".to_string())]);
     }
 }
