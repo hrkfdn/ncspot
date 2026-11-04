@@ -302,7 +302,6 @@ impl Library {
         artists
     }
 
-    /// Replace the store under `lock` with the cache at `cache_path`; false leaves it as it is.
     /// Note a store's cache load: a valid one fills it.
     fn mark_filled(&self, flag: &AtomicBool, valid: bool) {
         if valid {
@@ -310,6 +309,7 @@ impl Library {
         }
     }
 
+    /// Replace the store under `lock` with the cache at `cache_path`; false leaves it as it is.
     fn load_store<T: DeserializeOwned + SavedStore>(
         &self,
         cache_path: &Path,
@@ -3503,7 +3503,8 @@ fn run_pin_change(
 }
 
 /// One write in `area`: the internal API first, then the Web API per the fallback classes.
-/// True when one of them wrote; a playlist caller updates the store and `.db` only then (library saves update the store first).
+/// True when one of them wrote; a playlist caller updates the store and `.db` only then (library
+/// saves update the store first).
 pub(crate) fn write_through(
     api: &WebApi,
     area: Area,
