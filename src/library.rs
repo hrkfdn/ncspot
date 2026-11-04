@@ -2169,7 +2169,8 @@ impl Library {
     }
 
     /// The write of one job, on the worker: the synchronous write paths, on the confirmed copy
-    /// for a job on a copy. True when it landed; a failure has posted its note.
+    /// for a job on a copy. True when it landed; a failed playlist job has posted its
+    /// note, a failed save posts in settle_save.
     fn run_job(&self, job: &WriteJob, copy: Option<&mut Playlist>) -> bool {
         let id = job.playlist_id.as_deref().unwrap_or_default();
         match (&job.kind, copy) {
@@ -3194,8 +3195,8 @@ fn outcome(api: &WebApi, set: &str, result: Result<String, InternalError>) -> Se
     }
 }
 
-/// An episode write. Episodes have no Web API fallback: any failure fails the action with a
-/// warning; a protocol change still latches the area.
+/// An episode write. Episodes have no Web API fallback: a failure fails the action with a
+/// warning (transient and rate limit ones are retried); a protocol change still latches the area.
 fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> WriteOutcome {
     match api.collection_write_once(Area::Library, SET_LISTEN_LATER, uris, removed) {
         Ok(()) => WriteOutcome::Done,
@@ -3203,7 +3204,7 @@ fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> WriteOutcome {
             if let InternalError::ProtocolChanged(_) = err {
                 api.latch_area(Area::Library, &err);
             }
-            warn!("Could not update Your Episodes: {err}");
+            warn!("Could not update Your Episodes: {}", err.class());
             outcome_of(&err)
         }
     }
@@ -3469,7 +3470,7 @@ fn run_pin_change(
 }
 
 /// One write in `area`: the internal API first, then the Web API per the fallback classes.
-/// True when one of them wrote; the caller updates the store and `.db` only then.
+/// True when one of them wrote; a playlist caller updates the store and `.db` only then (library saves update the store first).
 pub(crate) fn write_through(
     api: &WebApi,
     area: Area,

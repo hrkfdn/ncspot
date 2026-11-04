@@ -17,7 +17,7 @@ use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
 use crate::save_log::SaveOp;
 
-/// One playlist write.
+/// One queued write: a playlist change or a library save.
 #[derive(Clone, Debug)]
 pub enum JobKind {
     /// Move the item at server position `index` (still `uri`) by `n` rows, clamped.
@@ -77,7 +77,7 @@ impl JobKind {
 pub struct WriteJob {
     /// Issue order; a folded job keeps the last folded seq.
     pub seq: u64,
-    /// `None` for a create or save-as (no id yet).
+    /// `None` for a create or save-as (no id yet) or a library save.
     pub playlist_id: Option<String>,
     pub kind: JobKind,
 }
@@ -325,7 +325,7 @@ impl PlaylistWriter {
         let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
             Ok(ok) => ok,
             Err(_) => {
-                error!("a playlist write panicked");
+                error!("a queued write panicked");
                 // Half a write: not a copy Spotify confirmed.
                 copy = None;
                 false
@@ -469,8 +469,8 @@ pub const QUIT_GRACE: Duration = Duration::from_secs(3);
 pub const SAVED_NOTE: &str = "Playlist changes saved";
 
 /// The note for a settled write, if any. Success: only once the playlist's queue drained and
-/// it is not the open view, and never for a `silent` one. Failure: its note was posted already; repeat it with the dropped
-/// count when later writes were dropped.
+/// it is not the open view, and never for a `silent` one. Failure: its note was posted already;
+/// repeat it with the dropped count when later writes were dropped.
 pub fn settled_note(
     ok: bool,
     drained: bool,
