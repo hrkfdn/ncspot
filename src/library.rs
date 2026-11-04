@@ -2451,7 +2451,7 @@ impl Library {
                 write_outcome(
                     api,
                     Area::Library,
-                    || api.collection_write(Area::Library, SET_COLLECTION, &uris, remove),
+                    || api.collection_write_once(Area::Library, SET_COLLECTION, &uris, remove),
                     || {
                         if remove {
                             api.current_user_saved_tracks_delete(vec![id]).is_ok()
@@ -2469,7 +2469,7 @@ impl Library {
                 write_outcome(
                     api,
                     Area::Library,
-                    || api.collection_write(Area::Library, SET_COLLECTION, &uris, remove),
+                    || api.collection_write_once(Area::Library, SET_COLLECTION, &uris, remove),
                     || {
                         if remove {
                             api.current_user_saved_albums_delete(vec![id]).is_ok()
@@ -2487,7 +2487,7 @@ impl Library {
                 write_outcome(
                     api,
                     Area::Library,
-                    || api.collection_write(Area::Library, SET_ARTIST, &uris, remove),
+                    || api.collection_write_once(Area::Library, SET_ARTIST, &uris, remove),
                     || {
                         if remove {
                             api.user_unfollow_artists(vec![id]).is_ok()
@@ -2502,7 +2502,7 @@ impl Library {
                 write_outcome(
                     api,
                     Area::Library,
-                    || api.collection_write(Area::Library, SET_SHOW, &uris, remove),
+                    || api.collection_write_once(Area::Library, SET_SHOW, &uris, remove),
                     || {
                         if remove {
                             api.unsave_shows(&[show.id.as_str()]).is_ok()
@@ -3197,7 +3197,7 @@ fn outcome(api: &WebApi, set: &str, result: Result<String, InternalError>) -> Se
 /// An episode write. Episodes have no Web API fallback: any failure fails the action with a
 /// warning; a protocol change still latches the area.
 fn episode_write(api: &WebApi, uris: &[String], removed: bool) -> WriteOutcome {
-    match api.collection_write(Area::Library, SET_LISTEN_LATER, uris, removed) {
+    match api.collection_write_once(Area::Library, SET_LISTEN_LATER, uris, removed) {
         Ok(()) => WriteOutcome::Done,
         Err(err) => {
             if let InternalError::ProtocolChanged(_) = err {
