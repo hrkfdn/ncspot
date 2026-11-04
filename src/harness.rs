@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Duration;
 
 use log::error;
 use serde::Serialize;
@@ -307,6 +308,8 @@ pub fn playlist_overwrite_test(library: &Library, n: usize) -> Result<(), String
 }
 
 /// Name suffix `playlist-rename-test` adds.
+/// How long the harness waits for a library save to settle.
+const SAVE_SETTLE: Duration = Duration::from_secs(120);
 const RENAMED_SUFFIX: &str = "-renamed";
 
 /// Move the track at `index` of the most recent test playlist by `n` rows (negative: up),
@@ -672,6 +675,9 @@ pub fn write_item(
         return Err(format!("{verb}: not in the library"));
     }
     write();
+    // The store shows a save at once: only the settled write says it landed. The longest a save
+    // can take is about 90 s.
+    library.writer.wait_idle(SAVE_SETTLE);
     if is_saved() == before {
         return Err(format!("{verb}: library unchanged"));
     }

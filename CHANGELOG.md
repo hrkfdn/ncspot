@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Playlists load over Spotify's internal API, including Spotify-owned playlists
 - Saving and removing tracks, albums, artists and shows goes through Spotify's internal API
+- Library saves no longer freeze the UI, work during a library update, and are undone with a note if they fail
 - Unchanged liked songs and saved albums no longer rewrite their cache files
 - `Shift+u` and `:update` now refetch the whole library instead of syncing changes
 - `update` with an argument other than `tab` is now an error
