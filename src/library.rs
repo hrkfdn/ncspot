@@ -2441,6 +2441,13 @@ impl Library {
             if (prior != Prior::Absent) != remove {
                 return;
             }
+            // An unsave may carry a copy from a queue or search view: log the stored row, so
+            // an undo restores it and not the copy.
+            let item = if remove {
+                T::stored(&store, &item).map_or(item, T::item)
+            } else {
+                item
+            };
             let op = self.saves.lock().add(item, remove, prior);
             T::apply(&mut store, &op);
             op
@@ -5808,6 +5815,53 @@ mod test {
         assert!(library.run_next_write_with(|_, _| false));
         library.with_store(&library.tracks, |store| *store = copy);
         assert_eq!(saved_ids(&library), ["t"]);
+    }
+
+    #[test]
+    fn a_failed_unsave_restores_the_stored_track_not_the_callers_copy() {
+        let library = loaded_library();
+        let mut stored = track("t", &[]);
+        stored.added_at = Some(chrono::Utc::now());
+        library.tracks.write_unpoisoned().push(stored.clone());
+        let mut stripped = track("t", &[]);
+        stripped.list_index = 7;
+        library.unsave_tracks(&[&stripped]);
+        assert!(saved_ids(&library).is_empty());
+        assert!(library.run_next_write_with(|_, _| false));
+        let tracks = library.tracks.read_unpoisoned();
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0].added_at, stored.added_at);
+        assert_eq!(tracks[0].list_index, stored.list_index);
+    }
+
+    #[test]
+    fn a_failed_unsave_restores_the_stored_album_with_its_tracks() {
+        let library = loaded_library();
+        let mut stored = Album::default_for_test("a");
+        stored.id = Some("a".into());
+        stored.tracks = Some(vec![track("t", &[])]);
+        library.albums.write_unpoisoned().push(stored);
+        let mut stripped = Album::default_for_test("a");
+        stripped.id = Some("a".into());
+        stripped.tracks = None;
+        library.unsave_album(&stripped);
+        assert!(library.albums.read_unpoisoned().is_empty());
+        assert!(library.run_next_write_with(|_, _| false));
+        let albums = library.albums.read_unpoisoned();
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].tracks.as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn a_pending_unsave_confirms_the_stored_track() {
+        let library = loaded_library();
+        let mut stored = track("t", &[]);
+        stored.added_at = Some(chrono::Utc::now());
+        library.tracks.write_unpoisoned().push(stored.clone());
+        library.unsave_tracks(&[&track("t", &[])]);
+        let confirmed = library.confirmed(&library.tracks);
+        assert_eq!(confirmed.len(), 1);
+        assert_eq!(confirmed[0].added_at, stored.added_at);
     }
 
     #[test]

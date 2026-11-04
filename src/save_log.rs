@@ -193,6 +193,16 @@ pub trait SavedStore: Clone {
     /// What makes two entries the same item.
     fn key(&self) -> Option<&str>;
 
+    /// This entry as a [SaveItem].
+    fn item(self) -> SaveItem;
+
+    /// The entry the store holds for `item`: an unsave undoes to it, not to the caller's copy,
+    /// which may lack the date or the tracks.
+    fn stored(store: &[Self], item: &SaveItem) -> Option<Self> {
+        let key = Self::of(item)?.key();
+        store.iter().find(|e| e.key() == key).cloned()
+    }
+
     /// Add a new `item`.
     fn place(store: &mut Vec<Self>, item: Self) {
         store.insert(0, item);
@@ -248,6 +258,10 @@ impl SavedStore for Track {
     fn key(&self) -> Option<&str> {
         self.id.as_deref()
     }
+
+    fn item(self) -> SaveItem {
+        SaveItem::Track(Box::new(self))
+    }
 }
 
 impl SavedStore for Album {
@@ -260,6 +274,10 @@ impl SavedStore for Album {
 
     fn key(&self) -> Option<&str> {
         self.id.as_deref()
+    }
+
+    fn item(self) -> SaveItem {
+        SaveItem::Album(Box::new(self))
     }
 
     fn place(store: &mut Vec<Self>, item: Self) {
@@ -283,6 +301,10 @@ impl SavedStore for Show {
     fn key(&self) -> Option<&str> {
         Some(&self.id)
     }
+
+    fn item(self) -> SaveItem {
+        SaveItem::Show(Box::new(self))
+    }
 }
 
 impl SavedStore for Episode {
@@ -295,6 +317,10 @@ impl SavedStore for Episode {
 
     fn key(&self) -> Option<&str> {
         Some(&self.id)
+    }
+
+    fn item(self) -> SaveItem {
+        SaveItem::Episode(Box::new(self))
     }
 }
 
@@ -309,6 +335,10 @@ impl SavedStore for Artist {
 
     fn key(&self) -> Option<&str> {
         self.id.as_deref()
+    }
+
+    fn item(self) -> SaveItem {
+        SaveItem::Artist(Box::new(self))
     }
 
     fn prior(store: &[Self], item: &SaveItem) -> Prior {

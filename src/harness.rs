@@ -569,7 +569,8 @@ pub fn open_view(
     Ok(view)
 }
 
-/// How long the harness waits for a library save to settle.
+/// How long the harness waits for a library save to settle. The wait blocks the UI thread, which
+/// is fine for a harness verb (the old synchronous write did too).
 const SAVE_SETTLE: Duration = Duration::from_secs(120);
 
 /// A library membership check and its write, for one item.
