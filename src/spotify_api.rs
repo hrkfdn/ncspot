@@ -312,15 +312,9 @@ impl WebApi {
         let result = run_attempts(
             no_waits,
             &self.internal.throttle,
-            || {
-                ACTIVITY.note_try();
-                bridge::run(internal(session.clone()), bridge::BRIDGE_TIMEOUT)
-            },
+            || bridge::run(internal(session.clone()), bridge::BRIDGE_TIMEOUT),
             |window| self.on_rate_limited(ClientLabel::Internal, &self.internal.throttle, window),
-            |wait| {
-                ACTIVITY.note_try();
-                thread::sleep(wait);
-            },
+            thread::sleep,
         );
         if result.is_ok() {
             self.internal.count_ok(area);
@@ -861,10 +855,7 @@ impl WebApi {
                 &client.throttle,
                 is_ui_thread(),
                 random_jitter,
-                || {
-                    ACTIVITY.note_try();
-                    Self::attempt(client, api_call)
-                },
+                || Self::attempt(client, api_call),
                 |window| self.on_rate_limited(client.label, &client.throttle, window),
             );
             match result {

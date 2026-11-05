@@ -18,7 +18,6 @@ use rspotify::model::Id;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::activity::ACTIVITY;
 use crate::config::Config;
 use crate::config::{self, CACHE_VERSION, LibraryTab};
 use crate::cover_prefetch;
@@ -51,7 +50,7 @@ use crate::playlist_layout::{
     remove_from_layout, replace_if_unchanged, set_pins,
 };
 use crate::playlist_writer::{
-    JobKind, PlaylistWriter, QUIT_GRACE, Settled, WRITER_STALL, WRITER_WATCH, WorkerExit, WriteJob,
+    JobKind, PlaylistWriter, QUIT_GRACE, Settled, WRITER_HEALTHY, WorkerExit, WriteJob,
     after_worker_exit, apply_local,
 };
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
@@ -2143,15 +2142,8 @@ impl Library {
         let library = self.clone();
         thread::Builder::new()
             .name("playlist-writer-watch".into())
-            .spawn(move || {
-                library.watch_writer(
-                    worker,
-                    || library.spawn_writer(),
-                    WRITER_WATCH,
-                    WRITER_STALL,
-                );
-            })
-            .expect("spawn the playlist writer watchdog");
+            .spawn(move || library.watch_writer(worker, || library.spawn_writer(), WRITER_HEALTHY))
+            .expect("spawn the playlist writer watch");
     }
 
     fn spawn_writer(&self) -> thread::JoinHandle<()> {
@@ -2160,7 +2152,6 @@ impl Library {
         thread::Builder::new()
             .name("playlist-writer".into())
             .spawn(move || {
-                ACTIVITY.mark_write_worker();
                 let _exited = library.writer.exit_guard();
                 while library.writer.wait_job() {
                     library.run_next_write();
@@ -2169,54 +2160,36 @@ impl Library {
             .expect("spawn the playlist writer")
     }
 
-    /// Watch `worker` until it ends for good: restart it with `respawn` after a panic, at most
-    /// [crate::playlist_writer::MAX_WRITER_RESTARTS] times, and give up on it after that or when a job has made no
-    /// progress for `stall`. A stuck thread cannot be killed, so that one is only abandoned:
-    /// a second worker beside it could break the order of the writes.
+    /// Wait for `worker` and restart it with `respawn` after a panic, at most
+    /// [crate::playlist_writer::MAX_WRITER_RESTARTS] times in a row, then give up on it. A
+    /// worker that ran for `healthy` before its panic starts the count over.
     fn watch_writer(
         &self,
         mut worker: thread::JoinHandle<()>,
         mut respawn: impl FnMut() -> thread::JoinHandle<()>,
-        tick: Duration,
-        stall: Duration,
+        healthy: Duration,
     ) {
         let mut restarts = 0;
         loop {
-            let mut stuck = false;
-            while !self.writer.wait_exited(tick) {
-                if self.writer.stalled(stall) {
-                    error!("the playlist writer is stuck, giving up on it");
-                    stuck = true;
-                    // The stuck write may still land: its save stays as it is until then.
-                    let running = self.writer.clear_in_flight().save.map(|op| op.entry);
-                    self.give_up_writes(running);
-                }
-            }
+            let started = Instant::now();
             let panicked = worker.join().is_err();
-            if stuck {
-                // It came back, so it was not stuck for good, and nothing runs beside a new one.
-                if after_worker_exit(true, false, restarts) == WorkerExit::GiveUp {
-                    return;
-                }
-                restarts += 1;
-                error!("the playlist writer came back, restart {restarts}");
-                self.writer.resume();
-                self.post_note(WRITER_RECOVERED_NOTE);
-                worker = respawn();
-                continue;
+            if started.elapsed() >= healthy {
+                restarts = 0;
             }
+            let lost = self.writer.clear_in_flight();
             match after_worker_exit(panicked, self.writer.is_stopping(), restarts) {
                 WorkerExit::Done => return,
                 WorkerExit::GiveUp => {
                     error!("the playlist writer keeps panicking, giving up on it");
-                    self.recover_lost_job();
-                    self.give_up_writes(None);
+                    self.give_up_writes();
                     return;
                 }
                 WorkerExit::Restart => {
                     restarts += 1;
                     error!("the playlist writer panicked, restart {restarts}");
-                    self.recover_lost_job();
+                    if let Some(id) = lost {
+                        self.restore_confirmed(&id);
+                    }
                     self.post_note(WRITER_RESTARTED_NOTE);
                     worker = respawn();
                 }
@@ -2224,35 +2197,21 @@ impl Library {
         }
     }
 
-    /// Undo the job a dead worker left in flight.
-    fn recover_lost_job(&self) {
-        let lost = self.writer.clear_in_flight();
-        if let Some(id) = lost.playlist_id {
-            self.restore_confirmed(&id);
-        }
-        if let Some(op) = lost.save {
-            self.undo_save(&op);
-        }
-    }
-
-    /// Refuse writes, drop the queue, undo what is pending and tell the user. `running` is the
-    /// entry of a save that may still land, left for its job to settle.
-    fn give_up_writes(&self, running: Option<u64>) {
+    /// No write runs again this session: drop the queue, undo what is pending, tell the user.
+    fn give_up_writes(&self) {
         self.writer.give_up();
         self.reset_pending_writes();
         let pending = self.saves.lock().pending_ops();
         // Newest first: each op's old row was recorded with the older ops applied.
         for op in pending.iter().rev() {
-            if Some(op.entry) != running {
-                self.undo_save(op);
-            }
+            self.undo_save(op);
         }
         self.trigger_redraw();
         self.post_note(WRITER_STOPPED_NOTE);
     }
 
-    /// Whether writes are refused; posts the note if so. A quick check for the callers with
-    /// their own failure note: the queue itself has the final say.
+    /// Whether writes are refused; posts the note if so. Spares a save its local change: the
+    /// queue itself has the final say.
     fn writes_refused(&self) -> bool {
         let refused = self.writer.gave_up();
         if refused {
@@ -2287,7 +2246,7 @@ impl Library {
     /// half stored: put its playlist back to the confirmed copy and carry on with the queue.
     fn settle_caught(&self, settled: Settled, publish: impl FnOnce(Settled)) {
         let id = settled.playlist_id.clone();
-        let save = settled.save.clone().map(|op| (op, settled.ok));
+        let (ok, save) = (settled.ok, settled.save.clone());
         if catch_unwind(AssertUnwindSafe(|| publish(settled))).is_err() {
             error!("settling a playlist write panicked");
             if let Some(id) = id {
@@ -2295,11 +2254,12 @@ impl Library {
             }
             match save {
                 // It reached Spotify: only its cache write is lost, and the next save redoes it.
-                Some((op, true)) => self.finish_landed(op.entry),
-                Some((op, false)) => {
+                Some(op) if ok => self.finish_landed(op.entry),
+                Some(op) => {
                     self.undo_save(&op);
                     self.post_note(SETTLE_FAILED_NOTE);
                 }
+                None if ok => self.post_note(SETTLE_LANDED_NOTE),
                 None => self.post_note(SETTLE_FAILED_NOTE),
             }
         }
@@ -2431,20 +2391,21 @@ impl Library {
     }
 
     /// Apply an optimistic job to the stored copy of `id` and queue it, unless `check` (run on
-    /// the stored copy under the same lock) refuses with its answer. Returns the local apply
-    /// result (a move's new position) or the refusal; `None` when `id` is not stored.
+    /// the stored copy under the same lock) refuses with its answer.
     fn queue_on_copy<R>(
         &self,
         id: &str,
         kind: JobKind,
         check: impl FnOnce(&Playlist) -> Result<(), R>,
-    ) -> Option<Result<Option<usize>, R>> {
+    ) -> Queued<R> {
         let at = {
             // Held across the queue: the worker's store write and overlay never interleave.
             let mut store = self.playlists.write_unpoisoned();
-            let stored = store.iter_mut().find(|p| p.id == id)?;
+            let Some(stored) = store.iter_mut().find(|p| p.id == id) else {
+                return Queued::NotStored;
+            };
             if let Err(refused) = check(stored) {
-                return Some(Err(refused));
+                return Queued::Failed(refused);
             }
             let before = stored.clone();
             let at = apply_local(stored, &kind);
@@ -2454,8 +2415,7 @@ impl Library {
                 .is_none()
             {
                 *stored = before;
-                self.post_note(WRITES_REFUSED_NOTE);
-                return None;
+                return Queued::Refused;
             }
             at
         };
@@ -2463,7 +2423,7 @@ impl Library {
         // worker when the job settles.
         self.bump_playlists_rev();
         self.trigger_redraw();
-        Some(Ok(at))
+        Queued::Done(at)
     }
 
     /// Queue a job that is not shown before Spotify confirms it. An overwrite takes the stored
@@ -2482,9 +2442,6 @@ impl Library {
     /// it at once. Returns its new position: the same one when it is already at that end
     /// (nothing queued), `None` when the row is not there (a note is posted).
     pub fn queue_move(&self, id: &str, row: &Playable, n: usize, up: bool) -> Option<usize> {
-        if self.writes_refused() {
-            return None;
-        }
         let (index, uri) = (row.list_index(), row.uri());
         let kind = JobKind::Move {
             index,
@@ -2502,10 +2459,14 @@ impl Library {
                 None => Err(Some(index)),
             }
         });
-        match queued.unwrap_or(Err(None)) {
-            Ok(at) => at,
-            Err(Some(index)) => Some(index),
-            Err(None) => {
+        match queued {
+            Queued::Done(at) => at,
+            Queued::Failed(Some(index)) => Some(index),
+            Queued::Refused => {
+                self.post_note(WRITES_REFUSED_NOTE);
+                None
+            }
+            Queued::Failed(None) | Queued::NotStored => {
                 self.settle_write(false, &Cell::new(EditError::Moved.note()));
                 None
             }
@@ -2515,9 +2476,6 @@ impl Library {
     /// Queue removing the track `row` of playlist `id` and show it at once. On a refusal the
     /// error is the status note to show.
     pub fn queue_remove(&self, id: &str, row: &Playable) -> Result<(), String> {
-        if self.writer.gave_up() {
-            return Err(WRITES_REFUSED_NOTE.to_string());
-        }
         let (index, uri) = (row.list_index(), row.uri());
         let kind = JobKind::Remove {
             index,
@@ -2533,7 +2491,8 @@ impl Library {
             Ok(())
         });
         match queued {
-            Some(Ok(_)) => Ok(()),
+            Queued::Done(_) => Ok(()),
+            Queued::Refused => Err(WRITES_REFUSED_NOTE.to_string()),
             _ => Err("Could not delete track.".to_string()),
         }
     }
@@ -2543,16 +2502,18 @@ impl Library {
         let kind = JobKind::Add {
             tracks: tracks.to_vec(),
         };
-        let _ = self.queue_on_copy(id, kind, |_| Ok::<(), ()>(()));
+        if matches!(
+            self.queue_on_copy(id, kind, |_| Ok::<(), ()>(())),
+            Queued::Refused
+        ) {
+            self.post_note(WRITES_REFUSED_NOTE);
+        }
     }
 
     /// Queue renaming playlist `id` to `name` (trimmed) and show it at once. Refusals are
     /// checked against the name Spotify confirmed; a name equal to the shown one queues
     /// nothing. Returns a refusal note to show.
     pub fn queue_rename(&self, id: &str, name: &str) -> Option<String> {
-        if self.writer.gave_up() {
-            return Some(WRITES_REFUSED_NOTE.to_string());
-        }
         let Some(stored) = self.stored_playlist(id) else {
             return Some(RENAME_NOT_OWNER_NOTE.to_string());
         };
@@ -2568,14 +2529,15 @@ impl Library {
             RenameCheck::Refused(note) => return Some(note.to_string()),
         };
         let kind = JobKind::Rename { name: name.clone() };
-        let _ = self.queue_on_copy(
-            id,
-            kind,
-            |stored| {
-                if stored.name == name { Err(()) } else { Ok(()) }
-            },
-        );
-        None
+        let queued =
+            self.queue_on_copy(
+                id,
+                kind,
+                |stored| {
+                    if stored.name == name { Err(()) } else { Ok(()) }
+                },
+            );
+        matches!(queued, Queued::Refused).then(|| WRITES_REFUSED_NOTE.to_string())
     }
 
     /// Queue setting playlist `id` to contain only `tracks`; shown once Spotify confirms it.
@@ -3469,13 +3431,18 @@ const SAVE_FAILED_NOTE: &str = "Could not update your library, change undone";
 /// The status note shown for a failed playlist write that has no specific one.
 const GENERIC_WRITE_NOTE: &str = "Could not change the playlist";
 
-/// A follow or unfollow refused before the library finished loading.
+/// A job failed and settling it panicked: its edit is gone.
 const SETTLE_FAILED_NOTE: &str = "A change could not be finished, undone";
+/// A job landed on Spotify but settling it panicked: the store may lag until the next sync.
+const SETTLE_LANDED_NOTE: &str = "A change was saved, but the view may be out of date";
+/// The write worker panicked and a new one took over.
 const WRITER_RESTARTED_NOTE: &str = "Background writer restarted after a crash";
-const WRITER_RECOVERED_NOTE: &str = "Background writer recovered, changes can be saved again";
+/// The write worker kept panicking: nothing more runs this session.
 const WRITER_STOPPED_NOTE: &str =
     "Background writer stopped, pending changes undone; restart ncspot to save changes";
+/// A write refused after the worker was given up on.
 const WRITES_REFUSED_NOTE: &str = "Background writer stopped; restart ncspot to save changes";
+/// A follow or unfollow refused before the library finished loading.
 const LOADING_NOTE: &str = "Library is still loading, try again";
 
 /// `rename` outside the Playlists tab and a playlist view, or on a row that is not a playlist.
@@ -3726,6 +3693,17 @@ fn run_pin_change(
         warn!("Spotify did not remove the pin");
         (PinOutcome::NotRemoved, None)
     }
+}
+
+/// How [Library::queue_on_copy] ended.
+enum Queued<R> {
+    /// Applied and queued; the local apply result (a move's new position).
+    Done(Option<usize>),
+    /// The check refused with this answer.
+    Failed(R),
+    NotStored,
+    /// The writer takes no more jobs; nothing changed.
+    Refused,
 }
 
 /// One write in `area`: the internal API first, then the Web API per the fallback classes.
@@ -5658,7 +5636,8 @@ mod test {
 
     use crate::playlist_writer::MAX_WRITER_RESTARTS;
 
-    const TICK: Duration = Duration::from_millis(1);
+    /// Long enough that no test worker counts as healthy.
+    const NEVER: Duration = Duration::from_secs(3600);
 
     #[test]
     fn a_panicked_worker_restarts_with_a_note_then_runs_on() {
@@ -5671,8 +5650,7 @@ mod test {
                 spawned.set(spawned.get() + 1);
                 fake_worker(&library, false)
             },
-            TICK,
-            WRITER_STALL,
+            NEVER,
         );
         assert_eq!(spawned.get(), 1);
         assert_eq!(noted(&library, WRITER_RESTARTED_NOTE), 1);
@@ -5692,8 +5670,7 @@ mod test {
                 spawned.set(spawned.get() + 1);
                 fake_worker(&library, true)
             },
-            TICK,
-            WRITER_STALL,
+            NEVER,
         );
         assert_eq!(spawned.get(), MAX_WRITER_RESTARTS);
         assert!(library.writer.gave_up());
@@ -5707,98 +5684,6 @@ mod test {
         assert_eq!(stopped, 1);
     }
 
-    /// Wait for `done`, at most a few seconds.
-    fn eventually(done: impl Fn() -> bool) {
-        for _ in 0..5000 {
-            if done() {
-                return;
-            }
-            thread::sleep(TICK);
-        }
-        panic!("it never happened");
-    }
-
-    #[test]
-    fn a_stuck_job_gives_the_worker_up_and_its_return_resumes_writes() {
-        let library = library_with_playlist("p", &["a", "b"]);
-        let row = stored_row(&library, "p", 0);
-        library.queue_move("p", &row, 1, false);
-        library.queue_rename("p", "later");
-        let (release, stuck) = crossbeam_channel::bounded::<()>(0);
-        let worker = {
-            let library = library.clone();
-            library.writer.mark_running();
-            thread::spawn(move || {
-                let _exited = library.writer.exit_guard();
-                library.run_next_write_with(|_, _| {
-                    let _ = stuck.recv();
-                    false
-                });
-            })
-        };
-        let stall = Duration::from_millis(5);
-        thread::scope(|s| {
-            let watching = s.spawn(|| {
-                library.watch_writer(worker, || fake_worker(&library, false), TICK, stall);
-            });
-            eventually(|| library.writer.gave_up());
-            eventually(|| stored(&library, "p").name == "p");
-            assert_eq!(stored_uris(&library, "p"), ["a", "b"], "undone");
-            assert_eq!(library.writer.pending(), 0, "nothing shows as pending");
-            assert!(!library.writer.is_pending("p"), "syncs may take it again");
-            eventually(|| library.writer.confirmed("p").is_none());
-            drop(release);
-            watching.join().unwrap();
-        });
-        assert!(!library.writer.gave_up(), "writes are back");
-        assert_eq!(noted(&library, WRITER_RECOVERED_NOTE), 1);
-        library.queue_rename("p", "again");
-        assert_eq!(library.writer.pending(), 1);
-    }
-
-    #[test]
-    fn a_save_in_flight_at_a_stall_stays_for_its_job_to_settle() {
-        let library = loaded_library();
-        let t = track("t", &[]);
-        library.save_tracks(&[&t]);
-        let (release, stuck) = crossbeam_channel::bounded::<()>(0);
-        let worker = {
-            let library = library.clone();
-            library.writer.mark_running();
-            thread::spawn(move || {
-                let _exited = library.writer.exit_guard();
-                library.run_next_write_with(|_, _| {
-                    let _ = stuck.recv();
-                    true
-                });
-            })
-        };
-        thread::scope(|s| {
-            let watching = s.spawn(|| {
-                let stall = Duration::from_millis(5);
-                library.watch_writer(worker, || fake_worker(&library, false), TICK, stall);
-            });
-            eventually(|| library.writer.gave_up());
-            assert_eq!(saved_ids(&library), ["t"], "it may still land");
-            drop(release);
-            watching.join().unwrap();
-        });
-        assert_eq!(saved_ids(&library), ["t"], "it landed");
-        assert!(!library.saves.lock().any_pending());
-    }
-
-    #[test]
-    fn a_restart_undoes_a_save_left_in_flight() {
-        let library = loaded_library();
-        library.save_tracks(&[&track("t", &[])]);
-        library.writer.start_next_job();
-        let first = fake_worker(&library, true);
-        library.watch_writer(first, || fake_worker(&library, false), TICK, WRITER_STALL);
-        assert!(saved_ids(&library).is_empty());
-        assert!(!library.saves.lock().any_pending());
-        assert_eq!(library.writer.pending(), 0);
-    }
-
     #[test]
     fn giving_up_restores_removed_rows_in_order() {
         let library = loaded_library();
@@ -5806,7 +5691,7 @@ mod test {
         *library.tracks.write_unpoisoned() = tracks.clone();
         library.unsave_tracks(&[&tracks[1]]);
         library.unsave_tracks(&[&tracks[2]]);
-        library.give_up_writes(None);
+        library.give_up_writes();
         assert_eq!(saved_ids(&library), ["a", "b", "c", "d"]);
     }
 
@@ -5849,7 +5734,7 @@ mod test {
         library.tracks.write_unpoisoned().push(kept.clone());
         library.save_tracks(&[&saved]);
         library.unsave_tracks(&[&kept]);
-        library.give_up_writes(None);
+        library.give_up_writes();
         assert_eq!(saved_ids(&library), ["kept"]);
         assert!(!library.saves.lock().any_pending());
         assert_eq!(noted(&library, WRITER_STOPPED_NOTE), 1);
@@ -5886,6 +5771,69 @@ mod test {
     }
 
     #[test]
+    fn a_worker_that_ran_healthy_starts_the_restart_count_over() {
+        let library = library_with_playlist("p", &["a"]);
+        let spawned = Cell::new(0);
+        let first = fake_worker(&library, true);
+        library.watch_writer(
+            first,
+            || {
+                spawned.set(spawned.get() + 1);
+                fake_worker(&library, spawned.get() < 6)
+            },
+            Duration::ZERO,
+        );
+        assert_eq!(
+            spawned.get(),
+            6,
+            "past the limit, each crash counted as a first"
+        );
+        assert!(!library.writer.gave_up());
+    }
+
+    #[test]
+    fn a_landed_job_whose_settle_panics_is_not_called_undone() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let settled = settled_with_a_queued_write(&library, "p");
+        library.settle_caught(settled, |_| panic!("settle failed"));
+        let events: Vec<Event> = library.ev.msg_iter().collect();
+        let count = |note: &str| {
+            events
+                .iter()
+                .filter(|e| matches!(e, Event::StatusNote(n) if n == note))
+                .count()
+        };
+        assert_eq!(count(SETTLE_LANDED_NOTE), 1);
+        assert_eq!(count(SETTLE_FAILED_NOTE), 0);
+    }
+
+    #[test]
+    fn a_failed_job_whose_settle_panics_is_called_undone() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let row = stored_row(&library, "p", 0);
+        library.queue_move("p", &row, 1, false);
+        let settled = library.writer.step(|_, _| false).unwrap();
+        library.settle_caught(settled, |_| panic!("settle failed"));
+        assert_eq!(noted(&library, SETTLE_FAILED_NOTE), 1);
+    }
+
+    #[test]
+    fn a_refused_move_posts_only_the_refusal() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let row = stored_row(&library, "p", 0);
+        library.writer.give_up();
+        assert_eq!(library.queue_move("p", &row, 1, false), None);
+        let notes: Vec<Event> = library.ev.msg_iter().collect();
+        assert_eq!(
+            notes
+                .iter()
+                .filter(|e| matches!(e, Event::StatusNote(_)))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
     fn a_clean_stop_ends_the_watch_with_no_note() {
         let library = library_with_playlist("p", &["a"]);
         library.writer.stop();
@@ -5893,8 +5841,7 @@ mod test {
         library.watch_writer(
             worker,
             || panic!("a stopped worker is not restarted"),
-            TICK,
-            WRITER_STALL,
+            NEVER,
         );
         assert_eq!(noted(&library, WRITER_RESTARTED_NOTE), 0);
         assert!(!library.writer.gave_up());
@@ -5918,11 +5865,7 @@ mod test {
         assert_eq!(library.writer.pending(), 0, "the later job went with it");
         assert!(!library.writer.is_pending("p"));
         assert!(library.writer.confirmed("p").is_none(), "released");
-        let noted = library
-            .ev
-            .msg_iter()
-            .any(|e| matches!(e, Event::StatusNote(n) if n == SETTLE_FAILED_NOTE));
-        assert!(noted);
+        assert_eq!(noted(&library, SETTLE_LANDED_NOTE), 1);
     }
 
     #[test]

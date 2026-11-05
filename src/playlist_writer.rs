@@ -11,7 +11,6 @@ use std::time::{Duration, Instant};
 use log::error;
 use parking_lot::{Condvar, Mutex};
 
-use crate::activity::{ACTIVITY, worker_clock};
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
@@ -189,11 +188,7 @@ struct State {
     stopping: bool,
     /// A worker loop runs (between [PlaylistWriter::mark_running] and [PlaylistWriter::mark_exited]).
     worker_running: bool,
-    /// The library save in flight, if the job in flight is one.
-    in_flight_save: Option<SaveOp>,
-    /// When the job in flight started on the [worker_clock], for the watchdog.
-    job_started: Option<Duration>,
-    /// The worker was given up on: writes are refused until it recovers.
+    /// The worker kept crashing and was given up on: writes are refused for the session.
     gave_up: bool,
 }
 
@@ -207,13 +202,6 @@ impl State {
                 .iter()
                 .any(|j| j.playlist_id.as_deref() == Some(id))
     }
-}
-
-/// The job a worker left in flight (see [PlaylistWriter::clear_in_flight]).
-#[derive(Debug, Default)]
-pub struct LostJob {
-    pub playlist_id: Option<String>,
-    pub save: Option<SaveOp>,
 }
 
 /// The outcome of one [PlaylistWriter::step].
@@ -345,11 +333,6 @@ impl PlaylistWriter {
                 .map_or(0, Vec::len);
             let job = fold_moves(job, &mut state.queue, length);
             state.in_flight = Some(job.playlist_id.clone());
-            state.in_flight_save = match &job.kind {
-                JobKind::LibrarySave(op) => Some(op.clone()),
-                _ => None,
-            };
-            state.job_started = Some(worker_clock());
             (job, copy)
         };
         let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
@@ -364,8 +347,6 @@ impl PlaylistWriter {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
         state.in_flight = None;
-        state.in_flight_save = None;
-        state.job_started = None;
         let id = job.playlist_id.clone();
         let mut dropped = 0;
         if let Some(id) = &id {
@@ -415,27 +396,13 @@ impl PlaylistWriter {
         let deadline = Instant::now() + timeout;
         let mut state = lock.lock();
         while !state.stopping {
-            // A wait is progress: a long one must not look like a stuck job to the watchdog.
-            ACTIVITY.note_try();
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
                 return true;
             }
-            cvar.wait_for(&mut state, left.min(WAIT_SLICE));
+            cvar.wait_for(&mut state, left);
         }
         false
-    }
-
-    /// Put the next job in flight as [PlaylistWriter::step] does, leaving it there.
-    #[cfg(test)]
-    pub fn start_next_job(&self) {
-        let mut state = self.shared.0.lock();
-        let job = state.queue.pop_front().unwrap();
-        state.in_flight = Some(job.playlist_id.clone());
-        if let JobKind::LibrarySave(op) = job.kind {
-            state.in_flight_save = Some(op);
-        }
-        state.job_started = Some(worker_clock());
     }
 
     /// Stop taking jobs: drop the queued ones. Returns the ids with a confirmed copy, whose
@@ -451,31 +418,17 @@ impl PlaylistWriter {
         ids
     }
 
-    /// Whether the job in flight has made no progress for `limit`. Never while stopping: quit
-    /// has its own grace.
-    pub fn stalled(&self, limit: Duration) -> bool {
-        let state = self.shared.0.lock();
-        !state.stopping
-            && state.job_started.is_some_and(|started| {
-                no_progress(started, ACTIVITY.last_worker_try(), worker_clock(), limit)
-            })
-    }
-
     pub fn is_stopping(&self) -> bool {
         self.shared.0.lock().stopping
     }
 
-    /// Stop counting the job in flight as pending, because its worker died or was abandoned.
-    pub fn clear_in_flight(&self) -> LostJob {
+    /// Forget the job a dead worker left in flight; returns its id, if it has one.
+    pub fn clear_in_flight(&self) -> Option<String> {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
-        state.job_started = None;
-        let lost = LostJob {
-            playlist_id: state.in_flight.take().flatten(),
-            save: state.in_flight_save.take(),
-        };
+        let id = state.in_flight.take().flatten();
         cvar.notify_all();
-        lost
+        id
     }
 
     /// Refuse writes from now on (see [PlaylistWriter::gave_up]).
@@ -483,16 +436,9 @@ impl PlaylistWriter {
         self.shared.0.lock().gave_up = true;
     }
 
-    /// The worker was given up on: new writes are refused.
+    /// The worker was given up on: new writes are refused for the rest of the session.
     pub fn gave_up(&self) -> bool {
         self.shared.0.lock().gave_up
-    }
-
-    /// A given-up worker is gone and a new one starts: take writes again.
-    pub fn resume(&self) {
-        let mut state = self.shared.0.lock();
-        state.gave_up = false;
-        state.stopping = false;
     }
 
     /// The worker loop starts (before it is spawned).
@@ -556,15 +502,9 @@ impl Drop for ExitGuard {
 /// Worker restarts after a panic before it is given up on.
 pub const MAX_WRITER_RESTARTS: u32 = 3;
 
-/// How long a job may go without progress before the worker counts as stuck. Every network try
-/// and every wait marks progress, and each of those ends well within this.
-pub const WRITER_STALL: Duration = Duration::from_secs(30);
-
-/// The longest stretch of a retry wait without a progress mark, well under [WRITER_STALL].
-const WAIT_SLICE: Duration = Duration::from_secs(5);
-
-/// How often the watchdog looks at the worker.
-pub const WRITER_WATCH: Duration = Duration::from_secs(1);
+/// A worker that ran this long before a panic was healthy: its restarts start over, so unrelated
+/// crashes hours apart never add up to a give-up.
+pub const WRITER_HEALTHY: Duration = Duration::from_secs(600);
 
 /// What to do once the worker thread has ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -583,17 +523,6 @@ pub fn after_worker_exit(panicked: bool, stopping: bool, restarts: u32) -> Worke
     } else {
         WorkerExit::GiveUp
     }
-}
-
-/// Whether a job `started` has gone `limit` without progress; all on the [worker_clock].
-fn no_progress(
-    started: Duration,
-    last_try: Option<Duration>,
-    now: Duration,
-    limit: Duration,
-) -> bool {
-    let progress = last_try.map_or(started, |last_try| last_try.max(started));
-    now.saturating_sub(progress) >= limit
 }
 
 /// How long quit waits for the playlist write in flight.
@@ -664,19 +593,6 @@ mod tests {
     }
 
     #[test]
-    fn a_retry_wait_counts_as_the_workers_progress() {
-        std::thread::spawn(|| {
-            ACTIVITY.mark_write_worker();
-            let before = worker_clock();
-            assert!(PlaylistWriter::new().wait_unless_stopped(Duration::from_millis(1)));
-            let last = ACTIVITY.last_worker_try().unwrap();
-            assert!(last + Duration::from_millis(1) >= before);
-        })
-        .join()
-        .unwrap();
-    }
-
-    #[test]
     fn a_panicked_worker_restarts_until_the_limit() {
         assert_eq!(after_worker_exit(true, false, 0), WorkerExit::Restart);
         assert_eq!(
@@ -696,40 +612,11 @@ mod tests {
     }
 
     #[test]
-    fn progress_is_the_later_of_the_start_and_the_last_try() {
-        let at = Duration::from_secs;
-        let limit = Duration::from_secs(30);
-        assert!(!no_progress(at(100), None, at(129), limit));
-        assert!(no_progress(at(100), None, at(130), limit));
-        assert!(
-            !no_progress(at(100), Some(at(120)), at(130), limit),
-            "a try"
-        );
-        assert!(
-            no_progress(at(100), Some(at(50)), at(130), limit),
-            "an old try"
-        );
-    }
-
-    #[test]
-    fn a_given_up_writer_queues_nothing_until_it_resumes() {
+    fn a_given_up_writer_queues_nothing() {
         let w = PlaylistWriter::new();
         w.give_up();
         assert_eq!(w.queue(None, JobKind::Unfollow, || None), None);
         assert_eq!(w.pending(), 0);
-        w.stop();
-        w.resume();
-        assert!(w.queue(None, JobKind::Unfollow, || None).is_some());
-        assert!(!w.is_stopping());
-    }
-
-    #[test]
-    fn a_stopping_writer_is_never_stalled() {
-        let w = PlaylistWriter::new();
-        w.shared.0.lock().job_started = Some(worker_clock());
-        assert!(w.stalled(Duration::ZERO));
-        w.stop();
-        assert!(!w.stalled(Duration::ZERO));
     }
 
     #[test]
@@ -738,12 +625,10 @@ mod tests {
         {
             let mut state = w.shared.0.lock();
             state.in_flight = Some(Some("p".to_string()));
-            state.job_started = Some(worker_clock());
         }
         assert_eq!(w.pending(), 1);
-        assert_eq!(w.clear_in_flight().playlist_id.as_deref(), Some("p"));
+        assert_eq!(w.clear_in_flight().as_deref(), Some("p"));
         assert_eq!(w.pending(), 0);
-        assert!(!w.stalled(Duration::ZERO));
     }
 
     #[test]

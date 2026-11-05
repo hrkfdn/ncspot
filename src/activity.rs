@@ -1,10 +1,7 @@
 //! Network calls in flight, and when the last one ended. The drive harness reads this to tell
 //! when a view has finished loading; it costs one relaxed atomic operation per call.
 
-use std::cell::Cell;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
 
 use crate::rate_limit::Stamp;
 
@@ -13,24 +10,16 @@ pub struct Activity {
     in_flight: AtomicUsize,
     /// [Stamp::as_millis] of the last call end; 0 means no call has ended yet.
     last_end_ms: AtomicU64,
-    /// [worker_clock] milliseconds of the write worker's last progress; 0 means none yet.
-    last_worker_try_ms: AtomicU64,
 }
 
 /// The gauge every Web API and internal API call goes through.
 pub static ACTIVITY: Activity = Activity::new();
-
-thread_local! {
-    /// Set on the playlist write worker, so only its tries count as its progress.
-    static WRITE_WORKER: Cell<bool> = const { Cell::new(false) };
-}
 
 impl Activity {
     pub const fn new() -> Self {
         Self {
             in_flight: AtomicUsize::new(0),
             last_end_ms: AtomicU64::new(0),
-            last_worker_try_ms: AtomicU64::new(0),
         }
     }
 
@@ -41,28 +30,6 @@ impl Activity {
     pub fn begin(&self) -> CallGuard<'_> {
         self.in_flight.fetch_add(1, Ordering::Relaxed);
         CallGuard { activity: self }
-    }
-
-    /// Mark this thread as the playlist write worker.
-    pub fn mark_write_worker(&self) {
-        WRITE_WORKER.set(true);
-    }
-
-    /// A network try or a wait between tries is starting. A call can hold its guard across
-    /// long rate-limit waits, so the watchdog counts these, not calls, as the worker's progress.
-    pub fn note_try(&self) {
-        if WRITE_WORKER.get() {
-            let now = worker_clock().as_millis().max(1) as u64;
-            self.last_worker_try_ms.store(now, Ordering::Relaxed);
-        }
-    }
-
-    /// The [worker_clock] time of the write worker's last progress.
-    pub fn last_worker_try(&self) -> Option<Duration> {
-        match self.last_worker_try_ms.load(Ordering::Relaxed) {
-            0 => None,
-            ms => Some(Duration::from_millis(ms)),
-        }
     }
 
     /// Calls currently in flight.
@@ -79,13 +46,6 @@ impl Activity {
             ms => Some(now.saturating_duration_since(Stamp::from_millis(ms))),
         }
     }
-}
-
-/// The time since the first look at this clock, for the write worker's watchdog. Unlike [Stamp]
-/// it stops while the machine is suspended: a closed lid must not look like a stuck worker.
-pub fn worker_clock() -> Duration {
-    static START: OnceLock<Instant> = OnceLock::new();
-    START.get_or_init(Instant::now).elapsed()
 }
 
 /// One call in flight; see [Activity::begin].
@@ -108,20 +68,6 @@ impl Drop for CallGuard<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn only_the_write_worker_counts_its_tries() {
-        let activity = Activity::new();
-        activity.note_try();
-        assert!(activity.last_worker_try().is_none(), "another thread");
-        std::thread::scope(|s| {
-            s.spawn(|| {
-                activity.mark_write_worker();
-                activity.note_try();
-            });
-        });
-        assert!(activity.last_worker_try().is_some());
-    }
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::time::Duration;
 
