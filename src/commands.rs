@@ -176,7 +176,7 @@ impl CommandManager {
                             }
                         }));
                     });
-                    return Ok(Some("Finishing playlist changes...".into()));
+                    return Ok(Some("Finishing changes...".into()));
                 }
                 self.library.reset_pending_writes();
                 let queue = self.queue.queue.read().unwrap();

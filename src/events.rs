@@ -36,6 +36,8 @@ pub enum Event {
         dropped: usize,
         /// The failure's note (already posted), to repeat with the dropped count.
         note: Option<String>,
+        /// A library save: no success note.
+        silent: bool,
     },
     /// An internal API area hit a protocol change and uses the Web API for the rest of the
     /// session.

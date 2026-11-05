@@ -451,13 +451,14 @@ impl Application {
                         drained,
                         dropped,
                         note,
+                        silent,
                     } => {
                         let open = self
                             .cursive
                             .call_on_name("main", |l: &mut ui::layout::Layout| l.top_playlist_id())
                             .flatten();
                         let open = playlist_id.is_some() && open == playlist_id;
-                        if let Some(note) = settled_note(ok, drained, dropped, note, open) {
+                        if let Some(note) = settled_note(ok, drained, dropped, note, open, silent) {
                             let result = if ok { Ok(Some(note)) } else { Err(note) };
                             self.cursive
                                 .on_layout(|_, mut layout| layout.set_result(result));

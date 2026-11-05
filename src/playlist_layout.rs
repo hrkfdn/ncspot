@@ -1,10 +1,13 @@
 //! The Playlists tab layout from the rootlist (folders, pinned playlists first), and the
 //! spacing between playlist downloads in a sync.
 
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use crate::ext_traits::RwLockExt;
 use crate::internal_api::collection::Item;
 use crate::internal_api::playlist::{RootEntry, Rootlist};
 use crate::library::Library;
@@ -160,7 +163,7 @@ impl PlaylistRow {
         let Self::Playlist { id, store, .. } = self else {
             return None;
         };
-        let store = store.read().unwrap();
+        let store = store.read_unpoisoned();
         store.iter().find(|p| &p.id == id).map(f)
     }
 
@@ -178,7 +181,7 @@ impl PlaylistRow {
         let base_loaded = copy.tracks.is_some();
         f(&mut copy);
         if copy.snapshot_id != base_snapshot || copy.tracks.is_some() != base_loaded {
-            replace_if_unchanged(&mut store.write().unwrap(), &copy, &base_snapshot);
+            replace_if_unchanged(&mut store.write_unpoisoned(), &copy, &base_snapshot);
         }
     }
 
@@ -472,7 +475,7 @@ mod tests {
             assert!(store.try_write().is_ok(), "the store lock is held");
             p.tracks = Some(Vec::new());
         });
-        assert!(store.read().unwrap()[0].tracks.is_some());
+        assert!(store.read_unpoisoned()[0].tracks.is_some());
     }
 
     #[test]
@@ -480,10 +483,10 @@ mod tests {
         let store: PlaylistStore = Arc::new(RwLock::new(vec![with_snapshot("a", "", true)]));
         row("a", &store).with_copy(|p| {
             // A sync stores a newer copy while the action reloads.
-            store.write().unwrap()[0] = with_snapshot("a", "sync", true);
+            store.write_unpoisoned()[0] = with_snapshot("a", "sync", true);
             p.snapshot_id = "reload".into();
         });
-        assert_eq!(store.read().unwrap()[0].snapshot_id, "sync");
+        assert_eq!(store.read_unpoisoned()[0].snapshot_id, "sync");
     }
 
     fn describe(rows: &[PlaylistRow]) -> Vec<String> {
@@ -631,13 +634,13 @@ mod tests {
     #[test]
     fn playlist_rows_resolve_to_the_current_store_entry() {
         let store: PlaylistStore = Arc::new(RwLock::new(vec![p("p1")]));
-        let r = rows(&store.read().unwrap().clone(), &[], &store);
+        let r = rows(&store.read_unpoisoned().clone(), &[], &store);
         assert!(r[0].is_playable());
         let url = |r: &PlaylistRow| r.share_url().unwrap();
         assert!(!url(&r[0]).contains("/user/o/"));
-        store.write().unwrap()[0].owner_id = "o".into();
+        store.write_unpoisoned()[0].owner_id = "o".into();
         assert!(url(&r[0]).contains("/user/o/"));
-        store.write().unwrap().clear();
+        store.write_unpoisoned().clear();
         assert!(!r[0].is_playable());
         assert!(r[0].share_url().is_none());
     }
@@ -648,13 +651,13 @@ mod tests {
         loaded.num_tracks = 9;
         loaded.tracks = Some(vec![crate::playlist_items::placeholder("spotify:track:a")]);
         let store: PlaylistStore = Arc::new(RwLock::new(vec![loaded]));
-        let r = rows(&store.read().unwrap().clone(), &[], &store);
+        let r = rows(&store.read_unpoisoned().clone(), &[], &store);
         let seen = r[0].outside_store(|p| {
             assert!(store.try_write().is_ok(), "the store guard is dropped");
             (p.id.clone(), p.num_tracks, p.tracks.is_none())
         });
         assert_eq!(seen, Some(("p1".to_string(), 1, true)));
-        store.write().unwrap().clear();
+        store.write_unpoisoned().clear();
         assert_eq!(r[0].outside_store(|_| ()), None);
     }
 

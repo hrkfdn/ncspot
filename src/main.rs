@@ -41,6 +41,7 @@ mod playlist_writer;
 mod probe_tests;
 mod queue;
 mod rate_limit;
+mod save_log;
 mod serialization;
 mod session_slot;
 mod sharing;

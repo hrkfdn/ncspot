@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Duration;
 
 use log::error;
 use serde::Serialize;
@@ -568,6 +569,10 @@ pub fn open_view(
     Ok(view)
 }
 
+/// How long the harness waits for a library save to settle. The wait blocks the UI thread, which
+/// is fine for a harness verb (the old synchronous write did too).
+const SAVE_SETTLE: Duration = Duration::from_secs(120);
+
 /// A library membership check and its write, for one item.
 type ItemOps<'a> = (Box<dyn Fn() -> bool + 'a>, Box<dyn Fn() + 'a>);
 
@@ -672,6 +677,11 @@ pub fn write_item(
         return Err(format!("{verb}: not in the library"));
     }
     write();
+    // The store shows a save at once: only the settled write says it landed. The longest a save
+    // can take is about 90 s.
+    if !library.wait_saves_settled(SAVE_SETTLE) {
+        return Err(format!("{verb}: save did not settle"));
+    }
     if is_saved() == before {
         return Err(format!("{verb}: library unchanged"));
     }

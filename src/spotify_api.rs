@@ -494,13 +494,36 @@ impl WebApi {
         uris: &[String],
         removed: bool,
     ) -> Result<(), InternalError> {
-        for batch in uris.chunks(collection::WRITE_BATCH) {
-            let batch = batch.to_vec();
+        Self::write_batches(uris, |batch| {
             self.run_internal(area, |session| {
-                collection::write(session, set, batch.clone(), removed)
-            })?;
-        }
-        Ok(())
+                collection::write(session, set, batch.to_vec(), removed)
+            })
+        })
+    }
+
+    /// [Self::collection_write] with each call sent once. For a library save: on the write worker
+    /// `run_internal` would add its own retries and sleeps, which a quit cannot wake. The save job
+    /// retries instead.
+    pub fn collection_write_once(
+        &self,
+        area: Area,
+        set: &'static str,
+        uris: &[String],
+        removed: bool,
+    ) -> Result<(), InternalError> {
+        Self::write_batches(uris, |batch| {
+            self.run_internal_once(area, |session| {
+                collection::write(session, set, batch.to_vec(), removed)
+            })
+        })
+    }
+
+    /// Run `write` on each [collection::WRITE_BATCH] of `uris`, stopping at the first failure.
+    fn write_batches(
+        uris: &[String],
+        write: impl Fn(&[String]) -> Result<(), InternalError>,
+    ) -> Result<(), InternalError> {
+        uris.chunks(collection::WRITE_BATCH).try_for_each(write)
     }
 
     /// Metadata for library items by Spotify URI, through the internal API: one internal call
@@ -692,6 +715,15 @@ impl WebApi {
                 let _ = handle.await;
             }
         }))
+    }
+
+    /// What is left of the internal API's rate-limit window.
+    pub fn internal_window(&self) -> Option<Duration> {
+        self.internal
+            .throttle
+            .read()
+            .unwrap()
+            .remaining(Stamp::now())
     }
 
     /// Remaining rate-limit window of each throttled client, personal first.
@@ -1661,6 +1693,20 @@ mod test {
     use crate::config::Config;
 
     const PERSONAL_ID: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn collection_write_once_needs_a_session_unless_empty() {
+        let api = WebApi::new(&Config::new_for_test());
+        let uris = vec!["spotify:track:4uLU6hMCjMI75M1A2tKUQC".to_string()];
+        assert_eq!(
+            api.collection_write_once(Area::Library, "collection", &uris, false),
+            Err(InternalError::NoSession)
+        );
+        assert_eq!(
+            api.collection_write_once(Area::Library, "collection", &[], true),
+            Ok(())
+        );
+    }
 
     #[test]
     fn collection_write_needs_a_session_unless_empty() {

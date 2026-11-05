@@ -216,10 +216,12 @@ class LibraryWriteTest(unittest.TestCase):
         for k, i in [("track", drive.TRACK), ("artist", drive.ARTIST), ("show", drive.SHOW)]
     ]
 
+    class Args:
+        settle_timeout = 1
+
     @staticmethod
-    def run_with(ok, fallback, errors=()):
-        """Run the scenario against a fake instance; `errors` is the error of each successive
-        save/unsave dump. Returns the lines sent."""
+    def library_write_inst(ok=6, fallback=0, errors=()):
+        """A fake instance; `errors` is the error of each successive save/unsave dump."""
 
         def d(lib_ok, lib_fb, error=None):
             return {
@@ -246,12 +248,22 @@ class LibraryWriteTest(unittest.TestCase):
             def wait_settled(self, timeout):
                 return d(10 + ok, fallback, errs.pop(0) if errs else None)
 
-        class Args:
-            settle_timeout = 1
+        return Inst()
 
-        inst = Inst()
-        drive.sc_library_write(inst, Args())
+    @classmethod
+    def run_with(cls, ok, fallback, errors=()):
+        """Run the scenario against a fake instance. Returns the lines sent."""
+        inst = cls.library_write_inst(ok, fallback, errors)
+        drive.sc_library_write(inst, cls.Args())
         return inst.sent
+
+    def test_library_write_during_sync_order(self):
+        inst = self.library_write_inst()
+        drive.sc_library_write_during_sync(inst, self.Args())
+        sent = inst.sent
+        first = next(i for i, c in enumerate(sent) if c.startswith("harness save"))
+        self.assertIn("update", sent[:first])
+        self.assertTrue(sent[first + 1].startswith("harness unsave"))
 
     def test_saves_then_removes_each_item(self):
         sent = self.run_with(6, 0)

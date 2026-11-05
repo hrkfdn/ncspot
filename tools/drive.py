@@ -666,6 +666,26 @@ def sc_library_write(inst, args):
     expect(m["internal_ok"] >= wrote, "one internal call per write", m)
 
 
+def sc_library_write_during_sync(inst, args):
+    """A save made while a sync runs goes out at once and survives the sync: `harness unsave`
+    fails with "not in the library" if the swap erased it."""
+    inst.send("update")
+    for kind, uri in WRITE_TARGETS:
+        inst.send(f"harness save {uri}")
+        d = inst.wait_settled(args.settle_timeout)
+        if d.get("error") and "already in the library" in d["error"]:
+            print(f"  skip {kind}: test item already in the library")
+            continue
+        expect(d.get("error") is None, f"{kind}: save without error", d.get("error"))
+        d = inst.wait_library(args.settle_timeout, blocked_on=["internal"])
+        blocked_if_throttled(d, ["internal"])
+        inst.send(f"harness unsave {uri}")
+        d = inst.wait_settled(args.settle_timeout)
+        expect(d.get("error") is None, f"{kind}: kept through the sync", d.get("error"))
+        return
+    raise Blocked("every test item is already in the library")
+
+
 def sc_playlists(inst, args):
     """Every rootlist playlist is stored, over the internal API, with no fallback."""
     d = inst.wait_library(args.settle_timeout * 4, blocked_on=["internal"])
@@ -773,6 +793,7 @@ SCENARIOS = {
     "library_delta": ({}, sc_library_delta, False),
     "library_area_off": ({"internal_api_areas": {"library": False}}, sc_library_area_off, False),
     "library_write": ({}, sc_library_write, False),
+    "library_write_during_sync": ({}, sc_library_write_during_sync, False),
     "playlists": ({}, sc_playlists, False),
     "playlists_area_off": ({"internal_api_areas": {"playlists": False}}, sc_playlists_area_off, False),
     "playlist_write": ({}, sc_playlist_write, False),

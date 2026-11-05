@@ -15,8 +15,9 @@ use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
+use crate::save_log::SaveOp;
 
-/// One playlist write.
+/// One queued write: a playlist change or a library save.
 #[derive(Clone, Debug)]
 pub enum JobKind {
     /// Move the item at server position `index` (still `uri`) by `n` rows, clamped.
@@ -53,6 +54,8 @@ pub enum JobKind {
     Pin {
         pinned: bool,
     },
+    /// A library save, with no playlist: the save log holds its optimistic state.
+    LibrarySave(SaveOp),
 }
 
 impl JobKind {
@@ -74,7 +77,7 @@ impl JobKind {
 pub struct WriteJob {
     /// Issue order; a folded job keeps the last folded seq.
     pub seq: u64,
-    /// `None` for a create or save-as (no id yet).
+    /// `None` for a create or save-as (no id yet) or a library save.
     pub playlist_id: Option<String>,
     pub kind: JobKind,
 }
@@ -185,6 +188,8 @@ struct State {
     stopping: bool,
     /// A worker loop runs (between [PlaylistWriter::mark_running] and [PlaylistWriter::mark_exited]).
     worker_running: bool,
+    /// The worker kept crashing and was given up on: writes are refused for the session.
+    gave_up: bool,
 }
 
 impl State {
@@ -211,6 +216,8 @@ pub struct Settled {
     pub drained: bool,
     /// The confirmed copy after the job (for jobs that run on a copy).
     pub confirmed: Option<Playlist>,
+    /// The save this job was, for the library to settle.
+    pub save: Option<SaveOp>,
 }
 
 /// The playlist write queue, shared by the UI thread (queueing) and the worker (running).
@@ -224,16 +231,21 @@ impl PlaylistWriter {
         Self::default()
     }
 
-    /// Queue a job and return its seq. For a job on a copy, `confirmed` supplies the stored
-    /// copy (taken before the job is applied locally) when the id has no confirmed copy yet.
+    /// Queue a job and return its seq, or `None` when writes are refused: this check is under
+    /// the queue's lock, so no job can slip in behind a give-up. For a job on a copy, `confirmed`
+    /// supplies the stored copy (taken before the job is applied locally) when the id has no
+    /// confirmed copy yet.
     pub fn queue(
         &self,
         playlist_id: Option<&str>,
         kind: JobKind,
         confirmed: impl FnOnce() -> Option<Playlist>,
-    ) -> u64 {
+    ) -> Option<u64> {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
+        if state.gave_up {
+            return None;
+        }
         state.next_seq += 1;
         let seq = state.next_seq;
         if let Some(id) = playlist_id
@@ -249,7 +261,7 @@ impl PlaylistWriter {
             kind,
         });
         cvar.notify_all();
-        seq
+        Some(seq)
     }
 
     /// `updated` with the queued optimistic jobs of its id applied.
@@ -286,6 +298,12 @@ impl PlaylistWriter {
         }
     }
 
+    /// Drop the queued jobs of `id`.
+    pub fn drop_jobs(&self, id: &str) {
+        let mut state = self.shared.0.lock();
+        state.queue.retain(|j| j.playlist_id.as_deref() != Some(id));
+    }
+
     pub fn confirmed(&self, id: &str) -> Option<Playlist> {
         self.shared.0.lock().confirmed.get(id).cloned()
     }
@@ -320,7 +338,7 @@ impl PlaylistWriter {
         let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
             Ok(ok) => ok,
             Err(_) => {
-                error!("a playlist write panicked");
+                error!("a queued write panicked");
                 // Half a write: not a copy Spotify confirmed.
                 copy = None;
                 false
@@ -347,6 +365,10 @@ impl PlaylistWriter {
             None => None,
         };
         cvar.notify_all();
+        let save = match &job.kind {
+            JobKind::LibrarySave(op) => Some(op.clone()),
+            _ => None,
+        };
         Some(Settled {
             seq: job.seq,
             playlist_id: id,
@@ -354,6 +376,7 @@ impl PlaylistWriter {
             dropped,
             drained,
             confirmed,
+            save,
         })
     }
 
@@ -367,6 +390,21 @@ impl PlaylistWriter {
         !state.stopping
     }
 
+    /// Wait up to `timeout`; false as soon as the writer stops.
+    pub fn wait_unless_stopped(&self, timeout: Duration) -> bool {
+        let (lock, cvar) = &*self.shared;
+        let deadline = Instant::now() + timeout;
+        let mut state = lock.lock();
+        while !state.stopping {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return true;
+            }
+            cvar.wait_for(&mut state, left);
+        }
+        false
+    }
+
     /// Stop taking jobs: drop the queued ones. Returns the ids with a confirmed copy, whose
     /// stored copies must be reset to it (the job in flight, if any, still finishes).
     pub fn stop(&self) -> Vec<String> {
@@ -378,6 +416,29 @@ impl PlaylistWriter {
         let mut ids: Vec<String> = state.confirmed.keys().cloned().collect();
         ids.sort();
         ids
+    }
+
+    pub fn is_stopping(&self) -> bool {
+        self.shared.0.lock().stopping
+    }
+
+    /// Forget the job a dead worker left in flight; returns its id, if it has one.
+    pub fn clear_in_flight(&self) -> Option<String> {
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock();
+        let id = state.in_flight.take().flatten();
+        cvar.notify_all();
+        id
+    }
+
+    /// Refuse writes from now on (see [PlaylistWriter::gave_up]).
+    pub fn give_up(&self) {
+        self.shared.0.lock().gave_up = true;
+    }
+
+    /// The worker was given up on: new writes are refused for the rest of the session.
+    pub fn gave_up(&self) -> bool {
+        self.shared.0.lock().gave_up
     }
 
     /// The worker loop starts (before it is spawned).
@@ -438,23 +499,50 @@ impl Drop for ExitGuard {
     }
 }
 
+/// Worker restarts after a panic before it is given up on.
+pub const MAX_WRITER_RESTARTS: u32 = 3;
+
+/// A worker that ran this long before a panic was healthy: its restarts start over, so unrelated
+/// crashes hours apart never add up to a give-up.
+pub const WRITER_HEALTHY: Duration = Duration::from_secs(600);
+
+/// What to do once the worker thread has ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkerExit {
+    Done,
+    Restart,
+    GiveUp,
+}
+
+/// The next step after the worker ended, with `restarts` used so far.
+pub fn after_worker_exit(panicked: bool, stopping: bool, restarts: u32) -> WorkerExit {
+    if !panicked || stopping {
+        WorkerExit::Done
+    } else if restarts < MAX_WRITER_RESTARTS {
+        WorkerExit::Restart
+    } else {
+        WorkerExit::GiveUp
+    }
+}
+
 /// How long quit waits for the playlist write in flight.
 pub const QUIT_GRACE: Duration = Duration::from_secs(3);
 
 pub const SAVED_NOTE: &str = "Playlist changes saved";
 
 /// The note for a settled write, if any. Success: only once the playlist's queue drained and
-/// it is not the open view. Failure: its note was posted already; repeat it with the dropped
-/// count when later writes were dropped.
+/// it is not the open view, and never for a `silent` one. Failure: its note was posted already;
+/// repeat it with the dropped count when later writes were dropped.
 pub fn settled_note(
     ok: bool,
     drained: bool,
     dropped: usize,
     note: Option<String>,
     open: bool,
+    silent: bool,
 ) -> Option<String> {
     if ok {
-        return (drained && !open).then(|| SAVED_NOTE.to_string());
+        return (drained && !open && !silent).then(|| SAVED_NOTE.to_string());
     }
     if dropped == 0 {
         return None;
@@ -493,32 +581,88 @@ mod tests {
     }
 
     #[test]
+    fn a_wait_ends_with_a_stop_and_otherwise_runs_out() {
+        let w = PlaylistWriter::new();
+        assert!(w.wait_unless_stopped(Duration::from_millis(1)));
+        let waiter = {
+            let w = w.clone();
+            std::thread::spawn(move || w.wait_unless_stopped(Duration::from_secs(30)))
+        };
+        w.stop();
+        assert!(!waiter.join().unwrap());
+    }
+
+    #[test]
+    fn a_panicked_worker_restarts_until_the_limit() {
+        assert_eq!(after_worker_exit(true, false, 0), WorkerExit::Restart);
+        assert_eq!(
+            after_worker_exit(true, false, MAX_WRITER_RESTARTS - 1),
+            WorkerExit::Restart
+        );
+        assert_eq!(
+            after_worker_exit(true, false, MAX_WRITER_RESTARTS),
+            WorkerExit::GiveUp
+        );
+    }
+
+    #[test]
+    fn a_clean_exit_or_a_stop_ends_the_watch() {
+        assert_eq!(after_worker_exit(false, false, 0), WorkerExit::Done);
+        assert_eq!(after_worker_exit(true, true, 0), WorkerExit::Done);
+    }
+
+    #[test]
+    fn a_given_up_writer_queues_nothing() {
+        let w = PlaylistWriter::new();
+        w.give_up();
+        assert_eq!(w.queue(None, JobKind::Unfollow, || None), None);
+        assert_eq!(w.pending(), 0);
+    }
+
+    #[test]
+    fn clearing_the_job_in_flight_ends_the_pending_count() {
+        let w = PlaylistWriter::new();
+        {
+            let mut state = w.shared.0.lock();
+            state.in_flight = Some(Some("p".to_string()));
+        }
+        assert_eq!(w.pending(), 1);
+        assert_eq!(w.clear_in_flight().as_deref(), Some("p"));
+        assert_eq!(w.pending(), 0);
+    }
+
+    #[test]
     fn settled_notes() {
         assert_eq!(
-            settled_note(true, true, 0, None, false).as_deref(),
+            settled_note(true, true, 0, None, false, false).as_deref(),
             Some(SAVED_NOTE)
         );
         assert_eq!(
-            settled_note(true, true, 0, None, true),
+            settled_note(true, true, 0, None, true, false),
             None,
             "open view: silent"
         );
         assert_eq!(
-            settled_note(true, false, 0, None, false),
+            settled_note(true, false, 0, None, false, false),
             None,
             "more queued: wait"
         );
         assert_eq!(
-            settled_note(false, true, 0, Some("x".into()), true),
+            settled_note(false, true, 0, Some("x".into()), true, false),
             None,
             "already posted"
         );
         assert_eq!(
-            settled_note(false, true, 2, Some("x".into()), true).as_deref(),
+            settled_note(true, true, 0, None, false, true),
+            None,
+            "a save is silent"
+        );
+        assert_eq!(
+            settled_note(false, true, 2, Some("x".into()), true, false).as_deref(),
             Some("x (2 later changes dropped)")
         );
         assert_eq!(
-            settled_note(false, true, 1, None, false).as_deref(),
+            settled_note(false, true, 1, None, false, false).as_deref(),
             Some("Playlist change failed (1 later change dropped)")
         );
     }
@@ -730,6 +874,7 @@ mod tests {
             },
             || Some(p.clone()),
         )
+        .unwrap()
     }
 
     #[test]
