@@ -291,6 +291,12 @@ impl PlaylistWriter {
         }
     }
 
+    /// Drop the queued jobs of `id`.
+    pub fn drop_jobs(&self, id: &str) {
+        let mut state = self.shared.0.lock();
+        state.queue.retain(|j| j.playlist_id.as_deref() != Some(id));
+    }
+
     pub fn confirmed(&self, id: &str) -> Option<Playlist> {
         self.shared.0.lock().confirmed.get(id).cloned()
     }

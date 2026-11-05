@@ -4,6 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::iter::Iterator;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
@@ -48,7 +49,7 @@ use crate::playlist_layout::{
     LayoutEntry, PLAYLIST_FETCH_SPACING, Spacer, insert_after_pins, layout_from, pinned_ids,
     remove_from_layout, replace_if_unchanged, set_pins,
 };
-use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, WriteJob, apply_local};
+use crate::playlist_writer::{JobKind, PlaylistWriter, QUIT_GRACE, Settled, WriteJob, apply_local};
 use crate::rate_limit::{MAX_SYNC_RESUMES, RESUME_MIN_DELAY, Stamp, random_jitter};
 use crate::save_log::{
     Prior, SaveItem, SaveLog, SaveOp, SavedStore, WriteOutcome, rebuild_artists, run_with_retries,
@@ -2161,6 +2162,25 @@ impl Library {
         let Some(settled) = settled else {
             return false;
         };
+        self.settle_caught(settled, |settled| self.publish_settled(settled));
+        true
+    }
+
+    /// Run `publish` on a settled job. A panic here would end the worker with the job's result
+    /// half stored: put its playlist back to the confirmed copy and carry on with the queue.
+    fn settle_caught(&self, settled: Settled, publish: impl FnOnce(Settled)) {
+        let id = settled.playlist_id.clone();
+        if catch_unwind(AssertUnwindSafe(|| publish(settled))).is_err() {
+            error!("settling a playlist write panicked");
+            if let Some(id) = id {
+                self.restore_confirmed(&id);
+            }
+            self.post_note(SETTLE_FAILED_NOTE);
+        }
+    }
+
+    /// Store a settled job's result and tell the UI.
+    fn publish_settled(&self, settled: Settled) {
         if let Some(confirmed) = &settled.confirmed {
             // The confirmed copy plus whatever is still queued for it.
             self.playlist_update(confirmed);
@@ -2183,7 +2203,24 @@ impl Library {
             note,
             silent: settled.save.is_some(),
         });
-        true
+    }
+
+    /// Drop the queued jobs of `id` and show its confirmed copy, as if they never ran.
+    fn restore_confirmed(&self, id: &str) {
+        {
+            // Store lock first, then the writer's (the lock order).
+            let mut store = self.playlists.write_unpoisoned();
+            self.writer.drop_jobs(id);
+            if let (Some(confirmed), Some(stored)) = (
+                self.writer.confirmed(id),
+                store.iter_mut().find(|p| p.id == id),
+            ) {
+                *stored = confirmed;
+            }
+        }
+        self.writer.release(id);
+        self.bump_playlists_rev();
+        self.trigger_redraw();
     }
 
     /// The write of one job, on the worker: the synchronous write paths, on the confirmed copy
@@ -3270,6 +3307,7 @@ const SAVE_FAILED_NOTE: &str = "Could not update your library, change undone";
 const GENERIC_WRITE_NOTE: &str = "Could not change the playlist";
 
 /// A follow or unfollow refused before the library finished loading.
+const SETTLE_FAILED_NOTE: &str = "A playlist change could not be finished, undone";
 const LOADING_NOTE: &str = "Library is still loading, try again";
 
 /// `rename` outside the Playlists tab and a playlist view, or on a row that is not a playlist.
@@ -5430,6 +5468,40 @@ mod test {
             library.last_note.try_lock().is_some(),
             "the note lock is free"
         );
+    }
+
+    /// A settled job on `id` with a write queued behind it, as the settle step gets it.
+    fn settled_with_a_queued_write(library: &Library, id: &str) -> Settled {
+        let row = stored_row(library, id, 0);
+        library.queue_move(id, &row, 1, false);
+        library.queue_rename(id, "new");
+        library.writer.step(|_, copy| copy.is_some()).unwrap()
+    }
+
+    #[test]
+    fn a_panicking_settle_restores_the_confirmed_copy_and_keeps_going() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let settled = settled_with_a_queued_write(&library, "p");
+        library.settle_caught(settled, |_| panic!("settle failed"));
+        assert_eq!(stored_uris(&library, "p"), ["a", "b"]);
+        assert_eq!(stored(&library, "p").name, "p");
+        assert_eq!(library.writer.pending(), 0, "the later job went with it");
+        assert!(!library.writer.is_pending("p"));
+        assert!(library.writer.confirmed("p").is_none(), "released");
+        let noted = library
+            .ev
+            .msg_iter()
+            .any(|e| matches!(e, Event::StatusNote(n) if n == SETTLE_FAILED_NOTE));
+        assert!(noted);
+    }
+
+    #[test]
+    fn a_write_after_a_panicking_settle_still_queues() {
+        let library = library_with_playlist("p", &["a", "b"]);
+        let settled = settled_with_a_queued_write(&library, "p");
+        library.settle_caught(settled, |_| panic!("settle failed"));
+        library.queue_rename("p", "later");
+        assert_eq!(library.writer.pending(), 1);
     }
 
     #[test]
