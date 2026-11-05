@@ -408,7 +408,7 @@ class Instance:
             [
                 "nix", "shell", "nixpkgs#gdb", "-c", "gdb", "-p", str(self.pid), "-batch",
                 "-ex", "set print frame-arguments none",
-                "-ex", "thread apply all bt 16",
+                "-ex", "thread apply all bt 40",
             ],
             capture_output=True,
             text=True,

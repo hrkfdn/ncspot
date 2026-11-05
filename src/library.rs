@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::io::BufWriter;
 use std::iter::Iterator;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
@@ -347,7 +348,9 @@ impl Library {
         let tmp = std::path::PathBuf::from(tmp);
         let written = File::create(&tmp)
             .map_err(|e| e.to_string())
-            .and_then(|mut file| {
+            .and_then(|file| {
+                // Buffered: serde_json writes token by token, a syscall each on a bare file.
+                let mut file = BufWriter::new(file);
                 serde_json::to_writer(&mut file, store).map_err(|e| e.to_string())?;
                 std::io::Write::flush(&mut file).map_err(|e| e.to_string())
             })
