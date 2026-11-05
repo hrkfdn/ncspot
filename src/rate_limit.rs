@@ -154,7 +154,6 @@ impl Stamp {
     }
 
     /// The stamp `ms` milliseconds after the clock's origin (inverse of [Self::as_millis]).
-    #[cfg(any(test, feature = "harness"))]
     pub fn from_millis(ms: u64) -> Self {
         Self(Duration::from_millis(ms))
     }

@@ -11,10 +11,12 @@ use std::time::{Duration, Instant};
 use log::error;
 use parking_lot::{Condvar, Mutex};
 
+use crate::activity::ACTIVITY;
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
+use crate::rate_limit::Stamp;
 use crate::save_log::SaveOp;
 
 /// One queued write: a playlist change or a library save.
@@ -188,6 +190,10 @@ struct State {
     stopping: bool,
     /// A worker loop runs (between [PlaylistWriter::mark_running] and [PlaylistWriter::mark_exited]).
     worker_running: bool,
+    /// When the job in flight started, for the watchdog.
+    job_started: Option<Stamp>,
+    /// The worker was given up on: no write runs again this session.
+    gave_up: bool,
 }
 
 impl State {
@@ -326,6 +332,7 @@ impl PlaylistWriter {
                 .map_or(0, Vec::len);
             let job = fold_moves(job, &mut state.queue, length);
             state.in_flight = Some(job.playlist_id.clone());
+            state.job_started = Some(Stamp::now());
             (job, copy)
         };
         let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
@@ -340,6 +347,7 @@ impl PlaylistWriter {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
         state.in_flight = None;
+        state.job_started = None;
         let id = job.playlist_id.clone();
         let mut dropped = 0;
         if let Some(id) = &id {
@@ -411,6 +419,40 @@ impl PlaylistWriter {
         ids
     }
 
+    /// Whether the job in flight has made no progress for `limit`. Never while stopping: quit
+    /// has its own grace.
+    pub fn stalled(&self, limit: Duration) -> bool {
+        let state = self.shared.0.lock();
+        !state.stopping
+            && state.job_started.is_some_and(|started| {
+                no_progress(started, ACTIVITY.last_worker_try(), Stamp::now(), limit)
+            })
+    }
+
+    pub fn is_stopping(&self) -> bool {
+        self.shared.0.lock().stopping
+    }
+
+    /// Forget the job a dead worker left in flight; returns its id, if it has one.
+    pub fn clear_in_flight(&self) -> Option<String> {
+        let (lock, cvar) = &*self.shared;
+        let mut state = lock.lock();
+        state.job_started = None;
+        let id = state.in_flight.take().flatten();
+        cvar.notify_all();
+        id
+    }
+
+    /// Refuse writes from now on (see [PlaylistWriter::gave_up]).
+    pub fn give_up(&self) {
+        self.shared.0.lock().gave_up = true;
+    }
+
+    /// The worker was given up on: new writes are refused for the rest of the session.
+    pub fn gave_up(&self) -> bool {
+        self.shared.0.lock().gave_up
+    }
+
     /// The worker loop starts (before it is spawned).
     pub fn mark_running(&self) {
         self.shared.0.lock().worker_running = true;
@@ -467,6 +509,41 @@ impl Drop for ExitGuard {
     fn drop(&mut self) {
         self.0.mark_exited();
     }
+}
+
+/// Worker restarts after a panic before it is given up on.
+pub const MAX_WRITER_RESTARTS: u32 = 3;
+
+/// How long a job may go without a network try before the worker counts as stuck. A try ends
+/// within the bridge timeout and retry waits are shorter, so only a truly stuck call gets here.
+pub const WRITER_STALL: Duration = Duration::from_secs(30);
+
+/// How often the watchdog looks at the worker.
+pub const WRITER_WATCH: Duration = Duration::from_secs(1);
+
+/// What to do once the worker thread has ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkerExit {
+    Done,
+    Restart,
+    GiveUp,
+}
+
+/// The next step after the worker ended, with `restarts` used so far.
+pub fn after_worker_exit(panicked: bool, stopping: bool, restarts: u32) -> WorkerExit {
+    if !panicked || stopping {
+        WorkerExit::Done
+    } else if restarts < MAX_WRITER_RESTARTS {
+        WorkerExit::Restart
+    } else {
+        WorkerExit::GiveUp
+    }
+}
+
+/// Whether a job `started` has gone `limit` without a network try.
+fn no_progress(started: Stamp, last_try: Option<Stamp>, now: Stamp, limit: Duration) -> bool {
+    let progress = last_try.map_or(started, |last_try| last_try.max(started));
+    now.saturating_duration_since(progress) >= limit
 }
 
 /// How long quit waits for the playlist write in flight.
@@ -534,6 +611,64 @@ mod tests {
         };
         w.stop();
         assert!(!waiter.join().unwrap());
+    }
+
+    #[test]
+    fn a_panicked_worker_restarts_until_the_limit() {
+        assert_eq!(after_worker_exit(true, false, 0), WorkerExit::Restart);
+        assert_eq!(
+            after_worker_exit(true, false, MAX_WRITER_RESTARTS - 1),
+            WorkerExit::Restart
+        );
+        assert_eq!(
+            after_worker_exit(true, false, MAX_WRITER_RESTARTS),
+            WorkerExit::GiveUp
+        );
+    }
+
+    #[test]
+    fn a_clean_exit_or_a_stop_ends_the_watch() {
+        assert_eq!(after_worker_exit(false, false, 0), WorkerExit::Done);
+        assert_eq!(after_worker_exit(true, true, 0), WorkerExit::Done);
+    }
+
+    #[test]
+    fn progress_is_the_later_of_the_start_and_the_last_try() {
+        let at = |secs: u64| Stamp::from_millis(secs * 1000);
+        let limit = Duration::from_secs(30);
+        assert!(!no_progress(at(100), None, at(129), limit));
+        assert!(no_progress(at(100), None, at(130), limit));
+        assert!(
+            !no_progress(at(100), Some(at(120)), at(130), limit),
+            "a try"
+        );
+        assert!(
+            no_progress(at(100), Some(at(50)), at(130), limit),
+            "an old try"
+        );
+    }
+
+    #[test]
+    fn a_stopping_writer_is_never_stalled() {
+        let w = PlaylistWriter::new();
+        w.shared.0.lock().job_started = Some(Stamp::now());
+        assert!(w.stalled(Duration::ZERO));
+        w.stop();
+        assert!(!w.stalled(Duration::ZERO));
+    }
+
+    #[test]
+    fn clearing_the_job_in_flight_ends_the_pending_count() {
+        let w = PlaylistWriter::new();
+        {
+            let mut state = w.shared.0.lock();
+            state.in_flight = Some(Some("p".to_string()));
+            state.job_started = Some(Stamp::now());
+        }
+        assert_eq!(w.pending(), 1);
+        assert_eq!(w.clear_in_flight().as_deref(), Some("p"));
+        assert_eq!(w.pending(), 0);
+        assert!(!w.stalled(Duration::ZERO));
     }
 
     #[test]

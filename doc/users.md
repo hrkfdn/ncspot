@@ -282,6 +282,10 @@ retries for up to a minute. If the write still fails, ncspot undoes the change
 and shows a note. On a first run with no cache, saves wait for the first update
 to finish.
 
+If the background writer crashes, ncspot restarts it and shows a note. After 3
+crashes, or if a write makes no progress for 30 seconds, it stops: pending edits
+are undone and new edits are refused until you restart ncspot.
+
 ## Remote control (IPC)
 Apart from MPRIS, ncspot will also create a domain socket on UNIX platforms (Linux, macOS, *BSD).
 The socket will be created in the platform's runtime directory. Run `ncspot info` to show the
