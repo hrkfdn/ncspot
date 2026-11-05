@@ -441,5 +441,59 @@ class PlaylistsScenarioTest(unittest.TestCase):
             self.run_with(drive.sc_playlist_write, error="boom")
 
 
+class ItemWriteTest(unittest.TestCase):
+    def test_a_running_write_is_not_settled(self):
+        d = dump([], quiet_ms=900)
+        self.assertTrue(drive.settled(d))
+        d["item_write"] = "running"
+        self.assertFalse(drive.settled(d))
+
+    def test_a_failed_write_reads_as_the_commands_error(self):
+        d = drive.with_item_error({"item_write": "harness save: library unchanged", "error": None})
+        self.assertEqual(d["error"], "harness save: library unchanged")
+        for state in ("ok", "running", None):
+            self.assertIsNone(drive.with_item_error({"item_write": state, "error": None})["error"])
+
+
+class WaitWhileAnsweringTest(unittest.TestCase):
+    """A timeout alone never fails a wait while ncspot keeps answering."""
+
+    class Fake:
+        def __init__(self, answers):
+            self.answers = list(answers)
+
+        def dump(self):
+            return self.answers.pop(0)
+
+    def setUp(self):
+        self.ceiling = drive.ANSWERING_CEILING
+        self.addCleanup(setattr, drive, "ANSWERING_CEILING", self.ceiling)
+        self.busy = dump([], in_flight=1)
+        self.throttled = {"internal": False}
+        self.busy["throttled"] = self.throttled
+        self.done = dump([], quiet_ms=900)
+        self.done["library_done"] = True
+
+    def test_wait_settled_outlasts_its_timeout(self):
+        fake = self.Fake([self.busy, self.busy, self.done])
+        self.assertIs(drive.Instance.wait_settled(fake, 0), self.done)
+
+    def test_wait_library_outlasts_its_timeout(self):
+        fake = self.Fake([self.busy, self.busy, self.done])
+        self.assertIs(drive.Instance.wait_library(fake, 0), self.done)
+
+    def test_a_rate_limit_past_the_timeout_is_still_blocked(self):
+        limited = dict(self.busy, throttled={"internal": True})
+        with self.assertRaises(drive.Blocked):
+            drive.Instance.wait_library(self.Fake([limited]), 0, blocked_on=["internal"])
+
+    def test_the_ceiling_ends_the_wait(self):
+        drive.ANSWERING_CEILING = -1.0
+        with self.assertRaises(drive.Fail):
+            drive.Instance.wait_settled(self.Fake([self.busy]), 0)
+        with self.assertRaises(drive.Fail):
+            drive.Instance.wait_library(self.Fake([self.busy]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

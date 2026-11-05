@@ -40,6 +40,9 @@ IPC_STATUS = "IPC Status update"
 STATUS_RE = re.compile(r"\[[^\]\n]*\]")
 SOCKET_WAIT = 15.0
 DUMP_WAIT = 15.0
+# How long a wait goes on while ncspot keeps answering. A slow sync or write is waiting on
+# Spotify, so the settle timeout alone never fails it: an unanswered dump does.
+ANSWERING_CEILING = 1800.0
 QUIET_MS = 500
 CACHE_FILES = {
     "Tracks": "tracks.db",
@@ -123,9 +126,17 @@ def settled(d):
         all(not t["busy"] for t in d["tabs"])
         and d["in_flight"] == 0
         and d.get("pending_writes", 0) == 0
+        and d.get("item_write") != "running"
         and quiet is not None
         and quiet >= QUIET_MS
     )
+
+
+def with_item_error(d):
+    """A failed `harness save` runs off the UI thread: report its error as the command's."""
+    if d.get("item_write") not in (None, "running", "ok"):
+        d["error"] = d["item_write"]
+    return d
 
 
 def redact(lines, username):
@@ -209,6 +220,7 @@ class Instance:
         self.pid = None
         self.seq = 0
         self.cache_counts = {}
+        self.skip_caches = ()  # library caches not to copy, for a cold start
 
     def start(self):
         """Set up files and launch ncspot. Separate from __init__ so the caller
@@ -239,7 +251,7 @@ class Instance:
             "episodes.db",
         ):
             src = os.path.join(REAL_CACHE, name)
-            if os.path.exists(src):
+            if os.path.exists(src) and name not in self.skip_caches:
                 shutil.copy2(src, cache)
         # Row counts of the copied caches, for the library scenarios. Counts only.
         for tab_name, name in CACHE_FILES.items():
@@ -344,7 +356,7 @@ class Instance:
                 if d["seq"] > self.seq:
                     self.seq = d["seq"]
                     self.last = d
-                    return d
+                    return with_item_error(d)
             except (OSError, ValueError):
                 pass
             time.sleep(0.1)
@@ -352,12 +364,18 @@ class Instance:
 
     def wait_settled(self, timeout):
         deadline = time.monotonic() + timeout
+        ceiling = time.monotonic() + ANSWERING_CEILING
+        told = False
         while True:
             d = self.dump()
             if settled(d):
                 return d
-            if time.monotonic() > deadline:
-                raise Fail(f"never settled within {timeout} s")
+            now = time.monotonic()
+            if now > ceiling:
+                raise Fail(f"never settled within {ANSWERING_CEILING:.0f} s")
+            if now > deadline and not told:
+                print(f"  still answering after {timeout} s, waiting on Spotify")
+                told = True
             time.sleep(0.25)
 
     def wait_idle(self, timeout):
@@ -382,13 +400,20 @@ class Instance:
         """Poll dumps until the library sync is done and the views are settled. A timeout while
         a client in `blocked_on` is rate limited is BLOCKED, not FAIL."""
         deadline = time.monotonic() + timeout
+        ceiling = time.monotonic() + ANSWERING_CEILING
+        told = False
         while True:
             d = self.dump()
             if d.get("library_done") and settled(d):
                 return d
-            if time.monotonic() > deadline:
+            now = time.monotonic()
+            if now > ceiling:
+                raise Fail(f"library sync not done within {ANSWERING_CEILING:.0f} s")
+            if now > deadline:
                 blocked_if_throttled(d, blocked_on)
-                raise Fail(f"library sync not done within {timeout} s")
+                if not told:
+                    print(f"  still answering after {timeout} s, waiting on Spotify")
+                    told = True
             time.sleep(0.5)
 
     def load_fully(self, timeout, tab=0):
@@ -666,6 +691,18 @@ def sc_library_write(inst, args):
     expect(m["internal_ok"] >= wrote, "one internal call per write", m)
 
 
+def sc_sync_time(inst, args):
+    """How long the startup sync took, as ncspot measured it. Reads only."""
+    d = inst.wait_library(args.settle_timeout, blocked_on=["internal"])
+    p = d["playlists"]
+    seconds = lambda ms: "unknown" if ms is None else f"{ms / 1000:.1f} s"
+    print(f"  {p['stored']} playlists in {seconds(p.get('sync_ms'))}", end="")
+    print(f", whole library in {seconds(p.get('library_sync_ms'))}")
+    calls = d["areas"]["playlists"]
+    print(f"  playlist calls: {calls['internal_ok']} ok, {calls['fallback']} fallback")
+    expect(p.get("sync_ms") is not None, "a measured playlist sync", p.get("sync_ms"))
+
+
 def sc_library_write_during_sync(inst, args):
     """A save made while a sync runs goes out at once and survives the sync: `harness unsave`
     fails with "not in the library" if the swap erased it."""
@@ -781,6 +818,9 @@ def sc_reconnect(inst, args):
     inst.send("stop")
 
 
+# Scenarios that start with no playlist cache, so the sync downloads every playlist.
+COLD_PLAYLISTS = {"sync_time_cold"}
+
 SCENARIOS = {
     "album": ({}, sc_album, False),
     "artist": ({}, sc_artist, False),
@@ -797,6 +837,8 @@ SCENARIOS = {
     "playlists": ({}, sc_playlists, False),
     "playlists_area_off": ({"internal_api_areas": {"playlists": False}}, sc_playlists_area_off, False),
     "playlist_write": ({}, sc_playlist_write, False),
+    "sync_time": ({}, sc_sync_time, False),
+    "sync_time_cold": ({}, sc_sync_time, False),
     "reconnect": ({}, sc_reconnect, True),
 }
 
@@ -910,6 +952,8 @@ def main(argv=None):
         try:
             inst = Instance(binary, config, args.keep)
             current["inst"] = inst
+            if name in COLD_PLAYLISTS:
+                inst.skip_caches = ("playlists.db",)
             inst.start()
             inst.wait_idle(args.settle_timeout * 2)
             func(inst, args)
