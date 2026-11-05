@@ -142,7 +142,8 @@ impl<I: ListItem + Clone> ListView<I> {
     }
 
     pub fn get_indexes_of(&self, query: &str) -> Vec<usize> {
-        let content = self.content.read_unpoisoned();
+        // A copy, as in [ListView::draw]: a custom track format asks the library too.
+        let content = self.content.read_unpoisoned().clone();
         content
             .iter()
             .enumerate()
@@ -349,11 +350,17 @@ impl<I: ListItem + Clone> ListView<I> {
 
 impl<I: ListItem + Clone> View for ListView<I> {
     fn draw(&self, printer: &Printer<'_, '_>) {
-        let content = self.content.read_unpoisoned();
-
         scroll::draw_lines(self, printer, |_, printer, i| {
+            // A copy, with the lock released: a row asks the library whether it is saved, and
+            // when the content is a library store that is a second read of this lock. A second
+            // read waits for any waiting writer, who waits for the first: a deadlock.
+            let (len, item) = {
+                let content = self.content.read_unpoisoned();
+                (content.len(), content.get(i).cloned())
+            };
+
             // draw paginator after content
-            if i == content.len() && self.can_paginate() {
+            if i == len && self.can_paginate() {
                 let style = ColorStyle::secondary();
 
                 let max = self.pagination.max_content().unwrap();
@@ -361,8 +368,7 @@ impl<I: ListItem + Clone> View for ListView<I> {
                 printer.with_color(style, |printer| {
                     printer.print((0, 0), &buf);
                 });
-            } else if i < content.len() {
-                let item = &content[i];
+            } else if let Some(item) = item {
                 let currently_playing =
                     item.is_playing(&self.queue) && self.queue.get_current_index() == Some(i);
                 let is_local = item.track().map(|t| t.is_local).unwrap_or_default();
@@ -869,5 +875,90 @@ mod harness_tests {
         assert!(busy.busy);
         let done = tab_state("Artists", &items, None, false);
         assert_eq!((done.max, done.busy), (None, false));
+    }
+}
+
+#[cfg(test)]
+mod draw_test {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    use cursive::buffer::PrintBuffer;
+    use cursive::theme::Theme;
+
+    use super::*;
+    use crate::config::Config;
+    use crate::events::EventManager;
+    use crate::save_log::test_items::track;
+    use crate::spotify::Spotify;
+
+    /// A list over the library's own track store, as the Tracks tab shows it.
+    fn track_list() -> (ListView<Track>, Arc<Library>) {
+        let cfg = Config::new_for_test();
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let library = Library::new_for_test(ev, spotify.clone(), cfg.clone());
+        *library.tracks.write_unpoisoned() = (0..30).map(|n| track(&n.to_string(), &[])).collect();
+        let queue = Arc::new(Queue::new(spotify, cfg, library.clone()));
+        let list = ListView::new(library.tracks.clone(), queue, library.clone());
+        (list, library)
+    }
+
+    /// A row asks the library if it is saved. With the list's read guard still held, that is a
+    /// second read of the store, which waits for any waiting writer, who waits for the guard.
+    #[test]
+    fn drawing_a_store_list_survives_a_waiting_writer() {
+        let (mut list, library) = track_list();
+        list.layout(Vec2::new(80, 30));
+        let stop = Arc::new(AtomicBool::new(false));
+        let writer = {
+            let (library, stop) = (library.clone(), stop.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    drop(library.tracks.write_unpoisoned());
+                }
+            })
+        };
+        let (done, drawn) = crossbeam_channel::bounded(1);
+        std::thread::spawn(move || {
+            let theme = Theme::default();
+            let mut buffer = PrintBuffer::new();
+            buffer.resize(Vec2::new(80, 30));
+            let buffer = parking_lot::RwLock::new(buffer);
+            let printer = Printer::new((80, 30), &theme, &buffer);
+            for _ in 0..300 {
+                list.draw(&printer);
+            }
+            let _ = done.send(());
+        });
+        let finished = drawn.recv_timeout(Duration::from_secs(30)).is_ok();
+        stop.store(true, Ordering::Relaxed);
+        assert!(finished, "the UI thread deadlocked on the store lock");
+        writer.join().unwrap();
+    }
+
+    #[test]
+    fn searching_a_store_list_survives_a_waiting_writer() {
+        let (list, library) = track_list();
+        let stop = Arc::new(AtomicBool::new(false));
+        let writer = {
+            let (library, stop) = (library.clone(), stop.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    drop(library.tracks.write_unpoisoned());
+                }
+            })
+        };
+        let (done, searched) = crossbeam_channel::bounded(1);
+        std::thread::spawn(move || {
+            for _ in 0..300 {
+                list.get_indexes_of("1");
+            }
+            let _ = done.send(());
+        });
+        let finished = searched.recv_timeout(Duration::from_secs(30)).is_ok();
+        stop.store(true, Ordering::Relaxed);
+        assert!(finished, "a search deadlocked on the store lock");
+        writer.join().unwrap();
     }
 }
