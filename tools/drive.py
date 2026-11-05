@@ -43,6 +43,9 @@ DUMP_WAIT = 15.0
 # How long a wait goes on while ncspot keeps answering. A slow sync or write is waiting on
 # Spotify, so the settle timeout alone never fails it: an unanswered dump does.
 ANSWERING_CEILING = 1800.0
+IPC_LINE = re.compile(r"ncspot::ipc|Executing command from IPC")
+THREAD_RE = re.compile(r'Thread (\d+) \(.*?"([^"]*)"')
+FRAME_RE = re.compile(r"#\d+\s+(?:0x[0-9a-f]+ in )?(\S+)")
 QUIET_MS = 500
 CACHE_FILES = {
     "Tracks": "tracks.db",
@@ -130,6 +133,19 @@ def settled(d):
         and quiet is not None
         and quiet >= QUIET_MS
     )
+
+
+def stack_lines(gdb_output):
+    """Thread headers and function names from a gdb backtrace; no arguments, paths or data."""
+    out = []
+    for line in gdb_output.splitlines():
+        thread = THREAD_RE.match(line)
+        frame = FRAME_RE.match(line)
+        if thread:
+            out.append(f"  thread {thread.group(1)} {thread.group(2)}")
+        elif frame:
+            out.append(f"    {frame.group(1)}")
+    return out
 
 
 def with_item_error(d):
@@ -284,6 +300,7 @@ class Instance:
         env = f"XDG_RUNTIME_DIR={shlex.quote(self.run)}"
         # The cache is isolated, but playlists a run creates are recorded in the real list.
         env += f" NCSPOT_TEST_PLAYLISTS_FILE={shlex.quote(TEST_PLAYLISTS_FILE)}"
+        env += " NCSPOT_HARNESS_TRACEABLE=1"
         pulse = os.path.join(os.environ.get("XDG_RUNTIME_DIR", ""), "pulse", "native")
         if os.environ.get("XDG_RUNTIME_DIR") and os.path.exists(pulse):
             env += f" PULSE_SERVER={shlex.quote('unix:' + pulse)}"
@@ -347,8 +364,22 @@ class Instance:
             s.close()
 
     def dump(self):
+        """The next dump. Half the wait unanswered captures the threads and sends the request
+        again, which tells a lost request from a stuck UI thread."""
         self.send(f"harness dump {self.dump_path}")
-        deadline = time.monotonic() + DUMP_WAIT
+        d = self._await_dump(DUMP_WAIT / 2)
+        if d:
+            return d
+        self.capture_stacks()
+        self.send(f"harness dump {self.dump_path}")
+        d = self._await_dump(DUMP_WAIT / 2)
+        if d:
+            print("  STALE: the dump answered only after a resend")
+            return d
+        raise Fail("dump stale: UI thread stuck or dump broken")
+
+    def _await_dump(self, wait):
+        deadline = time.monotonic() + wait
         while time.monotonic() < deadline:
             try:
                 with open(self.dump_path) as f:
@@ -360,7 +391,30 @@ class Instance:
             except (OSError, ValueError):
                 pass
             time.sleep(0.1)
-        raise Fail("dump stale: UI thread stuck or dump broken")
+        return None
+
+    def capture_stacks(self):
+        """Print each thread's call stack, function names only, and the last IPC lines."""
+        print("  STALE: no dump answer, capturing the threads")
+        try:
+            with open(self.log) as f:
+                ipc = [line.rstrip() for line in f if IPC_LINE.search(line)]
+            print("\n".join(redact(ipc[-6:], self.username)))
+        except OSError:
+            pass
+        if not self.pid:
+            return
+        r = subprocess.run(
+            [
+                "nix", "shell", "nixpkgs#gdb", "-c", "gdb", "-p", str(self.pid), "-batch",
+                "-ex", "set print frame-arguments none",
+                "-ex", "thread apply all bt 16",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        print("\n".join(redact(stack_lines(r.stdout), self.username)) or r.stderr[-300:])
 
     def wait_settled(self, timeout):
         deadline = time.monotonic() + timeout

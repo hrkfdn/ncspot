@@ -581,6 +581,18 @@ pub fn open_view(
 /// a slow save is waiting on Spotify, and the drive fails on a dump that goes unanswered instead.
 const SAVE_SETTLE: Duration = Duration::from_secs(1800);
 
+/// Let the drive's debugger attach, when it asks: ncspot runs under tmux, so Yama would refuse
+/// it. Never set outside the drive, and harness builds only.
+pub fn allow_tracing() {
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("NCSPOT_HARNESS_TRACEABLE").is_some() {
+        // SAFETY: PR_SET_PTRACER takes plain integers and touches no memory.
+        unsafe {
+            libc::prctl(libc::PR_SET_PTRACER, libc::PR_SET_PTRACER_ANY, 0, 0, 0);
+        }
+    }
+}
+
 /// The state of the last item write, for the dump.
 static ITEM_WRITE: Mutex<Option<String>> = Mutex::new(None);
 
