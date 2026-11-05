@@ -5426,8 +5426,10 @@ mod test {
         assert_eq!(settled.len(), 1);
         assert!(!settled[0].0, "not ok");
         assert_eq!(library.writer.pending(), 0);
-        // The note lock is free again: posting does not block or panic.
-        library.post_note("After the panic");
+        assert!(
+            library.last_note.try_lock().is_some(),
+            "the note lock is free"
+        );
     }
 
     #[test]
