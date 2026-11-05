@@ -76,6 +76,11 @@ pub trait ViewExt: View {
         "".into()
     }
 
+    /// The id of the playlist this view shows, if it is a playlist view.
+    fn playlist_id(&self) -> Option<String> {
+        None
+    }
+
     fn on_leave(&self) {}
 
     /// State reported to the drive harness; `None` for views it does not inspect.
@@ -96,6 +101,10 @@ impl<V: ViewExt> ViewExt for NamedView<V> {
 
     fn title_sub(&self) -> String {
         self.with_view(|v| v.title_sub()).unwrap_or_default()
+    }
+
+    fn playlist_id(&self) -> Option<String> {
+        self.with_view(|v| v.playlist_id()).flatten()
     }
 
     fn on_leave(&self) {
@@ -187,6 +196,10 @@ impl ViewExt for BoxedViewExt {
 
     fn title_sub(&self) -> String {
         self.boxed_view.title_sub()
+    }
+
+    fn playlist_id(&self) -> Option<String> {
+        self.boxed_view.playlist_id()
     }
 
     fn on_leave(&self) {

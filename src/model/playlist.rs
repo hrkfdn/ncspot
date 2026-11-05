@@ -230,7 +230,14 @@ impl Playlist {
         moved.get()
     }
 
-    pub fn append_tracks(&mut self, new_tracks: &[Playable], spotify: &Spotify, library: &Library) {
+    /// Append `new_tracks`: the internal API first (verified), the Web API per the fallback
+    /// classes. True when the write landed; a failure posts its one note.
+    pub fn append_tracks(
+        &mut self,
+        new_tracks: &[Playable],
+        spotify: &Spotify,
+        library: &Library,
+    ) -> bool {
         let api = &spotify.api;
         let known = || library.known_playables();
         let web_used = Cell::new(false);
@@ -269,11 +276,13 @@ impl Playlist {
                         ));
                         self.num_tracks = tracks.len();
                     }
-                    None => return,
+                    None => return true,
                 }
             }
             library.playlist_update(self);
+            return true;
         }
+        false
     }
 
     pub fn sort(&mut self, key: &SortKey, direction: &SortDirection) {
@@ -440,18 +449,18 @@ impl ListItem for Playlist {
         }
 
         if library.is_saved_playlist(self) {
-            library.delete_playlist(&self.id);
+            library.queue_unfollow(&self.id);
         } else {
-            library.follow_playlist(self.clone());
+            library.queue_follow(self.clone());
         }
     }
 
     fn save(&mut self, library: &Library) {
-        library.follow_playlist(self.clone());
+        library.queue_follow(self.clone());
     }
 
     fn unsave(&mut self, library: &Library) {
-        library.delete_playlist(&self.id);
+        library.queue_unfollow(&self.id);
     }
 
     fn open(&self, queue: Arc<Queue>, library: Arc<Library>) -> Option<Box<dyn ViewExt>> {

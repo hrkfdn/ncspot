@@ -27,7 +27,7 @@ use cursive::views::Dialog;
 use log::{debug, error, info};
 use ncspot::CONFIGURATION_FILE_NAME;
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// Upper bound for a count prefix, bounding the repeat loop.
 const MAX_COUNT: usize = 9999;
@@ -63,6 +63,8 @@ pub struct CommandManager {
     /// Pending vim-style repeat count (`0` means none), shared with the status
     /// bar so it can be shown while being typed.
     pending_count: Arc<AtomicUsize>,
+    /// Set by the first quit that waits for playlist writes; a second quit goes straight through.
+    quitting: Arc<AtomicBool>,
 }
 
 impl CommandManager {
@@ -85,6 +87,7 @@ impl CommandManager {
             events,
             jukebox,
             pending_count: Arc::new(AtomicUsize::new(0)),
+            quitting: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -160,6 +163,22 @@ impl CommandManager {
                 Ok(None)
             }
             Command::Quit => {
+                // First q with writes pending: let the write in flight finish (at most
+                // QUIT_GRACE), then quit through this same arm with `quitting` set.
+                if self.library.writer.pending() > 0 && !self.quitting.swap(true, Ordering::Relaxed)
+                {
+                    self.library.writer.stop();
+                    let sink = s.cb_sink().clone();
+                    self.library.finish_writes_then(move || {
+                        let _ = sink.send(Box::new(|s: &mut Cursive| {
+                            if let Some(data) = s.user_data::<UserData>().cloned() {
+                                data.cmd.handle(s, Command::Quit);
+                            }
+                        }));
+                    });
+                    return Ok(Some("Finishing playlist changes...".into()));
+                }
+                self.library.reset_pending_writes();
                 let queue = self.queue.queue.read().unwrap();
                 self.config.with_state_mut(move |s| {
                     debug!(
@@ -288,10 +307,8 @@ impl CommandManager {
                 Ok(None)
             }
             Command::NewPlaylist(name) => {
-                if self.library.create_playlist(name).is_none() {
-                    // create_playlist already posted the failure note.
-                    debug!("could not create playlist");
-                }
+                // The worker posts the failure note, if any.
+                self.library.queue_create(name);
                 Ok(None)
             }
             Command::Search(term) => {
@@ -338,11 +355,7 @@ impl CommandManager {
                 if let Some(track) = self.queue.get_current()
                     && let Some(track) = track.track()
                 {
-                    let dialog = ContextMenu::add_track_dialog(
-                        self.library.clone(),
-                        self.queue.get_spotify(),
-                        track,
-                    );
+                    let dialog = ContextMenu::add_track_dialog(self.library.clone(), track);
                     s.add_layer(dialog);
                 }
                 Ok(None)
@@ -400,6 +413,8 @@ impl CommandManager {
             )),
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::Dump(path)) => {
+                use crate::ext_traits::RwLockExt;
+
                 // Read before this command's own result replaces the last error.
                 let (title, state, error) = s
                     .call_on_name("main", |v: &mut Layout| v.harness_view())
@@ -409,14 +424,13 @@ impl CommandManager {
                     state,
                     error,
                     &self.spotify,
-                    *self.library.is_done.read().unwrap(),
+                    *self.library.is_done.read_unpoisoned(),
                     crate::harness::PlaylistCounts {
-                        stored: self.library.playlists.read().unwrap().len(),
+                        stored: self.library.playlists.read_unpoisoned().len(),
                         layout: self
                             .library
                             .playlist_layout
-                            .read()
-                            .unwrap()
+                            .read_unpoisoned()
                             .iter()
                             .filter(|e| {
                                 matches!(e, crate::playlist_layout::LayoutEntry::Playlist(_))
@@ -426,6 +440,7 @@ impl CommandManager {
                         last_test_order: crate::harness::last_test_order(&self.library),
                         last_test_renamed: crate::harness::last_test_renamed(&self.library),
                     },
+                    self.library.writer.pending(),
                 );
                 let mut dump = dump;
                 if crate::harness::take_test_playlists_request() {
@@ -469,12 +484,12 @@ impl CommandManager {
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistAddTest(n)) => {
-                crate::harness::playlist_add_test(&self.library, &self.spotify, *n)?;
+                crate::harness::playlist_add_test(&self.library, *n)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistRemoveTest(index)) => {
-                crate::harness::playlist_remove_test(&self.library, &self.spotify, *index)?;
+                crate::harness::playlist_remove_test(&self.library, *index)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]
@@ -484,7 +499,7 @@ impl CommandManager {
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::PlaylistMoveTest(index, n)) => {
-                crate::harness::playlist_move_test(&self.library, &self.spotify, *index, *n)?;
+                crate::harness::playlist_move_test(&self.library, *index, *n)?;
                 Ok(None)
             }
             #[cfg(feature = "harness")]

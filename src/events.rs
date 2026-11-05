@@ -26,6 +26,17 @@ pub enum Event {
     },
     /// A failed action's status note, shown like a failed command's message.
     StatusNote(String),
+    /// A queued playlist write finished on the write worker.
+    WriteSettled {
+        playlist_id: Option<String>,
+        ok: bool,
+        /// No write of this playlist is left queued.
+        drained: bool,
+        /// Later writes of this playlist dropped after a failure.
+        dropped: usize,
+        /// The failure's note (already posted), to repeat with the dropped count.
+        note: Option<String>,
+    },
     /// An internal API area hit a protocol change and uses the Web API for the rest of the
     /// session.
     InternalApiFallback {

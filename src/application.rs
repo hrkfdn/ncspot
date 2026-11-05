@@ -18,6 +18,7 @@ use crate::events::{Event, EventManager};
 use crate::ext_traits::CursiveExt;
 use crate::library::Library;
 use crate::log_redact::redact_secrets;
+use crate::playlist_writer::settled_note;
 use crate::queue::Queue;
 use crate::spotify::{PlayerEvent, Spotify};
 use crate::ui::create_cursive;
@@ -167,6 +168,7 @@ impl Application {
             spotify.clone(),
             configuration.clone(),
         ));
+        library.start_writer();
 
         let queue = Arc::new(queue::Queue::new(
             spotify.clone(),
@@ -442,6 +444,24 @@ impl Application {
                     Event::StatusNote(note) => {
                         self.cursive
                             .on_layout(|_, mut layout| layout.set_result(Err(note)));
+                    }
+                    Event::WriteSettled {
+                        playlist_id,
+                        ok,
+                        drained,
+                        dropped,
+                        note,
+                    } => {
+                        let open = self
+                            .cursive
+                            .call_on_name("main", |l: &mut ui::layout::Layout| l.top_playlist_id())
+                            .flatten();
+                        let open = playlist_id.is_some() && open == playlist_id;
+                        if let Some(note) = settled_note(ok, drained, dropped, note, open) {
+                            let result = if ok { Ok(Some(note)) } else { Err(note) };
+                            self.cursive
+                                .on_layout(|_, mut layout| layout.set_result(result));
+                        }
                     }
                     Event::InternalApiFallback { area, reason } => {
                         let message = format!(

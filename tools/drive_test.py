@@ -9,8 +9,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import drive  # noqa: E402
 
 
-def dump(tabs, in_flight=0, quiet_ms=900):
-    return {"tabs": tabs, "in_flight": in_flight, "quiet_ms": quiet_ms}
+def dump(tabs, in_flight=0, quiet_ms=900, pending_writes=0):
+    return {
+        "tabs": tabs,
+        "in_flight": in_flight,
+        "pending_writes": pending_writes,
+        "quiet_ms": quiet_ms,
+    }
 
 
 class SettleTest(unittest.TestCase):
@@ -19,6 +24,7 @@ class SettleTest(unittest.TestCase):
         self.assertTrue(drive.settled(dump(idle)))
         self.assertFalse(drive.settled(dump([{"busy": True}])))
         self.assertFalse(drive.settled(dump(idle, in_flight=1)))
+        self.assertFalse(drive.settled(dump(idle, pending_writes=1)))
         self.assertFalse(drive.settled(dump(idle, quiet_ms=499)))
         self.assertTrue(drive.settled(dump(idle, quiet_ms=500)))
         self.assertFalse(drive.settled(dump(idle, quiet_ms=None)))
@@ -323,7 +329,7 @@ class PlaylistsScenarioTest(unittest.TestCase):
     # The test playlist's length after the create and after each write command.
     WRITE_LENS = (0, 2, 1, 3)
     # The order after each of the three moves.
-    WRITE_ORDERS = ("BAC", "BCA", "CAB")
+    WRITE_ORDERS = ("BAC", "BCA", "CAB", "ABC")
 
     def run_with(self, func, lens=None, orders=None, **kw):
         base = self.d(base=True)

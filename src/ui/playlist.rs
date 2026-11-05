@@ -1,34 +1,66 @@
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
-use cursive::Cursive;
-use cursive::view::ViewWrapper;
+use std::collections::HashMap;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, RwLock};
+
+use cursive::view::{View, ViewWrapper};
+use cursive::{Cursive, Vec2};
 
 use crate::command::{Command, ShiftMode, SortDirection, SortKey};
 use crate::commands::CommandResult;
 use crate::config::SortingOrder;
+use crate::ext_traits::RwLockExt;
 use crate::library::{Library, is_owned};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::queue::Queue;
-use crate::spotify::Spotify;
 
 use crate::traits::ViewExt;
 use crate::ui::listview::ListView;
 
-/// A Shift handled this soon after the previous move finished is a key repeat that queued up
-/// during the move (the network calls run on the UI thread, and the queued repeats are handled
-/// in one burst right after it): it is dropped, so a held key moves one row per finished move
-/// and stops within one move of its release.
-const SHIFT_BACKLOG: Duration = Duration::from_millis(150);
 const SORTED_NOTE: &str = "Sort is on: use 'sort custom' to reorder";
 const NOT_OWNED_NOTE: &str = "Only your own or collaborative playlists can be reordered";
 
-/// Whether a Shift handled at `now` is a queued repeat of a move that finished at
-/// `previous_end`.
-fn backlog(previous_end: Option<Instant>, now: Instant) -> bool {
-    previous_end.is_some_and(|end| now.saturating_duration_since(end) < SHIFT_BACKLOG)
+/// Whether the library's playlists revision moved on since the view last took the store copy.
+fn needs_refresh(seen: u64, current: u64) -> bool {
+    seen != current
+}
+
+/// The store's copy of playlist `id`, when it has its tracks loaded (a copy without them would
+/// empty the view).
+fn store_copy(library: &Library, id: &str) -> Option<Playlist> {
+    library
+        .playlists
+        .read_unpoisoned()
+        .iter()
+        .find(|p| p.id == id && p.tracks.is_some())
+        .cloned()
+}
+
+/// The store's copy of playlist `id` while a write of it is queued or running, to open as is.
+fn pending_copy(library: &Library, id: &str) -> Option<Playlist> {
+    if library.writer.is_pending(id) {
+        store_copy(library, id)
+    } else {
+        None
+    }
+}
+
+/// Whether `a` and `b` show the same: name, revision, length and the (position, uri) of each
+/// track.
+fn same_playlist(a: &Playlist, b: &Playlist) -> bool {
+    let key = |p: &Playlist| -> Vec<(usize, String)> {
+        p.tracks
+            .iter()
+            .flatten()
+            .map(|t| (t.list_index(), t.uri()))
+            .collect()
+    };
+    a.name == b.name
+        && a.snapshot_id == b.snapshot_id
+        && a.num_tracks == b.num_tracks
+        && key(a) == key(b)
 }
 
 /// Up (true) or down, and the row count, of `shift <mode> <amount>`: a negative amount flips
@@ -68,42 +100,49 @@ fn apply_sort(
     }
 }
 
-/// A playlist's tracks. `playlist` stays in server order (it is what edits work on and what
-/// the library stores); only the rows of `list` follow the saved sort order.
+/// A playlist's tracks. `playlist` is the store's copy in server order (edits are queued on
+/// the store and the view follows it); only the rows of `list` follow the saved sort order.
 pub struct PlaylistView {
     playlist: Playlist,
     rows: Arc<RwLock<Vec<Playable>>>,
     list: ListView<Playable>,
-    spotify: Spotify,
     library: Arc<Library>,
     queue: Arc<Queue>,
-    /// When the last move in this view finished (any outcome), for [backlog].
-    last_move_end: Option<Instant>,
+    /// The `Library::playlists_rev` the view last took the store copy at.
+    seen_rev: u64,
 }
 
 impl PlaylistView {
     pub fn new(queue: Arc<Queue>, library: Arc<Library>, playlist: &Playlist) -> Self {
-        let mut playlist = playlist.clone();
-        let cleared = playlist.tracks.is_some() && playlist.snapshot_id.is_empty();
-        playlist.load_tracks(&queue.get_spotify());
-        if cleared && !playlist.snapshot_id.is_empty() {
-            // Reloaded: store the current copy so the library matches the view, unless a
-            // sync stored a newer one meanwhile.
-            library.playlist_update_if_unchanged(&playlist, "");
-        }
-
+        // Read first, as in a refresh: a write after it is seen on the next poll.
+        let mut seen_rev = library.playlists_rev.load(Ordering::Relaxed);
+        let playlist = match pending_copy(&library, &playlist.id) {
+            // Queued writes: the store copy shows them (its cleared snapshot is theirs). A
+            // reload would show the server copy without them and could not be stored anyway.
+            Some(copy) => copy,
+            None => {
+                let mut playlist = playlist.clone();
+                let cleared = playlist.tracks.is_some() && playlist.snapshot_id.is_empty();
+                playlist.load_tracks(&queue.get_spotify());
+                if cleared && !playlist.snapshot_id.is_empty() {
+                    // Reloaded: store the current copy so the library matches the view,
+                    // unless a sync stored a newer one meanwhile.
+                    library.playlist_update_if_unchanged(&playlist, "");
+                }
+                seen_rev = library.playlists_rev.load(Ordering::Relaxed);
+                playlist
+            }
+        };
         let rows = Arc::new(RwLock::new(sorted_rows(&library, &playlist)));
-        let spotify = queue.get_spotify();
         let list = ListView::new(rows.clone(), queue.clone(), library.clone());
 
         Self {
             playlist,
             rows,
             list,
-            spotify,
             library,
             queue,
-            last_move_end: None,
+            seen_rev,
         }
     }
 
@@ -118,28 +157,33 @@ impl PlaylistView {
     fn stored_name(&self) -> Option<String> {
         self.library
             .playlists
-            .read()
-            .unwrap()
+            .read_unpoisoned()
             .iter()
             .find(|p| p.id == self.playlist.id)
             .map(|p| p.name.clone())
     }
 
-    /// Take the stored name before a write stores this copy, so the write never puts an old
-    /// name back.
-    fn refresh_name(&mut self) {
-        if let Some(name) = self.stored_name() {
-            self.playlist.name = name;
+    /// Take the store's copy (queued edits are already applied to it) and show it, keeping the
+    /// selected index.
+    fn refresh_from_store(&mut self) {
+        // Read first: an edit bumping the revision after this read is seen on the next poll.
+        self.seen_rev = self.library.playlists_rev.load(Ordering::Relaxed);
+        let Some(copy) = store_copy(&self.library, &self.playlist.id) else {
+            return;
+        };
+        if same_playlist(&self.playlist, &copy) {
+            return;
         }
+        self.playlist = copy;
+        // In place: the list keeps its scroll position, selection and search.
+        *self.rows.write_unpoisoned() = sorted_rows(&self.library, &self.playlist);
+        self.list.content_replaced();
     }
 
     /// Move the selected track `amount` rows (`shift up|down [amount]`); the note to show, if
-    /// any. Refused before any request in a sorted view or a playlist the user may not
-    /// reorder; a queued key repeat is dropped.
+    /// any. Refused in a sorted view or a playlist the user may not reorder. The move is
+    /// queued and shown at once; the focus follows the track.
     fn shift(&mut self, mode: &ShiftMode, amount: i32) -> Option<String> {
-        if backlog(self.last_move_end, Instant::now()) {
-            return None;
-        }
         if self
             .library
             .cfg
@@ -154,22 +198,10 @@ impl PlaylistView {
         }
         let (up, n) = shift_direction(mode, amount);
         let pos = self.list.get_selected_index();
-        let row = self.rows.read().unwrap().get(pos).cloned()?;
-        self.refresh_name();
-        let snapshot_id = self.playlist.snapshot_id.clone();
-        let moved = self
-            .playlist
-            .move_track(&row, n, up, &self.spotify, &self.library);
-        self.last_move_end = Some(Instant::now());
-        match moved {
-            Some(at) => {
-                // Unsorted: a row's place is its server position.
-                self.show_tracks();
-                self.list.move_focus_to(at);
-            }
-            // A failed move may have reloaded the copy (or cleared its snapshot).
-            None if self.playlist.snapshot_id != snapshot_id => self.show_tracks(),
-            None => {}
+        let row = self.rows.read_unpoisoned().get(pos).cloned()?;
+        if let Some(at) = self.library.queue_move(&self.playlist.id, &row, n, up) {
+            self.refresh_from_store();
+            self.list.move_focus_to(at);
         }
         None
     }
@@ -192,6 +224,16 @@ fn sorted_rows(library: &Library, playlist: &Playlist) -> Vec<Playable> {
 
 impl ViewWrapper for PlaylistView {
     wrap_impl!(self.list: ListView<Playable>);
+
+    /// Follow the store after every event or redraw trigger (cursive lays the view out on each
+    /// refresh), so a worker settle shows without a key press.
+    fn wrap_layout(&mut self, size: Vec2) {
+        let current = self.library.playlists_rev.load(Ordering::Relaxed);
+        if needs_refresh(self.seen_rev, current) {
+            self.refresh_from_store();
+        }
+        self.list.layout(size);
+    }
 }
 
 impl ViewExt for PlaylistView {
@@ -205,6 +247,10 @@ impl ViewExt for PlaylistView {
     fn title(&self) -> String {
         self.stored_name()
             .unwrap_or_else(|| self.playlist.name.clone())
+    }
+
+    fn playlist_id(&self) -> Option<String> {
+        Some(self.playlist.id.clone())
     }
 
     fn title_sub(&self) -> String {
@@ -226,30 +272,18 @@ impl ViewExt for PlaylistView {
             let pos = self.list.get_selected_index();
             // The row itself: its server position and uri (the rows may be sorted, `playlist`
             // is not).
-            let Some(row) = self.rows.read().unwrap().get(pos).cloned() else {
+            let Some(row) = self.rows.read_unpoisoned().get(pos).cloned() else {
                 return Ok(CommandResult::Consumed(None));
             };
-            self.refresh_name();
-            let snapshot_id = self.playlist.snapshot_id.clone();
 
-            return match self
-                .playlist
-                .delete_track(&row, self.spotify.clone(), &self.library)
-            {
+            return match self.library.queue_remove(&self.playlist.id, &row) {
                 Ok(()) => {
-                    // Rebuilt from the copy: a reload before the delete may have changed more
-                    // than the removed row, and the later rows moved one server position up.
-                    self.show_tracks();
+                    // The later rows moved one server position up.
+                    self.refresh_from_store();
                     self.list.move_focus_to(pos);
                     Ok(CommandResult::Consumed(None))
                 }
-                Err(note) => {
-                    // A failed delete may have reloaded the copy (or cleared its snapshot).
-                    if self.playlist.snapshot_id != snapshot_id {
-                        self.show_tracks();
-                    }
-                    Err(note)
-                }
+                Err(note) => Err(note),
             };
         }
 
@@ -260,16 +294,15 @@ impl ViewExt for PlaylistView {
         }
 
         if let Command::Rename(name) = cmd {
-            let note = self.library.rename_playlist(&self.playlist.id, name);
-            self.refresh_name();
+            let note = self.library.queue_rename(&self.playlist.id, name);
             return Ok(CommandResult::Consumed(note));
         }
 
         if let Command::Pin | Command::Unpin = cmd {
-            let note = self
-                .library
-                .pin_command(&self.playlist.id, matches!(cmd, Command::Pin));
-            return Ok(CommandResult::Consumed(note));
+            // The worker posts the failure note, if any.
+            self.library
+                .queue_pin(&self.playlist.id, matches!(cmd, Command::Pin));
+            return Ok(CommandResult::Consumed(None));
         }
 
         if let Command::Sort(key, direction) = cmd {
@@ -293,17 +326,172 @@ impl ViewExt for PlaylistView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{CACHE_VERSION, Config};
+    use crate::events::EventManager;
+    use crate::spotify::Spotify;
+
+    /// A view of playlist "p" (owned by the user) holding the placeholder tracks `uris`, over
+    /// a library with no worker running.
+    fn test_view(uris: &[&str]) -> (PlaylistView, Arc<Library>) {
+        let cfg = Config::new_for_test();
+        cfg.with_state_mut(|s| s.cache_version = CACHE_VERSION);
+        let ev = EventManager::new_for_test();
+        let spotify = Spotify::new_for_test(cfg.clone(), ev.clone());
+        let mut library = Library::new_for_test(ev, spotify.clone(), cfg.clone());
+        Arc::get_mut(&mut library).unwrap().user_id = Some("me".into());
+        let tracks: Vec<Playable> = uris
+            .iter()
+            .enumerate()
+            .map(|(i, uri)| {
+                let mut playable = crate::playlist_items::placeholder(uri);
+                playable.set_list_index(i);
+                playable
+            })
+            .collect();
+        let mut playlist = owned_by("me", false);
+        playlist.snapshot_id = "s0".into();
+        playlist.num_tracks = tracks.len();
+        playlist.tracks = Some(tracks);
+        *library.playlists.write_unpoisoned() = vec![playlist.clone()];
+        let queue = Arc::new(Queue::new(spotify, cfg, library.clone()));
+        (
+            PlaylistView::new(queue, library.clone(), &playlist),
+            library,
+        )
+    }
 
     #[test]
-    fn a_shift_soon_after_a_move_is_a_queued_repeat() {
-        let end = Instant::now();
-        assert!(!backlog(None, end), "no move yet");
-        assert!(backlog(Some(end), end + Duration::from_millis(100)));
+    fn a_view_opened_on_pending_writes_shows_them() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        let before = view.playlist.clone();
+        assert_eq!(view.shift(&ShiftMode::Down, 1), None);
+        library.queue_rename("p", "renamed");
+        // Opened from a copy taken before the writes (the Playlists tab's row).
+        let queue = view.queue.clone();
+        let reopened = PlaylistView::new(queue, library.clone(), &before);
+        assert_eq!(view_uris(&reopened), ["b", "a", "c"]);
+        assert_eq!(reopened.playlist.name, "renamed");
         assert!(
-            !backlog(Some(end), end + SHIFT_BACKLOG),
-            "at the limit: a new press"
+            reopened.playlist.snapshot_id.is_empty(),
+            "the optimistic copy"
         );
-        assert!(!backlog(Some(end), end + Duration::from_millis(400)));
+        assert!(pending_copy(&library, "p").is_some(), "opened as is");
+        assert!(!needs_refresh(
+            reopened.seen_rev,
+            library.playlists_rev.load(Ordering::Relaxed)
+        ));
+    }
+
+    #[test]
+    fn a_playlist_without_pending_writes_is_not_opened_as_is() {
+        let (_view, library) = test_view(&["a"]);
+        assert!(pending_copy(&library, "p").is_none());
+    }
+
+    fn view_uris(view: &PlaylistView) -> Vec<String> {
+        view.rows
+            .read_unpoisoned()
+            .iter()
+            .map(Playable::uri)
+            .collect()
+    }
+
+    #[test]
+    fn shift_queues_and_moves_the_focus_without_waiting() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        assert_eq!(view.shift(&ShiftMode::Down, 1), None);
+        assert_eq!(view.list.get_selected_index(), 1);
+        assert_eq!(view_uris(&view), ["b", "a", "c"]);
+        let stored: Vec<String> = library.playlists.read_unpoisoned()[0]
+            .tracks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(Playable::uri)
+            .collect();
+        assert_eq!(stored, ["b", "a", "c"], "the store holds the shown order");
+    }
+
+    #[test]
+    fn the_view_takes_the_store_copy_when_the_revision_changes() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        let row = view.rows.read_unpoisoned()[2].clone();
+        library.queue_remove("p", &row).unwrap();
+        assert_eq!(view_uris(&view), ["a", "b", "c"], "not yet polled");
+        assert!(needs_refresh(
+            view.seen_rev,
+            library.playlists_rev.load(Ordering::Relaxed)
+        ));
+        view.refresh_from_store();
+        assert_eq!(view_uris(&view), ["a", "b"]);
+        assert!(!needs_refresh(
+            view.seen_rev,
+            library.playlists_rev.load(Ordering::Relaxed)
+        ));
+    }
+
+    #[test]
+    fn a_refresh_keeps_the_selected_index() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        view.list.move_focus_to(1);
+        library.queue_rename("p", "new");
+        view.refresh_from_store();
+        assert_eq!(view.list.get_selected_index(), 1);
+        view.list.move_focus_to(2);
+        let row = view.rows.read_unpoisoned()[2].clone();
+        library.queue_remove("p", &row).unwrap();
+        view.refresh_from_store();
+        assert_eq!(view.list.get_selected_index(), 1, "clamped");
+    }
+
+    #[test]
+    fn an_unrelated_rev_bump_leaves_the_list_untouched() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        view.list.move_focus_to(2);
+        let rows = view.rows.clone();
+        let before = view.seen_rev;
+        library.playlists_rev.fetch_add(1, Ordering::Relaxed);
+        view.refresh_from_store();
+        assert_ne!(view.seen_rev, before, "the revision is taken");
+        assert_eq!(view.list.get_selected_index(), 2);
+        assert!(Arc::ptr_eq(&rows, &view.rows));
+        // Mark the rows: an unchanged copy must not rewrite them.
+        view.rows.write_unpoisoned().truncate(1);
+        view.refresh_from_store();
+        assert_eq!(view_uris(&view), ["a"], "unchanged copy: no rebuild");
+    }
+
+    #[test]
+    fn a_refresh_in_place_keeps_the_search_and_follows_the_rows() {
+        let (mut view, library) = test_view(&["a", "b", "c"]);
+        view.list.set_search_for_test("zzz", vec![2]);
+        let row = view.rows.read_unpoisoned()[0].clone();
+        library.queue_remove("p", &row).unwrap();
+        view.refresh_from_store();
+        assert_eq!(view_uris(&view), ["b", "c"]);
+        let (query, indexes) = view.list.search_for_test();
+        assert_eq!(query, "zzz", "the search survives");
+        assert_eq!(
+            indexes,
+            view.list.get_indexes_of("zzz"),
+            "redone, not stale"
+        );
+        assert!(indexes.is_empty());
+    }
+
+    #[test]
+    fn a_store_copy_without_tracks_is_not_taken() {
+        let (_view, library) = test_view(&["a"]);
+        assert!(store_copy(&library, "p").is_some());
+        library.playlists.write_unpoisoned()[0].tracks = None;
+        assert!(store_copy(&library, "p").is_none());
+        assert!(store_copy(&library, "other").is_none());
+    }
+
+    #[test]
+    fn the_revision_check_is_a_change_check() {
+        assert!(!needs_refresh(3, 3));
+        assert!(needs_refresh(3, 4));
     }
 
     #[test]

@@ -1,0 +1,10 @@
+# Enforced only in modules that opt in with #![deny(clippy::disallowed_methods,
+# clippy::disallowed_types)]: the library stores, the playlist writer and their views.
+disallowed-methods = [
+    { path = "std::sync::RwLock::read", reason = "a poisoned lock panics on unwrap; use ext_traits::RwLockExt::read_unpoisoned" },
+    { path = "std::sync::RwLock::write", reason = "a poisoned lock panics on unwrap; use ext_traits::RwLockExt::write_unpoisoned" },
+]
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "std locks poison; use parking_lot::Mutex" },
+    { path = "std::sync::Condvar", reason = "pairs with std::sync::Mutex; use parking_lot::Condvar" },
+]

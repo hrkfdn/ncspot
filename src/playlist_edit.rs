@@ -730,7 +730,7 @@ pub fn remove_track(
 
 /// Move the item at position `from` of a copy in server order to position `to`, and renumber
 /// every `list_index` by position.
-fn move_server_item(tracks: &mut Vec<Playable>, from: usize, to: usize) {
+pub(crate) fn move_server_item(tracks: &mut Vec<Playable>, from: usize, to: usize) {
     let item = tracks.remove(from);
     tracks.insert(to, item);
     for (index, playable) in tracks.iter_mut().enumerate() {

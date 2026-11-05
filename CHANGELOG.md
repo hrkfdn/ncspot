@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Shift+u` and `:update` now refetch the whole library instead of syncing changes
 - `update` with an argument other than `tab` is now an error
 - Playlist edits go over Spotify's internal API, with the Web API as fallback
+- Playlist edits no longer freeze the UI: they show at once and are saved in the background.
 
 ### Fixed
 

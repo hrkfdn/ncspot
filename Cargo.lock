@@ -2585,6 +2585,7 @@ dependencies = [
  "log",
  "notify-rust",
  "pancurses",
+ "parking_lot",
  "parse_duration",
  "pinyin",
  "platform-dirs",

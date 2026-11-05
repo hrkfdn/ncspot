@@ -1,3 +1,5 @@
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -9,6 +11,7 @@ use cursive::traits::View;
 use cursive::vec::Vec2;
 use unicode_width::UnicodeWidthStr;
 
+use crate::ext_traits::RwLockExt;
 use crate::library::Library;
 use crate::model::playable::Playable;
 use crate::queue::{Queue, RepeatSetting};
@@ -132,7 +135,7 @@ impl View for StatusBar {
             printer.print((1, 1), self.playback_indicator());
         });
 
-        let updating = if !*self.library.is_done.read().unwrap() {
+        let updating = if !*self.library.is_done.read_unpoisoned() {
             if self.use_nerdfont() {
                 "\u{f04e6} "
             } else {
@@ -140,6 +143,11 @@ impl View for StatusBar {
             }
         } else {
             ""
+        };
+
+        let pending = match self.library.writer.pending() {
+            0 => String::new(),
+            n => format!("[{n} pending] "),
         };
 
         let repeat = if self.use_nerdfont() {
@@ -191,6 +199,7 @@ impl View for StatusBar {
 
         let right = count
             + updating
+            + &pending
             + repeat
             + shuffle
             // + saved

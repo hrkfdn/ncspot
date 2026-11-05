@@ -36,6 +36,7 @@ mod pending_load;
 mod playlist_edit;
 mod playlist_items;
 mod playlist_layout;
+mod playlist_writer;
 #[cfg(test)]
 mod probe_tests;
 mod queue;
