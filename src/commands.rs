@@ -439,6 +439,8 @@ impl CommandManager {
                         last_test_len: crate::harness::last_test_len(&self.library),
                         last_test_order: crate::harness::last_test_order(&self.library),
                         last_test_renamed: crate::harness::last_test_renamed(&self.library),
+                        sync_ms: self.library.last_playlist_sync_ms(),
+                        library_sync_ms: self.library.last_library_sync_ms(),
                     },
                     self.library.writer.pending(),
                 );
@@ -519,17 +521,22 @@ impl CommandManager {
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::Save(target)) => {
-                crate::harness::write_item(
+                crate::harness::start_item_write(
                     self.queue.clone(),
                     self.library.clone(),
-                    target,
+                    target.clone(),
                     false,
-                )?;
+                );
                 Ok(None)
             }
             #[cfg(feature = "harness")]
             Command::Harness(crate::command::HarnessCommand::Unsave(target)) => {
-                crate::harness::write_item(self.queue.clone(), self.library.clone(), target, true)?;
+                crate::harness::start_item_write(
+                    self.queue.clone(),
+                    self.library.clone(),
+                    target.clone(),
+                    true,
+                );
                 Ok(None)
             }
             #[cfg(feature = "harness")]

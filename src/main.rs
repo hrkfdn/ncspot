@@ -67,6 +67,9 @@ fn main() -> Result<(), String> {
     // stdout is most likely in use by Cursive.
     panic::register_backtrace_panic_handler();
 
+    #[cfg(feature = "harness")]
+    harness::allow_tracing();
+
     // Parse the command line arguments.
     let matches = program_arguments().get_matches();
 

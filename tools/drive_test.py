@@ -441,5 +441,111 @@ class PlaylistsScenarioTest(unittest.TestCase):
             self.run_with(drive.sc_playlist_write, error="boom")
 
 
+class StaleDumpTest(unittest.TestCase):
+    class Fake:
+        """Answers only the `answer_on`-th request."""
+
+        def __init__(self, answer_on):
+            self.answer_on = answer_on
+            self.sent = 0
+            self.dump_path = "dump"
+            self.captured = 0
+
+        def send(self, _cmd):
+            self.sent += 1
+
+        def _await_dump(self, _wait):
+            return {"seq": 1} if self.sent == self.answer_on else None
+
+        def capture_stacks(self):
+            self.captured += 1
+
+    def test_an_answered_dump_is_not_resent(self):
+        fake = self.Fake(1)
+        self.assertEqual(drive.Instance.dump(fake), {"seq": 1})
+        self.assertEqual((fake.sent, fake.captured), (1, 0))
+
+    def test_a_lost_request_is_answered_by_the_resend(self):
+        fake = self.Fake(2)
+        self.assertEqual(drive.Instance.dump(fake), {"seq": 1})
+        self.assertEqual((fake.sent, fake.captured), (2, 1))
+
+    def test_two_unanswered_requests_fail(self):
+        fake = self.Fake(3)
+        with self.assertRaises(drive.Fail):
+            drive.Instance.dump(fake)
+        self.assertEqual(fake.captured, 1)
+
+    def test_stacks_keep_names_only(self):
+        out = drive.stack_lines(
+            'Thread 2 (Thread 0x7f (LWP 9) "playlist-writer"):\n'
+            "#0  0x00007f in futex_wait (...) at /some/path.c:1\n"
+            "#1  ncspot::library::Library::run_job (...) at src/library.rs:2\n"
+            "some other line\n"
+        )
+        self.assertEqual(
+            out,
+            [
+                "  thread 2 playlist-writer",
+                "    futex_wait",
+                "    ncspot::library::Library::run_job",
+            ],
+        )
+
+
+class ItemWriteTest(unittest.TestCase):
+    def test_a_running_write_is_not_settled(self):
+        d = dump([], quiet_ms=900)
+        self.assertTrue(drive.settled(d))
+        d["item_write"] = "running"
+        self.assertFalse(drive.settled(d))
+
+    def test_a_failed_write_reads_as_the_commands_error(self):
+        d = drive.with_item_error({"item_write": "harness save: library unchanged", "error": None})
+        self.assertEqual(d["error"], "harness save: library unchanged")
+        for state in ("ok", "running", None):
+            self.assertIsNone(drive.with_item_error({"item_write": state, "error": None})["error"])
+
+
+class WaitWhileAnsweringTest(unittest.TestCase):
+    """A timeout alone never fails a wait while ncspot keeps answering."""
+
+    class Fake:
+        def __init__(self, answers):
+            self.answers = list(answers)
+
+        def dump(self):
+            return self.answers.pop(0)
+
+    def setUp(self):
+        self.ceiling = drive.ANSWERING_CEILING
+        self.addCleanup(setattr, drive, "ANSWERING_CEILING", self.ceiling)
+        self.busy = dump([], in_flight=1)
+        self.throttled = {"internal": False}
+        self.busy["throttled"] = self.throttled
+        self.done = dump([], quiet_ms=900)
+        self.done["library_done"] = True
+
+    def test_wait_settled_outlasts_its_timeout(self):
+        fake = self.Fake([self.busy, self.busy, self.done])
+        self.assertIs(drive.Instance.wait_settled(fake, 0), self.done)
+
+    def test_wait_library_outlasts_its_timeout(self):
+        fake = self.Fake([self.busy, self.busy, self.done])
+        self.assertIs(drive.Instance.wait_library(fake, 0), self.done)
+
+    def test_a_rate_limit_past_the_timeout_is_still_blocked(self):
+        limited = dict(self.busy, throttled={"internal": True})
+        with self.assertRaises(drive.Blocked):
+            drive.Instance.wait_library(self.Fake([limited]), 0, blocked_on=["internal"])
+
+    def test_the_ceiling_ends_the_wait(self):
+        drive.ANSWERING_CEILING = -1.0
+        with self.assertRaises(drive.Fail):
+            drive.Instance.wait_settled(self.Fake([self.busy]), 0)
+        with self.assertRaises(drive.Fail):
+            drive.Instance.wait_library(self.Fake([self.busy]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

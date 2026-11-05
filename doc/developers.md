@@ -48,6 +48,7 @@ cargo build --features harness
 python3 tools/drive.py            # all scenarios except playback
 python3 tools/drive.py --play     # also play a track and stop
 python3 tools/drive.py show --keep
+python3 tools/drive.py sync_time        # time the startup sync; sync_time_cold has no playlist cache
 ```
 
 The feature adds these commands, also usable from the ncspot command line:

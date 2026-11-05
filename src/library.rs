@@ -144,6 +144,10 @@ pub struct Library {
     saves: Arc<Mutex<SaveLog>>,
     /// Bumped on every write of [Library::playlists], so a view knows to take a new copy.
     pub playlists_rev: Arc<AtomicU64>,
+    /// How long the last full sync's playlists took, in milliseconds; 0 before one ended.
+    playlist_sync_ms: Arc<AtomicU64>,
+    /// How long the last full sync took, in milliseconds; 0 before one ended.
+    library_sync_ms: Arc<AtomicU64>,
     /// The last note [Library::post_note] posted, for the result of a queued write.
     last_note: Arc<Mutex<Option<String>>>,
     /// The locks that order the writes of the cache files.
@@ -207,6 +211,8 @@ impl Library {
             writer: PlaylistWriter::new(),
             saves: Arc::default(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
+            playlist_sync_ms: Arc::new(AtomicU64::new(0)),
+            library_sync_ms: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
             cache_gates: Arc::default(),
             ev,
@@ -240,6 +246,8 @@ impl Library {
             writer: PlaylistWriter::new(),
             saves: Arc::default(),
             playlists_rev: Arc::new(AtomicU64::new(0)),
+            playlist_sync_ms: Arc::new(AtomicU64::new(0)),
+            library_sync_ms: Arc::new(AtomicU64::new(0)),
             last_note: Arc::new(Mutex::new(None)),
             cache_gates: Arc::default(),
             ev,
@@ -853,6 +861,18 @@ impl Library {
         }
     }
 
+    /// How long the last full sync's playlists took, in milliseconds.
+    #[cfg(feature = "harness")]
+    pub fn last_playlist_sync_ms(&self) -> Option<u64> {
+        Some(self.playlist_sync_ms.load(Ordering::Relaxed)).filter(|ms| *ms != 0)
+    }
+
+    /// How long the last full sync took, in milliseconds.
+    #[cfg(feature = "harness")]
+    pub fn last_library_sync_ms(&self) -> Option<u64> {
+        Some(self.library_sync_ms.load(Ordering::Relaxed)).filter(|ms| *ms != 0)
+    }
+
     /// The body of [Library::update_library], on a background thread; the caller holds the
     /// sync slot from [Library::start_sync].
     fn run_update(&self, force_full: bool) {
@@ -863,6 +883,7 @@ impl Library {
                 saves: library.saves.clone(),
             };
             let sync_start = Stamp::now();
+            let started = Instant::now();
 
             let t_collection = {
                 let library = library.clone();
@@ -874,7 +895,14 @@ impl Library {
             };
             let t_playlists = {
                 let library = library.clone();
-                thread::spawn(move || library.sync_playlists(force_full))
+                thread::spawn(move || {
+                    let started = Instant::now();
+                    let complete = library.sync_playlists(force_full);
+                    let ms = started.elapsed().as_millis() as u64;
+                    info!("playlist sync took {ms} ms");
+                    library.playlist_sync_ms.store(ms.max(1), Ordering::Relaxed);
+                    complete
+                })
             };
             let t_shows = {
                 let library = library.clone();
@@ -893,6 +921,9 @@ impl Library {
             let shows_complete = t_shows.join().unwrap();
             let episodes_complete = t_episodes.join().unwrap();
 
+            let ms = started.elapsed().as_millis() as u64;
+            info!("library sync took {ms} ms");
+            library.library_sync_ms.store(ms.max(1), Ordering::Relaxed);
             library.filled.mark_all();
             *library.is_done.write_unpoisoned() = true;
             library.ev.trigger();

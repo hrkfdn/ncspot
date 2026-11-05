@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use log::error;
+use parking_lot::Mutex;
 use serde::Serialize;
 
 use crate::activity::ACTIVITY;
@@ -86,6 +87,8 @@ pub struct Dump {
     pub in_flight: usize,
     /// Playlist writes queued or running on the background worker.
     pub pending_writes: usize,
+    /// The last `harness save` or `unsave`: `running`, `ok` or its error; `None` before the first.
+    pub item_write: Option<String>,
     /// Milliseconds since the last call ended; `None` before the first one.
     pub quiet_ms: Option<u64>,
     /// The last command's error, as shown in the status bar.
@@ -118,6 +121,10 @@ pub struct PlaylistCounts {
     /// Whether the most recent test playlist's name ends in `-renamed`; `None` as for
     /// `last_test_len`.
     pub last_test_renamed: Option<bool>,
+    /// How long the last full library sync's playlists took; `None` before one ended.
+    pub sync_ms: Option<u64>,
+    /// How long the last full library sync took, all sets; `None` before one ended.
+    pub library_sync_ms: Option<u64>,
 }
 
 /// What the player is doing.
@@ -162,6 +169,7 @@ pub fn build_dump(
         tabs,
         in_flight: ACTIVITY.in_flight(),
         pending_writes,
+        item_write: ITEM_WRITE.lock().clone(),
         quiet_ms: ACTIVITY
             .quiet_for(Stamp::now())
             .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX)),
@@ -569,9 +577,34 @@ pub fn open_view(
     Ok(view)
 }
 
-/// How long the harness waits for a library save to settle. The wait blocks the UI thread, which
-/// is fine for a harness verb (the old synchronous write did too).
-const SAVE_SETTLE: Duration = Duration::from_secs(120);
+/// How long the harness waits for a library save to settle, off the UI thread. Long on purpose:
+/// a slow save is waiting on Spotify, and the drive fails on a dump that goes unanswered instead.
+const SAVE_SETTLE: Duration = Duration::from_secs(1800);
+
+/// Let the drive's debugger attach, when it asks: ncspot runs under tmux, so Yama would refuse
+/// it. Never set outside the drive, and harness builds only.
+pub fn allow_tracing() {
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("NCSPOT_HARNESS_TRACEABLE").is_some() {
+        // SAFETY: PR_SET_PTRACER takes plain integers and touches no memory.
+        unsafe {
+            libc::prctl(libc::PR_SET_PTRACER, libc::PR_SET_PTRACER_ANY, 0, 0, 0);
+        }
+    }
+}
+
+/// The state of the last item write, for the dump.
+static ITEM_WRITE: Mutex<Option<String>> = Mutex::new(None);
+
+/// Run `write_item` off the UI thread: it waits on Spotify, and a UI thread stuck in a test verb
+/// could not be told from a real freeze. The dump's `item_write` reports the result.
+pub fn start_item_write(queue: Arc<Queue>, library: Arc<Library>, target: String, removed: bool) {
+    *ITEM_WRITE.lock() = Some("running".to_string());
+    std::thread::spawn(move || {
+        let result = write_item(queue, library, &target, removed);
+        *ITEM_WRITE.lock() = Some(result.err().unwrap_or_else(|| "ok".to_string()));
+    });
+}
 
 /// A library membership check and its write, for one item.
 type ItemOps<'a> = (Box<dyn Fn() -> bool + 'a>, Box<dyn Fn() + 'a>);
@@ -580,7 +613,7 @@ type ItemOps<'a> = (Box<dyn Fn() -> bool + 'a>, Box<dyn Fn() + 'a>);
 /// save an item already in the library, so a test that saves then removes never removes
 /// something the user saved, and refuses to remove an item that is not in it. Fails when the
 /// library did not change (the write failed). Errors carry no URI or ID.
-pub fn write_item(
+fn write_item(
     queue: Arc<Queue>,
     library: Arc<Library>,
     target: &str,
@@ -768,6 +801,7 @@ mod tests {
             }],
             in_flight: 0,
             pending_writes: 0,
+            item_write: None,
             quiet_ms: Some(850),
             error: None,
             areas: Areas {
@@ -803,6 +837,8 @@ mod tests {
                 last_test_len: Some(3),
                 last_test_order: Some("ABC".into()),
                 last_test_renamed: Some(false),
+                sync_ms: Some(60000),
+                library_sync_ms: Some(61000),
             },
             player: PlayerState {
                 status: "playing".into(),
@@ -821,7 +857,7 @@ mod tests {
         let json = serde_json::to_string(&sample()).unwrap();
         assert_eq!(
             json,
-            r#"{"seq":7,"view":"album","title":"T","tab":"Tracks","tabs":[{"name":"Tracks","rows":12,"playable":11,"max":12,"busy":false}],"in_flight":0,"pending_writes":0,"quiet_ms":850,"error":null,"areas":{"metadata":{"internal_ok":14,"fallback":0,"latched":false},"library":{"internal_ok":3,"fallback":0,"latched":false},"playlists":{"internal_ok":5,"fallback":1,"latched":false}},"web":{"shared":0,"personal":2},"throttled":{"shared":false,"personal":false,"internal":false},"library_done":true,"playlists":{"stored":9,"layout":8,"last_test_len":3,"last_test_order":"ABC","last_test_renamed":false},"player":{"status":"playing","position_ms":1200},"session":{"valid":true,"reconnects":1},"test_playlists":[]}"#
+            r#"{"seq":7,"view":"album","title":"T","tab":"Tracks","tabs":[{"name":"Tracks","rows":12,"playable":11,"max":12,"busy":false}],"in_flight":0,"pending_writes":0,"item_write":null,"quiet_ms":850,"error":null,"areas":{"metadata":{"internal_ok":14,"fallback":0,"latched":false},"library":{"internal_ok":3,"fallback":0,"latched":false},"playlists":{"internal_ok":5,"fallback":1,"latched":false}},"web":{"shared":0,"personal":2},"throttled":{"shared":false,"personal":false,"internal":false},"library_done":true,"playlists":{"stored":9,"layout":8,"last_test_len":3,"last_test_order":"ABC","last_test_renamed":false,"sync_ms":60000,"library_sync_ms":61000},"player":{"status":"playing","position_ms":1200},"session":{"valid":true,"reconnects":1},"test_playlists":[]}"#
         );
     }
 
@@ -861,6 +897,8 @@ mod tests {
             last_test_len: None,
             last_test_order: None,
             last_test_renamed: None,
+            sync_ms: None,
+            library_sync_ms: None,
         };
         let first = build_dump(
             "x".into(),
