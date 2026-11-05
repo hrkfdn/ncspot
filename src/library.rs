@@ -2211,6 +2211,10 @@ impl Library {
     fn give_up_writes(&self) {
         self.writer.give_up();
         self.reset_pending_writes();
+        let pending = self.saves.lock().pending_ops();
+        for op in &pending {
+            self.undo_save(op);
+        }
         self.trigger_redraw();
         self.post_note(WRITER_STOPPED_NOTE);
     }
@@ -2250,10 +2254,15 @@ impl Library {
     /// half stored: put its playlist back to the confirmed copy and carry on with the queue.
     fn settle_caught(&self, settled: Settled, publish: impl FnOnce(Settled)) {
         let id = settled.playlist_id.clone();
+        let save = settled.save.as_ref().map(|op| op.entry);
         if catch_unwind(AssertUnwindSafe(|| publish(settled))).is_err() {
             error!("settling a playlist write panicked");
             if let Some(id) = id {
                 self.restore_confirmed(&id);
+            }
+            // A pending entry would hold its set's sync token back for the whole session.
+            if let Some(entry) = save {
+                self.saves.lock().remove(entry);
             }
             self.post_note(SETTLE_FAILED_NOTE);
         }
@@ -2567,6 +2576,9 @@ impl Library {
             self.post_note(LOADING_NOTE);
             return;
         }
+        if self.writes_refused() {
+            return;
+        }
         let op = {
             let mut store = lock.write_unpoisoned();
             let prior = T::prior(&store, &item);
@@ -2730,6 +2742,13 @@ impl Library {
             }
             return;
         }
+        self.undo_save(op);
+        self.post_note(SAVE_FAILED_NOTE);
+        self.trigger_redraw();
+    }
+
+    /// Put the store back as if `op` never happened, and forget its entry.
+    fn undo_save(&self, op: &SaveOp) {
         match &op.item {
             SaveItem::Track(_) => {
                 if let Some((op, prior)) = self.undo_in(&self.tracks, op.entry) {
@@ -2749,8 +2768,6 @@ impl Library {
                 self.undo_in(&self.episodes, op.entry);
             }
         }
-        self.post_note(SAVE_FAILED_NOTE);
-        self.trigger_redraw();
     }
 
     /// Wait until no save is pending: each has landed or been undone. True when settled, false
@@ -5666,6 +5683,38 @@ mod test {
         assert_eq!(stored_uris(&library, "p"), ["a", "b"], "undone");
         assert_eq!(stored(&library, "p").name, "p");
         drop(release);
+    }
+
+    #[test]
+    fn a_given_up_writer_refuses_saves_with_a_note() {
+        let library = loaded_library();
+        library.writer.give_up();
+        library.save_tracks(&[&track("t", &[])]);
+        assert!(saved_ids(&library).is_empty());
+        assert_eq!(library.writer.pending(), 0);
+        assert_eq!(noted(&library, WRITES_REFUSED_NOTE), 1);
+    }
+
+    #[test]
+    fn giving_up_undoes_pending_saves() {
+        let library = loaded_library();
+        let (kept, saved) = (track("kept", &[("a", "A")]), track("t", &[("b", "B")]));
+        library.tracks.write_unpoisoned().push(kept.clone());
+        library.save_tracks(&[&saved]);
+        library.unsave_tracks(&[&kept]);
+        library.give_up_writes();
+        assert_eq!(saved_ids(&library), ["kept"]);
+        assert!(!library.saves.lock().any_pending());
+        assert_eq!(noted(&library, WRITER_STOPPED_NOTE), 1);
+    }
+
+    #[test]
+    fn a_save_whose_settle_panics_leaves_no_pending_entry() {
+        let library = loaded_library();
+        library.save_tracks(&[&track("t", &[])]);
+        let settled = library.writer.step(|_, _| true).unwrap();
+        library.settle_caught(settled, |_| panic!("settle failed"));
+        assert!(!library.saves.lock().any_pending());
     }
 
     #[test]

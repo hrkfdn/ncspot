@@ -440,6 +440,15 @@ impl SaveLog {
         self.entries.retain(|e| e.state != State::Landed);
     }
 
+    /// The ops still unsettled, oldest first.
+    pub fn pending_ops(&self) -> Vec<SaveOp> {
+        self.entries
+            .iter()
+            .filter(|e| e.state == State::Pending)
+            .map(|e| e.op.clone())
+            .collect()
+    }
+
     /// Whether any op is still unsettled: not yet landed or failed.
     pub fn any_pending(&self) -> bool {
         self.entries.iter().any(|e| e.state == State::Pending)

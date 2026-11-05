@@ -397,11 +397,13 @@ impl PlaylistWriter {
         let deadline = Instant::now() + timeout;
         let mut state = lock.lock();
         while !state.stopping {
+            // A wait is progress: a long one must not look like a stuck job to the watchdog.
+            ACTIVITY.note_try();
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
                 return true;
             }
-            cvar.wait_for(&mut state, left);
+            cvar.wait_for(&mut state, left.min(WAIT_SLICE));
         }
         false
     }
@@ -518,6 +520,9 @@ pub const MAX_WRITER_RESTARTS: u32 = 3;
 /// within the bridge timeout and retry waits are shorter, so only a truly stuck call gets here.
 pub const WRITER_STALL: Duration = Duration::from_secs(30);
 
+/// The longest stretch of a retry wait without a progress mark, well under [WRITER_STALL].
+const WAIT_SLICE: Duration = Duration::from_secs(5);
+
 /// How often the watchdog looks at the worker.
 pub const WRITER_WATCH: Duration = Duration::from_secs(1);
 
@@ -611,6 +616,22 @@ mod tests {
         };
         w.stop();
         assert!(!waiter.join().unwrap());
+    }
+
+    #[test]
+    fn a_retry_wait_counts_as_the_workers_progress() {
+        std::thread::spawn(|| {
+            ACTIVITY.mark_write_worker();
+            let before = Stamp::now();
+            assert!(PlaylistWriter::new().wait_unless_stopped(Duration::from_millis(1)));
+            assert!(
+                ACTIVITY
+                    .last_worker_try()
+                    .is_some_and(|last| last >= before)
+            );
+        })
+        .join()
+        .unwrap();
     }
 
     #[test]
