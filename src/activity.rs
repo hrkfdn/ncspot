@@ -2,7 +2,9 @@
 //! when a view has finished loading; it costs one relaxed atomic operation per call.
 
 use std::cell::Cell;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 use crate::rate_limit::Stamp;
 
@@ -11,7 +13,7 @@ pub struct Activity {
     in_flight: AtomicUsize,
     /// [Stamp::as_millis] of the last call end; 0 means no call has ended yet.
     last_end_ms: AtomicU64,
-    /// [Stamp::as_millis] of the write worker's last network try; 0 means none yet.
+    /// [worker_clock] milliseconds of the write worker's last progress; 0 means none yet.
     last_worker_try_ms: AtomicU64,
 }
 
@@ -46,20 +48,20 @@ impl Activity {
         WRITE_WORKER.set(true);
     }
 
-    /// One network try is starting. A call can hold its guard across long rate-limit waits, so
-    /// the watchdog counts tries, not calls, as the write worker's progress.
+    /// A network try or a wait between tries is starting. A call can hold its guard across
+    /// long rate-limit waits, so the watchdog counts these, not calls, as the worker's progress.
     pub fn note_try(&self) {
         if WRITE_WORKER.get() {
-            let now = Stamp::now().as_millis().max(1);
+            let now = worker_clock().as_millis().max(1) as u64;
             self.last_worker_try_ms.store(now, Ordering::Relaxed);
         }
     }
 
-    /// When the write worker last started a network try.
-    pub fn last_worker_try(&self) -> Option<Stamp> {
+    /// The [worker_clock] time of the write worker's last progress.
+    pub fn last_worker_try(&self) -> Option<Duration> {
         match self.last_worker_try_ms.load(Ordering::Relaxed) {
             0 => None,
-            ms => Some(Stamp::from_millis(ms)),
+            ms => Some(Duration::from_millis(ms)),
         }
     }
 
@@ -77,6 +79,13 @@ impl Activity {
             ms => Some(now.saturating_duration_since(Stamp::from_millis(ms))),
         }
     }
+}
+
+/// The time since the first look at this clock, for the write worker's watchdog. Unlike [Stamp]
+/// it stops while the machine is suspended: a closed lid must not look like a stuck worker.
+pub fn worker_clock() -> Duration {
+    static START: OnceLock<Instant> = OnceLock::new();
+    START.get_or_init(Instant::now).elapsed()
 }
 
 /// One call in flight; see [Activity::begin].

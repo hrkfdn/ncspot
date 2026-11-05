@@ -1,5 +1,6 @@
 //! Rate-limit (HTTP 429) state of the Web API clients, and how it is shown to the user.
 
+use crate::activity::ACTIVITY;
 use std::fmt;
 use std::ops::{Add, AddAssign};
 use std::sync::{OnceLock, RwLock};
@@ -154,6 +155,7 @@ impl Stamp {
     }
 
     /// The stamp `ms` milliseconds after the clock's origin (inverse of [Self::as_millis]).
+    #[cfg(any(test, feature = "harness"))]
     pub fn from_millis(ms: u64) -> Self {
         Self(Duration::from_millis(ms))
     }
@@ -405,7 +407,10 @@ pub fn run_rate_limited<R>(
             let remaining = throttle.read().unwrap().remaining(now);
             match gate(remaining, on_ui_thread, jitter()) {
                 Gate::Send => break false,
-                Gate::Wait(delay) => thread::sleep(delay),
+                Gate::Wait(delay) => {
+                    ACTIVITY.note_try();
+                    thread::sleep(delay);
+                }
                 Gate::FailFast if !on_ui_thread && throttle.write().unwrap().claim_probe(now) => {
                     debug!("probing the rate-limit window of the {}", label.describe());
                     break true;
@@ -458,6 +463,32 @@ pub fn run_rate_limited<R>(
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn a_rate_limit_wait_counts_as_the_workers_progress() {
+        std::thread::spawn(|| {
+            ACTIVITY.mark_write_worker();
+            let throttle = RwLock::new(ThrottleState::default());
+            throttle
+                .write()
+                .unwrap()
+                .record_429(Stamp::now(), Duration::from_millis(1));
+            let before = crate::activity::worker_clock();
+            let sent = run_rate_limited(
+                ClientLabel::Internal,
+                &throttle,
+                false,
+                || Duration::ZERO,
+                || Attempt::Done(()),
+                |_| {},
+            );
+            assert!(sent.is_ok());
+            let last = ACTIVITY.last_worker_try().unwrap();
+            assert!(last + Duration::from_millis(1) >= before);
+        })
+        .join()
+        .unwrap();
+    }
 
     const SECS: fn(u64) -> Duration = Duration::from_secs;
     const MS: fn(u64) -> Duration = Duration::from_millis;

@@ -11,12 +11,11 @@ use std::time::{Duration, Instant};
 use log::error;
 use parking_lot::{Condvar, Mutex};
 
-use crate::activity::ACTIVITY;
+use crate::activity::{ACTIVITY, worker_clock};
 use crate::internal_api::playlist_write::{move_target, moved_position};
 use crate::model::playable::Playable;
 use crate::model::playlist::Playlist;
 use crate::playlist_edit::{move_server_item, remove_server_item, server_item};
-use crate::rate_limit::Stamp;
 use crate::save_log::SaveOp;
 
 /// One queued write: a playlist change or a library save.
@@ -190,9 +189,11 @@ struct State {
     stopping: bool,
     /// A worker loop runs (between [PlaylistWriter::mark_running] and [PlaylistWriter::mark_exited]).
     worker_running: bool,
-    /// When the job in flight started, for the watchdog.
-    job_started: Option<Stamp>,
-    /// The worker was given up on: no write runs again this session.
+    /// The library save in flight, if the job in flight is one.
+    in_flight_save: Option<SaveOp>,
+    /// When the job in flight started on the [worker_clock], for the watchdog.
+    job_started: Option<Duration>,
+    /// The worker was given up on: writes are refused until it recovers.
     gave_up: bool,
 }
 
@@ -206,6 +207,13 @@ impl State {
                 .iter()
                 .any(|j| j.playlist_id.as_deref() == Some(id))
     }
+}
+
+/// The job a worker left in flight (see [PlaylistWriter::clear_in_flight]).
+#[derive(Debug, Default)]
+pub struct LostJob {
+    pub playlist_id: Option<String>,
+    pub save: Option<SaveOp>,
 }
 
 /// The outcome of one [PlaylistWriter::step].
@@ -235,16 +243,21 @@ impl PlaylistWriter {
         Self::default()
     }
 
-    /// Queue a job and return its seq. For a job on a copy, `confirmed` supplies the stored
-    /// copy (taken before the job is applied locally) when the id has no confirmed copy yet.
+    /// Queue a job and return its seq, or `None` when writes are refused: this check is under
+    /// the queue's lock, so no job can slip in behind a give-up. For a job on a copy, `confirmed`
+    /// supplies the stored copy (taken before the job is applied locally) when the id has no
+    /// confirmed copy yet.
     pub fn queue(
         &self,
         playlist_id: Option<&str>,
         kind: JobKind,
         confirmed: impl FnOnce() -> Option<Playlist>,
-    ) -> u64 {
+    ) -> Option<u64> {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
+        if state.gave_up {
+            return None;
+        }
         state.next_seq += 1;
         let seq = state.next_seq;
         if let Some(id) = playlist_id
@@ -260,7 +273,7 @@ impl PlaylistWriter {
             kind,
         });
         cvar.notify_all();
-        seq
+        Some(seq)
     }
 
     /// `updated` with the queued optimistic jobs of its id applied.
@@ -332,7 +345,11 @@ impl PlaylistWriter {
                 .map_or(0, Vec::len);
             let job = fold_moves(job, &mut state.queue, length);
             state.in_flight = Some(job.playlist_id.clone());
-            state.job_started = Some(Stamp::now());
+            state.in_flight_save = match &job.kind {
+                JobKind::LibrarySave(op) => Some(op.clone()),
+                _ => None,
+            };
+            state.job_started = Some(worker_clock());
             (job, copy)
         };
         let ok = match catch_unwind(AssertUnwindSafe(|| run(&job, copy.as_mut()))) {
@@ -347,6 +364,7 @@ impl PlaylistWriter {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
         state.in_flight = None;
+        state.in_flight_save = None;
         state.job_started = None;
         let id = job.playlist_id.clone();
         let mut dropped = 0;
@@ -408,6 +426,18 @@ impl PlaylistWriter {
         false
     }
 
+    /// Put the next job in flight as [PlaylistWriter::step] does, leaving it there.
+    #[cfg(test)]
+    pub fn start_next_job(&self) {
+        let mut state = self.shared.0.lock();
+        let job = state.queue.pop_front().unwrap();
+        state.in_flight = Some(job.playlist_id.clone());
+        if let JobKind::LibrarySave(op) = job.kind {
+            state.in_flight_save = Some(op);
+        }
+        state.job_started = Some(worker_clock());
+    }
+
     /// Stop taking jobs: drop the queued ones. Returns the ids with a confirmed copy, whose
     /// stored copies must be reset to it (the job in flight, if any, still finishes).
     pub fn stop(&self) -> Vec<String> {
@@ -427,7 +457,7 @@ impl PlaylistWriter {
         let state = self.shared.0.lock();
         !state.stopping
             && state.job_started.is_some_and(|started| {
-                no_progress(started, ACTIVITY.last_worker_try(), Stamp::now(), limit)
+                no_progress(started, ACTIVITY.last_worker_try(), worker_clock(), limit)
             })
     }
 
@@ -435,14 +465,17 @@ impl PlaylistWriter {
         self.shared.0.lock().stopping
     }
 
-    /// Forget the job a dead worker left in flight; returns its id, if it has one.
-    pub fn clear_in_flight(&self) -> Option<String> {
+    /// Stop counting the job in flight as pending, because its worker died or was abandoned.
+    pub fn clear_in_flight(&self) -> LostJob {
         let (lock, cvar) = &*self.shared;
         let mut state = lock.lock();
         state.job_started = None;
-        let id = state.in_flight.take().flatten();
+        let lost = LostJob {
+            playlist_id: state.in_flight.take().flatten(),
+            save: state.in_flight_save.take(),
+        };
         cvar.notify_all();
-        id
+        lost
     }
 
     /// Refuse writes from now on (see [PlaylistWriter::gave_up]).
@@ -450,9 +483,16 @@ impl PlaylistWriter {
         self.shared.0.lock().gave_up = true;
     }
 
-    /// The worker was given up on: new writes are refused for the rest of the session.
+    /// The worker was given up on: new writes are refused.
     pub fn gave_up(&self) -> bool {
         self.shared.0.lock().gave_up
+    }
+
+    /// A given-up worker is gone and a new one starts: take writes again.
+    pub fn resume(&self) {
+        let mut state = self.shared.0.lock();
+        state.gave_up = false;
+        state.stopping = false;
     }
 
     /// The worker loop starts (before it is spawned).
@@ -516,8 +556,8 @@ impl Drop for ExitGuard {
 /// Worker restarts after a panic before it is given up on.
 pub const MAX_WRITER_RESTARTS: u32 = 3;
 
-/// How long a job may go without a network try before the worker counts as stuck. A try ends
-/// within the bridge timeout and retry waits are shorter, so only a truly stuck call gets here.
+/// How long a job may go without progress before the worker counts as stuck. Every network try
+/// and every wait marks progress, and each of those ends well within this.
 pub const WRITER_STALL: Duration = Duration::from_secs(30);
 
 /// The longest stretch of a retry wait without a progress mark, well under [WRITER_STALL].
@@ -545,10 +585,15 @@ pub fn after_worker_exit(panicked: bool, stopping: bool, restarts: u32) -> Worke
     }
 }
 
-/// Whether a job `started` has gone `limit` without a network try.
-fn no_progress(started: Stamp, last_try: Option<Stamp>, now: Stamp, limit: Duration) -> bool {
+/// Whether a job `started` has gone `limit` without progress; all on the [worker_clock].
+fn no_progress(
+    started: Duration,
+    last_try: Option<Duration>,
+    now: Duration,
+    limit: Duration,
+) -> bool {
     let progress = last_try.map_or(started, |last_try| last_try.max(started));
-    now.saturating_duration_since(progress) >= limit
+    now.saturating_sub(progress) >= limit
 }
 
 /// How long quit waits for the playlist write in flight.
@@ -622,13 +667,10 @@ mod tests {
     fn a_retry_wait_counts_as_the_workers_progress() {
         std::thread::spawn(|| {
             ACTIVITY.mark_write_worker();
-            let before = Stamp::now();
+            let before = worker_clock();
             assert!(PlaylistWriter::new().wait_unless_stopped(Duration::from_millis(1)));
-            assert!(
-                ACTIVITY
-                    .last_worker_try()
-                    .is_some_and(|last| last >= before)
-            );
+            let last = ACTIVITY.last_worker_try().unwrap();
+            assert!(last + Duration::from_millis(1) >= before);
         })
         .join()
         .unwrap();
@@ -655,7 +697,7 @@ mod tests {
 
     #[test]
     fn progress_is_the_later_of_the_start_and_the_last_try() {
-        let at = |secs: u64| Stamp::from_millis(secs * 1000);
+        let at = Duration::from_secs;
         let limit = Duration::from_secs(30);
         assert!(!no_progress(at(100), None, at(129), limit));
         assert!(no_progress(at(100), None, at(130), limit));
@@ -670,9 +712,21 @@ mod tests {
     }
 
     #[test]
+    fn a_given_up_writer_queues_nothing_until_it_resumes() {
+        let w = PlaylistWriter::new();
+        w.give_up();
+        assert_eq!(w.queue(None, JobKind::Unfollow, || None), None);
+        assert_eq!(w.pending(), 0);
+        w.stop();
+        w.resume();
+        assert!(w.queue(None, JobKind::Unfollow, || None).is_some());
+        assert!(!w.is_stopping());
+    }
+
+    #[test]
     fn a_stopping_writer_is_never_stalled() {
         let w = PlaylistWriter::new();
-        w.shared.0.lock().job_started = Some(Stamp::now());
+        w.shared.0.lock().job_started = Some(worker_clock());
         assert!(w.stalled(Duration::ZERO));
         w.stop();
         assert!(!w.stalled(Duration::ZERO));
@@ -684,10 +738,10 @@ mod tests {
         {
             let mut state = w.shared.0.lock();
             state.in_flight = Some(Some("p".to_string()));
-            state.job_started = Some(Stamp::now());
+            state.job_started = Some(worker_clock());
         }
         assert_eq!(w.pending(), 1);
-        assert_eq!(w.clear_in_flight().as_deref(), Some("p"));
+        assert_eq!(w.clear_in_flight().playlist_id.as_deref(), Some("p"));
         assert_eq!(w.pending(), 0);
         assert!(!w.stalled(Duration::ZERO));
     }
@@ -935,6 +989,7 @@ mod tests {
             },
             || Some(p.clone()),
         )
+        .unwrap()
     }
 
     #[test]

@@ -317,7 +317,10 @@ impl WebApi {
                 bridge::run(internal(session.clone()), bridge::BRIDGE_TIMEOUT)
             },
             |window| self.on_rate_limited(ClientLabel::Internal, &self.internal.throttle, window),
-            thread::sleep,
+            |wait| {
+                ACTIVITY.note_try();
+                thread::sleep(wait);
+            },
         );
         if result.is_ok() {
             self.internal.count_ok(area);
