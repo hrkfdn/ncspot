@@ -2445,9 +2445,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.34"
+version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "lru-slab"
@@ -2595,7 +2595,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
- "signal-hook 0.4.5",
+ "signal-hook 0.4.6",
  "strum 0.28.0",
  "strum_macros 0.28.0",
  "tokio",
@@ -2605,7 +2605,7 @@ dependencies = [
  "unicode-width 0.2.3",
  "url",
  "viuer",
- "zbus 6.2.0",
+ "zbus 6.2.1",
 ]
 
 [[package]]
@@ -4224,9 +4224,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b29ffa27d3d59a049bb328258de100f8012848d1b08d444e08bbc02ac468435e"
+checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -5940,9 +5940,9 @@ dependencies = [
 
 [[package]]
 name = "zbus"
-version = "6.2.0"
+version = "6.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3666b126b788c05de810dd9e4e8dc84b21f87f7ad70a29a09b9db093f0102891"
+checksum = "0ddb2961d9587ef9f24ad14cde1c3bc4c5edc9f1525932a8cffdd5bd98886eb9"
 dependencies = [
  "async-trait",
  "bitflags 2.13.2",
